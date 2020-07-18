@@ -3,11 +3,12 @@ import Vector2 from "../core/Vector2.js";
 
 export default class Player {
 
-	#position = new Vector2(100, 100);
+	// DEBUG: random position for stress-testing
+	#position = new Vector2(25 + (Math.random() * 800 | 0), 25 + (Math.random() * 490 | 0));
 	#physics = new Physics(this.#position);
 
 	update (state) {
-		this.#physics.update(state.delta, state.keys);
+		this.#physics.update(state);
 	}
 
 	render (viewport) {

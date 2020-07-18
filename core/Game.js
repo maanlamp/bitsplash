@@ -4,7 +4,7 @@ import Player from "../entities/Player.js";
 
 export default class Game {
 
-	#entities = [new Player()];
+	#entities = [];
 	#viewport = new Canvas();
 	#keys = new Keys();
 	#state = { keys: this.#keys }; // TODO: Extract into class
@@ -13,6 +13,12 @@ export default class Game {
 		document.body.append(this.#viewport.element);
 		this.#viewport.element.id = "viewport";
 		this.start();
+
+		// DEBUG: stress-test
+		let i = 250;
+		while (i-- > 0) {
+			this.#entities.push(new Player());
+		}
 	}
 
 	update () {
