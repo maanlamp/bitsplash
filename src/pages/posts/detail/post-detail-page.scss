@@ -1,0 +1,36 @@
+// Notice how we have only used small stylistic changes here
+// (which could be decoupled even more).
+// To keep the css maintainable, "style" should be separated from "layout".
+// Globally shared CSS can be referred to as a "theme" (base font size, colours, etc.),
+// which is also separate from "style" and "layout".
+
+// Inspiration: https://dribbble.com/shots/15491024-SmartUV-Blog/attachments/7266253?mode=media
+
+.post-detail-page {
+	.intro {
+		font-weight: 600;
+
+		&::first-letter {
+			font-size: var(--text-xxlarge);
+			line-height: 0;
+		}
+	}
+
+	.author {
+		img {
+			width: 2.5em;
+			height: 2.5em;
+			border-radius: 50%;
+			object-fit: cover;
+		}
+	}
+
+	.tags {
+		.tag {
+			background: rgba(0, 0, 0, 0.1);
+			border-radius: 999rem;
+			white-space: nowrap;
+			text-overflow: ellipsis;
+		}
+	}
+}

@@ -1,0 +1,40 @@
+:root {
+	--primary-colour: #7b67f9;
+	--secondary-colour: #382f72;
+	--primary-hover-colour: #7b67f97b;
+}
+
+a {
+	color: var(--primary-colour);
+	text-decoration: none;
+
+	&:hover,
+	&:focus {
+		outline: none;
+		text-decoration: underline 2px var(--primary-colour);
+	}
+}
+
+select,
+input {
+	transition: all 0.1s ease;
+	border: 2px solid rgba(0, 0, 0, 0.2);
+	border-radius: 0.5rem;
+	padding: 0.5rem;
+
+	&:hover,
+	&:focus {
+		outline: none;
+		border-color: var(--primary-colour);
+		box-shadow: 0 0 0 0.25rem var(--primary-hover-colour);
+	}
+}
+
+img {
+	border-radius: 1rem;
+}
+
+footer {
+	background: #eaeaea;
+	color: #878ab1;
+}
