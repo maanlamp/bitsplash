@@ -27,17 +27,7 @@ type Route = Readonly<{
 export const routes = flatten({
 	home: {
 		path: "",
-		component: React.lazy(
-			() => import("pages/posts/overview/post-overview-page")
-		),
-	},
-	postDetail: {
-		path: ":postId",
-		component: React.lazy(() => import("pages/posts/detail/post-detail-page")),
-	},
-	login: {
-		path: "login",
-		component: React.lazy(() => import("pages/login/login-page")),
+		component: React.lazy(() => import("pages/home/home-page")),
 	},
 });
 

@@ -31,24 +31,11 @@ const App = () => {
 			<Row
 				as="header"
 				gap={Gap.Huge}
-				mainAxisAlignment={MainAxisAlignment.SpaceBetween}
 				crossAxisAlignment={CrossAxisAlignment.Center}
 				padding={Padding.Medium}
 				positioning={Positioning.Sticky}
 				style={{ top: 0, zIndex: 1, background: "white" }}>
 				<Link to={route("home")}>{t("pages.home.title")}</Link>
-				<Row gap={Gap.Medium} crossAxisAlignment={CrossAxisAlignment.Center}>
-					<Link to={route("login")}>{t("pages.login.title")}</Link>
-					<select
-						defaultValue={lang}
-						onChange={({ target: { value: lang } }) => setLang(lang)}>
-						{Object.keys(locales).map(locale => (
-							<option key={locale} value={locale}>
-								{t(`languages.${locale}`)}
-							</option>
-						))}
-					</select>
-				</Row>
 			</Row>
 			<Flex as="main" grow>
 				<Routes />
