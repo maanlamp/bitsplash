@@ -197,7 +197,7 @@ export const makeUseNetwork = <
 			Object.entries({ get, post, put, patch, _delete }).map(([k, f]) => [
 				k,
 				<Args extends Parameters<typeof f>>(...args: Args) =>
-					refreshAuthIfNecessaryBefore(f, args),
+					refreshAuthIfNecessaryBefore(f as any, args),
 			])
 		);
 
