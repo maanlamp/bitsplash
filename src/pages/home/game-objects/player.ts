@@ -1,16 +1,24 @@
 import { ControllableObject, controller } from "lib/controller";
 import { Game, GameObject } from "lib/game";
 import { gravity } from "lib/gravity";
+import { combat, healthbar, HealthyObject } from "lib/health";
 import { physics, PhysicsObject } from "lib/physics";
 
 const player = (
 	game: Game,
 	gamepad: Gamepad
-): GameObject<any> & PhysicsObject & ControllableObject => ({
+): GameObject<any> & PhysicsObject & ControllableObject & HealthyObject => ({
 	id: crypto.randomUUID(),
 	components: [
-		(self: PhysicsObject, context: CanvasRenderingContext2D, delta: number) => {
+		healthbar(game),
+		combat(game),
+		(
+			self: PhysicsObject & ControllableObject & HealthyObject,
+			context: CanvasRenderingContext2D,
+			delta: number
+		) => {
 			context.save();
+			context.globalAlpha = self.invincible ? 0.5 : 1;
 			context.strokeStyle = "black";
 			context.lineWidth = 2;
 			context.lineJoin = "round";
@@ -34,6 +42,9 @@ const player = (
 	grounded: false,
 	onWall: false,
 	maxJumps: 2,
+	health: 1,
+	invincible: 0,
+	direction: 1,
 });
 
 export default player;

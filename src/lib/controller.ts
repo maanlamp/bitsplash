@@ -9,7 +9,7 @@ export type ControllableObject = Readonly<{
 }>;
 
 export const deadzone = (deadzone: number, x: number) =>
-	x < -deadzone || x > deadzone ? x : 0;
+	Math.abs(x) > deadzone ? x : 0;
 
 // https://w3c.github.io/gamepad/standard_gamepad.svg
 export const controller: Component<
@@ -21,9 +21,13 @@ export const controller: Component<
 		const gamepad = navigator.getGamepads()[self.gamepadIndex]!;
 		(self.force as Mutable<Vector2>)[0] =
 			self.force[0] +
-			deadzone(0.2, gamepad.axes[0]) * (self.grounded ? 1 : 0.25);
+			deadzone(0.5, gamepad.axes[0]) * (self.grounded ? 1 : 0.25);
 
 		(self as Mutable<ControllableObject>).grounded = false;
+
+		if (deadzone(0.5, gamepad.axes[0])) {
+			(self as Mutable<PhysicsObject>).direction = Math.sign(gamepad.axes[0]);
+		}
 
 		const outsideBottomBounds =
 			self.position[1] + self.height > context.canvas.height;
@@ -57,11 +61,10 @@ export const controller: Component<
 			}
 		}
 
-		const tryingToJump = gamepad.axes[1] < -0.25;
+		const tryingToJump = gamepad.axes[1] < -0.5;
 		if (releasedJump && self.grounded && tryingToJump) {
 			(self.position as Mutable<Vector2>)[1] -= self.restitution;
-			(self.force as Mutable<Vector2>)[1] -=
-				10 + 15 * Math.abs(gamepad.axes[1]);
+			(self.force as Mutable<Vector2>)[1] -= 25 * Math.abs(gamepad.axes[1]);
 
 			releasedJump = false;
 			(self as Mutable<ControllableObject>).grounded = false;

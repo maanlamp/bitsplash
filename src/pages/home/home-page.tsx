@@ -90,6 +90,7 @@ const useCreateWallsOnDrag = () => {
 				mass: 0,
 				roughness: 0,
 				static: true,
+				direction: 1,
 			};
 			game.objects.push(box);
 		};
@@ -108,6 +109,7 @@ const useCreateWallsOnDrag = () => {
 				index,
 				1,
 				wall(
+					game,
 					[Math.min(x1!, x2!), Math.min(y1!, y2!)],
 					Math.abs(x2! - x1!),
 					Math.abs(y2! - y1!)

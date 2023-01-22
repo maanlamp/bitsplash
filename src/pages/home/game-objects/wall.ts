@@ -1,16 +1,25 @@
-import { GameObject } from "lib/game";
+import { ControllableObject } from "lib/controller";
+import { Game, GameObject } from "lib/game";
+import { combat, healthbar, HealthyObject } from "lib/health";
 import { PhysicsObject } from "lib/physics";
 import { Vector2 } from "lib/vector";
 
 const wall = (
+	game: Game,
 	position: Vector2,
 	width: number,
 	height: number
-): GameObject<any> & PhysicsObject => ({
+): GameObject<any> => ({
 	id: crypto.randomUUID(),
 	components: [
-		(self: PhysicsObject, context: CanvasRenderingContext2D, delta: number) => {
+		healthbar(game),
+		(
+			self: PhysicsObject & HealthyObject & ControllableObject,
+			context: CanvasRenderingContext2D,
+			delta: number
+		) => {
 			context.save();
+			context.globalAlpha = self.invincible ? 0.33 : 1;
 			context.strokeStyle = "black";
 			context.lineWidth = 2;
 			context.lineJoin = "round";
@@ -19,6 +28,7 @@ const wall = (
 			context.fillRect(...self.position, self.width, self.height);
 			context.restore();
 		},
+		combat(game),
 	],
 	position,
 	force: [0, 0],
@@ -28,6 +38,7 @@ const wall = (
 	restitution: 0.2,
 	roughness: 0.1,
 	static: true,
+	health: 1,
 });
 
 export default wall;

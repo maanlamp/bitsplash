@@ -11,6 +11,7 @@ export type PhysicsObject = Readonly<{
 	static?: boolean;
 	restitution: number;
 	roughness: number;
+	direction: number;
 }>;
 
 export const getBoundingBox = (object: PhysicsObject) => ({
@@ -55,8 +56,7 @@ export const physics: Component<PhysicsObject> =
 				}
 
 				(self.force as Mutable<Vector2>)[0] *= -e;
-				(self.force as Mutable<Vector2>)[1] *=
-					1 - Math.max(self.roughness, other.roughness);
+				(self.force as Mutable<Vector2>)[1] *= 0.5;
 			} else {
 				if (entryY < 0) {
 					(self.position as Mutable<Vector2>)[1] = otherBox.bottom;
