@@ -1,108 +1,124 @@
-export type TPhysicsObject = {
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-	vx: number;
-	vy: number;
-	ax: number;
-	ay: number;
+import { Component } from "lib/game";
+import { Mutable } from "lib/utils";
+import { add, clamp, divide, multiply, Vector2 } from "lib/vector";
+
+export type PhysicsObject = Readonly<{
+	position: Vector2;
+	force: Vector2;
 	mass: number;
-	immovable?: boolean;
+	width: number;
+	height: number;
+	static?: boolean;
 	restitution: number;
-	drag: number;
-	getBoundingBox(): PhysicsBoundingBox;
-};
-
-export type PhysicsBoundingBox = Readonly<{
-	top: number;
-	right: number;
-	bottom: number;
-	left: number;
+	roughness: number;
 }>;
 
-export const PhysicsObject = (
-	source?: Partial<TPhysicsObject>
-): TPhysicsObject => {
-	const self: TPhysicsObject = {
-		x: source?.x ?? 0,
-		y: source?.y ?? 0,
-		w: source?.w ?? 0,
-		h: source?.h ?? 0,
-		vx: source?.vx ?? 0,
-		vy: source?.vy ?? 0,
-		ax: source?.ax ?? 0,
-		ay: source?.ay ?? 0,
-		mass: source?.mass ?? 1,
-		immovable: source?.immovable,
-		restitution: source?.restitution ?? 0.33,
-		drag: 0.1,
-		getBoundingBox: () => ({
-			top: self.y,
-			right: self.x + self.w,
-			bottom: self.y + self.h,
-			left: self.x,
-		}),
+export const getBoundingBox = (object: PhysicsObject) => ({
+	left: object.position[0],
+	right: object.position[0] + object.width,
+	top: object.position[1],
+	bottom: object.position[1] + object.height,
+	middleX: object.position[0] + object.width / 2,
+	middleY: object.position[1] + object.height / 2,
+});
+
+export const physics: Component<PhysicsObject> =
+	game => (self, context, delta) => {
+		if (self.static) return;
+
+		const others: ReadonlyArray<PhysicsObject> = game.objects.filter(
+			obj => obj.mass && obj !== self
+		);
+		for (const other of others) {
+			const selfBox = getBoundingBox(self);
+			const otherBox = getBoundingBox(other);
+			const notCollided =
+				selfBox.bottom < otherBox.top ||
+				selfBox.top > otherBox.bottom ||
+				selfBox.right < otherBox.left ||
+				selfBox.left > otherBox.right;
+
+			if (notCollided) continue;
+
+			const e = Math.max(self.restitution, other.restitution);
+			const entryX = (otherBox.middleX - selfBox.middleX) / (other.width / 2);
+			const entryY = (otherBox.middleY - selfBox.middleY) / (other.height / 2);
+			const absEntryX = Math.abs(entryX);
+			const absEntryY = Math.abs(entryY);
+
+			const hitHorizontal = absEntryX > absEntryY;
+			if (hitHorizontal) {
+				if (entryX < 0) {
+					(self.position as Mutable<Vector2>)[0] = otherBox.right;
+				} else {
+					(self.position as Mutable<Vector2>)[0] = otherBox.left - self.width;
+				}
+
+				(self.force as Mutable<Vector2>)[0] *= -e;
+				(self.force as Mutable<Vector2>)[1] *=
+					1 - Math.max(self.roughness, other.roughness);
+			} else {
+				if (entryY < 0) {
+					(self.position as Mutable<Vector2>)[1] = otherBox.bottom;
+				} else {
+					(self.position as Mutable<Vector2>)[1] = otherBox.top - self.height;
+				}
+
+				(self.force as Mutable<Vector2>)[1] *= -e;
+				(self.force as Mutable<Vector2>)[0] *=
+					1 - Math.max(self.roughness, other.roughness);
+			}
+		}
+
+		// TODO: extract checks into named boolean variables to make more clear
+		// right
+		if (self.position[0] + self.width > context.canvas.width) {
+			(self.position as Mutable<Vector2>)[0] =
+				context.canvas.width - self.width;
+			if (self.force[0] > 0) {
+				(self.force as Mutable<Vector2>)[0] *= -self.restitution;
+				(self.force as Mutable<Vector2>)[1] *= 0.5;
+			}
+		}
+
+		// bottom
+		if (self.position[1] + self.height > context.canvas.height) {
+			(self.position as Mutable<Vector2>)[1] =
+				context.canvas.height - self.height;
+			if (self.force[1] > 0) {
+				(self.force as Mutable<Vector2>)[1] *= -self.restitution;
+			}
+			(self.force as Mutable<Vector2>)[0] *= 1 - self.roughness;
+		}
+
+		// left
+		if (self.position[0] < 0) {
+			(self.position as Mutable<Vector2>)[0] *= -self.restitution;
+			if (self.force[0] < 0) {
+				(self.force as Mutable<Vector2>)[0] *= -self.restitution;
+				(self.force as Mutable<Vector2>)[1] *= 0.5;
+			}
+		}
+
+		// top
+		if (self.position[1] < 0) {
+			(self.position as Mutable<Vector2>)[1] *= -self.restitution;
+			if (self.force[1] < 0) {
+				(self.force as Mutable<Vector2>)[1] *= -self.restitution;
+			}
+		}
+
+		(self as Mutable<PhysicsObject>).force = clamp(
+			self.force,
+			game.world.terminalVelocity
+		);
+
+		// TODO: Figure out how to couple to game.timeScale
+		(self as Mutable<PhysicsObject>).position = add(
+			self.position,
+			multiply(
+				divide(multiply(self.force, 1 - game.world.drag), self.mass),
+				delta * 0.1
+			)
+		);
 	};
-	return self;
-};
-
-const vxmax = 0.2;
-const vymax = 0.33;
-export const delegatePhysics = (
-	self: TPhysicsObject,
-	others: ReadonlyArray<TPhysicsObject>,
-	delta: number,
-	world: TWorld
-) => {
-	if (self.immovable) return;
-
-	self.vx += self.ax * delta * (1 - world.drag);
-	self.vy += (self.ay * delta + world.gravity) * (1 - world.drag);
-	self.x += self.vx * delta;
-	self.y += self.vy * delta;
-
-	self.getBoundingBox = () => ({
-		top: self.y,
-		right: self.x + self.w,
-		bottom: self.y + self.h,
-		left: self.x,
-	});
-
-	const collisions = others.filter(other => {
-		const selfBox = self.getBoundingBox();
-		const otherBox = other.getBoundingBox();
-		if (selfBox.right < otherBox.left || selfBox.left > otherBox.right)
-			return false;
-		if (selfBox.bottom < otherBox.top || selfBox.top > otherBox.bottom)
-			return false;
-		return true;
-	});
-
-	for (const other of collisions) {
-		// TODO: X axis
-		const bounce = Math.max(self.restitution, other.restitution);
-		// TODO: What if coming from below?
-		self.vy *= -bounce;
-
-		const drag = 1 - Math.max(self.drag, other.drag);
-		self.vx *= drag;
-		self.vy *= drag;
-
-		const selfBox = self.getBoundingBox();
-		const otherBox = other.getBoundingBox();
-		const penetrationY =
-			selfBox.bottom > otherBox.top
-				? selfBox.bottom - otherBox.top
-				: otherBox.bottom - selfBox.top;
-		self.y -= penetrationY;
-	}
-
-	self.vy = self.vy < -vymax ? -vymax : self.vy > vymax ? vymax : self.vy;
-	self.vx = self.vx < -vxmax ? -vxmax : self.vx > vxmax ? vxmax : self.vx;
-};
-
-export type TWorld = Readonly<{
-	gravity: number;
-	drag: number;
-}>;

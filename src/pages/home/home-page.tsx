@@ -1,145 +1,173 @@
 import Canvas from "components/canvas/canvas";
-import {
-	delegatePhysics,
-	PhysicsObject,
-	TPhysicsObject,
-	TWorld,
-} from "lib/physics";
-import Entity from "models/entity";
-import Renderable from "models/renderable";
+import { GameObject, World, type Game } from "lib/game";
+import useGamepad from "lib/gamepad";
+import { PhysicsObject } from "lib/physics";
+import { Mutable } from "lib/utils";
+import fpsCounter from "pages/home/game-objects/fps-counter";
+import player from "pages/home/game-objects/player";
+import wall from "pages/home/game-objects/wall";
+import { useEffect, useRef } from "react";
 
-const ground1: Entity & Renderable & TPhysicsObject = {
-	...PhysicsObject({
-		x: 0,
-		y: 100,
-		w: 300,
-		h: 10,
-		immovable: true,
-	}),
-	update: () => {},
-	render: (context, delta) => {
-		context.fillStyle = "#e9e9ec";
-		context.strokeStyle = "#535353";
-		context.fillRect(ground1.x, ground1.y, ground1.w, ground1.h);
-		context.strokeRect(ground1.x, ground1.y, ground1.w, ground1.h);
+const world: World = {
+	gravity: 1,
+	drag: 0.8,
+	terminalVelocity: [10, 40],
+};
+
+const game: Game = {
+	world,
+	objects: [fpsCounter],
+	timeScale: 1,
+	registerGamepad: gamepad => {
+		if (gamepad.mapping !== "standard")
+			console.warn("Gamepad with non standard layout connected.");
+
+		const newPlayer = player(game, gamepad);
+		game.objects.unshift(newPlayer);
 	},
-};
-
-const ground2: Entity & Renderable & TPhysicsObject = {
-	...PhysicsObject({
-		x: 50,
-		y: 150,
-		w: 300,
-		h: 10,
-		immovable: true,
-	}),
-	update: () => {},
-	render: (context, delta) => {
-		context.fillStyle = "#e9e9ec";
-		context.strokeStyle = "#535353";
-		context.fillRect(ground2.x, ground2.y, ground2.w, ground2.h);
-		context.strokeRect(ground2.x, ground2.y, ground2.w, ground2.h);
-	},
-};
-
-const world: TWorld = {
-	gravity: 0.02,
-	drag: 0.5,
-};
-
-const entities: (Entity & Renderable & TPhysicsObject)[] = [];
-
-let UP = 0;
-let RIGHT = 0;
-let DOWN = 0;
-let LEFT = 0;
-window.addEventListener("keydown", ({ key, repeat }) => {
-	switch (key.toLowerCase()) {
-		case "a":
-			LEFT = 1;
-			break;
-		case "d":
-			RIGHT = 1;
-			break;
-		case " ":
-			UP = 1;
-			break;
-	}
-});
-window.addEventListener("keyup", ({ key }) => {
-	switch (key.toLowerCase()) {
-		case "a":
-			LEFT = 0;
-			break;
-		case "d":
-			RIGHT = 0;
-			break;
-		case " ":
-			UP = 0;
-			break;
-	}
-});
-
-const player: Entity & Renderable & TPhysicsObject = {
-	...PhysicsObject({
-		w: 16,
-		h: 16,
-		restitution: 0.3,
-	}),
-	update: (context, delta: number) => {
-		delegatePhysics(
-			player,
-			entities.filter(p => p !== player),
-			delta,
-			world
-		);
-		player.vx -= LEFT * 0.01;
-		player.vx += RIGHT * 0.01;
-		if (UP) {
-			player.vy = UP * -0.25;
+	unregisterGamepad: gamepad => {
+		const index = game.objects.findIndex(obj => obj.gamepad === gamepad);
+		if (index === -1) {
+			console.warn(
+				"Gamepad was not linked to a ControllableObject and cannot be unregistered",
+				gamepad
+			);
+			return;
 		}
-	},
-	render: (context, delta) => {
-		context.strokeStyle = "#535353";
-		context.fillStyle = "red";
-		context.lineWidth = 1;
-		const warpedHeight = player.h + player.h * Math.abs(player.vy) * 3;
-		context.fillRect(
-			player.x,
-			player.y - warpedHeight * Math.abs(player.vy),
-			player.w,
-			warpedHeight
-		);
-		context.strokeRect(
-			player.x,
-			player.y - warpedHeight * Math.abs(player.vy),
-			player.w,
-			warpedHeight
-		);
-		context.strokeStyle = "lime";
-		context.lineWidth = 1;
-		context.beginPath();
-		context.moveTo(
-			player.x + player.w / 2,
-			player.y + warpedHeight / 2 - warpedHeight * Math.abs(player.vy)
-		);
-		context.lineTo(
-			player.x + player.w / 2 + player.vx * 250,
-			player.y +
-				warpedHeight / 2 +
-				player.vy * 250 -
-				warpedHeight * Math.abs(player.vy)
-		);
-		context.stroke();
+		game.objects.splice(index, 1);
 	},
 };
-
-entities.push(ground1);
-entities.push(ground2);
-entities.push(player);
 
 const HomePage = () => {
-	return <Canvas entities={entities} />;
+	const ctx = useRef(null as any as CanvasRenderingContext2D);
+
+	useExposeGame(game);
+	useGameLoop(ctx, game);
+	useGamepad(game);
+	useCreateWallsOnDrag();
+
+	return (
+		<Canvas
+			onContext={context => {
+				ctx.current = context;
+			}}
+		/>
+	);
 };
 
 export default HomePage;
+
+const useCreateWallsOnDrag = () => {
+	useEffect(() => {
+		let x1: number | undefined;
+		let y1: number | undefined;
+		let x2: number | undefined;
+		let y2: number | undefined;
+		let box: GameObject<PhysicsObject> | undefined;
+		const startDrawing = (e: MouseEvent) => {
+			x1 = e.x;
+			y1 = e.y;
+			box = {
+				id: crypto.randomUUID(),
+				components: [
+					(self, context, delta) => {
+						context.save();
+						context.strokeStyle = "#ababab";
+						context.lineWidth = 2;
+						context.setLineDash([4]);
+						context.lineJoin = "round";
+						context.strokeRect(...self.position, self.width, self.height);
+						context.fillStyle = "#f2f2f2";
+						context.fillRect(...self.position, self.width, self.height);
+						context.restore();
+					},
+				],
+				position: [x1, y1],
+				width: 1,
+				height: 1,
+				force: [0, 0],
+				restitution: 0,
+				mass: 0,
+				roughness: 0,
+				static: true,
+			};
+			game.objects.push(box);
+		};
+
+		const drawBox = (e: MouseEvent) => {
+			if (!box) return;
+			x2 = e.x;
+			y2 = e.y;
+			(box as Mutable<GameObject<PhysicsObject>>).width = x2 - x1!;
+			(box as Mutable<GameObject<PhysicsObject>>).height = y2 - y1!;
+		};
+
+		const completeBox = (e: MouseEvent) => {
+			const index = game.objects.findIndex(x => x === box);
+			game.objects.splice(
+				index,
+				1,
+				wall(
+					[Math.min(x1!, x2!), Math.min(y1!, y2!)],
+					Math.abs(x2! - x1!),
+					Math.abs(y2! - y1!)
+				)
+			);
+			box = undefined;
+			x1 = undefined;
+			y1 = undefined;
+			x2 = undefined;
+			y2 = undefined;
+		};
+
+		window.addEventListener("mousedown", startDrawing);
+		window.addEventListener("mousemove", drawBox);
+		window.addEventListener("mouseup", completeBox);
+
+		return () => {
+			window.removeEventListener("mousedown", startDrawing);
+			window.removeEventListener("mousemove", drawBox);
+			window.removeEventListener("mouseup", completeBox);
+		};
+	}, []);
+};
+
+const useGameLoop = (
+	ctx: React.MutableRefObject<CanvasRenderingContext2D>,
+	game: Game
+) => {
+	useEffect(() => {
+		let frame: number;
+		let earlier = performance.now();
+
+		const tick = (now: number) => {
+			const delta = now - earlier;
+			earlier = now;
+
+			ctx.current.clearRect(
+				0,
+				0,
+				ctx.current.canvas.width,
+				ctx.current.canvas.height
+			);
+
+			for (const object of game.objects)
+				for (const component of object.components)
+					component(object as any, ctx.current, delta);
+
+			frame = requestAnimationFrame(tick);
+		};
+
+		frame = requestAnimationFrame(tick);
+
+		return () => cancelAnimationFrame(frame);
+	}, []);
+};
+
+const useExposeGame = (game: Game) => {
+	useEffect(() => {
+		if ("game" in window) return;
+		Object.defineProperty(window, "game", { get: () => game });
+		console.log(game);
+	}, []);
+};

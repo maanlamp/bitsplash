@@ -1,71 +1,22 @@
-import Entity from "models/entity";
-import Renderable from "models/renderable";
 import { useEffect, useRef } from "react";
 
 type CanvasProps = Readonly<{
-	entities: ReadonlyArray<Entity & Partial<Renderable>>;
+	onContext: (context: CanvasRenderingContext2D) => void;
 }>;
 
-const Canvas = ({ entities }: CanvasProps) => {
+const Canvas = ({ onContext }: CanvasProps) => {
 	const canvas = useRef(null as any as HTMLCanvasElement);
-	const ctx = useRef(null as any as CanvasRenderingContext2D);
-
-	useEffect(() => {
-		ctx.current = canvas.current!.getContext("2d")!;
-	}, []);
 
 	useResizeToFitParent(canvas);
 
-	useGameLoop(ctx, entities);
+	useEffect(() => {
+		onContext(canvas.current.getContext("2d")!);
+	}, []);
 
-	return <canvas ref={canvas} className="flex column" />;
+	return <canvas ref={canvas} />;
 };
 
 export default Canvas;
-
-const useGameLoop = (
-	ctx: React.MutableRefObject<CanvasRenderingContext2D>,
-	entities: ReadonlyArray<Entity & Partial<Renderable>>
-) => {
-	useEffect(() => {
-		let frame: number;
-		let lastTime = performance.now();
-		const tick = (time: number) => {
-			const delta = time - lastTime;
-			lastTime = time;
-
-			ctx.current.clearRect(
-				0,
-				0,
-				ctx.current.canvas.width,
-				ctx.current.canvas.height
-			);
-
-			for (const entity of entities) {
-				entity.update(ctx.current, delta);
-			}
-
-			for (const entity of entities) {
-				ctx.current.save();
-				entity.render?.(ctx.current, delta);
-				ctx.current.restore();
-			}
-
-			const fps = Math.round(1000 / delta).toString() + " fps";
-			ctx.current.fillStyle = "rgba(0,0,0,.33)";
-			ctx.current.fillRect(8, 8, ctx.current.measureText(fps).width + 1, 9);
-			ctx.current.fillStyle = "lime";
-			ctx.current.font = "10px 'Fira Code'";
-			ctx.current.fillText(fps, 8, 16);
-
-			frame = requestAnimationFrame(tick);
-		};
-
-		frame = requestAnimationFrame(tick);
-
-		return () => cancelAnimationFrame(frame);
-	}, []);
-};
 
 const useResizeToFitParent = (
 	canvas: React.MutableRefObject<HTMLCanvasElement>

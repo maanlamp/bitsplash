@@ -1,23 +1,14 @@
-import { ReactComponent as ChipprSvg } from "assets/images/chippr.svg";
 import Center from "layout/center";
-import Column from "layout/column";
-import Flex, {
-	CrossAxisAlignment,
-	MainAxisAlignment,
-	Positioning,
-	TextAlignment,
-} from "layout/flex";
-import { Gap, Padding } from "layout/layout";
-import Row from "layout/row";
+import Flex from "layout/flex";
 import { useLocale } from "lib/i18n";
 import usePersistence, { Persistence } from "lib/persistence";
 import Prefetch from "lib/prefetch";
-import { route, Routes } from "lib/router";
+import { Routes } from "lib/router";
 import ErrorPage from "pages/error/error-page";
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom";
 import { useTranslation } from "react-i18next";
-import { BrowserRouter, Link } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import "./reset.scss";
 import "./theme.scss";
 
@@ -28,31 +19,9 @@ const App = () => {
 
 	return (
 		<>
-			<Row
-				as="header"
-				gap={Gap.Huge}
-				crossAxisAlignment={CrossAxisAlignment.Center}
-				padding={Padding.Medium}
-				positioning={Positioning.Sticky}
-				style={{ top: 0, zIndex: 1, background: "white" }}>
-				<Link to={route("home")}>{t("pages.home.title")}</Link>
-			</Row>
 			<Flex as="main" grow>
 				<Routes />
 			</Flex>
-			<Row
-				as="footer"
-				mainAxisAlignment={MainAxisAlignment.SpaceBetween}
-				crossAxisAlignment={CrossAxisAlignment.Center}
-				padding={Padding.Huge}>
-				<a href="https://chippr.dev">
-					<ChipprSvg />
-				</a>
-				<Column textAlignment={TextAlignment.End}>
-					<p>{t("footer")}</p>
-					<p>©️ Chippr {new Date().getUTCFullYear()}</p>
-				</Column>
-			</Row>
 		</>
 	);
 };
