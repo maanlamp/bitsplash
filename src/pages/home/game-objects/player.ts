@@ -40,7 +40,12 @@ const player = (
 	attacking: false,
 	src: "assets/images/player-atlas.png",
 	animationState: "idle",
-	frames: { run: { frames: 3, speed: 0.2 } },
+	frames: {
+		idle: { frames: 4, speed: 0.05 },
+		run: { frames: 4, speed: 0.15 },
+		jump: { frames: 3, speed: 0.2 },
+		fall: { frames: 2, speed: 0.1 },
+	},
 });
 
 export default player;

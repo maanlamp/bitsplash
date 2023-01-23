@@ -71,7 +71,7 @@ export const spritesheet: Component<
 				context.drawImage(
 					atlas,
 					128 * Math.floor(animationFrame),
-					128 * 128 * Math.floor(animationFrame),
+					128 * 0,
 					128,
 					128,
 					0,
