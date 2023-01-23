@@ -67,8 +67,9 @@ export const physics: Component<PhysicsObject> = game => {
 						-1
 					)
 				)[0];
-				(self.force as Mutable<Vector2>)[1] *=
-					(1 + Math.max(self.roughness, other.roughness)) * 0.5;
+				if (self.force[1] > 0)
+					(self.force as Mutable<Vector2>)[1] *=
+						(1 + Math.max(self.roughness, other.roughness)) * 0.5;
 			} else {
 				if (entryY < 0) {
 					(self.position as Mutable<Vector2>)[1] = otherBox.bottom;
@@ -96,7 +97,7 @@ export const physics: Component<PhysicsObject> = game => {
 				context.canvas.width - self.width;
 			if (self.force[0] > 0) {
 				(self.force as Mutable<Vector2>)[0] *= -self.restitution;
-				(self.force as Mutable<Vector2>)[1] *= 0.5;
+				if (self.force[1] > 0) (self.force as Mutable<Vector2>)[1] *= 0.5;
 			}
 		}
 
@@ -115,7 +116,7 @@ export const physics: Component<PhysicsObject> = game => {
 			(self.position as Mutable<Vector2>)[0] *= -self.restitution;
 			if (self.force[0] < 0) {
 				(self.force as Mutable<Vector2>)[0] *= -self.restitution;
-				(self.force as Mutable<Vector2>)[1] *= 0.5;
+				if (self.force[1] > 0) (self.force as Mutable<Vector2>)[1] *= 0.5;
 			}
 		}
 

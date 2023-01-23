@@ -1,4 +1,5 @@
 import { Component } from "lib/game";
+import { HealthyObject } from "lib/health";
 import { getBoundingBox, PhysicsObject } from "lib/physics";
 import { Mutable } from "lib/utils";
 import { Vector2 } from "lib/vector";
@@ -13,7 +14,9 @@ export const deadzone = (deadzone: number, x: number) =>
 	Math.abs(x) > deadzone ? x : 0;
 
 // https://w3c.github.io/gamepad/standard_gamepad.svg
-export const movement: Component<MovingComponent & PhysicsObject> = game => {
+export const movement: Component<
+	MovingComponent & PhysicsObject & Partial<HealthyObject>
+> = game => {
 	// TODO: Couple to self.maxJumps to allow double or triple jumping
 	// TODO: different masses fuck up the controls and physics
 	let releasedJump = true;
@@ -22,19 +25,22 @@ export const movement: Component<MovingComponent & PhysicsObject> = game => {
 
 	return (self, context, delta) => {
 		const gamepad = navigator.getGamepads()[self.gamepadIndex]!;
-		(self.force as Mutable<Vector2>)[0] =
-			self.force[0] + deadzone(0.5, gamepad.axes[0]) * (grounded ? 1 : 0.25);
 
-		if (deadzone(0.5, gamepad.axes[0])) {
-			(self as Mutable<PhysicsObject>).direction = Math.sign(gamepad.axes[0]);
-			onWall = false;
+		if (!self.attacking) {
+			(self.force as Mutable<Vector2>)[0] =
+				self.force[0] + deadzone(0.5, gamepad.axes[0]) * (grounded ? 1 : 0.25);
+
+			if (deadzone(0.5, gamepad.axes[0])) {
+				(self as Mutable<PhysicsObject>).direction = Math.sign(gamepad.axes[0]);
+				onWall = false;
+			}
 		}
 
 		const outsideBottomBounds =
 			self.position[1] + self.height >= context.canvas.height;
 		const outsideHorizontalBounds =
-			self.position[0] < 0.1 ||
-			self.position[0] + self.width > context.canvas.width - 0.1;
+			self.position[0] < 0 ||
+			self.position[0] + self.width > context.canvas.width - 0;
 		if (outsideBottomBounds) {
 			grounded = true;
 		} else if (outsideHorizontalBounds) {
@@ -74,12 +80,11 @@ export const movement: Component<MovingComponent & PhysicsObject> = game => {
 			if (onWall) {
 				(self.position as Mutable<Vector2>)[0] -= self.restitution;
 				(self.force as Mutable<Vector2>)[0] = self.direction === -1 ? 2 : -2;
-				(self.force as Mutable<Vector2>)[1] -= 30;
-
+				(self.force as Mutable<Vector2>)[1] = -15;
 				// TODO: Jump off walls
 			} else {
 				(self.position as Mutable<Vector2>)[1] -= self.restitution;
-				(self.force as Mutable<Vector2>)[1] -= 25;
+				(self.force as Mutable<Vector2>)[1] = -25;
 			}
 
 			releasedJump = false;
