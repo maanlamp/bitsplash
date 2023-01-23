@@ -23,8 +23,9 @@ export const getBoundingBox = (object: PhysicsObject) => ({
 	middleY: object.position[1] + object.height / 2,
 });
 
-export const physics: Component<PhysicsObject> =
-	game => (self, context, delta) => {
+export const physics: Component<PhysicsObject> = game => {
+	const JIGGLE_THRESHOLD = 0.1;
+	return (self, context, delta) => {
 		if (self.static) return;
 
 		const others: ReadonlyArray<PhysicsObject> = game.objects.filter(
@@ -137,3 +138,4 @@ export const physics: Component<PhysicsObject> =
 			multiply(multiply(self.force, 1 - game.world.drag), delta * 0.1)
 		);
 	};
+};

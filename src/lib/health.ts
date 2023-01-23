@@ -1,7 +1,7 @@
 import fistLeftSrc from "assets/images/fist-left.png";
 import fistRightSrc from "assets/images/fist-right.png";
-import { ControllableObject } from "lib/controller";
 import { Component, GameObject } from "lib/game";
+import { MovingComponent } from "lib/movement";
 import { getBoundingBox, PhysicsObject } from "lib/physics";
 import { Mutable } from "lib/utils";
 import { add } from "lib/vector";
@@ -32,7 +32,7 @@ export const healthbar: Component<PhysicsObject & HealthyObject> =
 	};
 
 export const combat: Component<
-	PhysicsObject & ControllableObject & HealthyObject
+	PhysicsObject & MovingComponent & HealthyObject
 > = game => {
 	let releasedAttack = true;
 	let frames = 0;

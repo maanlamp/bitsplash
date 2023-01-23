@@ -1,6 +1,6 @@
-import { ControllableObject } from "lib/controller";
 import { Game, GameObject } from "lib/game";
 import { combat, die, healthbar, HealthyObject } from "lib/health";
+import { MovingComponent } from "lib/movement";
 import { PhysicsObject } from "lib/physics";
 import { Vector2 } from "lib/vector";
 
@@ -14,7 +14,7 @@ const wall = (
 	components: [
 		healthbar(game),
 		(
-			self: PhysicsObject & HealthyObject & ControllableObject,
+			self: PhysicsObject & HealthyObject & MovingComponent,
 			context: CanvasRenderingContext2D,
 			delta: number
 		) => {

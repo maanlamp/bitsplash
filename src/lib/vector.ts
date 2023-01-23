@@ -44,3 +44,8 @@ export const clamp = (a: Vector2, b: Vector2 | number): Vector2 => {
 		a[1] > maxY ? maxY : a[1] < -maxY ? -maxY : a[1],
 	];
 };
+
+export const round = (x: Vector2): Vector2 => [
+	Math.round(x[0]),
+	Math.round(x[1]),
+];

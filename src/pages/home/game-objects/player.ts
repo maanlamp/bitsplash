@@ -1,23 +1,21 @@
-import { ControllableObject, controller } from "lib/controller";
 import { Game, GameObject } from "lib/game";
 import { gravity } from "lib/gravity";
 import { combat, healthbar, HealthyObject, respawn } from "lib/health";
+import { movement, MovingComponent } from "lib/movement";
 import { physics, PhysicsObject } from "lib/physics";
 import { spritesheet, SpritesheetObject } from "lib/spritesheet";
-
-let i = 0;
 
 const player = (
 	game: Game,
 	gamepad: Gamepad
 ): GameObject<any> &
 	PhysicsObject &
-	ControllableObject &
+	MovingComponent &
 	HealthyObject &
 	SpritesheetObject => ({
 	id: crypto.randomUUID(),
 	components: [
-		controller(game),
+		movement(game),
 		healthbar(game),
 		combat(game),
 		respawn(5000)(game),
@@ -25,9 +23,9 @@ const player = (
 		physics(game),
 		gravity(game),
 	],
-	position: [i * 200, 0],
+	position: [0, 0],
 	force: [0, 0],
-	mass: 1 + i++,
+	mass: 1,
 	width: 64,
 	height: 64,
 	gamepadIndex: gamepad.index,
@@ -42,6 +40,7 @@ const player = (
 	attacking: false,
 	src: "assets/images/player-atlas.png",
 	animationState: "idle",
+	frames: { run: { frames: 3, speed: 0.2 } },
 });
 
 export default player;

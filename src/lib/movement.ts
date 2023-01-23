@@ -3,7 +3,7 @@ import { getBoundingBox, PhysicsObject } from "lib/physics";
 import { Mutable } from "lib/utils";
 import { Vector2 } from "lib/vector";
 
-export type ControllableObject = Readonly<{
+export type MovingComponent = Readonly<{
 	gamepadIndex: number;
 	grounded: boolean;
 	onWall: boolean;
@@ -13,35 +13,32 @@ export const deadzone = (deadzone: number, x: number) =>
 	Math.abs(x) > deadzone ? x : 0;
 
 // https://w3c.github.io/gamepad/standard_gamepad.svg
-export const controller: Component<
-	ControllableObject & PhysicsObject
-> = game => {
+export const movement: Component<MovingComponent & PhysicsObject> = game => {
 	// TODO: Couple to self.maxJumps to allow double or triple jumping
 	// TODO: different masses fuck up the controls and physics
 	let releasedJump = true;
+	let grounded = false;
+	let onWall = false;
+
 	return (self, context, delta) => {
 		const gamepad = navigator.getGamepads()[self.gamepadIndex]!;
 		(self.force as Mutable<Vector2>)[0] =
-			self.force[0] +
-			deadzone(0.5, gamepad.axes[0]) * (self.grounded ? 1 : 0.25);
-
-		// TODO: This reset causes state flickering between frames
-		(self as Mutable<ControllableObject>).grounded = false;
-		(self as Mutable<ControllableObject>).onWall = false;
+			self.force[0] + deadzone(0.5, gamepad.axes[0]) * (grounded ? 1 : 0.25);
 
 		if (deadzone(0.5, gamepad.axes[0])) {
 			(self as Mutable<PhysicsObject>).direction = Math.sign(gamepad.axes[0]);
+			onWall = false;
 		}
 
 		const outsideBottomBounds =
-			self.position[1] + self.height > context.canvas.height;
+			self.position[1] + self.height >= context.canvas.height;
 		const outsideHorizontalBounds =
-			self.position[0] < 0 ||
-			self.position[0] + self.width > context.canvas.width;
+			self.position[0] < 0.1 ||
+			self.position[0] + self.width > context.canvas.width - 0.1;
 		if (outsideBottomBounds) {
-			(self as Mutable<ControllableObject>).grounded = true;
+			grounded = true;
 		} else if (outsideHorizontalBounds) {
-			(self as Mutable<ControllableObject>).onWall = true;
+			onWall = true;
 		}
 
 		const others: ReadonlyArray<PhysicsObject> = game.objects.filter(
@@ -66,18 +63,18 @@ export const controller: Component<
 			// const hitCorner = Math.abs(absEntryX - absEntryY) < 0.1;
 
 			if (absEntryX < absEntryY) {
-				if (entryY >= 0) (self as Mutable<ControllableObject>).grounded = true;
+				if (entryY >= 0) grounded = true;
 			} else {
-				(self as Mutable<ControllableObject>).onWall = true;
+				onWall = true;
 			}
 		}
 
 		const tryingToJump = gamepad.buttons[3].pressed;
-		if (releasedJump && (self.grounded || self.onWall) && tryingToJump) {
-			if (self.onWall) {
+		if (releasedJump && (grounded || onWall) && tryingToJump) {
+			if (onWall) {
 				(self.position as Mutable<Vector2>)[0] -= self.restitution;
 				(self.force as Mutable<Vector2>)[0] = self.direction === -1 ? 2 : -2;
-				(self.force as Mutable<Vector2>)[1] -= 20;
+				(self.force as Mutable<Vector2>)[1] -= 30;
 
 				// TODO: Jump off walls
 			} else {
@@ -86,10 +83,13 @@ export const controller: Component<
 			}
 
 			releasedJump = false;
-			(self as Mutable<ControllableObject>).grounded = false;
-			(self as Mutable<ControllableObject>).onWall = false;
+			grounded = false;
+			onWall = false;
 		}
 
 		if (!releasedJump && !tryingToJump) releasedJump = true;
+
+		(self as Mutable<MovingComponent>).grounded = grounded;
+		(self as Mutable<MovingComponent>).onWall = onWall;
 	};
 };

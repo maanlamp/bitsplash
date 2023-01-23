@@ -1,6 +1,6 @@
-import { ControllableObject, deadzone } from "lib/controller";
 import { Component } from "lib/game";
 import { HealthyObject } from "lib/health";
+import { deadzone, MovingComponent } from "lib/movement";
 import { PhysicsObject } from "lib/physics";
 import { Mutable } from "lib/utils";
 
@@ -17,11 +17,15 @@ export type AnimationState =
 export type SpritesheetObject = Readonly<{
 	src: string;
 	animationState: AnimationState;
+	frames?: Partial<
+		Record<AnimationState, Readonly<{ frames: number; speed: number }>>
+	>;
 }>;
 
 export const spritesheet: Component<
-	SpritesheetObject & PhysicsObject & ControllableObject & HealthyObject
+	SpritesheetObject & PhysicsObject & MovingComponent & HealthyObject
 > = game => {
+	let animationFrame = 0;
 	const atlas = new Image();
 	return (self, context, delta) => {
 		if (!atlas.src) {
@@ -29,6 +33,8 @@ export const spritesheet: Component<
 		}
 
 		const gamepad = navigator.getGamepads()[self.gamepadIndex]!;
+
+		const prevState = self.animationState;
 
 		if (self.attacking) {
 			(self as Mutable<SpritesheetObject>).animationState = "attack";
@@ -50,6 +56,10 @@ export const spritesheet: Component<
 			(self as Mutable<SpritesheetObject>).animationState = "idle";
 		}
 
+		if (prevState !== self.animationState) {
+			animationFrame = 0;
+		}
+
 		context.save();
 		context.translate(...self.position);
 		if (self.direction === -1) {
@@ -60,8 +70,8 @@ export const spritesheet: Component<
 			case "idle": {
 				context.drawImage(
 					atlas,
-					0,
-					128 * 0,
+					128 * Math.floor(animationFrame),
+					128 * 128 * Math.floor(animationFrame),
 					128,
 					128,
 					0,
@@ -74,7 +84,7 @@ export const spritesheet: Component<
 			case "attack": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 1,
 					128,
 					128,
@@ -88,7 +98,7 @@ export const spritesheet: Component<
 			case "wallglide": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 3,
 					128,
 					128,
@@ -102,7 +112,7 @@ export const spritesheet: Component<
 			case "run": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 4,
 					128,
 					128,
@@ -116,7 +126,7 @@ export const spritesheet: Component<
 			case "stop": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 5,
 					128,
 					128,
@@ -130,7 +140,7 @@ export const spritesheet: Component<
 			case "jump": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 6,
 					128,
 					128,
@@ -144,7 +154,7 @@ export const spritesheet: Component<
 			case "fall": {
 				context.drawImage(
 					atlas,
-					0,
+					128 * Math.floor(animationFrame),
 					128 * 7,
 					128,
 					128,
@@ -159,5 +169,9 @@ export const spritesheet: Component<
 				throw `Unknown animation state "${self.animationState}".`;
 		}
 		context.restore();
+
+		animationFrame =
+			(animationFrame + (self.frames?.[self.animationState]?.speed ?? 1)) %
+			(self.frames?.[self.animationState]?.frames ?? 1);
 	};
 };
