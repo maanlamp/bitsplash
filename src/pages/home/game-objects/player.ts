@@ -1,7 +1,7 @@
 import { ControllableObject, controller } from "lib/controller";
 import { Game, GameObject } from "lib/game";
 import { gravity } from "lib/gravity";
-import { combat, healthbar, HealthyObject } from "lib/health";
+import { combat, healthbar, HealthyObject, respawn } from "lib/health";
 import { physics, PhysicsObject } from "lib/physics";
 
 const player = (
@@ -12,6 +12,7 @@ const player = (
 	components: [
 		healthbar(game),
 		combat(game),
+		respawn(5000)(game),
 		(
 			self: PhysicsObject & ControllableObject & HealthyObject,
 			context: CanvasRenderingContext2D,
@@ -19,6 +20,11 @@ const player = (
 		) => {
 			context.save();
 			context.globalAlpha = self.invincible ? 0.5 : 1;
+			if (self.invincible)
+				context.translate(
+					self.invincible * (-1 + Math.random() * 2) * 0.1,
+					self.invincible * (-1 + Math.random() * 2) * 0.1
+				);
 			context.strokeStyle = "black";
 			context.lineWidth = 2;
 			context.lineJoin = "round";

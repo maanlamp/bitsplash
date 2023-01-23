@@ -1,6 +1,6 @@
 import { ControllableObject } from "lib/controller";
 import { Game, GameObject } from "lib/game";
-import { combat, healthbar, HealthyObject } from "lib/health";
+import { combat, die, healthbar, HealthyObject } from "lib/health";
 import { PhysicsObject } from "lib/physics";
 import { Vector2 } from "lib/vector";
 
@@ -20,6 +20,11 @@ const wall = (
 		) => {
 			context.save();
 			context.globalAlpha = self.invincible ? 0.33 : 1;
+			if (self.invincible)
+				context.translate(
+					self.invincible * (-1 + Math.random() * 2) * 0.03,
+					self.invincible * (-1 + Math.random() * 2) * 0.03
+				);
 			context.strokeStyle = "black";
 			context.lineWidth = 2;
 			context.lineJoin = "round";
@@ -29,6 +34,7 @@ const wall = (
 			context.restore();
 		},
 		combat(game),
+		die(game),
 	],
 	position,
 	force: [0, 0],

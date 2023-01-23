@@ -46,20 +46,15 @@ export const combat: Component<
 			(self as Mutable<HealthyObject>).invincible -= 1;
 		}
 
-		const dead = self.health <= 0.001;
-		if (dead) {
-			const index = game.objects.findIndex(x => x === self);
-			game.objects.splice(index, 1);
-		}
-
 		const gamepad = navigator.getGamepads()[self.gamepadIndex];
 		if (!gamepad) return;
+		const attackButton = gamepad.buttons[1];
 
-		if (!gamepad.buttons[0].pressed) {
+		if (!attackButton.pressed) {
 			releasedAttack = true;
 		}
 
-		if (!attacking && releasedAttack && gamepad.buttons[0].pressed) {
+		if (!attacking && releasedAttack && attackButton.pressed) {
 			attacking = true;
 			releasedAttack = false;
 		}
@@ -113,4 +108,28 @@ export const combat: Component<
 			frames += 1;
 		}
 	};
+};
+
+export const respawn =
+	(ms: number): Component<HealthyObject> =>
+	game =>
+	(self, context, delta) => {
+		const dead = self.health <= 0.001;
+		if (dead) {
+			const index = game.objects.findIndex(x => x === self);
+			game.objects.splice(index, 1);
+			(self as Mutable<HealthyObject>).health = 1;
+			(self as Mutable<HealthyObject>).invincible = 0;
+			setTimeout(() => {
+				game.objects.push(self);
+			}, ms);
+		}
+	};
+
+export const die: Component<HealthyObject> = game => (self, context, delta) => {
+	const dead = self.health <= 0.001;
+	if (dead) {
+		const index = game.objects.findIndex(x => x === self);
+		game.objects.splice(index, 1);
+	}
 };
