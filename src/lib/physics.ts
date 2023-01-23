@@ -1,6 +1,6 @@
 import { Component } from "lib/game";
 import { Mutable } from "lib/utils";
-import { add, clamp, divide, multiply, Vector2 } from "lib/vector";
+import { add, clamp, multiply, Vector2 } from "lib/vector";
 
 export type PhysicsObject = Readonly<{
 	position: Vector2;
@@ -41,22 +41,33 @@ export const physics: Component<PhysicsObject> =
 
 			if (notCollided) continue;
 
-			const e = Math.max(self.restitution, other.restitution);
 			const entryX = (otherBox.middleX - selfBox.middleX) / (other.width / 2);
 			const entryY = (otherBox.middleY - selfBox.middleY) / (other.height / 2);
 			const absEntryX = Math.abs(entryX);
 			const absEntryY = Math.abs(entryY);
 
+			const hitDiagonal = Math.abs(absEntryX - absEntryY) < 0.05;
 			const hitHorizontal = absEntryX > absEntryY;
-			if (hitHorizontal) {
+
+			// Physical collisions
+			if (hitDiagonal) {
+				// TODO: grab ledges if falling
+			} else if (hitHorizontal) {
 				if (entryX < 0) {
 					(self.position as Mutable<Vector2>)[0] = otherBox.right;
 				} else {
 					(self.position as Mutable<Vector2>)[0] = otherBox.left - self.width;
 				}
 
-				(self.force as Mutable<Vector2>)[0] *= -e;
-				(self.force as Mutable<Vector2>)[1] *= 0.5;
+				(self.force as Mutable<Vector2>)[0] = add(
+					multiply(multiply(self.force, self.mass), -self.restitution),
+					multiply(
+						multiply(multiply(other.force, other.mass), -other.restitution),
+						-1
+					)
+				)[0];
+				(self.force as Mutable<Vector2>)[1] *=
+					(1 + Math.max(self.roughness, other.roughness)) * 0.5;
 			} else {
 				if (entryY < 0) {
 					(self.position as Mutable<Vector2>)[1] = otherBox.bottom;
@@ -64,13 +75,20 @@ export const physics: Component<PhysicsObject> =
 					(self.position as Mutable<Vector2>)[1] = otherBox.top - self.height;
 				}
 
-				(self.force as Mutable<Vector2>)[1] *= -e;
+				(self.force as Mutable<Vector2>)[1] = add(
+					multiply(multiply(self.force, self.mass), -self.restitution),
+					multiply(
+						multiply(multiply(other.force, other.mass), -other.restitution),
+						-1
+					)
+				)[1];
 				(self.force as Mutable<Vector2>)[0] *=
 					1 - Math.max(self.roughness, other.roughness);
 			}
 		}
 
 		// TODO: extract checks into named boolean variables to make more clear
+		// WORLD boundaries
 		// right
 		if (self.position[0] + self.width > context.canvas.width) {
 			(self.position as Mutable<Vector2>)[0] =
@@ -116,9 +134,6 @@ export const physics: Component<PhysicsObject> =
 		// TODO: Figure out how to couple to game.timeScale
 		(self as Mutable<PhysicsObject>).position = add(
 			self.position,
-			multiply(
-				divide(multiply(self.force, 1 - game.world.drag), self.mass),
-				delta * 0.1
-			)
+			multiply(multiply(self.force, 1 - game.world.drag), delta * 0.1)
 		);
 	};

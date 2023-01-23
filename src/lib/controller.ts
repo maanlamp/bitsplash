@@ -6,6 +6,7 @@ import { Vector2 } from "lib/vector";
 export type ControllableObject = Readonly<{
 	gamepadIndex: number;
 	grounded: boolean;
+	onWall: boolean;
 }>;
 
 export const deadzone = (deadzone: number, x: number) =>
@@ -16,6 +17,7 @@ export const controller: Component<
 	ControllableObject & PhysicsObject
 > = game => {
 	// TODO: Couple to self.maxJumps to allow double or triple jumping
+	// TODO: different masses fuck up the controls and physics
 	let releasedJump = true;
 	return (self, context, delta) => {
 		const gamepad = navigator.getGamepads()[self.gamepadIndex]!;
@@ -23,7 +25,9 @@ export const controller: Component<
 			self.force[0] +
 			deadzone(0.5, gamepad.axes[0]) * (self.grounded ? 1 : 0.25);
 
+		// TODO: This reset causes state flickering between frames
 		(self as Mutable<ControllableObject>).grounded = false;
+		(self as Mutable<ControllableObject>).onWall = false;
 
 		if (deadzone(0.5, gamepad.axes[0])) {
 			(self as Mutable<PhysicsObject>).direction = Math.sign(gamepad.axes[0]);
@@ -31,8 +35,13 @@ export const controller: Component<
 
 		const outsideBottomBounds =
 			self.position[1] + self.height > context.canvas.height;
+		const outsideHorizontalBounds =
+			self.position[0] < 0 ||
+			self.position[0] + self.width > context.canvas.width;
 		if (outsideBottomBounds) {
 			(self as Mutable<ControllableObject>).grounded = true;
+		} else if (outsideHorizontalBounds) {
+			(self as Mutable<ControllableObject>).onWall = true;
 		}
 
 		const others: ReadonlyArray<PhysicsObject> = game.objects.filter(
@@ -56,30 +65,31 @@ export const controller: Component<
 			// TODO: ledge grab?
 			// const hitCorner = Math.abs(absEntryX - absEntryY) < 0.1;
 
-			if (absEntryX <= absEntryY) {
-				(self as Mutable<ControllableObject>).grounded = true;
+			if (absEntryX < absEntryY) {
+				if (entryY >= 0) (self as Mutable<ControllableObject>).grounded = true;
+			} else {
+				(self as Mutable<ControllableObject>).onWall = true;
 			}
 		}
 
-		const tryingToJump = gamepad.axes[1] < -0.5;
-		if (releasedJump && self.grounded && tryingToJump) {
-			(self.position as Mutable<Vector2>)[1] -= self.restitution;
-			(self.force as Mutable<Vector2>)[1] -= 25 * Math.abs(gamepad.axes[1]);
+		const tryingToJump = gamepad.buttons[3].pressed;
+		if (releasedJump && (self.grounded || self.onWall) && tryingToJump) {
+			if (self.onWall) {
+				(self.position as Mutable<Vector2>)[0] -= self.restitution;
+				(self.force as Mutable<Vector2>)[0] = self.direction === -1 ? 2 : -2;
+				(self.force as Mutable<Vector2>)[1] -= 20;
+
+				// TODO: Jump off walls
+			} else {
+				(self.position as Mutable<Vector2>)[1] -= self.restitution;
+				(self.force as Mutable<Vector2>)[1] -= 25;
+			}
 
 			releasedJump = false;
 			(self as Mutable<ControllableObject>).grounded = false;
+			(self as Mutable<ControllableObject>).onWall = false;
 		}
 
 		if (!releasedJump && !tryingToJump) releasedJump = true;
-
-		// context.save();
-		// context.moveTo(...add(self.position, divide([self.width, self.height], 2)));
-		// context.beginPath();
-		// context.lineTo(...multiply(add(self.position, self.force), 100));
-		// context.closePath();
-		// context.strokeStyle = "lime";
-		// context.lineWidth = 2;
-		// context.stroke();
-		// context.restore();
 	};
 };

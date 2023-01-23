@@ -105,6 +105,7 @@ const useCreateWallsOnDrag = () => {
 
 		const completeBox = (e: MouseEvent) => {
 			const index = game.objects.findIndex(x => x === box);
+			// TODO: Too small boxes crash the game
 			game.objects.splice(
 				index,
 				1,

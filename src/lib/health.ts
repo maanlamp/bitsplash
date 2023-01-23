@@ -14,6 +14,7 @@ fistRightImage.src = fistRightSrc;
 export type HealthyObject = Readonly<{
 	health: number;
 	invincible: number;
+	attacking: boolean;
 }>;
 
 export const healthbar: Component<PhysicsObject & HealthyObject> =
@@ -33,13 +34,12 @@ export const healthbar: Component<PhysicsObject & HealthyObject> =
 export const combat: Component<
 	PhysicsObject & ControllableObject & HealthyObject
 > = game => {
-	let attacking = false;
 	let releasedAttack = true;
 	let frames = 0;
 	const attackWidth = 30;
 	return (self, context, delta) => {
 		const fps = Math.round(1000 / delta);
-		const MAX_FRAMES = fps * 0.1;
+		const MAX_FRAMES = fps * 0.33;
 		const INVINCIBLE_FRAMES = fps;
 		// TODO: Extract to invincible component to prevent walls having to need a gamepad
 		if (self.invincible) {
@@ -54,12 +54,12 @@ export const combat: Component<
 			releasedAttack = true;
 		}
 
-		if (!attacking && releasedAttack && attackButton.pressed) {
-			attacking = true;
+		if (!self.attacking && releasedAttack && attackButton.pressed) {
+			(self as Mutable<HealthyObject>).attacking = true;
 			releasedAttack = false;
 		}
 
-		if (attacking) {
+		if (self.attacking) {
 			context.save();
 			context.fillStyle = "black";
 			context.drawImage(
@@ -74,7 +74,7 @@ export const combat: Component<
 			context.restore();
 
 			if (frames >= MAX_FRAMES) {
-				attacking = false;
+				(self as Mutable<HealthyObject>).attacking = false;
 				frames = 0;
 			}
 
@@ -90,14 +90,12 @@ export const combat: Component<
 
 				const facingRight = self.direction === 1;
 				const intersectY =
-					otherBox.top <= selfBox.top && otherBox.bottom >= selfBox.bottom;
-				const intersectX =
-					(facingRight &&
-						otherBox.left <= selfBox.right + attackWidth &&
-						otherBox.right >= selfBox.right + attackWidth) ||
-					(!facingRight &&
-						otherBox.right >= selfBox.left - attackWidth &&
-						otherBox.left <= selfBox.left - attackWidth);
+					otherBox.top <= selfBox.bottom && otherBox.bottom >= selfBox.top;
+				const intersectX = facingRight
+					? otherBox.left <= selfBox.right + attackWidth &&
+					  otherBox.right >= selfBox.right
+					: otherBox.right >= selfBox.left - attackWidth &&
+					  otherBox.left <= selfBox.left;
 
 				if (intersectY && intersectX) {
 					(other as Mutable<HealthyObject>).invincible = INVINCIBLE_FRAMES;
