@@ -22,10 +22,9 @@ export type Widget = {
 	crossAxisAlignment?: CrossAxisAlignment;
 	children?: Renderable[];
 	scroll?: Partial<AxisRect<number>>;
-	overflow?: Overflow;
+	background?: string | HTMLImageElement;
+	wrap?: boolean;
 };
-
-type Overflow = "hidden" | "visible";
 
 type MainAxisAlignment = "start" | "centre" | "space-between" | "end";
 
@@ -35,7 +34,7 @@ type Padding = Rect<number> | number;
 
 type LayoutDirection = "column" | "row";
 
-export type Renderable = string | Widget;
+export type Renderable = string | Widget | HTMLImageElement;
 
 type BoundingBox = { width: number; height: number };
 
@@ -84,8 +83,10 @@ export const measure = (
 ): BoundingBox => {
 	if (typeof renderable === "string") {
 		return measureText(context, renderable, constraints);
+	} else if (renderable.constructor === HTMLImageElement) {
+		return measureImage(renderable, constraints);
 	}
-	return measureWidget(context, renderable);
+	return measureWidget(context, renderable as Widget, constraints);
 };
 
 const measureText = (
@@ -98,13 +99,14 @@ const measureText = (
 		(widest, line) => Math.max(context.measureText(line).width, widest),
 		0
 	);
-	const height = lines.length * getFontSize(context) + 3;
+	const height = lines.length * (getFontSize(context) * 1.33) - 3;
 	return { width, height };
 };
 
 const measureWidget = (
 	context: CanvasRenderingContext2D,
-	widget: Widget
+	widget: Widget,
+	constraints?: BoundingBox
 ): BoundingBox => {
 	const padding = normalisePadding(widget.padding);
 	const direction = widget.direction ?? "row";
@@ -112,7 +114,11 @@ const measureWidget = (
 	let crossAxis = 0;
 	if (widget.children) {
 		for (const child of widget.children) {
-			const bounds = measure(context, child);
+			const composedConstraints = minBounds(constraints, {
+				width: (widget.width ?? Infinity) - padding.left - padding.right,
+				height: (widget.height ?? Infinity) - padding.top - padding.bottom,
+			});
+			const bounds = measure(context, child, composedConstraints);
 			mainAxis += direction === "column" ? bounds.height : bounds.width;
 			crossAxis = Math.max(
 				crossAxis,
@@ -138,16 +144,24 @@ const measureWidget = (
 	};
 };
 
+const measureImage = (
+	image: HTMLImageElement,
+	constraints?: BoundingBox
+): BoundingBox => minBounds(image, constraints);
+
 export const render = (
 	context: CanvasRenderingContext2D,
 	renderable: Renderable,
 	x: number,
-	y: number
+	y: number,
+	constraints?: BoundingBox
 ) => {
 	if (typeof renderable === "string") {
-		return renderText(context, renderable, x, y);
+		return renderText(context, renderable, x, y, constraints);
+	} else if (renderable.constructor === HTMLImageElement) {
+		return renderImage(context, renderable, x, y, constraints);
 	}
-	renderWidget(context, renderable, x, y);
+	renderWidget(context, renderable as Widget, x, y, constraints);
 };
 
 const renderText = (
@@ -160,55 +174,80 @@ const renderText = (
 	const lines = wrapText(context, text, constraints?.width);
 	const fontSize = getFontSize(context);
 	for (let i = 0; i < lines.length; i++) {
-		context.fillText(lines[i]!, x, y + (i + 1) * fontSize - 2);
+		context.fillText(lines[i]!, x, y + fontSize + i * (fontSize * 1.33) - 1);
 	}
+};
+
+const minBounds = (
+	a: BoundingBox | undefined,
+	b: BoundingBox | undefined
+): BoundingBox => {
+	if (!a) return b ?? { width: Infinity, height: Infinity };
+	if (!b) return a ?? { width: Infinity, height: Infinity };
+	return {
+		width: Math.min(a.width, b.width),
+		height: Math.min(a.height, b.height),
+	};
 };
 
 const renderWidget = (
 	context: CanvasRenderingContext2D,
 	widget: Widget,
 	x: number,
-	y: number
+	y: number,
+	constraints?: BoundingBox
 ) => {
-	context.save();
-	context.fillStyle = "rgba(255,255,255,.125)";
-	context.strokeStyle = "rgba(255,255,255,.75)";
-	const preferred = measure(context, widget);
+	const parentPadding = normalisePadding(widget.padding);
+	const direction = widget.direction ?? "row";
+	const mainAxisAlignment = widget.mainAxisAlignment ?? "start";
+	const crossAxisAlignment = widget.crossAxisAlignment ?? "start";
+	const preferred = measure(context, widget, {
+		width:
+			(constraints?.width ?? Infinity) -
+			parentPadding.left -
+			parentPadding.right,
+		height:
+			(constraints?.height ?? Infinity) -
+			parentPadding.top -
+			parentPadding.bottom,
+	});
 	const size = {
 		width: widget.width ?? preferred.width,
 		height: widget.height ?? preferred.height,
 	};
-	context.fillRect(x, y, size.width, size.height);
-	context.strokeRect(x, y, size.width, size.height);
-	context.restore();
+	if (widget.background)
+		renderBackground(context, widget.background, x, y, size);
 
 	context.save();
-	if (widget.overflow === "hidden") {
-		context.beginPath();
-		context.rect(x, y, size.width, size.height);
-		context.clip();
-		context.closePath();
-	}
-	const padding = normalisePadding(widget.padding);
-	const direction = widget.direction ?? "row";
-	const scrollable = widget.overflow === "hidden" ? 1 : 0;
+	context.beginPath();
+	context.rect(x, y, size.width, size.height);
+	context.clip();
+	context.closePath();
 	let offset = 0;
-	// Take axis alignments into account
+	// TODO: Take axis alignments into account
 	if (widget.children) {
+		const contentBounds = minBounds(
+			{
+				width: size.width - parentPadding.left - parentPadding.right,
+				height: size.height - parentPadding.top - parentPadding.bottom,
+			},
+			constraints
+		);
 		for (const child of widget.children) {
 			render(
 				context,
 				child,
 				x +
-					(widget.scroll?.horizontal ?? 0) * scrollable +
-					padding.left +
+					(widget.scroll?.horizontal ?? 0) +
+					parentPadding.left +
 					(direction === "row" ? offset : 0),
 				y +
-					(widget.scroll?.vertical ?? 0) * scrollable +
-					padding.top +
-					(direction === "row" ? 0 : offset)
+					(widget.scroll?.vertical ?? 0) +
+					parentPadding.top +
+					(direction === "row" ? 0 : offset),
+				contentBounds
 			);
-			const bounds = measure(context, child);
+			const bounds = measure(context, child, contentBounds);
 			offset +=
 				(direction === "column" ? bounds.height : bounds.width) +
 				(widget.gap ?? 0);
@@ -216,27 +255,60 @@ const renderWidget = (
 	}
 	context.restore();
 
-	if (widget.overflow === "hidden" && preferred.height > size.height) {
+	if (preferred.height > size.height) {
 		const scrollScale = size.height / preferred.height;
 		context.fillStyle = "white";
+		context.fillRect(x + size.width - 8, 4 + y, 4, 4);
+		context.fillRect(x + size.width - 6.5, 4 + y, 1, size.height - 12);
+		context.fillRect(x + size.width - 8, -8 + y + size.height, 4, 4);
 		context.fillRect(
 			x + size.width - 8,
-			4 + y + scrollScale * -(widget.scroll?.vertical ?? 0),
+			10 + y + scrollScale * -(widget.scroll?.vertical ?? 0),
 			4,
-			-16 + scrollScale * size.height
+			-20 + scrollScale * size.height
 		);
 	}
 
-	if (widget.overflow === "hidden" && preferred.width > size.width) {
+	if (preferred.width > size.width) {
 		const scrollScale = size.width / preferred.width;
 		context.fillStyle = "white";
+		context.fillRect(x + 4, -8 + y + size.height, 4, 4);
+		context.fillRect(x + 4, -6.5 + y + size.height, size.width - 12, 1);
+		context.fillRect(x + size.width - 8, -8 + y + size.height, 4, 4);
 		context.fillRect(
-			4 + x + scrollScale * -(widget.scroll?.horizontal ?? 0),
+			10 + x + scrollScale * -(widget.scroll?.horizontal ?? 0),
 			y + size.height - 8,
-			-16 + scrollScale * size.width,
+			-20 + scrollScale * size.width,
 			4
 		);
 	}
+};
+
+const renderBackground = (
+	context: CanvasRenderingContext2D,
+	background: Widget["background"],
+	x: number,
+	y: number,
+	size: BoundingBox
+) => {
+	context.save();
+	if (typeof background === "string") {
+		context.fillStyle = background;
+		context.fillRect(x, y, size.width, size.height);
+	} else {
+		throw "Not implemented.";
+	}
+	context.restore();
+};
+
+const renderImage = (
+	context: CanvasRenderingContext2D,
+	image: HTMLImageElement,
+	x: number,
+	y: number,
+	constraints?: BoundingBox
+) => {
+	throw "Not implemented.";
 };
 
 const wrapText = (
