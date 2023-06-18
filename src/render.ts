@@ -123,7 +123,13 @@ type GradientStop = {
 	offset: number;
 };
 
-export type Renderable = Text | Box;
+export type Renderable = Text | Box | Image;
+
+type Image = {
+	id: ReturnType<typeof crypto.randomUUID>;
+	type: "image";
+	image: HTMLImageElement;
+};
 
 type Constraints = {
 	minWidth?: number;
@@ -146,6 +152,9 @@ export const render = (
 			break;
 		case "box":
 			renderBox(context, renderable, position, constraints);
+			break;
+		case "image":
+			renderImage(context, renderable, position, constraints);
 			break;
 		default:
 			throw new Error(`Cannot render ${renderable}.`);
@@ -301,6 +310,21 @@ const renderBox = (
 	}
 };
 
+const renderImage = (
+	context: CanvasRenderingContext2D,
+	image: Image,
+	position: Point,
+	constraints?: Constraints
+) => {
+	context.drawImage(
+		image.image,
+		position.x,
+		position.y,
+		image.image.width,
+		image.image.height
+	);
+};
+
 const renderBackground = (
 	context: CanvasRenderingContext2D,
 	background: Partial<BackgroundStyle>,
@@ -362,6 +386,10 @@ export const measure = (
 		}
 		case "box": {
 			size = measureBox(context, renderable, constraints);
+			break;
+		}
+		case "image": {
+			size = measureImage(context, renderable, constraints);
 			break;
 		}
 		default:
@@ -498,5 +526,16 @@ const measureBox = (
 	return {
 		width: size.width + padding.horizontal,
 		height: size.height + padding.vertical,
+	};
+};
+
+const measureImage = (
+	context: CanvasRenderingContext2D,
+	image: Image,
+	constraints?: Constraints
+): Size => {
+	return {
+		width: image.image.width,
+		height: image.image.height,
 	};
 };

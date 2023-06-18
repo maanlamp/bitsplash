@@ -1,5 +1,6 @@
-import { Entity } from "./entity";
+import { Entity } from "./entity.js";
 import game from "./game.js";
+import { loadImage } from "./image.js";
 import {
 	CrossAxisAlignment,
 	LayoutDirection,
@@ -7,8 +8,12 @@ import {
 	render,
 } from "./render.js";
 
-const img = new Image();
-img.src = "https://i1.sndcdn.com/artworks-qboq5y833FMsteVT-tQdkzg-t500x500.jpg";
+const img = await loadImage(
+	"https://i1.sndcdn.com/artworks-qboq5y833FMsteVT-tQdkzg-t500x500.jpg"
+);
+const rocket = await loadImage("/src/rocket.svg");
+
+rocket.width = rocket.height = 16;
 
 const Box = (
 	direction: LayoutDirection,
@@ -27,23 +32,28 @@ const Box = (
 		children: [
 			{
 				id: crypto.randomUUID(),
-				type: "text",
-				style: { font: { size: 16 } },
-				text: "Lorem ipsum dolor sit amet.",
-			},
-			{
-				id: crypto.randomUUID(),
 				type: "box",
 				style: { background: { image: img } },
-				layout: { padding: { vertical: 8, left: 2, right: 128, bottom: 128 } },
+				layout: { padding: 32 },
 				children: [
 					{
 						id: crypto.randomUUID(),
 						type: "text",
 						style: { colour: "white", font: { size: 12 } },
-						text: "Consectetur adipiscing elit.",
+						text: "Lorem ipsum dolor sit amet.",
 					},
 				],
+			},
+			{
+				id: crypto.randomUUID(),
+				type: "image",
+				image: rocket,
+			},
+			{
+				id: crypto.randomUUID(),
+				type: "text",
+				style: { font: { size: 16 } },
+				text: "Consectetur adipiscing elit.",
 			},
 			{
 				id: crypto.randomUUID(),
