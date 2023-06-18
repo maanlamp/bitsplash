@@ -13,7 +13,7 @@ const img = await loadImage(
 );
 const rocket = await loadImage("/src/rocket.svg");
 
-rocket.width = rocket.height = 16;
+rocket.width = rocket.height = 32;
 
 const Box = (
 	direction: LayoutDirection,
@@ -22,7 +22,7 @@ const Box = (
 	const self: Renderable = {
 		id: crypto.randomUUID(),
 		type: "box",
-		style: { background: "rgb(200,200,200)" },
+		style: { background: "rgb(200,200,200)", border: { radius: 8 } },
 		layout: {
 			gap: 32,
 			direction: direction,
@@ -33,7 +33,17 @@ const Box = (
 			{
 				id: crypto.randomUUID(),
 				type: "box",
-				style: { background: { image: img } },
+				style: {
+					background: { image: img },
+					border: {
+						radius: {
+							topLeft: 32,
+							bottomLeft: 2,
+							topRight: 8,
+							bottomRight: 16,
+						},
+					},
+				},
 				layout: { padding: 32 },
 				children: [
 					{
@@ -60,6 +70,7 @@ const Box = (
 				type: "box",
 				layout: { padding: 4 },
 				style: {
+					border: { radius: 32 },
 					background: {
 						gradient: {
 							angle: 0,

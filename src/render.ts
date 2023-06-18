@@ -73,8 +73,20 @@ export enum CrossAxisAlignment {
 }
 
 type BoxStyle = {
-	border: Partial<SideRect<BorderStyle>>;
+	border: Partial<Border>;
 	background: Partial<BackgroundStyle>;
+};
+
+type Border = {
+	radius: number | Partial<CornerRect<number>>;
+	sides: Partial<SideRect<Partial<BorderStyle>>>;
+};
+
+type CornerRect<T> = {
+	topRight: T;
+	bottomRight: T;
+	bottomLeft: T;
+	topLeft: T;
 };
 
 type BorderStyle = {
@@ -248,6 +260,7 @@ const renderBox = (
 	position: Point,
 	constraints?: Constraints
 ) => {
+	context.save();
 	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
 	// TODO take mainAxisAlignment into account when there's more
 	// space than required along the main axis
@@ -259,6 +272,18 @@ const renderBox = (
 	const padding = normalisePadding(box.layout?.padding);
 
 	if (box.style?.background) {
+		if (box.style.border?.radius) {
+			const radii = normaliseRadii(box.style.border.radius);
+			context.beginPath();
+			context.roundRect(
+				position.x,
+				position.y,
+				preferred.width,
+				preferred.height,
+				radii
+			);
+			context.clip();
+		}
 		renderBackground(context, box.style.background, position, preferred);
 	}
 
@@ -308,6 +333,17 @@ const renderBox = (
 			if (i < box.children.length - 1) mainAxisOffset += gap;
 		}
 	}
+	context.restore();
+};
+
+const normaliseRadii = (radii: Border["radius"] | undefined) => {
+	if (typeof radii === "number") return [radii, radii, radii, radii];
+	return [
+		radii?.topLeft ?? 0,
+		radii?.topRight ?? 0,
+		radii?.bottomRight ?? 0,
+		radii?.bottomLeft ?? 0,
+	];
 };
 
 const renderImage = (
