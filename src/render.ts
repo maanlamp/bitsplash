@@ -404,7 +404,14 @@ const normalisePadding = (
 			horizontal: padding * 2,
 		};
 
-	const rect: Partial<AxisRect<number> & SideRect<number>> = {};
+	const rect = {
+		top: 0,
+		right: 0,
+		bottom: 0,
+		left: 0,
+		vertical: 0,
+		horizontal: 0,
+	};
 	if ((padding as AxisRect<number>).vertical) {
 		rect.top = (padding as AxisRect<number>).vertical;
 		rect.bottom = (padding as AxisRect<number>).vertical;
@@ -426,7 +433,10 @@ const normalisePadding = (
 		rect.left = (padding as SideRect<number>).left;
 	}
 
-	return rect as Required<typeof rect>;
+	rect.vertical = rect.top + rect.bottom;
+	rect.horizontal = rect.left + rect.right;
+
+	return rect;
 };
 
 const measureBox = (

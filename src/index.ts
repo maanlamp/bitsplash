@@ -36,7 +36,7 @@ const Box = (
 			{
 				type: "box",
 				style: { background: { image: img } },
-				layout: { padding: 8 },
+				layout: { padding: { vertical: 8, left: 2, right: 128 } },
 				children: [
 					{
 						type: "text",
