@@ -41,7 +41,6 @@ type Layout = {
 	direction: LayoutDirection;
 	gap: number;
 	wrap: boolean;
-	grow: boolean;
 	padding: number | Partial<Rect<number>>;
 };
 
@@ -62,18 +61,38 @@ type BorderStyle = {
 
 type BackgroundStyle = ColourBackground | ImageBackground | GradientBackground;
 
+const isImageBackground = (
+	background: Partial<BackgroundStyle>
+): background is Partial<ImageBackground> =>
+	!!(background as ImageBackground).image;
+
+const isGradientBackground = (
+	background: Partial<BackgroundStyle>
+): background is Partial<GradientBackground> =>
+	!!(background as GradientBackground).gradient;
+
 type ColourBackground = string;
 
 type ImageBackground = {
 	image: HTMLImageElement;
 	position: Point;
-	repeat: boolean;
+	fit: BackgroundFit;
 };
 
+export enum BackgroundFit {
+	Cover,
+	Contain,
+}
+
 type GradientBackground = {
-	gradient: GradientStop[];
+	gradient: Gradient;
 	position: Point;
-	repeat: boolean;
+	fit: BackgroundFit;
+};
+
+type Gradient = {
+	angle: number;
+	stops: GradientStop[];
 };
 
 type GradientStop = {
@@ -237,6 +256,35 @@ const renderBackground = (
 ) => {
 	if (typeof background === "string") {
 		context.fillStyle = background;
+		context.fillRect(position.x, position.y, size.width, size.height);
+	} else if (isImageBackground(background)) {
+		const fit = background.fit ?? BackgroundFit.Contain;
+		switch (fit) {
+			case BackgroundFit.Contain: {
+				context.drawImage(
+					background.image!,
+					position.x,
+					position.y,
+					size.width,
+					size.height
+				);
+				break;
+			}
+			default:
+				throw new Error(`Unhandled background fit "${fit}".`);
+		}
+	} else if (isGradientBackground(background)) {
+		// TODO: Figure out how to properly get w/h from angle using lendir
+		const gradient = context.createLinearGradient(
+			position.x,
+			position.y,
+			position.x + size.width,
+			position.y + size.height
+		);
+		for (const stop of background.gradient!.stops) {
+			gradient.addColorStop(stop.at, stop.color);
+		}
+		context.fillStyle = gradient;
 		context.fillRect(position.x, position.y, size.width, size.height);
 	} else {
 		throw new Error(`Unhandled background type ${background}.`);

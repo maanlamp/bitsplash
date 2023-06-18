@@ -20,3 +20,6 @@ export type AxisRect<T> = {
 };
 
 export type Rect<T> = SideRect<T> | AxisRect<T>;
+
+export const lendir = (len: number, rad: number) =>
+	[len * Math.cos(rad), len * Math.sin(rad)] as const;

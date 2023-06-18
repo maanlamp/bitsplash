@@ -51,21 +51,7 @@ const game: Game = {
 		// Update
 		lag += delta;
 		while (lag >= game.MS_PER_TICK) {
-			// if (game.mouse?.click) {
-			// 	for (const entity of game.entities) {
-			// 		// Handle click
-			// 	}
-			// 	delete game.mouse.click;
-			// }
-			// if (game.mouse?.scroll) {
-			// 	for (const entity of game.entities) {
-			// 		// Handle scroll
-			// 	}
-			// 	delete game.mouse.scroll;
-			// }
-
 			for (const entity of game.entities) entity.update?.();
-
 			tick++;
 			lag -= game.MS_PER_TICK;
 		}
@@ -127,22 +113,17 @@ window.addEventListener("contextmenu", e => {
 });
 
 window.addEventListener("wheel", e => {
-	const [x, y, dir] = [
-		e.pageX,
-		e.pageY,
-		(e.deltaY < 0
-			? e.shiftKey
-				? "left"
-				: "up"
-			: e.shiftKey
-			? "right"
-			: "down") as ScrollDirection,
-	];
 	// @ts-ignore Only the game is allowed to mutate mouse
-	(game.mouse ??= {}).scrollDirection = dir;
+	(game.mouse ??= {}).scrollDirection = (
+		e.deltaY < 0 ? (e.shiftKey ? "left" : "up") : e.shiftKey ? "right" : "down"
+	) as ScrollDirection;
 });
 
 // @ts-ignore DEBUG
 window.game = game;
+console.info(
+	`%cℹ️ You can inspect the current gamestate by typing "game" into the console.`,
+	"font-weight: 600"
+);
 
 export default game;
