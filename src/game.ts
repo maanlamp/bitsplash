@@ -34,10 +34,10 @@ let start = performance.now();
 let lag = 0;
 let delta = 0;
 let tick = -1;
-
+const TICKS_PER_SECOND = 120;
 const game: Game = {
-	TICKS_PER_SECOND: 120,
-	MS_PER_TICK: 1000 / 120,
+	TICKS_PER_SECOND,
+	MS_PER_TICK: 1000 / TICKS_PER_SECOND,
 	FPS: 0,
 	viewport,
 	entities: [],

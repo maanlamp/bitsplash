@@ -1,12 +1,21 @@
 import { Entity } from "./entity.js";
 import game from "./game.js";
-import { LayoutDirection, Renderable, render } from "./render.js";
+import {
+	CrossAxisAlignment,
+	LayoutDirection,
+	Renderable,
+	render,
+} from "./render.js";
 import { Point } from "./util.js";
 
 const img = new Image();
 img.src = "https://i1.sndcdn.com/artworks-qboq5y833FMsteVT-tQdkzg-t500x500.jpg";
 
-const Box = (position: Point, direction: LayoutDirection) => {
+const Box = (
+	position: Point,
+	direction: LayoutDirection,
+	crossAxisAlignment: CrossAxisAlignment
+) => {
 	const self: Renderable & Entity = {
 		id: crypto.randomUUID(),
 		type: "box",
@@ -16,6 +25,7 @@ const Box = (position: Point, direction: LayoutDirection) => {
 			gap: 32,
 			direction: direction,
 			padding: 16,
+			crossAxisAlignment,
 		},
 		children: [
 			{
@@ -26,7 +36,7 @@ const Box = (position: Point, direction: LayoutDirection) => {
 			{
 				type: "box",
 				style: { background: { image: img } },
-				layout: { padding: 16 },
+				layout: { padding: 8 },
 				children: [
 					{
 						type: "text",
@@ -43,8 +53,8 @@ const Box = (position: Point, direction: LayoutDirection) => {
 						gradient: {
 							angle: 0,
 							stops: [
-								{ at: 0, color: "red" },
-								{ at: 1, color: "blue" },
+								{ at: 0, color: "rgba(255,0,0,.33)" },
+								{ at: 1, color: "rgba(255,0,0,0)" },
 							],
 						},
 					},
@@ -64,8 +74,12 @@ const Box = (position: Point, direction: LayoutDirection) => {
 };
 
 game.entities = [
-	Box({ x: 100, y: 100 }, LayoutDirection.Row),
-	Box({ x: 100, y: 300 }, LayoutDirection.Column),
+	Box({ x: 100, y: 100 }, LayoutDirection.Row, CrossAxisAlignment.Start),
+	Box({ x: 100, y: 200 }, LayoutDirection.Row, CrossAxisAlignment.Centre),
+	Box({ x: 100, y: 300 }, LayoutDirection.Row, CrossAxisAlignment.End),
+	Box({ x: 100, y: 500 }, LayoutDirection.Column, CrossAxisAlignment.Start),
+	Box({ x: 400, y: 500 }, LayoutDirection.Column, CrossAxisAlignment.Centre),
+	Box({ x: 700, y: 500 }, LayoutDirection.Column, CrossAxisAlignment.End),
 ];
 
 game.loop();

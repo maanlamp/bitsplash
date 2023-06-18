@@ -10,7 +10,14 @@ type Text = {
 type TextLayout = {
 	gap: number;
 	wrap: boolean;
+	textAxisAlignment: TextAxisAlignment;
 };
+
+export enum TextAxisAlignment {
+	Start,
+	Centre,
+	End,
+}
 
 type TextStyle = {
 	font: Partial<FontStyle>;
@@ -39,6 +46,8 @@ type Box = {
 type Layout = {
 	size: Partial<Constraints>;
 	direction: LayoutDirection;
+	mainAxisAlignment: MainAxisAlignment;
+	crossAxisAlignment: CrossAxisAlignment;
 	gap: number;
 	wrap: boolean;
 	padding: number | Partial<Rect<number>>;
@@ -47,6 +56,18 @@ type Layout = {
 export enum LayoutDirection {
 	Row,
 	Column,
+}
+
+export enum MainAxisAlignment {
+	Start,
+	Centre,
+	End,
+}
+
+export enum CrossAxisAlignment {
+	Start,
+	Centre,
+	End,
 }
 
 type BoxStyle = {
@@ -211,6 +232,12 @@ const renderBox = (
 	constraints?: Constraints
 ) => {
 	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
+	// TODO take mainAxisAlignment into account when there's more
+	// space than required along the main axis
+	const mainAxisAlignment =
+		box.layout?.mainAxisAlignment ?? MainAxisAlignment.Start;
+	const crossAxisAlignment =
+		box.layout?.crossAxisAlignment ?? CrossAxisAlignment.Start;
 	const preferred = measure(context, box, constraints);
 	const padding = normalisePadding(box.layout?.padding);
 
@@ -218,24 +245,42 @@ const renderBox = (
 		renderBackground(context, box.style.background, position, preferred);
 	}
 
-	// TODO: This code is shared with measureBox
+	// TODO: share code with measureBox
 	const gap = box.layout?.gap ?? 0;
 	let mainAxisOffset = 0;
 	let crossAxisSize = 0;
 	if (box.children) {
 		for (let i = 0; i < box.children.length; i++) {
 			const child = box.children[i]!;
+			const size = measure(context, child, preferred);
+			const x =
+				position.x +
+				(layoutDirection === LayoutDirection.Column
+					? crossAxisAlignment === CrossAxisAlignment.Start
+						? 0
+						: crossAxisAlignment === CrossAxisAlignment.Centre
+						? preferred.width / 2 - size.width / 2 - padding.horizontal / 2
+						: preferred.width - size.width - padding.horizontal
+					: 0);
+			const y =
+				position.y +
+				(layoutDirection === LayoutDirection.Row
+					? crossAxisAlignment === CrossAxisAlignment.Start
+						? 0
+						: crossAxisAlignment === CrossAxisAlignment.Centre
+						? preferred.height / 2 - size.height / 2 - padding.horizontal / 2
+						: preferred.height - size.height - padding.horizontal
+					: 0);
 			render(context, child, {
 				x:
 					padding.left +
-					position.x +
+					x +
 					(layoutDirection === LayoutDirection.Row ? mainAxisOffset : 0),
 				y:
 					padding.top +
-					position.y +
+					y +
 					(layoutDirection === LayoutDirection.Column ? mainAxisOffset : 0),
 			});
-			const size = measure(context, child, preferred);
 			if (layoutDirection === LayoutDirection.Row) {
 				mainAxisOffset += size.width;
 				crossAxisSize = Math.max(crossAxisSize, size.height);
@@ -321,7 +366,11 @@ const measureText = (
 	const lineHeight =
 		measurement.fontBoundingBoxAscent +
 		measurement.fontBoundingBoxDescent * 1.5;
-	const lines = wrapText(context, text.text, preferred.width);
+	const lines = wrapText(
+		context,
+		text.text,
+		text.layout?.wrap ? preferred.width : Infinity
+	);
 	let maxLineWidth = 0;
 	for (const line of lines) {
 		maxLineWidth = Math.max(maxLineWidth, context.measureText(line).width);
@@ -385,7 +434,7 @@ const measureBox = (
 	box: Box,
 	constraints?: Constraints
 ): Size => {
-	// TODO: This code is shared with renderBox
+	// TODO: share code with renderBox
 	const padding = normalisePadding(box.layout?.padding);
 	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
 	const gap = box.layout?.gap ?? 0;
