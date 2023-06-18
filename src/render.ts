@@ -268,8 +268,8 @@ const renderBox = (
 					? crossAxisAlignment === CrossAxisAlignment.Start
 						? 0
 						: crossAxisAlignment === CrossAxisAlignment.Centre
-						? preferred.height / 2 - size.height / 2 - padding.horizontal / 2
-						: preferred.height - size.height - padding.horizontal
+						? preferred.height / 2 - size.height / 2 - padding.vertical / 2
+						: preferred.height - size.height - padding.vertical
 					: 0);
 			render(context, child, {
 				x:
