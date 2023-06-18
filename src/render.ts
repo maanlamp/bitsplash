@@ -1,314 +1,159 @@
-type Rect<T> = SideRect<T> | AxisRect<T>;
+import { AxisRect, Point, Rect, SideRect, Size } from "./util.js";
 
-type SideRect<T> = {
-	top: T;
-	right: T;
-	bottom: T;
-	left: T;
+type Text = {
+	type: "text";
+	text: string;
+	layout?: Partial<TextLayout>;
+	style?: Partial<TextStyle>;
 };
 
-type AxisRect<T> = {
-	vertical: T;
-	horizontal: T;
+type TextLayout = {
+	gap: number;
+	wrap: boolean;
 };
 
-export type Widget = {
-	width?: number;
-	height?: number;
-	padding?: Padding;
-	gap?: number;
-	direction?: LayoutDirection;
-	mainAxisAlignment?: MainAxisAlignment;
-	crossAxisAlignment?: CrossAxisAlignment;
+type TextStyle = {
+	font: Partial<FontStyle>;
+	weight: FontWeight;
+	colour: string;
+};
+
+export enum FontWeight {
+	Thin,
+	Normal,
+	Bold,
+}
+
+type FontStyle = {
+	family: string;
+	size: number;
+};
+
+type Box = {
+	type: "box";
+	layout?: Partial<Layout>;
+	style?: Partial<BoxStyle>;
 	children?: Renderable[];
-	scroll?: Partial<AxisRect<number>>;
-	background?: string | HTMLImageElement;
-	wrap?: boolean;
 };
 
-type MainAxisAlignment = "start" | "centre" | "space-between" | "end";
-
-type CrossAxisAlignment = "start" | "centre" | "end";
-
-type Padding = Rect<number> | number;
-
-type LayoutDirection = "column" | "row";
-
-export type Renderable = string | Widget | HTMLImageElement;
-
-type BoundingBox = { width: number; height: number };
-
-const DEFAULT_CANVAS_FONT_SIZE = 10;
-
-const normalisePadding = (padding?: Padding): SideRect<number> => {
-	if (!padding) return { top: 0, right: 0, bottom: 0, left: 0 };
-
-	if (typeof padding === "number")
-		return { top: padding, right: padding, bottom: padding, left: padding };
-
-	const newPadding: Partial<SideRect<number>> = {};
-	if ((padding as AxisRect<number>).horizontal) {
-		newPadding.left = newPadding.right = (
-			padding as AxisRect<number>
-		).horizontal;
-	}
-	if ((padding as AxisRect<number>).vertical) {
-		newPadding.top = newPadding.bottom = (padding as AxisRect<number>).vertical;
-	}
-	if ((padding as SideRect<number>).top) {
-		newPadding.top = (padding as SideRect<number>).top;
-	}
-	if ((padding as SideRect<number>).right) {
-		newPadding.right = (padding as SideRect<number>).right;
-	}
-	if ((padding as SideRect<number>).bottom) {
-		newPadding.bottom = (padding as SideRect<number>).bottom;
-	}
-	if ((padding as SideRect<number>).left) {
-		newPadding.left = (padding as SideRect<number>).left;
-	}
-
-	return newPadding as SideRect<number>;
+type Layout = {
+	size: Partial<Constraints>;
+	direction: LayoutDirection;
+	gap: number;
+	wrap: boolean;
+	grow: boolean;
+	padding: number | Partial<Rect<number>>;
 };
 
-const getFontSize = (context: CanvasRenderingContext2D) => {
-	const fontSizeString = context.font.match(/(\d+)px/)?.[1];
-	return fontSizeString ? Number(fontSizeString) : DEFAULT_CANVAS_FONT_SIZE;
+export enum LayoutDirection {
+	Row,
+	Column,
+}
+
+type BoxStyle = {
+	border: Partial<SideRect<BorderStyle>>;
+	background: Partial<BackgroundStyle>;
 };
 
-export const measure = (
-	context: CanvasRenderingContext2D,
-	renderable: Renderable,
-	constraints?: BoundingBox
-): BoundingBox => {
-	if (typeof renderable === "string") {
-		return measureText(context, renderable, constraints);
-	} else if (renderable.constructor === HTMLImageElement) {
-		return measureImage(renderable, constraints);
-	}
-	return measureWidget(context, renderable as Widget, constraints);
+type BorderStyle = {
+	colour: string;
+	thickness: number;
 };
 
-const measureText = (
-	context: CanvasRenderingContext2D,
-	text: string,
-	constraints?: BoundingBox
-): BoundingBox => {
-	const lines = wrapText(context, text, constraints?.width);
-	const width = lines.reduce(
-		(widest, line) => Math.max(context.measureText(line).width, widest),
-		0
-	);
-	const height = lines.length * (getFontSize(context) * 1.33) - 3;
-	return { width, height };
+type BackgroundStyle = ColourBackground | ImageBackground | GradientBackground;
+
+type ColourBackground = string;
+
+type ImageBackground = {
+	image: HTMLImageElement;
+	position: Point;
+	repeat: boolean;
 };
 
-const measureWidget = (
-	context: CanvasRenderingContext2D,
-	widget: Widget,
-	constraints?: BoundingBox
-): BoundingBox => {
-	const padding = normalisePadding(widget.padding);
-	const direction = widget.direction ?? "row";
-	let mainAxis = 0;
-	let crossAxis = 0;
-	if (widget.children) {
-		for (const child of widget.children) {
-			const composedConstraints = minBounds(constraints, {
-				width: (widget.width ?? Infinity) - padding.left - padding.right,
-				height: (widget.height ?? Infinity) - padding.top - padding.bottom,
-			});
-			const bounds = measure(context, child, composedConstraints);
-			mainAxis += direction === "column" ? bounds.height : bounds.width;
-			crossAxis = Math.max(
-				crossAxis,
-				direction === "column" ? bounds.width : bounds.height
-			);
-		}
-	}
-	return {
-		width:
-			padding.left +
-			(direction === "column" ? crossAxis : mainAxis) +
-			padding.right +
-			(direction === "column"
-				? 0
-				: (widget.gap ?? 0) * ((widget.children?.length ?? 1) - 1)),
-		height:
-			padding.top +
-			(direction === "column" ? mainAxis : crossAxis) +
-			padding.bottom +
-			(direction === "column"
-				? (widget.gap ?? 0) * ((widget.children?.length ?? 1) - 1)
-				: 0),
-	};
+type GradientBackground = {
+	gradient: GradientStop[];
+	position: Point;
+	repeat: boolean;
 };
 
-const measureImage = (
-	image: HTMLImageElement,
-	constraints?: BoundingBox
-): BoundingBox => minBounds(image, constraints);
+type GradientStop = {
+	color: string;
+	at: number;
+};
+
+export type Renderable = Text | Box;
+
+type Constraints = {
+	minWidth?: number;
+	width?: number;
+	maxWidth?: number;
+	minHeight?: number;
+	height?: number;
+	maxHeight?: number;
+};
 
 export const render = (
 	context: CanvasRenderingContext2D,
 	renderable: Renderable,
-	x: number,
-	y: number,
-	constraints?: BoundingBox
+	position: Point,
+	constraints?: Constraints
 ) => {
-	if (typeof renderable === "string") {
-		return renderText(context, renderable, x, y, constraints);
-	} else if (renderable.constructor === HTMLImageElement) {
-		return renderImage(context, renderable, x, y, constraints);
+	switch (renderable.type) {
+		case "text":
+			renderText(context, renderable, position, constraints);
+			break;
+		case "box":
+			renderBox(context, renderable, position, constraints);
+			break;
+		default:
+			throw new Error(`Cannot render ${renderable}.`);
 	}
-	renderWidget(context, renderable as Widget, x, y, constraints);
+};
+
+const instantiateConstraints = (
+	constraints: Constraints | undefined,
+	grow?: boolean
+): Size => {
+	const width = Math.max(
+		constraints?.minWidth ?? 0,
+		Math.min(
+			constraints?.maxWidth ?? Infinity,
+			constraints?.width ?? (grow ? Infinity : 0)
+		)
+	);
+	const height = Math.max(
+		constraints?.minHeight ?? 0,
+		Math.min(
+			constraints?.maxHeight ?? Infinity,
+			constraints?.height ?? (grow ? Infinity : 0)
+		)
+	);
+	return { width, height };
 };
 
 const renderText = (
 	context: CanvasRenderingContext2D,
-	text: string,
-	x: number,
-	y: number,
-	constraints?: BoundingBox
+	text: Text,
+	position: Point,
+	constraints?: Constraints
 ) => {
-	const lines = wrapText(context, text, constraints?.width);
-	const fontSize = getFontSize(context);
+	const fontSize = text.style?.font?.size ?? 10;
+	const fontFamily = text.style?.font?.family ?? "serif";
+	const gap = text.layout?.gap ?? 0;
+	const textColour = text.style?.colour ?? "black";
+	const preferred = instantiateConstraints(constraints, true);
+
+	context.font = `${fontSize}px ${fontFamily}`;
+	const lines = wrapText(context, text.text, preferred.width);
+
+	context.fillStyle = textColour;
 	for (let i = 0; i < lines.length; i++) {
-		context.fillText(lines[i]!, x, y + fontSize + i * (fontSize * 1.33) - 1);
-	}
-};
-
-const minBounds = (
-	a: BoundingBox | undefined,
-	b: BoundingBox | undefined
-): BoundingBox => {
-	if (!a) return b ?? { width: Infinity, height: Infinity };
-	if (!b) return a ?? { width: Infinity, height: Infinity };
-	return {
-		width: Math.min(a.width, b.width),
-		height: Math.min(a.height, b.height),
-	};
-};
-
-const renderWidget = (
-	context: CanvasRenderingContext2D,
-	widget: Widget,
-	x: number,
-	y: number,
-	constraints?: BoundingBox
-) => {
-	const parentPadding = normalisePadding(widget.padding);
-	const direction = widget.direction ?? "row";
-	const mainAxisAlignment = widget.mainAxisAlignment ?? "start";
-	const crossAxisAlignment = widget.crossAxisAlignment ?? "start";
-	const preferred = measure(context, widget, {
-		width:
-			(constraints?.width ?? Infinity) -
-			parentPadding.left -
-			parentPadding.right,
-		height:
-			(constraints?.height ?? Infinity) -
-			parentPadding.top -
-			parentPadding.bottom,
-	});
-	const size = {
-		width: widget.width ?? preferred.width,
-		height: widget.height ?? preferred.height,
-	};
-	if (widget.background)
-		renderBackground(context, widget.background, x, y, size);
-
-	context.save();
-	context.beginPath();
-	context.rect(x, y, size.width, size.height);
-	context.clip();
-	context.closePath();
-	let offset = 0;
-	// TODO: Take axis alignments into account
-	if (widget.children) {
-		const contentBounds = minBounds(
-			{
-				width: size.width - parentPadding.left - parentPadding.right,
-				height: size.height - parentPadding.top - parentPadding.bottom,
-			},
-			constraints
-		);
-		for (const child of widget.children) {
-			render(
-				context,
-				child,
-				x +
-					(widget.scroll?.horizontal ?? 0) +
-					parentPadding.left +
-					(direction === "row" ? offset : 0),
-				y +
-					(widget.scroll?.vertical ?? 0) +
-					parentPadding.top +
-					(direction === "row" ? 0 : offset),
-				contentBounds
-			);
-			const bounds = measure(context, child, contentBounds);
-			offset +=
-				(direction === "column" ? bounds.height : bounds.width) +
-				(widget.gap ?? 0);
-		}
-	}
-	context.restore();
-
-	if (preferred.height > size.height) {
-		const scrollScale = size.height / preferred.height;
-		context.fillStyle = "white";
-		context.fillRect(x + size.width - 8, 4 + y, 4, 4);
-		context.fillRect(x + size.width - 6.5, 4 + y, 1, size.height - 12);
-		context.fillRect(x + size.width - 8, -8 + y + size.height, 4, 4);
-		context.fillRect(
-			x + size.width - 8,
-			10 + y + scrollScale * -(widget.scroll?.vertical ?? 0),
-			4,
-			-20 + scrollScale * size.height
+		context.fillText(
+			lines[i]!,
+			position.x,
+			position.y + fontSize * (i + 1) + gap * Math.max(0, i)
 		);
 	}
-
-	if (preferred.width > size.width) {
-		const scrollScale = size.width / preferred.width;
-		context.fillStyle = "white";
-		context.fillRect(x + 4, -8 + y + size.height, 4, 4);
-		context.fillRect(x + 4, -6.5 + y + size.height, size.width - 12, 1);
-		context.fillRect(x + size.width - 8, -8 + y + size.height, 4, 4);
-		context.fillRect(
-			10 + x + scrollScale * -(widget.scroll?.horizontal ?? 0),
-			y + size.height - 8,
-			-20 + scrollScale * size.width,
-			4
-		);
-	}
-};
-
-const renderBackground = (
-	context: CanvasRenderingContext2D,
-	background: Widget["background"],
-	x: number,
-	y: number,
-	size: BoundingBox
-) => {
-	context.save();
-	if (typeof background === "string") {
-		context.fillStyle = background;
-		context.fillRect(x, y, size.width, size.height);
-	} else {
-		throw "Not implemented.";
-	}
-	context.restore();
-};
-
-const renderImage = (
-	context: CanvasRenderingContext2D,
-	image: HTMLImageElement,
-	x: number,
-	y: number,
-	constraints?: BoundingBox
-) => {
-	throw "Not implemented.";
 };
 
 const wrapText = (
@@ -338,4 +183,193 @@ const wrapText = (
 		lines[lines.length - 1]!.push(word);
 	}
 	return lines.map(line => line.join(" "));
+};
+
+const renderBox = (
+	context: CanvasRenderingContext2D,
+	box: Box,
+	position: Point,
+	constraints?: Constraints
+) => {
+	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
+	const preferred = measure(context, box, constraints);
+	const padding = normalisePadding(box.layout?.padding);
+
+	if (box.style?.background) {
+		renderBackground(context, box.style.background, position, preferred);
+	}
+
+	// TODO: This code is shared with measureBox
+	const gap = box.layout?.gap ?? 0;
+	let mainAxisOffset = 0;
+	let crossAxisSize = 0;
+	if (box.children) {
+		for (let i = 0; i < box.children.length; i++) {
+			const child = box.children[i]!;
+			render(context, child, {
+				x:
+					padding.left +
+					position.x +
+					(layoutDirection === LayoutDirection.Row ? mainAxisOffset : 0),
+				y:
+					padding.top +
+					position.y +
+					(layoutDirection === LayoutDirection.Column ? mainAxisOffset : 0),
+			});
+			const size = measure(context, child, preferred);
+			if (layoutDirection === LayoutDirection.Row) {
+				mainAxisOffset += size.width;
+				crossAxisSize = Math.max(crossAxisSize, size.height);
+			} else {
+				mainAxisOffset += size.height;
+				crossAxisSize = Math.max(crossAxisSize, size.width);
+			}
+			if (i < box.children.length - 1) mainAxisOffset += gap;
+		}
+	}
+};
+
+const renderBackground = (
+	context: CanvasRenderingContext2D,
+	background: Partial<BackgroundStyle>,
+	position: Point,
+	size: Size
+) => {
+	if (typeof background === "string") {
+		context.fillStyle = background;
+		context.fillRect(position.x, position.y, size.width, size.height);
+	} else {
+		throw new Error(`Unhandled background type ${background}.`);
+	}
+};
+
+export const measure = (
+	context: CanvasRenderingContext2D,
+	renderable: Renderable,
+	constraints?: Constraints
+): Size => {
+	switch (renderable.type) {
+		case "text":
+			return measureText(context, renderable, constraints);
+		case "box":
+			return measureBox(context, renderable, constraints);
+		default:
+			throw new Error(`Cannot measure ${renderable}.`);
+	}
+};
+
+const measureText = (
+	context: CanvasRenderingContext2D,
+	text: Text,
+	constraints?: Constraints
+): Size => {
+	const fontSize = text.style?.font?.size ?? 10;
+	const fontFamily = text.style?.font?.family ?? "serif";
+	const gap = text.layout?.gap ?? 0;
+	const preferred = instantiateConstraints(constraints, true);
+
+	context.font = `${fontSize}px ${fontFamily}`;
+	const measurement = context.measureText("");
+	const lineHeight =
+		measurement.fontBoundingBoxAscent +
+		measurement.fontBoundingBoxDescent * 1.5;
+	const lines = wrapText(context, text.text, preferred.width);
+	let maxLineWidth = 0;
+	for (const line of lines) {
+		maxLineWidth = Math.max(maxLineWidth, context.measureText(line).width);
+	}
+
+	return {
+		width: maxLineWidth,
+		height: lines.length * lineHeight + gap * (lines.length - 1),
+	};
+};
+
+const normalisePadding = (
+	padding: Layout["padding"] | undefined
+): AxisRect<number> & SideRect<number> => {
+	if (!padding)
+		return {
+			top: 0,
+			right: 0,
+			bottom: 0,
+			left: 0,
+			vertical: 0,
+			horizontal: 0,
+		};
+	if (typeof padding === "number")
+		return {
+			top: padding,
+			right: padding,
+			bottom: padding,
+			left: padding,
+			vertical: padding * 2,
+			horizontal: padding * 2,
+		};
+
+	const rect: Partial<AxisRect<number> & SideRect<number>> = {};
+	if ((padding as AxisRect<number>).vertical) {
+		rect.top = (padding as AxisRect<number>).vertical;
+		rect.bottom = (padding as AxisRect<number>).vertical;
+	}
+	if ((padding as AxisRect<number>).horizontal) {
+		rect.left = (padding as AxisRect<number>).horizontal;
+		rect.right = (padding as AxisRect<number>).horizontal;
+	}
+	if ((padding as SideRect<number>).top) {
+		rect.top = (padding as SideRect<number>).top;
+	}
+	if ((padding as SideRect<number>).right) {
+		rect.right = (padding as SideRect<number>).right;
+	}
+	if ((padding as SideRect<number>).bottom) {
+		rect.bottom = (padding as SideRect<number>).bottom;
+	}
+	if ((padding as SideRect<number>).left) {
+		rect.left = (padding as SideRect<number>).left;
+	}
+
+	return rect as Required<typeof rect>;
+};
+
+const measureBox = (
+	context: CanvasRenderingContext2D,
+	box: Box,
+	constraints?: Constraints
+): Size => {
+	// TODO: This code is shared with renderBox
+	const padding = normalisePadding(box.layout?.padding);
+	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
+	const gap = box.layout?.gap ?? 0;
+	let mainAxisOffset = 0;
+	let crossAxisSize = 0;
+	if (box.children) {
+		for (let i = 0; i < box.children.length; i++) {
+			const child = box.children[i]!;
+			const size = measure(context, child, constraints);
+			if (layoutDirection === LayoutDirection.Row) {
+				mainAxisOffset += size.width;
+				crossAxisSize = Math.max(crossAxisSize, size.height);
+			} else {
+				mainAxisOffset += size.height;
+				crossAxisSize = Math.max(crossAxisSize, size.width);
+			}
+			if (i < box.children.length - 1) mainAxisOffset += gap;
+		}
+	}
+
+	const size =
+		layoutDirection === LayoutDirection.Row
+			? {
+					width: mainAxisOffset,
+					height: crossAxisSize,
+			  }
+			: {
+					width: crossAxisSize,
+					height: mainAxisOffset,
+			  };
+	return {
+		width: size.width + padding.horizontal,
+		height: size.height + padding.vertical,
+	};
 };
