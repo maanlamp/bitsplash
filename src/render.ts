@@ -1,6 +1,7 @@
 import { AxisRect, Point, Rect, SideRect, Size } from "./util.js";
 
 type Text = {
+	id: ReturnType<(typeof crypto)["randomUUID"]>;
 	type: "text";
 	text: string;
 	layout?: Partial<TextLayout>;
@@ -37,6 +38,7 @@ type FontStyle = {
 };
 
 type Box = {
+	id: ReturnType<(typeof crypto)["randomUUID"]>;
 	type: "box";
 	layout?: Partial<Layout>;
 	style?: Partial<BoxStyle>;
@@ -118,7 +120,7 @@ type Gradient = {
 
 type GradientStop = {
 	color: string;
-	at: number;
+	offset: number;
 };
 
 export type Renderable = Text | Box;
@@ -196,11 +198,16 @@ const renderText = (
 	}
 };
 
+const WRAP_CACHE: Record<string, string[]> = {};
+
 const wrapText = (
 	context: CanvasRenderingContext2D,
 	text: string,
 	maxWidth: number = Infinity
 ) => {
+	const cacheKey = text + maxWidth;
+	if (WRAP_CACHE[cacheKey]) return WRAP_CACHE[cacheKey]!;
+
 	const words = text
 		.split(/[\r\f\v\t ]+/)
 		.flatMap(word => word.split(/(\n)/))
@@ -222,7 +229,8 @@ const wrapText = (
 		}
 		lines[lines.length - 1]!.push(word);
 	}
-	return lines.map(line => line.join(" "));
+
+	return (WRAP_CACHE[cacheKey] = lines.map(line => line.join(" ")));
 };
 
 const renderBox = (
@@ -234,8 +242,8 @@ const renderBox = (
 	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
 	// TODO take mainAxisAlignment into account when there's more
 	// space than required along the main axis
-	const mainAxisAlignment =
-		box.layout?.mainAxisAlignment ?? MainAxisAlignment.Start;
+	// const mainAxisAlignment =
+	// 	box.layout?.mainAxisAlignment ?? MainAxisAlignment.Start;
 	const crossAxisAlignment =
 		box.layout?.crossAxisAlignment ?? CrossAxisAlignment.Start;
 	const preferred = measure(context, box, constraints);
@@ -327,7 +335,7 @@ const renderBackground = (
 			position.y + size.height
 		);
 		for (const stop of background.gradient!.stops) {
-			gradient.addColorStop(stop.at, stop.color);
+			gradient.addColorStop(stop.offset, stop.color);
 		}
 		context.fillStyle = gradient;
 		context.fillRect(position.x, position.y, size.width, size.height);
@@ -336,19 +344,31 @@ const renderBackground = (
 	}
 };
 
+const MEASURE_CACHE: Record<Renderable["id"], Size> = {};
+
 export const measure = (
 	context: CanvasRenderingContext2D,
 	renderable: Renderable,
 	constraints?: Constraints
 ): Size => {
+	// TODO: Invalidate cache on reflow
+	// if (MEASURE_CACHE[renderable.id]) return MEASURE_CACHE[renderable.id]!;
+
+	let size: Size;
 	switch (renderable.type) {
-		case "text":
-			return measureText(context, renderable, constraints);
-		case "box":
-			return measureBox(context, renderable, constraints);
+		case "text": {
+			size = measureText(context, renderable, constraints);
+			break;
+		}
+		case "box": {
+			size = measureBox(context, renderable, constraints);
+			break;
+		}
 		default:
 			throw new Error(`Cannot measure ${renderable}.`);
 	}
+
+	return (MEASURE_CACHE[renderable.id] = size);
 };
 
 const measureText = (

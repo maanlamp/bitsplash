@@ -17,6 +17,8 @@ type Game = {
 	readonly TICKS_PER_SECOND: number;
 	readonly MS_PER_TICK: number;
 	readonly FPS: number;
+	readonly LAST_FRAMETIME: number;
+	readonly REFRESH_RATE: number;
 
 	readonly mouse?: {
 		x: number;
@@ -35,10 +37,13 @@ let lag = 0;
 let delta = 0;
 let tick = -1;
 const TICKS_PER_SECOND = 120;
+const REFRESH_RATE = 60; // Should be the monitor's refresh rate but you can't really get that from anywhere
 const game: Game = {
 	TICKS_PER_SECOND,
+	LAST_FRAMETIME: 0,
 	MS_PER_TICK: 1000 / TICKS_PER_SECOND,
 	FPS: 0,
+	REFRESH_RATE,
 	viewport,
 	entities: [],
 	loop: () => {
@@ -62,18 +67,31 @@ const game: Game = {
 		viewport.fillRect(0, 0, viewport.canvas.width, viewport.canvas.height);
 		const sizeString = viewport.canvas.width + " × " + viewport.canvas.height;
 		viewport.fillStyle = "black";
-		viewport.fillText("Δt " + delta.toFixed(2) + " ~ " + lag.toFixed(2), 3, 15);
+		viewport.fillText(
+			"Δt " + delta.toFixed(2) + "ms" + " ~ " + lag.toFixed(2) + "ms",
+			3,
+			15
+		);
 		viewport.fillText(tick.toString(), 3, 31);
 		viewport.fillText(
-			Math.round(game.FPS) + " fps @ " + game.TICKS_PER_SECOND + " tps",
+			"fps " +
+				Math.round(game.FPS) +
+				" ~ " +
+				game.LAST_FRAMETIME.toFixed(2) +
+				"/" +
+				(1000 / REFRESH_RATE).toFixed(2) +
+				"ms",
 			3,
 			46
 		);
+		viewport.fillText("tps " + game.TICKS_PER_SECOND, 3, 61);
 		viewport.fillText(
 			sizeString,
 			viewport.canvas.width - viewport.measureText(sizeString).width - 3,
 			15
 		);
+
+		const before = performance.now();
 		for (const entity of game.entities) {
 			if (entity.render) {
 				viewport.save();
@@ -81,6 +99,9 @@ const game: Game = {
 				viewport.restore();
 			}
 		}
+
+		// @ts-ignore Only the game is allowed to mutate LAST_FRAMETIME
+		game.LAST_FRAMETIME = performance.now() - before;
 	},
 };
 
