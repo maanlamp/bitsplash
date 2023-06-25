@@ -1,577 +1,273 @@
-import { AxisRect, Point, Rect, SideRect, Size } from "./util.js";
-
-type Text = {
-	id: ReturnType<(typeof crypto)["randomUUID"]>;
-	type: "text";
-	text: string;
-	layout?: Partial<TextLayout>;
-	style?: Partial<TextStyle>;
-};
-
-type TextLayout = {
-	gap: number;
-	wrap: boolean;
-	textAxisAlignment: TextAxisAlignment;
-};
-
-export enum TextAxisAlignment {
-	Start,
-	Centre,
-	End,
-}
-
-type TextStyle = {
-	font: Partial<FontStyle>;
-	weight: FontWeight;
-	colour: string;
-};
-
-export enum FontWeight {
-	Thin,
-	Normal,
-	Bold,
-}
-
-type FontStyle = {
-	family: string;
-	size: number;
-};
-
-type Box = {
-	id: ReturnType<(typeof crypto)["randomUUID"]>;
-	type: "box";
-	layout?: Partial<Layout>;
-	style?: Partial<BoxStyle>;
-	children?: Renderable[];
-};
-
-type Layout = {
-	size: Partial<Constraints>;
-	direction: LayoutDirection;
-	mainAxisAlignment: MainAxisAlignment;
-	crossAxisAlignment: CrossAxisAlignment;
-	gap: number;
-	wrap: boolean;
-	padding: number | Partial<Rect<number>>;
-};
-
-export enum LayoutDirection {
-	Row,
-	Column,
-}
-
-export enum MainAxisAlignment {
-	Start,
-	Centre,
-	End,
-}
-
-export enum CrossAxisAlignment {
-	Start,
-	Centre,
-	End,
-}
-
-type BoxStyle = {
-	border: Partial<Border>;
-	background: Partial<BackgroundStyle>;
-};
-
-type Border = {
-	radius: number | Partial<CornerRect<number>>;
-	sides: Partial<SideRect<Partial<BorderStyle>>>;
-};
-
-type CornerRect<T> = {
-	topRight: T;
-	bottomRight: T;
-	bottomLeft: T;
-	topLeft: T;
-};
-
-type BorderStyle = {
-	colour: string;
-	thickness: number;
-};
-
-type BackgroundStyle = ColourBackground | ImageBackground | GradientBackground;
-
-const isImageBackground = (
-	background: Partial<BackgroundStyle>
-): background is Partial<ImageBackground> =>
-	!!(background as ImageBackground).image;
-
-const isGradientBackground = (
-	background: Partial<BackgroundStyle>
-): background is Partial<GradientBackground> =>
-	!!(background as GradientBackground).gradient;
-
-type ColourBackground = string;
-
-type ImageBackground = {
-	image: HTMLImageElement;
-	position: Point;
-	fit: BackgroundFit;
-};
-
-export enum BackgroundFit {
-	Cover,
-	Contain,
-}
-
-type GradientBackground = {
-	gradient: Gradient;
-	position: Point;
-	fit: BackgroundFit;
-};
-
-type Gradient = {
-	angle: number;
-	stops: GradientStop[];
-};
-
-type GradientStop = {
-	color: string;
-	offset: number;
-};
-
-export type Renderable = Text | Box | Image;
+import { Size } from "./canvas.js";
 
 type Image = {
-	id: ReturnType<typeof crypto.randomUUID>;
 	type: "image";
 	image: HTMLImageElement;
 };
 
-type Constraints = {
-	minWidth?: number;
-	width?: number;
-	maxWidth?: number;
-	minHeight?: number;
-	height?: number;
-	maxHeight?: number;
+type Flex = {
+	type: "flex";
+	layout?: Partial<FlexLayout>;
+	style?: Partial<FlexStyle>;
+	children?: Node[];
 };
 
-export const render = (
-	context: CanvasRenderingContext2D,
-	renderable: Renderable,
-	position: Point,
-	constraints?: Constraints
-) => {
-	switch (renderable.type) {
+type FlexLayout = {
+	direction: "column" | "row";
+	gap: number;
+	mainAxisAlignment: "start" | "center" | "end" | "space-between";
+	crossAxisAlignment: "start" | "center" | "end";
+	width: number;
+	height: number;
+};
+
+type FlexStyle = {
+	background: string;
+};
+
+type Text = {
+	type: "text";
+	text: string;
+	style?: Partial<TextStyle>;
+};
+
+type TextStyle = {
+	color: string;
+	fontFamily: string;
+	size: number;
+};
+
+type Element = Image | Flex;
+
+type Node = Text | Element;
+
+const measure = (node: Node, context: CanvasRenderingContext2D) => {
+	switch (node.type) {
 		case "text":
-			renderText(context, renderable, position, constraints);
-			break;
-		case "box":
-			renderBox(context, renderable, position, constraints);
-			break;
+			return measureText(node, context);
 		case "image":
-			renderImage(context, renderable, position, constraints);
-			break;
+			return measureImage(node, context);
+		case "flex":
+			return measureFlex(node, context);
 		default:
-			throw new Error(`Cannot render ${renderable}.`);
+			throw new Error(`Cannot measure node of type "${(node as any).type}".`);
 	}
 };
 
-const instantiateConstraints = (
-	constraints: Constraints | undefined,
-	grow?: boolean
-): Size => {
-	const width = Math.max(
-		constraints?.minWidth ?? 0,
-		Math.min(
-			constraints?.maxWidth ?? Infinity,
-			constraints?.width ?? (grow ? Infinity : 0)
-		)
-	);
-	const height = Math.max(
-		constraints?.minHeight ?? 0,
-		Math.min(
-			constraints?.maxHeight ?? Infinity,
-			constraints?.height ?? (grow ? Infinity : 0)
-		)
-	);
-	return { width, height };
+const measureText = (text: Text, context: CanvasRenderingContext2D) => {
+	context.save();
+	context.fillStyle = text.style?.color ?? "black";
+	const fontFamily = text.style?.fontFamily ?? "sans-serif";
+	const fontSize = text.style?.size ?? 20;
+	context.font = fontSize + "px " + fontFamily;
+	const measured = context.measureText(text.text);
+	context.restore();
+	return {
+		width: measured.width,
+		height: measured.fontBoundingBoxAscent + measured.fontBoundingBoxDescent,
+	};
+};
+
+const measureImage = (image: Image, context: CanvasRenderingContext2D) => {
+	return { width: image.image.width, height: image.image.height };
+};
+
+const measureFlex = (flex: Flex, context: CanvasRenderingContext2D) => {
+	const direction = flex.layout?.direction ?? "row";
+	const gap = flex.layout?.gap ?? 0;
+	let mainAxisSize = 0;
+	let crossAxisSize = 0;
+
+	if (flex.children) {
+		const childCount = flex.children.length;
+		for (let i = 0; i < childCount; i++) {
+			const child = flex.children[i]!;
+			const size = measure(child, context);
+			if (direction === "row") {
+				mainAxisSize += size.width;
+				crossAxisSize = Math.max(crossAxisSize, size.height);
+				if (i !== childCount - 1) mainAxisSize += gap;
+			} else {
+				mainAxisSize += size.height;
+				crossAxisSize = Math.max(crossAxisSize, size.width);
+				if (i !== childCount - 1) mainAxisSize += gap;
+			}
+		}
+	}
+
+	if (direction === "row") {
+		return { width: mainAxisSize, height: crossAxisSize };
+	} else {
+		return { width: crossAxisSize, height: mainAxisSize };
+	}
+};
+
+const render = (
+	node: Node,
+	context: CanvasRenderingContext2D,
+	x: number,
+	y: number
+) => {
+	switch (node.type) {
+		case "text":
+			return renderText(node, context, x, y);
+		case "image":
+			return renderImage(node, context, x, y);
+		case "flex":
+			return renderFlex(node, context, x, y);
+		default:
+			throw new Error(`Cannot render node of type "${(node as any).type}".`);
+	}
 };
 
 const renderText = (
-	context: CanvasRenderingContext2D,
 	text: Text,
-	position: Point,
-	constraints?: Constraints
-) => {
-	const fontSize = text.style?.font?.size ?? 10;
-	const fontFamily = text.style?.font?.family ?? "serif";
-	const gap = text.layout?.gap ?? 0;
-	const textColour = text.style?.colour ?? "black";
-	const preferred = instantiateConstraints(constraints, true);
-
-	context.font = `${fontSize}px ${fontFamily}`;
-	const lines = wrapText(context, text.text, preferred.width);
-
-	context.fillStyle = textColour;
-	for (let i = 0; i < lines.length; i++) {
-		context.fillText(
-			lines[i]!,
-			position.x,
-			position.y + fontSize * (i + 1) + gap * Math.max(0, i)
-		);
-	}
-};
-
-const WRAP_CACHE: Record<string, string[]> = {};
-
-const wrapText = (
 	context: CanvasRenderingContext2D,
-	text: string,
-	maxWidth: number = Infinity
-) => {
-	const cacheKey = text + maxWidth;
-	if (WRAP_CACHE[cacheKey]) return WRAP_CACHE[cacheKey]!;
-
-	const words = text
-		.split(/[\r\f\v\t ]+/)
-		.flatMap(word => word.split(/(\n)/))
-		.filter(Boolean);
-	const spaceWidth = context.measureText(" ").width;
-	const lines: string[][] = [[]];
-	let lineWidth = 0;
-	for (const word of words) {
-		if (word === "\n") {
-			lines.push([]);
-			lineWidth = 0;
-			continue;
-		}
-		const { width } = context.measureText(word);
-		lineWidth += width + spaceWidth * (lineWidth === 0 ? 0 : 1);
-		if (lineWidth > maxWidth && lines[lines.length - 1]!.length !== 0) {
-			lines.push([]);
-			lineWidth = width;
-		}
-		lines[lines.length - 1]!.push(word);
-	}
-
-	return (WRAP_CACHE[cacheKey] = lines.map(line => line.join(" ")));
-};
-
-const renderBox = (
-	context: CanvasRenderingContext2D,
-	box: Box,
-	position: Point,
-	constraints?: Constraints
+	x: number,
+	y: number
 ) => {
 	context.save();
-	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
-	// TODO take mainAxisAlignment into account when there's more
-	// space than required along the main axis
-	// const mainAxisAlignment =
-	// 	box.layout?.mainAxisAlignment ?? MainAxisAlignment.Start;
-	const crossAxisAlignment =
-		box.layout?.crossAxisAlignment ?? CrossAxisAlignment.Start;
-	const preferred = measure(context, box, constraints);
-	const padding = normalisePadding(box.layout?.padding);
-
-	if (box.style?.background) {
-		if (box.style.border?.radius) {
-			const radii = normaliseRadii(box.style.border.radius);
-			context.beginPath();
-			context.roundRect(
-				position.x,
-				position.y,
-				preferred.width,
-				preferred.height,
-				radii
-			);
-			context.clip();
-		}
-		renderBackground(context, box.style.background, position, preferred);
-	}
-
-	// TODO: share code with measureBox
-	const gap = box.layout?.gap ?? 0;
-	let mainAxisOffset = 0;
-	let crossAxisSize = 0;
-	if (box.children) {
-		for (let i = 0; i < box.children.length; i++) {
-			const child = box.children[i]!;
-			const size = measure(context, child, preferred);
-			const x =
-				position.x +
-				(layoutDirection === LayoutDirection.Column
-					? crossAxisAlignment === CrossAxisAlignment.Start
-						? 0
-						: crossAxisAlignment === CrossAxisAlignment.Centre
-						? preferred.width / 2 - size.width / 2 - padding.horizontal / 2
-						: preferred.width - size.width - padding.horizontal
-					: 0);
-			const y =
-				position.y +
-				(layoutDirection === LayoutDirection.Row
-					? crossAxisAlignment === CrossAxisAlignment.Start
-						? 0
-						: crossAxisAlignment === CrossAxisAlignment.Centre
-						? preferred.height / 2 - size.height / 2 - padding.vertical / 2
-						: preferred.height - size.height - padding.vertical
-					: 0);
-			render(context, child, {
-				x:
-					padding.left +
-					x +
-					(layoutDirection === LayoutDirection.Row ? mainAxisOffset : 0),
-				y:
-					padding.top +
-					y +
-					(layoutDirection === LayoutDirection.Column ? mainAxisOffset : 0),
-			});
-			if (layoutDirection === LayoutDirection.Row) {
-				mainAxisOffset += size.width;
-				crossAxisSize = Math.max(crossAxisSize, size.height);
-			} else {
-				mainAxisOffset += size.height;
-				crossAxisSize = Math.max(crossAxisSize, size.width);
-			}
-			if (i < box.children.length - 1) mainAxisOffset += gap;
-		}
-	}
+	context.fillStyle = text.style?.color ?? "black";
+	const fontFamily = text.style?.fontFamily ?? "sans-serif";
+	const fontSize = text.style?.size ?? 20;
+	context.font = fontSize + "px " + fontFamily;
+	context.fillText(text.text, x, y + fontSize);
 	context.restore();
 };
 
-const normaliseRadii = (radii: Border["radius"] | undefined) => {
-	if (typeof radii === "number") return [radii, radii, radii, radii];
-	return [
-		radii?.topLeft ?? 0,
-		radii?.topRight ?? 0,
-		radii?.bottomRight ?? 0,
-		radii?.bottomLeft ?? 0,
-	];
-};
-
 const renderImage = (
-	context: CanvasRenderingContext2D,
 	image: Image,
-	position: Point,
-	constraints?: Constraints
+	context: CanvasRenderingContext2D,
+	x: number,
+	y: number
 ) => {
-	context.drawImage(
-		image.image,
-		position.x,
-		position.y,
-		image.image.width,
-		image.image.height
-	);
+	context.save();
+	context.drawImage(image.image, x, y);
+	context.restore();
 };
 
-const renderBackground = (
+const renderFlex = (
+	flex: Flex,
 	context: CanvasRenderingContext2D,
-	background: Partial<BackgroundStyle>,
-	position: Point,
-	size: Size
+	x: number,
+	y: number
 ) => {
-	if (typeof background === "string") {
-		context.fillStyle = background;
-		context.fillRect(position.x, position.y, size.width, size.height);
-	} else if (isImageBackground(background)) {
-		const fit = background.fit ?? BackgroundFit.Contain;
-		switch (fit) {
-			case BackgroundFit.Contain: {
-				context.drawImage(
-					background.image!,
-					position.x,
-					position.y,
-					size.width,
-					size.height
-				);
-				break;
-			}
-			default:
-				throw new Error(`Unhandled background fit "${fit}".`);
-		}
-	} else if (isGradientBackground(background)) {
-		// TODO: Figure out how to properly get w/h from angle using lendir
-		const gradient = context.createLinearGradient(
-			position.x,
-			position.y,
-			position.x + size.width,
-			position.y + size.height
-		);
-		for (const stop of background.gradient!.stops) {
-			gradient.addColorStop(stop.offset, stop.color);
-		}
-		context.fillStyle = gradient;
-		context.fillRect(position.x, position.y, size.width, size.height);
-	} else {
-		throw new Error(`Unhandled background type ${background}.`);
-	}
-};
+	context.save();
 
-const MEASURE_CACHE: Record<Renderable["id"], Size> = {};
+	const { width, height } = { ...measure(flex, context), ...flex.layout };
 
-export const measure = (
-	context: CanvasRenderingContext2D,
-	renderable: Renderable,
-	constraints?: Constraints
-): Size => {
-	// TODO: Invalidate cache on reflow
-	// if (MEASURE_CACHE[renderable.id]) return MEASURE_CACHE[renderable.id]!;
-
-	let size: Size;
-	switch (renderable.type) {
-		case "text": {
-			size = measureText(context, renderable, constraints);
-			break;
-		}
-		case "box": {
-			size = measureBox(context, renderable, constraints);
-			break;
-		}
-		case "image": {
-			size = measureImage(context, renderable, constraints);
-			break;
-		}
-		default:
-			throw new Error(`Cannot measure ${renderable}.`);
+	if (flex.style?.background) {
+		context.fillStyle = flex.style.background;
+		context.beginPath();
+		context.rect(x, y, width, height);
+		context.fill();
+		context.clip();
 	}
 
-	return (MEASURE_CACHE[renderable.id] = size);
-};
-
-const measureText = (
-	context: CanvasRenderingContext2D,
-	text: Text,
-	constraints?: Constraints
-): Size => {
-	const fontSize = text.style?.font?.size ?? 10;
-	const fontFamily = text.style?.font?.family ?? "serif";
-	const gap = text.layout?.gap ?? 0;
-	const preferred = instantiateConstraints(constraints, true);
-
-	context.font = `${fontSize}px ${fontFamily}`;
-	const measurement = context.measureText("");
-	const lineHeight =
-		measurement.fontBoundingBoxAscent +
-		measurement.fontBoundingBoxDescent * 1.5;
-	const lines = wrapText(
-		context,
-		text.text,
-		text.layout?.wrap ? preferred.width : Infinity
-	);
-	let maxLineWidth = 0;
-	for (const line of lines) {
-		maxLineWidth = Math.max(maxLineWidth, context.measureText(line).width);
-	}
-
-	return {
-		width: maxLineWidth,
-		height: lines.length * lineHeight + gap * (lines.length - 1),
-	};
-};
-
-const normalisePadding = (
-	padding: Layout["padding"] | undefined
-): AxisRect<number> & SideRect<number> => {
-	if (!padding)
-		return {
-			top: 0,
-			right: 0,
-			bottom: 0,
-			left: 0,
-			vertical: 0,
-			horizontal: 0,
-		};
-	if (typeof padding === "number")
-		return {
-			top: padding,
-			right: padding,
-			bottom: padding,
-			left: padding,
-			vertical: padding * 2,
-			horizontal: padding * 2,
-		};
-
-	const rect = {
-		top: 0,
-		right: 0,
-		bottom: 0,
-		left: 0,
-		vertical: 0,
-		horizontal: 0,
-	};
-	if ((padding as AxisRect<number>).vertical) {
-		rect.top = (padding as AxisRect<number>).vertical;
-		rect.bottom = (padding as AxisRect<number>).vertical;
-	}
-	if ((padding as AxisRect<number>).horizontal) {
-		rect.left = (padding as AxisRect<number>).horizontal;
-		rect.right = (padding as AxisRect<number>).horizontal;
-	}
-	if ((padding as SideRect<number>).top) {
-		rect.top = (padding as SideRect<number>).top;
-	}
-	if ((padding as SideRect<number>).right) {
-		rect.right = (padding as SideRect<number>).right;
-	}
-	if ((padding as SideRect<number>).bottom) {
-		rect.bottom = (padding as SideRect<number>).bottom;
-	}
-	if ((padding as SideRect<number>).left) {
-		rect.left = (padding as SideRect<number>).left;
-	}
-
-	rect.vertical = rect.top + rect.bottom;
-	rect.horizontal = rect.left + rect.right;
-
-	return rect;
-};
-
-const measureBox = (
-	context: CanvasRenderingContext2D,
-	box: Box,
-	constraints?: Constraints
-): Size => {
-	// TODO: share code with renderBox
-	const padding = normalisePadding(box.layout?.padding);
-	const layoutDirection = box.layout?.direction ?? LayoutDirection.Row;
-	const gap = box.layout?.gap ?? 0;
-	let mainAxisOffset = 0;
+	const direction = flex.layout?.direction ?? "row";
+	const gap = flex.layout?.gap ?? 0;
+	let mainAxisSize = 0;
 	let crossAxisSize = 0;
-	if (box.children) {
-		for (let i = 0; i < box.children.length; i++) {
-			const child = box.children[i]!;
-			const size = measure(context, child, constraints);
-			if (layoutDirection === LayoutDirection.Row) {
-				mainAxisOffset += size.width;
+	if (flex.children) {
+		const childCount = flex.children.length;
+		const alignments: [number, Size][] = [];
+		for (let i = 0; i < childCount; i++) {
+			const child = flex.children[i]!;
+			const size = measure(child, context);
+			alignments.push([mainAxisSize, size]);
+			if (direction === "row") {
+				mainAxisSize += size.width;
 				crossAxisSize = Math.max(crossAxisSize, size.height);
 			} else {
-				mainAxisOffset += size.height;
+				mainAxisSize += size.height;
 				crossAxisSize = Math.max(crossAxisSize, size.width);
 			}
-			if (i < box.children.length - 1) mainAxisOffset += gap;
+			if (i !== childCount - 1) mainAxisSize += gap;
+		}
+
+		const mainAxisAlignment = flex.layout?.mainAxisAlignment ?? "start";
+		const crossAxisAlignment = flex.layout?.crossAxisAlignment ?? "start";
+		for (let i = 0; i < childCount; i++) {
+			const child = flex.children[i]!;
+			const [mainAxisOffset, size] = alignments[i]!;
+			const [lastOffset, lastSize] = alignments[childCount - 1]!;
+			const contentSize = alignments.reduce(
+				(total, [, size]) => ({
+					width: total.width + size.width,
+					height: total.height + size.height,
+				}),
+				{ width: 0, height: 0 }
+			);
+			if (direction === "row") {
+				const mainAxisAlignments: Record<
+					FlexLayout["mainAxisAlignment"],
+					number
+				> = {
+					start: mainAxisOffset,
+					center:
+						mainAxisOffset + width / 2 - (lastOffset + lastSize.width) / 2,
+					end: width - (lastOffset + lastSize.width) + mainAxisOffset,
+					"space-between":
+						mainAxisOffset +
+						((width - contentSize.width) / (childCount - 1) - gap) * i,
+				};
+				const crossAxisAlignments: Record<
+					FlexLayout["crossAxisAlignment"],
+					number
+				> = {
+					start: 0,
+					center: height / 2 - size.height / 2,
+					end: height - size.height,
+				};
+				render(
+					child,
+					context,
+					x + mainAxisAlignments[mainAxisAlignment],
+					y + crossAxisAlignments[crossAxisAlignment]
+				);
+			} else {
+				const mainAxisAlignments: Record<
+					FlexLayout["mainAxisAlignment"],
+					number
+				> = {
+					start: mainAxisOffset,
+					center:
+						mainAxisOffset + height / 2 - (lastOffset + lastSize.height) / 2,
+					end: height - (lastOffset + lastSize.height) + mainAxisOffset,
+					"space-between":
+						mainAxisOffset +
+						((height - contentSize.height) / (childCount - 1) - gap) * i,
+				};
+				const crossAxisAlignments: Record<
+					FlexLayout["crossAxisAlignment"],
+					number
+				> = {
+					start: 0,
+					center: width / 2 - size.width / 2,
+					end: width - size.width,
+				};
+				render(
+					child,
+					context,
+					x + crossAxisAlignments[crossAxisAlignment],
+					y + mainAxisAlignments[mainAxisAlignment]
+				);
+			}
 		}
 	}
 
-	const size =
-		layoutDirection === LayoutDirection.Row
-			? {
-					width: mainAxisOffset,
-					height: crossAxisSize,
-			  }
-			: {
-					width: crossAxisSize,
-					height: mainAxisOffset,
-			  };
-	return {
-		width: size.width + padding.horizontal,
-		height: size.height + padding.vertical,
-	};
+	context.restore();
 };
 
-const measureImage = (
-	context: CanvasRenderingContext2D,
-	image: Image,
-	constraints?: Constraints
-): Size => {
-	return {
-		width: image.image.width,
-		height: image.image.height,
-	};
+type Document = {
+	body: Node;
+};
+
+export const paint = (
+	document: Document,
+	viewport: CanvasRenderingContext2D
+) => {
+	viewport.fillStyle = "white";
+	viewport.fillRect(0, 0, viewport.canvas.width, viewport.canvas.height);
+	render(document.body, viewport, 0, 0);
 };

@@ -1,135 +1,208 @@
-import { Entity } from "./entity.js";
-import game from "./game.js";
-import { loadImage } from "./image.js";
-import {
-	CrossAxisAlignment,
-	LayoutDirection,
-	Renderable,
-	render,
-} from "./render.js";
+import { canvas } from "./canvas.js";
+import { paint } from "./render.js";
 
-const img = await loadImage(
-	"https://i1.sndcdn.com/artworks-qboq5y833FMsteVT-tQdkzg-t500x500.jpg"
-);
-const rocket = await loadImage("/src/rocket.svg");
+const viewport = canvas({
+	width: window.innerWidth,
+	height: window.innerHeight,
+});
 
-rocket.width = rocket.height = 32;
+window.addEventListener("resize", () => {
+	viewport.canvas.width = window.innerWidth;
+	viewport.canvas.height = window.innerHeight;
+});
 
-const Box = (
-	direction: LayoutDirection,
-	crossAxisAlignment: CrossAxisAlignment
-) => {
-	const self: Renderable = {
-		id: crypto.randomUUID(),
-		type: "box",
-		style: { background: "rgb(200,200,200)", border: { radius: 8 } },
-		layout: {
-			gap: 32,
-			direction: direction,
-			padding: 16,
-			crossAxisAlignment,
-		},
-		children: [
-			{
-				id: crypto.randomUUID(),
-				type: "box",
-				style: {
-					background: { image: img },
-					border: {
-						radius: {
-							topLeft: 32,
-							bottomLeft: 2,
-							topRight: 8,
-							bottomRight: 16,
-						},
-					},
-				},
-				layout: { padding: 32 },
-				children: [
-					{
-						id: crypto.randomUUID(),
-						type: "text",
-						style: { colour: "white", font: { size: 12 } },
-						text: "Lorem ipsum dolor sit amet.",
-					},
-				],
-			},
-			{
-				id: crypto.randomUUID(),
-				type: "image",
-				image: rocket,
-			},
-			{
-				id: crypto.randomUUID(),
-				type: "text",
-				style: { font: { size: 16 } },
-				text: "Consectetur adipiscing elit.",
-			},
-			{
-				id: crypto.randomUUID(),
-				type: "box",
-				layout: { padding: 4 },
-				style: {
-					border: { radius: 32 },
-					background: {
-						gradient: {
-							angle: 0,
-							stops: [
-								{ offset: 0, color: "rgba(255,0,0,.33)" },
-								{ offset: 1, color: "rgba(255,0,0,0)" },
-							],
-						},
-					},
-				},
-				children: [
-					{
-						id: crypto.randomUUID(),
-						type: "text",
-						style: { font: { size: 20 } },
-						text: "Proin in felis ut ante porttitor.",
-					},
-				],
-			},
-		],
-	};
-	return self;
-};
+document.body.append(viewport.canvas);
 
-game.entities = [
+// ============================================================
+
+paint(
 	{
-		id: crypto.randomUUID(),
-		position: { x: 32, y: 100 },
-		type: "box",
-		layout: { direction: LayoutDirection.Column, gap: 64 },
-		children: [
-			{
-				id: crypto.randomUUID(),
-				type: "box",
-				layout: { direction: LayoutDirection.Column, gap: 16 },
-				children: [
-					Box(LayoutDirection.Row, CrossAxisAlignment.Start),
-					Box(LayoutDirection.Row, CrossAxisAlignment.Centre),
-					Box(LayoutDirection.Row, CrossAxisAlignment.End),
-				],
+		body: {
+			type: "flex",
+			style: { background: "red" },
+			layout: {
+				gap: 8,
+				direction: "row",
+				mainAxisAlignment: "space-between",
+				crossAxisAlignment: "center",
+				width: 850,
+				height: 850,
 			},
-			{
-				id: crypto.randomUUID(),
-				type: "box",
-				layout: { direction: LayoutDirection.Row, gap: 16 },
-				children: [
-					Box(LayoutDirection.Column, CrossAxisAlignment.Start),
-					Box(LayoutDirection.Column, CrossAxisAlignment.Centre),
-					Box(LayoutDirection.Column, CrossAxisAlignment.End),
-				],
-			},
-		],
-		render: () =>
-			render(
-				game.viewport,
-				game.entities[0] as any as Renderable,
-				game.entities[0]!.position
-			),
-	} as Renderable & Entity,
-];
-
-game.loop();
+			children: [
+				// {
+				// 	type: "flex",
+				// 	style: { background: "green" },
+				// 	layout: { gap: 8 },
+				// 	children: [
+				// 		{
+				// 			type: "text",
+				// 			text: "Lorem",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "Ipsum",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "has",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "been",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "the",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "industry's",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "standard",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "for",
+				// 		},
+				// 		{
+				// 			type: "text",
+				// 			text: "decades.",
+				// 		},
+				// 	],
+				// },
+				{
+					type: "flex",
+					style: { background: "blue" },
+					layout: { gap: 8, direction: "column" },
+					children: [
+						{
+							type: "text",
+							text: "Lorem",
+						},
+						{
+							type: "text",
+							text: "Ipsum",
+						},
+						{
+							type: "text",
+							text: "has",
+						},
+						{
+							type: "text",
+							text: "been",
+						},
+						{
+							type: "text",
+							text: "the",
+						},
+						{
+							type: "text",
+							text: "industry's",
+						},
+						{
+							type: "text",
+							text: "standard",
+						},
+						{
+							type: "text",
+							text: "for",
+						},
+						{
+							type: "text",
+							text: "decades.",
+						},
+					],
+				},
+				{
+					type: "flex",
+					style: { background: "blue" },
+					layout: { gap: 8, direction: "column" },
+					children: [
+						{
+							type: "text",
+							text: "Lorem",
+						},
+						{
+							type: "text",
+							text: "Ipsum",
+						},
+						{
+							type: "text",
+							text: "has",
+						},
+						{
+							type: "text",
+							text: "been",
+						},
+						{
+							type: "text",
+							text: "the",
+						},
+						{
+							type: "text",
+							text: "industry's",
+						},
+						{
+							type: "text",
+							text: "standard",
+						},
+						{
+							type: "text",
+							text: "for",
+						},
+						{
+							type: "text",
+							text: "decades.",
+						},
+					],
+				},
+				{
+					type: "flex",
+					style: { background: "blue" },
+					layout: { gap: 8, direction: "column" },
+					children: [
+						{
+							type: "text",
+							text: "Lorem",
+						},
+						{
+							type: "text",
+							text: "Ipsum",
+						},
+						{
+							type: "text",
+							text: "has",
+						},
+						{
+							type: "text",
+							text: "been",
+						},
+						{
+							type: "text",
+							text: "the",
+						},
+						{
+							type: "text",
+							text: "industry's",
+						},
+						{
+							type: "text",
+							text: "standard",
+						},
+						{
+							type: "text",
+							text: "for",
+						},
+						{
+							type: "text",
+							text: "decades.",
+						},
+					],
+				},
+			].sort(() => -1 + Math.round(Math.random() * 2)) as any[],
+		},
+	},
+	viewport
+);
