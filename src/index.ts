@@ -125,6 +125,7 @@ paint(
 					style: {
 						background: "rgba(0,0,255,.1)",
 						backdropFilter: { type: "blur", radius: 50 },
+						cornerRadius: 16,
 					},
 					layout: { gap: 8, direction: "column" },
 					children: [
@@ -209,7 +210,7 @@ paint(
 						},
 					],
 				},
-			].sort(() => -1 + Math.round(Math.random() * 2)) as any[],
+			],
 		},
 	},
 	viewport

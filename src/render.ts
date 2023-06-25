@@ -24,6 +24,14 @@ type FlexLayout = {
 type FlexStyle = {
 	background: Background;
 	backdropFilter: BlurFilter;
+	cornerRadius:
+		| number
+		| Partial<{
+				topLeft: number;
+				topRight: number;
+				bottomRight: number;
+				bottomLeft: number;
+		  }>;
 };
 
 type BlurFilter = {
@@ -181,6 +189,16 @@ const renderImage = (
 	context.restore();
 };
 
+const normaliseRadius = (radius: FlexStyle["cornerRadius"] | undefined) => {
+	if (typeof radius === "number") return [radius, radius, radius, radius];
+	return [
+		radius?.topLeft ?? 0,
+		radius?.topRight ?? 0,
+		radius?.bottomRight ?? 0,
+		radius?.bottomLeft ?? 0,
+	];
+};
+
 const renderFlex = (
 	flex: Flex,
 	context: CanvasRenderingContext2D,
@@ -190,16 +208,16 @@ const renderFlex = (
 	context.save();
 
 	const { width, height } = { ...measure(flex, context), ...flex.layout };
+	const radii = normaliseRadius(flex.style?.cornerRadius);
 
 	if (flex.style?.backdropFilter) {
 		context.save();
-		console.log(flex.style?.backdropFilter);
 		switch (flex.style.backdropFilter.type) {
 			case "blur": {
 				const radius = flex.style.backdropFilter.radius ?? 0;
 				context.filter = `blur(${radius}px)`;
 				context.beginPath();
-				context.rect(x, y, width, height);
+				context.roundRect(x, y, width, height, ...radii);
 				context.clip();
 				context.drawImage(context.canvas, 0, 0);
 				break;
@@ -214,7 +232,7 @@ const renderFlex = (
 
 	if (flex.style?.background) {
 		context.beginPath();
-		context.rect(x, y, width, height);
+		context.roundRect(x, y, width, height, ...radii);
 		context.clip();
 		renderBackground(flex.style.background, context, x, y, width, height);
 	}
