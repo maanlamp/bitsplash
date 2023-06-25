@@ -22,8 +22,43 @@ type FlexLayout = {
 };
 
 type FlexStyle = {
-	background: string;
+	background: Background;
+	backdropFilter: BlurFilter;
 };
+
+type BlurFilter = {
+	type: "blur";
+	radius: number;
+};
+
+type Background = string | HTMLImageElement | Gradient;
+
+type Gradient = LinearGradient | RadialGradient | ConicGradient;
+
+type LinearGradient = {
+	type: "linear";
+	direction?: number;
+	stops: GradientStop[];
+};
+
+type RadialGradient = {
+	type: "radial";
+	direction?: number;
+	stops: GradientStop[];
+};
+
+type ConicGradient = {
+	type: "conic";
+	direction?: number;
+	stops: GradientStop[];
+};
+
+type GradientStop =
+	| string
+	| {
+			offset: number;
+			color: string;
+	  };
 
 type Text = {
 	type: "text";
@@ -50,7 +85,7 @@ const measure = (node: Node, context: CanvasRenderingContext2D) => {
 		case "flex":
 			return measureFlex(node, context);
 		default:
-			throw new Error(`Cannot measure node of type "${(node as any).type}".`);
+			throw new Error(`Unhandled measurable type "${(node as any).type}".`);
 	}
 };
 
@@ -116,7 +151,7 @@ const render = (
 		case "flex":
 			return renderFlex(node, context, x, y);
 		default:
-			throw new Error(`Cannot render node of type "${(node as any).type}".`);
+			throw new Error(`Unhandled renderable type "${(node as any).type}".`);
 	}
 };
 
@@ -156,12 +191,32 @@ const renderFlex = (
 
 	const { width, height } = { ...measure(flex, context), ...flex.layout };
 
+	if (flex.style?.backdropFilter) {
+		context.save();
+		console.log(flex.style?.backdropFilter);
+		switch (flex.style.backdropFilter.type) {
+			case "blur": {
+				const radius = flex.style.backdropFilter.radius ?? 0;
+				context.filter = `blur(${radius}px)`;
+				context.beginPath();
+				context.rect(x, y, width, height);
+				context.clip();
+				context.drawImage(context.canvas, 0, 0);
+				break;
+			}
+			default:
+				throw new Error(
+					`Unhandled backdrop filter "${flex.style.backdropFilter.type}".`
+				);
+		}
+		context.restore();
+	}
+
 	if (flex.style?.background) {
-		context.fillStyle = flex.style.background;
 		context.beginPath();
 		context.rect(x, y, width, height);
-		context.fill();
 		context.clip();
+		renderBackground(flex.style.background, context, x, y, width, height);
 	}
 
 	const direction = flex.layout?.direction ?? "row";
@@ -256,6 +311,74 @@ const renderFlex = (
 		}
 	}
 
+	context.restore();
+};
+
+const isImage = (x: any): x is HTMLImageElement =>
+	x.constructor === HTMLImageElement;
+
+const lenDir = (len: number, dir: number) => [
+	len * Math.cos(dir),
+	len * Math.sin(dir),
+];
+
+const renderBackground = (
+	background: Background,
+	context: CanvasRenderingContext2D,
+	x: number,
+	y: number,
+	width: number,
+	height: number
+) => {
+	context.save();
+	if (typeof background === "string") {
+		// color
+		context.fillStyle = background;
+		context.fillRect(x, y, width, height);
+	} else if (isImage(background)) {
+		// image
+		context.drawImage(background, x, y, width, height);
+	} else {
+		// gradient
+		const direction = background.direction ?? 0;
+		switch (background.type) {
+			case "linear": {
+				const gradient = context.createLinearGradient(0, 0, width, 0);
+				const stopCount = background.stops.length;
+				for (let i = 0; i < stopCount; i++) {
+					const stop = background.stops[i]!;
+					if (typeof stop === "string") {
+						gradient.addColorStop(
+							((width / (stopCount - 1)) * i) / width,
+							stop
+						);
+					} else {
+						gradient.addColorStop(stop.offset, stop.color);
+					}
+				}
+				// TODO: Implement background gradient rotation
+				// context.translate(width / 2, height / 2);
+				// context.rotate(direction);
+				// Check distance between square center and intersection of ray along angle
+				// const rotationCompensationScale = 1.4142135623730951;
+				// context.scale(rotationCompensationScale, rotationCompensationScale);
+				// context.translate(-(width / 2), -(height / 2));
+				context.fillStyle = gradient;
+				context.fillRect(x, y, width, height);
+				break;
+			}
+			case "radial": {
+				break;
+			}
+			case "conic": {
+				break;
+			}
+			default:
+				throw new Error(
+					`Unhandled gradient type "${(background as any).type}".`
+				);
+		}
+	}
 	context.restore();
 };
 

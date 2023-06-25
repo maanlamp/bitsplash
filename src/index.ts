@@ -15,11 +15,16 @@ document.body.append(viewport.canvas);
 
 // ============================================================
 
+const img = new Image();
+img.src = "https://i1.sndcdn.com/artworks-qboq5y833FMsteVT-tQdkzg-t500x500.jpg";
+
 paint(
 	{
 		body: {
 			type: "flex",
-			style: { background: "red" },
+			style: {
+				background: img,
+			},
 			layout: {
 				gap: 8,
 				direction: "row",
@@ -74,7 +79,7 @@ paint(
 				// },
 				{
 					type: "flex",
-					style: { background: "blue" },
+					style: { background: "rgba(0,0,255,.1)" },
 					layout: { gap: 8, direction: "column" },
 					children: [
 						{
@@ -117,7 +122,10 @@ paint(
 				},
 				{
 					type: "flex",
-					style: { background: "blue" },
+					style: {
+						background: "rgba(0,0,255,.1)",
+						backdropFilter: { type: "blur", radius: 50 },
+					},
 					layout: { gap: 8, direction: "column" },
 					children: [
 						{
@@ -160,7 +168,7 @@ paint(
 				},
 				{
 					type: "flex",
-					style: { background: "blue" },
+					style: { background: "rgba(0,0,255,.1)" },
 					layout: { gap: 8, direction: "column" },
 					children: [
 						{
