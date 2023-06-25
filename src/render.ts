@@ -19,19 +19,34 @@ type FlexLayout = {
 	crossAxisAlignment: "start" | "center" | "end";
 	width: number;
 	height: number;
+	padding: number | Rect<number>;
+};
+
+type Rect<T> = AxisRect<T> | SideRect<T>;
+
+type AxisRect<T> = {
+	vertical: T;
+	horizontal: T;
+};
+
+type SideRect<T> = {
+	top: T;
+	right: T;
+	bottom: T;
+	left: T;
+};
+
+type CornerRect<T> = {
+	topLeft: T;
+	topRight: T;
+	bottomRight: T;
+	bottomLeft: T;
 };
 
 type FlexStyle = {
 	background: Background;
 	backdropFilter: BlurFilter;
-	cornerRadius:
-		| number
-		| Partial<{
-				topLeft: number;
-				topRight: number;
-				bottomRight: number;
-				bottomLeft: number;
-		  }>;
+	cornerRadius: number | Partial<CornerRect<number>>;
 };
 
 type BlurFilter = {
@@ -116,6 +131,7 @@ const measureImage = (image: Image, context: CanvasRenderingContext2D) => {
 };
 
 const measureFlex = (flex: Flex, context: CanvasRenderingContext2D) => {
+	const padding = normalisePadding(flex.layout?.padding);
 	const direction = flex.layout?.direction ?? "row";
 	const gap = flex.layout?.gap ?? 0;
 	let mainAxisSize = 0;
@@ -139,9 +155,15 @@ const measureFlex = (flex: Flex, context: CanvasRenderingContext2D) => {
 	}
 
 	if (direction === "row") {
-		return { width: mainAxisSize, height: crossAxisSize };
+		return {
+			width: mainAxisSize + padding.horizontal,
+			height: crossAxisSize + padding.vertical,
+		};
 	} else {
-		return { width: crossAxisSize, height: mainAxisSize };
+		return {
+			width: crossAxisSize + padding.horizontal,
+			height: mainAxisSize + padding.vertical,
+		};
 	}
 };
 
@@ -199,6 +221,60 @@ const normaliseRadius = (radius: FlexStyle["cornerRadius"] | undefined) => {
 	];
 };
 
+const normalisePadding = (
+	padding: FlexLayout["padding"] | undefined
+): AxisRect<number> & SideRect<number> => {
+	if (!padding)
+		return {
+			top: 0,
+			right: 0,
+			bottom: 0,
+			left: 0,
+			vertical: 0,
+			horizontal: 0,
+		};
+	if (typeof padding === "number")
+		return {
+			top: padding,
+			right: padding,
+			bottom: padding,
+			left: padding,
+			vertical: padding * 2,
+			horizontal: padding * 2,
+		};
+	const rect = {
+		top: 0,
+		right: 0,
+		bottom: 0,
+		left: 0,
+		vertical: 0,
+		horizontal: 0,
+	};
+	if ((padding as AxisRect<number>).vertical) {
+		rect.top = (padding as AxisRect<number>).vertical;
+		rect.bottom = (padding as AxisRect<number>).vertical;
+	}
+	if ((padding as AxisRect<number>).horizontal) {
+		rect.left = (padding as AxisRect<number>).horizontal;
+		rect.right = (padding as AxisRect<number>).horizontal;
+	}
+	if ((padding as SideRect<number>).top) {
+		rect.top = (padding as SideRect<number>).top;
+	}
+	if ((padding as SideRect<number>).right) {
+		rect.right = (padding as SideRect<number>).right;
+	}
+	if ((padding as SideRect<number>).bottom) {
+		rect.bottom = (padding as SideRect<number>).bottom;
+	}
+	if ((padding as SideRect<number>).left) {
+		rect.left = (padding as SideRect<number>).left;
+	}
+	rect.vertical = rect.top + rect.bottom;
+	rect.horizontal = rect.left + rect.right;
+	return rect;
+};
+
 const renderFlex = (
 	flex: Flex,
 	context: CanvasRenderingContext2D,
@@ -208,6 +284,7 @@ const renderFlex = (
 	context.save();
 
 	const { width, height } = { ...measure(flex, context), ...flex.layout };
+	const padding = normalisePadding(flex.layout?.padding);
 	const radii = normaliseRadius(flex.style?.cornerRadius);
 
 	if (flex.style?.backdropFilter) {
@@ -295,8 +372,8 @@ const renderFlex = (
 				render(
 					child,
 					context,
-					x + mainAxisAlignments[mainAxisAlignment],
-					y + crossAxisAlignments[crossAxisAlignment]
+					x + mainAxisAlignments[mainAxisAlignment] + padding.left,
+					y + crossAxisAlignments[crossAxisAlignment] + padding.top
 				);
 			} else {
 				const mainAxisAlignments: Record<
@@ -322,8 +399,8 @@ const renderFlex = (
 				render(
 					child,
 					context,
-					x + crossAxisAlignments[crossAxisAlignment],
-					y + mainAxisAlignments[mainAxisAlignment]
+					x + crossAxisAlignments[crossAxisAlignment] + padding.left,
+					y + mainAxisAlignments[mainAxisAlignment] + padding.top
 				);
 			}
 		}
@@ -334,11 +411,6 @@ const renderFlex = (
 
 const isImage = (x: any): x is HTMLImageElement =>
 	x.constructor === HTMLImageElement;
-
-const lenDir = (len: number, dir: number) => [
-	len * Math.cos(dir),
-	len * Math.sin(dir),
-];
 
 const renderBackground = (
 	background: Background,

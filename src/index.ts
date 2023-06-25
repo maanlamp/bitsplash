@@ -127,7 +127,7 @@ paint(
 						backdropFilter: { type: "blur", radius: 50 },
 						cornerRadius: 16,
 					},
-					layout: { gap: 8, direction: "column" },
+					layout: { gap: 8, direction: "column", padding: 32 },
 					children: [
 						{
 							type: "text",
