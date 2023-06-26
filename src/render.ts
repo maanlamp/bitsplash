@@ -472,7 +472,7 @@ const renderBackground = (
 	context.restore();
 };
 
-type Document = {
+export type Document = {
 	body: Node;
 };
 
