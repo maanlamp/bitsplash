@@ -135,7 +135,7 @@ const game = (document: Document) => {
 	// @ts-ignore DEBUG
 	window.game = game;
 	console.info(
-		`%cℹ️ You can inspect the current gamestate by typing "game" into the console.`,
+		`%cℹ You can inspect the current gamestate by typing "game" into the console.`,
 		"font-weight: 600"
 	);
 	return game;

@@ -72,39 +72,7 @@ const game = makeGame({
 						children: [
 							{
 								type: "text",
-								text: "Lorem",
-							},
-							{
-								type: "text",
-								text: "Ipsum",
-							},
-							{
-								type: "text",
-								text: "has",
-							},
-							{
-								type: "text",
-								text: "been",
-							},
-							{
-								type: "text",
-								text: "the",
-							},
-							{
-								type: "text",
-								text: "industry's",
-							},
-							{
-								type: "text",
-								text: "standard",
-							},
-							{
-								type: "text",
-								text: "for",
-							},
-							{
-								type: "text",
-								text: "decades.",
+								text: "Lorem Ipsum has been the industry's standard for decades.",
 							},
 						],
 					},
