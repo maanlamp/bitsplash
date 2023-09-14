@@ -90,7 +90,7 @@ const update = (value: string) => {
 
 update(
 	(input.textContent = `
-<canvas fill="rgb(200,200,200)">
+<game fill="rgb(200,200,200)">
 	<row>
 		<column fill="grey" color="black" radius={5} padding={32}>
 			<box fill="red">Box 1</box>
@@ -103,7 +103,7 @@ update(
 			<box fill="blue">Box 6</box>
 		</column>
 	</row>
-</canvas>
+</game>
 `.trim())
 );
 

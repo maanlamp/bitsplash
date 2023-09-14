@@ -18,19 +18,23 @@ export const paint = (
 		case "box":
 		case "row":
 		case "column": {
-			context.save();
-			context.fillStyle = node.attributes.fill;
-			context.beginPath();
-			context.roundRect(
-				position.x,
-				position.y,
-				size.w,
-				size.h,
-				node.attributes.radius ?? 0
-			);
-			context.fill();
-			context.restore();
-			if (node.attributes.color) context.fillStyle = node.attributes.color;
+			if (node.attributes.fill) {
+				context.save();
+				context.fillStyle = node.attributes.fill;
+				context.beginPath();
+				context.roundRect(
+					position.x,
+					position.y,
+					size.w,
+					size.h,
+					node.attributes.radius ?? 0
+				);
+				context.fill();
+				context.restore();
+			}
+			if (node.attributes.color) {
+				context.fillStyle = node.attributes.color;
+			}
 
 			const padding = normalisePadding(node.attributes.padding);
 			const positions = layout(
