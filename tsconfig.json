@@ -1,23 +1,23 @@
 {
 	"compilerOptions": {
-		"strict": true,
-		"alwaysStrict": true,
-		"noImplicitAny": true,
-		"noUncheckedIndexedAccess": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"exactOptionalPropertyTypes": true,
 		"target": "esnext",
-		"module": "esnext",
-		"incremental": true,
-		"outDir": "dist",
-		"removeComments": true,
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"types": ["vite/client"],
+		"allowJs": false,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
 		"allowSyntheticDefaultImports": true,
-		"downlevelIteration": true,
-		"importHelpers": true,
-		"lib": ["dom", "esnext"],
-		"moduleResolution": "NodeNext",
-		"sourceMap": true
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"noFallthroughCasesInSwitch": true,
+		"module": "esnext",
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"rootDir": "./src",
+		"baseUrl": "./src",
+		"incremental": true,
+		"outDir": "dist"
 	},
-	"include": ["./src"]
+	"include": ["src"]
 }
