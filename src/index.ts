@@ -45,7 +45,7 @@ html, body {
 }
 
 #output {
-	height: 50%;
+	height: 40%;
 }
 
 #rendered {
@@ -92,15 +92,27 @@ update(
 	(input.textContent = `
 <game fill="rgb(200,200,200)">
 	<row>
-		<column fill="grey" color="black" radius={5} padding={32}>
-			<box fill="red">Box 1</box>
-			<box fill="green">Box 2</box>
-			<box fill="blue">Box 3</box>
-		</column>
-		<column fill="grey" color="black" radius={5} padding={32}>
-			<box fill="red">Box 4</box>
-			<box fill="green">Box 5</box>
-			<box fill="blue">Box 6</box>
+		<row
+			fill="rgb(150,150,150)"
+			color="black"
+			radius={5}
+			padding={32}
+			height={125}
+			alignCross="start">
+			<box fill="cyan">sit</box>
+			<box fill="magenta">amet</box>
+			<box fill="yellow">consectetur</box>
+		</row>
+		<column
+			fill="grey"
+			color="white"
+			radius={5}
+			padding={32}
+			width={150}
+			alignCross="end">
+			<box fill="red">Lorem</box>
+			<box fill="green">Ipsum</box>
+			<box fill="blue">dolor</box>
 		</column>
 	</row>
 </game>

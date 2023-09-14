@@ -37,16 +37,20 @@ export const paint = (
 			}
 
 			const padding = normalisePadding(node.attributes.padding);
-			const positions = layout(
-				node,
-				{
-					x: position.x + padding.left,
-					y: position.y + padding.top,
-				},
-				context
-			);
+			const origin = {
+				x: position.x + padding.left,
+				y: position.y + padding.top,
+			};
+			const positions = layout(node, context);
 			for (const i in positions) {
-				paint(node.children[i], positions[i], context);
+				paint(
+					node.children[i],
+					{
+						x: origin.x + positions[i].x,
+						y: origin.y + positions[i].y,
+					},
+					context
+				);
 			}
 
 			break;
@@ -134,31 +138,50 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 
 const layout = (
 	node: ElementNode,
-	position: Position,
 	context: CanvasRenderingContext2D
 ): ReadonlyArray<Position> => {
 	switch (node.name) {
-		case "column":
-			return node.children.slice(1).reduce(
-				(positions, child, i) => {
-					const size = measure(child, context);
-					return positions.concat({
-						x: position.x,
-						y: positions[i].y + size.h,
-					});
-				},
-				[position]
-			);
-		default:
-			return node.children.slice(1).reduce(
-				(positions, child, i) => {
-					const size = measure(child, context);
-					return positions.concat({
-						x: positions[i].x + size.w,
-						y: position.y,
-					});
-				},
-				[position]
-			);
+		case "column": {
+			const parentSize = measure(node, context);
+			const parentPadding = normalisePadding(node.attributes.padding);
+			const positions: Position[] = [];
+			let y = 0;
+			for (let i = 0; i < node.children.length; i++) {
+				const child = node.children[i];
+				const size = measure(child, context);
+				positions.push({
+					x:
+						node.attributes.alignCross === "end"
+							? parentSize.w - parentPadding.left - parentPadding.right - size.w
+							: node.attributes.alignCross === "center"
+							? -parentPadding.left + parentSize.w / 2 - size.w / 2
+							: 0,
+					y,
+				});
+				y += size.h;
+			}
+			return positions;
+		}
+		default: {
+			const parentSize = measure(node, context);
+			const parentPadding = normalisePadding(node.attributes.padding);
+			const positions: Position[] = [];
+			let x = 0;
+			for (let i = 0; i < node.children.length; i++) {
+				const child = node.children[i];
+				const size = measure(child, context);
+				positions.push({
+					y:
+						node.attributes.alignCross === "end"
+							? parentSize.h - parentPadding.top - parentPadding.bottom - size.h
+							: node.attributes.alignCross === "center"
+							? -parentPadding.top + parentSize.h / 2 - size.h / 2
+							: 0,
+					x,
+				});
+				x += size.w;
+			}
+			return positions;
+		}
 	}
 };

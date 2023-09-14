@@ -42,7 +42,7 @@ Games for the web are often still made in big sluggish engines such as Unity or 
 In BitSplash one defines a game's UI in an XML-ish dialect, similar to JSX:
 
 ```tsx
-game = [state, setState] ->
+Game = [state, setState] ->
   <game>
     <column padding={32}>
       {state.count}
