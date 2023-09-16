@@ -36,7 +36,25 @@ const peek = (expected: string, input: string, offset = 0) =>
 const whitespace = (input: string, offset = 0) =>
 	input.slice(offset).match(/^\s+/)?.[0].length ?? 0;
 
-export const node = (input: string, offset = 0): Result => {
+export const program = (input: string, offset = 0): Result => {
+	offset += whitespace(input, offset);
+	const children = [];
+	while (true) {
+		try {
+			const [newOffset, child] = node(input, offset);
+			children.push(child);
+			offset = newOffset;
+			offset += whitespace(input, offset);
+		} catch (error) {
+			if (!isParseError(error)) throw error;
+			break;
+		}
+	}
+	offset += whitespace(input, offset);
+	return [offset, { name: "program", children, attributes: {} }];
+};
+
+const node = (input: string, offset = 0): Result => {
 	if (!peek("<", input, offset)) return text(input, offset);
 	offset += expect("<", input, offset);
 	offset += whitespace(input, offset);
@@ -178,15 +196,15 @@ export const run = (parser: Parser) => (input: string) => {
 			input.slice(lastLF).indexOf("\n") + lastLF
 		);
 
-		throw (
+		throw new Error(
 			error.message +
-			"\n\n" +
-			lineNo +
-			" | " +
-			line +
-			"\n" +
-			" ".repeat(col + lineNo.toString().length + 3) +
-			"^"
+				"\n\n" +
+				lineNo +
+				" | " +
+				line +
+				"\n" +
+				" ".repeat(col + lineNo.toString().length + 3) +
+				"^"
 		);
 	}
 };

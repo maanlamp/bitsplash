@@ -1,6 +1,6 @@
 import { ElementNode, type Node } from "./markup";
 
-type Position = Readonly<{
+export type Position = Readonly<{
 	x: number;
 	y: number;
 }>;
@@ -91,7 +91,7 @@ const normalisePadding = (padding: Padding | undefined): Box<number> => {
 	};
 };
 
-type Size = Readonly<{
+export type Size = Readonly<{
 	w: number;
 	h: number;
 }>;
@@ -105,6 +105,7 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 		};
 	}
 
+	const gap = parseFloat(node.attributes.gap ?? "0");
 	const padding = normalisePadding(node.attributes.padding);
 	switch (node.name) {
 		case "column": {
@@ -117,7 +118,12 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 			);
 			return {
 				w: node.attributes.width ?? size.w + padding.top + padding.bottom,
-				h: node.attributes.height ?? size.h + padding.left + padding.right,
+				h:
+					node.attributes.height ??
+					size.h +
+						padding.left +
+						padding.right +
+						gap * Math.max(0, node.children.length - 1),
 			};
 		}
 		default: {
@@ -129,7 +135,12 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 				{ w: 0, h: 0 } as Size
 			);
 			return {
-				w: node.attributes.width ?? size.w + padding.top + padding.bottom,
+				w:
+					node.attributes.width ??
+					size.w +
+						padding.top +
+						padding.bottom +
+						gap * Math.max(0, node.children.length - 1),
 				h: node.attributes.height ?? size.h + padding.left + padding.right,
 			};
 		}
@@ -140,11 +151,12 @@ const layout = (
 	node: ElementNode,
 	context: CanvasRenderingContext2D
 ): ReadonlyArray<Position> => {
+	const gap = parseFloat(node.attributes.gap ?? "0");
+	const parentSize = measure(node, context);
+	const parentPadding = normalisePadding(node.attributes.padding);
+	const positions: Position[] = [];
 	switch (node.name) {
 		case "column": {
-			const parentSize = measure(node, context);
-			const parentPadding = normalisePadding(node.attributes.padding);
-			const positions: Position[] = [];
 			let y = 0;
 			for (let i = 0; i < node.children.length; i++) {
 				const child = node.children[i];
@@ -158,14 +170,11 @@ const layout = (
 							: 0,
 					y,
 				});
-				y += size.h;
+				y += size.h + gap;
 			}
 			return positions;
 		}
 		default: {
-			const parentSize = measure(node, context);
-			const parentPadding = normalisePadding(node.attributes.padding);
-			const positions: Position[] = [];
 			let x = 0;
 			for (let i = 0; i < node.children.length; i++) {
 				const child = node.children[i];
@@ -179,7 +188,7 @@ const layout = (
 							: 0,
 					x,
 				});
-				x += size.w;
+				x += size.w + gap;
 			}
 			return positions;
 		}
