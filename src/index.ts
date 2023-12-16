@@ -83,7 +83,7 @@ const update = () => {
 };
 
 input.textContent = `
-<game>
+<game hover="4px orange">
 	<column hover="2px red">
 		<row hover="2px green">
 			<column

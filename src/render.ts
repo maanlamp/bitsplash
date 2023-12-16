@@ -38,7 +38,9 @@ export const render = (node: MarkupNode): Node => {
 				}
 				mouse.x = e?.clientX ?? mouse.x;
 				mouse.y = e?.clientY ?? mouse.y;
-				paint(node, origin, context, mouse);
+				requestAnimationFrame(() => {
+					paint(node, origin, context, mouse);
+				});
 			};
 			canvas.addEventListener("mousemove", repaint);
 			canvas.addEventListener("mouseenter", repaint);
