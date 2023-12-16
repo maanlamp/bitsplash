@@ -1,4 +1,5 @@
-import { ElementNode, type Node } from "./markup";
+import { Mouse } from "render.js";
+import { ElementNode, type Node } from "./markup.js";
 
 export type Position = Readonly<{
 	x: number;
@@ -8,19 +9,49 @@ export type Position = Readonly<{
 export const paint = (
 	node: Node,
 	position: Position,
-	context: CanvasRenderingContext2D
+	context: CanvasRenderingContext2D,
+	mouse: Mouse
 ) => {
-	if (typeof node === "string")
-		return context.fillText(node, position.x, position.y + 8);
-
+	context.save();
 	const size = measure(node, context);
+	const mouseIsInside =
+		mouse.x > position.x &&
+		mouse.x < position.x + size.w &&
+		mouse.y > position.y &&
+		mouse.y < position.y + size.h;
+
+	if (typeof node === "string") {
+		return context.fillText(node, position.x, position.y + 8);
+	}
+
 	switch (node.name) {
-		case "box":
-		case "row":
-		case "column": {
+		case "game": {
+			context.save();
+			context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 			if (node.attributes.fill) {
 				context.save();
 				context.fillStyle = node.attributes.fill;
+				context.fillRect(0, 0, context.canvas.width, context.canvas.height);
+				context.restore();
+			}
+			for (const child of node.children) {
+				context.save();
+				paint(child, { x: 0, y: 0 }, context, mouse);
+				context.restore();
+			}
+			context.restore();
+			break;
+		}
+		case "box":
+		case "row":
+		case "column": {
+			context.save();
+			if (node.attributes.fill) {
+				context.save();
+				context.fillStyle =
+					mouseIsInside && mouse[0] && node.attributes.click
+						? node.attributes.click
+						: node.attributes.fill;
 				context.beginPath();
 				context.roundRect(
 					position.x,
@@ -43,21 +74,37 @@ export const paint = (
 			};
 			const positions = layout(node, context);
 			for (const i in positions) {
+				context.save();
 				paint(
 					node.children[i],
 					{
 						x: origin.x + positions[i].x,
 						y: origin.y + positions[i].y,
 					},
-					context
+					context,
+					mouse
 				);
+				context.restore();
 			}
 
+			context.restore();
 			break;
 		}
 		default:
 			throw new Error(`Cannot paint nodes of type "${node.name}".`);
 	}
+
+	if (node.attributes.hover && mouseIsInside) {
+		context.save();
+		// TODO: Think of proper shorthand parsing strategy
+		const [thickness, colour] = node.attributes.hover.split(" ");
+		context.strokeStyle = colour;
+		context.lineWidth = parseFloat(thickness);
+		context.strokeRect(position.x, position.y, size.w, size.h);
+		context.restore();
+	}
+
+	context.restore();
 };
 
 type Box<T> = Readonly<{
@@ -108,6 +155,12 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 	const gap = parseFloat(node.attributes.gap ?? "0");
 	const padding = normalisePadding(node.attributes.padding);
 	switch (node.name) {
+		case "game": {
+			return {
+				w: context.canvas.width,
+				h: context.canvas.height,
+			};
+		}
 		case "column": {
 			const size = node.children.reduce(
 				(acc, child) => {
@@ -126,7 +179,8 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 						gap * Math.max(0, node.children.length - 1),
 			};
 		}
-		default: {
+		case "row":
+		case "box": {
 			const size = node.children.reduce(
 				(acc, child) => {
 					const size = measure(child, context);
@@ -144,6 +198,8 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 				h: node.attributes.height ?? size.h + padding.left + padding.right,
 			};
 		}
+		default:
+			throw new Error(`Cannot measure nodes of type "${node.name}".`);
 	}
 };
 

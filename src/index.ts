@@ -1,5 +1,5 @@
-import { program, run } from "./markup";
-import { render } from "./render";
+import { program, run } from "./markup.js";
+import { render } from "./render.js";
 
 const clear = (node: Element) => {
 	while (node.lastChild) node.lastChild.remove();
@@ -71,7 +71,6 @@ const update = () => {
 		clear(raw).append(JSON.stringify(parsed, null, 2));
 		raw.removeAttribute("style");
 	} catch (error: any) {
-		console.log("fail");
 		clear(rendered);
 		clear(raw).append(error.stack);
 		raw.style.background = "red";
@@ -85,9 +84,11 @@ const update = () => {
 
 input.textContent = `
 <game>
-	<column>
-		<row>
+	<column hover="2px red">
+		<row hover="2px green">
 			<column
+				hover="2px blue"
+				click="white"
 				fill="grey"
 				color="white"
 				radius={5}
@@ -99,6 +100,8 @@ input.textContent = `
 				<box fill="blue">dolor</box>
 			</column>
 			<row
+				hover="2px yellow"
+				click="white"
 				fill="rgb(150,150,150)"
 				color="black"
 				radius={5}
@@ -110,8 +113,9 @@ input.textContent = `
 				<box fill="yellow">consectetur</box>
 			</row>
 		</row>
-		<row>
 			<column
+				hover="2px cyan"
+				click="white"
 				fill="rgb(220,220,220)"
 				color="white"
 				radius={5}
@@ -121,7 +125,6 @@ input.textContent = `
 				<box fill="teal">Ipsum</box>
 				<box fill="purple">dolor</box>
 			</column>
-		</row>
 	</column>
 </game>
 `.trim();
