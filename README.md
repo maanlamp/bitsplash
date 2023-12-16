@@ -24,7 +24,13 @@ This project runs on Typescript, Vite and Yarn. To start up an interactive view 
 ```bash
 yarn # install dependencies
 tsc # compile source
-yarn start # open browser
+yarn start # starts local server and opens the app in your default browser
+```
+
+To start an interactive session for developing the underlying code, you should tell the TypeScript compiler to recompile on any changes:
+
+```bash
+tsc -w
 ```
 
 <br/>
@@ -54,6 +60,8 @@ Game = [state, setState] ->
 ```
 
 This is similar to web frameworks like React. We use the lessons learned from those frameworks and give users a powerful and elegant way to program user interfaces.
+
+[You can read more about markup in the documentation.](./src/docs/markup.md)
 
 <br/>
 

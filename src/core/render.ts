@@ -49,13 +49,17 @@ export const render = (node: MarkupNode): Node => {
 			canvas.addEventListener("mousedown", repaint);
 			canvas.addEventListener("mouseup", repaint);
 
-			setTimeout(() => {
+			const resize = () => {
 				const size = canvas.parentElement?.getBoundingClientRect();
 				if (!size) return;
 				canvas.width = size.width;
 				canvas.height = size.height;
 				repaint();
+			};
 
+			window.addEventListener("resize", resize);
+
+			setTimeout(() => {
 				const handleKey = (e: KeyboardEvent) => {
 					if (document.activeElement !== canvas || e.repeat) return;
 					keys[e.key.toUpperCase()] = e.type === "keydown";
@@ -65,6 +69,7 @@ export const render = (node: MarkupNode): Node => {
 				window.addEventListener("keyup", handleKey);
 				window.addEventListener("keydown", handleKey);
 				canvas.addEventListener("click", () => canvas.focus());
+				resize();
 			});
 
 			return canvas;

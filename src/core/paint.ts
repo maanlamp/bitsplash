@@ -1,4 +1,4 @@
-import { Mouse } from "render.js";
+import { Mouse } from "core/render.js";
 import { ElementNode, type Node } from "./markup.js";
 
 export type Position = Readonly<{

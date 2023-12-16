@@ -1,5 +1,5 @@
-import { program, run } from "./markup.js";
-import { render } from "./render.js";
+import { program, run } from "./core/markup.js";
+import { render } from "./core/render.js";
 
 const clear = (node: Element) => {
 	while (node.lastChild) node.lastChild.remove();
