@@ -1,3 +1,4 @@
+import Game from "./core/game.js";
 import { program, run } from "./core/markup.js";
 import { render } from "./core/render.js";
 
@@ -132,3 +133,37 @@ input.textContent = `
 (input as any).addEventListener("input", update);
 document.body.append(output, input);
 update();
+
+// ECS
+
+const game = Game();
+
+const Health = () => {
+	const maxHp = 100;
+	return {
+		maxHp,
+		hp: maxHp,
+	};
+};
+
+const IsAlive = () => {
+	return { alive: true };
+};
+
+game.entities.create([Health, IsAlive]);
+
+game.systems.create([Health], e => {
+	e.Health.hp -= 1;
+
+	if (e.Health.hp <= 0) {
+		game.entities.destroy(e.id);
+	}
+});
+
+game.systems.create([IsAlive], e => {
+	if (e.IsAlive.alive) {
+		console.log(e.id + " is still alive");
+	}
+});
+
+game.loop();

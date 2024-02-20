@@ -1,5 +1,5 @@
-import { Mouse } from "core/render.js";
-import { ElementNode, type Node } from "./markup.js";
+import { type ElementNode, type Node } from "./markup.js";
+import { type Mouse } from "./render.js";
 
 export type Position = Readonly<{
 	x: number;
@@ -13,6 +13,14 @@ export const paint = (
 	mouse: Mouse
 ) => {
 	context.save();
+	// TODO: Mouse position is interpreted as global, but paint position
+	// is interpreted as local, so either the "mouseIsInside" is wrong,
+	// or we can't locally transform nodes (i.e. scale etc).
+	// Currently, "mouseIsInside" is wrong.
+	// We can get the current offset through
+	// context.getTransform() and reading "e" and "f".
+	// But it's not as easy as subtracting it once, since transformations
+	// can be applied and restored at any point in the paint.
 	const size = measure(node, context);
 	const mouseIsInside =
 		mouse.x > position.x &&
@@ -21,87 +29,80 @@ export const paint = (
 		mouse.y < position.y + size.h;
 
 	if (typeof node === "string") {
-		return context.fillText(node, position.x, position.y + 8);
-	}
+		context.fillText(node, position.x, position.y + 8);
+	} else {
+		if (node.attributes.fill) {
+			// Saving and restoring only fillStyle to preserve transformations
+			const before = context.fillStyle;
+			context.fillStyle =
+				mouseIsInside && mouse[0] && node.attributes.click
+					? node.attributes.click
+					: node.attributes.fill;
 
-	switch (node.name) {
-		case "game": {
-			context.save();
-			context.clearRect(0, 0, context.canvas.width, context.canvas.height);
-			if (node.attributes.fill) {
-				context.save();
-				context.fillStyle = node.attributes.fill;
-				context.fillRect(0, 0, context.canvas.width, context.canvas.height);
-				context.restore();
-			}
-			for (const child of node.children) {
-				context.save();
-				paint(child, { x: 0, y: 0 }, context, mouse);
-				context.restore();
-			}
-			context.restore();
-			break;
-		}
-		case "box":
-		case "row":
-		case "column": {
-			context.save();
-			if (node.attributes.fill) {
-				context.save();
-				context.fillStyle =
-					mouseIsInside && mouse[0] && node.attributes.click
-						? node.attributes.click
-						: node.attributes.fill;
-				context.beginPath();
-				context.roundRect(
-					position.x,
-					position.y,
-					size.w,
-					size.h,
-					node.attributes.radius ?? 0
+			if (mouseIsInside && mouse[0]) {
+				const scale = 0.9;
+				context.translate(
+					(size.w * (1 - scale)) / 2,
+					(size.h * (1 - scale)) / 2
 				);
-				context.fill();
-				context.restore();
+				context.scale(scale, scale);
 			}
-			if (node.attributes.color) {
-				context.fillStyle = node.attributes.color;
-			}
-
-			const padding = normalisePadding(node.attributes.padding);
-			const origin = {
-				x: position.x + padding.left,
-				y: position.y + padding.top,
-			};
-			const positions = layout(node, context);
-			for (const i in positions) {
-				context.save();
-				paint(
-					node.children[i],
-					{
-						x: origin.x + positions[i].x,
-						y: origin.y + positions[i].y,
-					},
-					context,
-					mouse
-				);
-				context.restore();
-			}
-
-			context.restore();
-			break;
+			context.beginPath();
+			context.roundRect(
+				position.x,
+				position.y,
+				size.w,
+				size.h,
+				node.attributes.radius ?? 0
+			);
+			context.fill();
+			context.fillStyle = before;
 		}
-		default:
-			throw new Error(`Cannot paint nodes of type "${node.name}".`);
-	}
 
-	if (node.attributes.hover && mouseIsInside) {
-		context.save();
-		// TODO: Think of proper shorthand parsing strategy
-		const [thickness, colour] = node.attributes.hover.split(" ");
-		context.strokeStyle = colour;
-		context.lineWidth = parseFloat(thickness);
-		context.strokeRect(position.x, position.y, size.w, size.h);
-		context.restore();
+		if (node.attributes.hover && mouseIsInside) {
+			// TODO: Think of proper shorthand parsing strategy
+			const [thickness, colour] = node.attributes.hover.split(" ");
+			context.strokeStyle = colour;
+			context.lineWidth = parseFloat(thickness);
+			context.strokeRect(position.x, position.y, size.w, size.h);
+		}
+
+		if (node.attributes.color) {
+			context.fillStyle = node.attributes.color;
+		}
+
+		switch (node.name) {
+			case "game": {
+				for (const child of node.children) {
+					paint(child, position, context, mouse);
+				}
+				break;
+			}
+			case "box":
+			case "row":
+			case "column": {
+				const padding = normalisePadding(node.attributes.padding);
+				const origin = {
+					x: position.x + padding.left,
+					y: position.y + padding.top,
+				};
+				const positions = layout(node, context);
+				for (const i in positions) {
+					paint(
+						node.children[i],
+						{
+							x: origin.x + positions[i].x,
+							y: origin.y + positions[i].y,
+						},
+						context,
+						mouse
+					);
+				}
+				break;
+			}
+			default:
+				throw new Error(`Cannot paint nodes of type "${node.name}".`);
+		}
 	}
 
 	context.restore();

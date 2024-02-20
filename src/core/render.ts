@@ -39,6 +39,7 @@ export const render = (node: MarkupNode): Node => {
 				mouse.x = e?.clientX ?? mouse.x;
 				mouse.y = e?.clientY ?? mouse.y;
 				requestAnimationFrame(() => {
+					context.clearRect(0, 0, canvas.width, canvas.height);
 					paint(node, origin, context, mouse);
 				});
 			};
