@@ -83,8 +83,6 @@ const update = () => {
 		raw.style.color = "yellow";
 		raw.style.padding = "1rem";
 		raw.style.display = "flex";
-		raw.style.justifyContent = "center";
-		raw.style.alignItems = "center";
 	}
 };
 
@@ -130,43 +128,14 @@ input.textContent = `
 			<box fill="orange">Lorem</box>
 			<box fill="teal">Ipsum</box>
 			<box fill="purple">dolor</box>
-			<canvas>
-				{
-					(context, pos, size) => {
-						context.fillStyle = "red";
-						context.fillRect(pos.x,pos.y,size.w,size.h);
-					}
+			<canvas painter={
+				(context, pos, size) => {
+					context.fillStyle = "red";
+					context.fillRect(pos.x,pos.y,size.w,size.h);
 				}
-			</canvas>
+			}/>
 			<grid columns={4} gap={4} fill="blue">
-				<box>1</box>
-				<box>2</box>
-				<box>3</box>
-				<box>4</box>
-				<box>5</box>
-				<box>6</box>
-				<box>7</box>
-				<box>8</box>
-				<box>9</box>
-				<box>10</box>
-				<box>11</box>
-				<box>12</box>
-				<box>13</box>
-				<box>14</box>
-				<box>15</box>
-				<box>16</box>
-				<box>17</box>
-				<box>18</box>
-				<box>19</box>
-				<box>20</box>
-				<box>21</box>
-				<box>22</box>
-				<box>23</box>
-				<box>24</box>
-				<box>25</box>
-				<box>26</box>
-				<box>27</box>
-				<box>28</box>
+				{[...Array(28).fill(0)].map((_,i) => i)}
 			</grid>
 		</column>
 	</column>

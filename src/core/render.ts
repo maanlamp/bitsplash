@@ -1,11 +1,20 @@
-import { type Node as MarkupNode } from "./markup.js";
+import { ElementNode, type Node as MarkupNode } from "./markup.js";
 import { paint } from "./paint.js";
 
 export type Mouse = { x: number; y: number; [button: number]: boolean };
 
-export const render = (node: MarkupNode): Node => {
-	if (typeof node === "string") return document.createTextNode(node);
+export const render = (node: MarkupNode): Node | ReadonlyArray<Node> | null => {
+	if (typeof node === "string") {
+		return document.createTextNode(node);
+	} else if (typeof node === "function") {
+		return render(node());
+	} else if (!node) {
+		return null;
+	} else if (Array.isArray(node)) {
+		return node.map(render).flat() as ReadonlyArray<Node>;
+	}
 
+	node = node as ElementNode;
 	switch (node.name) {
 		case "program": {
 			return render(node.children[0]);
@@ -91,13 +100,15 @@ export const render = (node: MarkupNode): Node => {
 	}
 };
 
-const create = <T extends HTMLElement>(node: Exclude<MarkupNode, string>) => {
+const create = <T extends HTMLElement>(node: ElementNode) => {
 	const element = document.createElement(node.name) as T;
 	for (const [name, value] of Object.entries(node.attributes)) {
 		element.setAttribute(name, value);
 	}
 	for (const child of node.children) {
-		element.append(render(child));
+		const rendered = render(child);
+		if (!rendered) continue;
+		for (const e of [element].flat()) element.append(e);
 	}
 	return element;
 };

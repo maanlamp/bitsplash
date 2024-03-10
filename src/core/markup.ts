@@ -18,7 +18,15 @@ export type ElementNode = Readonly<{
 	attributes: Readonly<Record<string, any>>;
 }>;
 
-export type Node = TextNode | ElementNode;
+// TODO: Split into renderable and non-renderable
+export type Node =
+	| TextNode
+	| ElementNode
+	| (() => Node)
+	| null
+	| undefined
+	| false
+	| ReadonlyArray<Node>;
 
 type Result = readonly [number, Node];
 
@@ -39,7 +47,7 @@ const whitespace = (input: string, offset = 0) =>
 
 export const program = (input: string, offset = 0): Result => {
 	offset += whitespace(input, offset);
-	const children = [];
+	const children: Node[] = [];
 	while (true) {
 		try {
 			const [newOffset, child] = node(input, offset);
@@ -58,6 +66,9 @@ export const program = (input: string, offset = 0): Result => {
 };
 
 const node = (input: string, offset = 0): Result => {
+	if (peek("{", input, offset)) {
+		return jsNode(input, offset);
+	}
 	if (!peek("<", input, offset)) {
 		return text(input, offset);
 	}
@@ -80,7 +91,7 @@ const node = (input: string, offset = 0): Result => {
 	}
 	offset += expect(">", input, offset);
 	offset += whitespace(input, offset);
-	const children = [];
+	const children: Node[] = [];
 	while (true) {
 		try {
 			const [newOffset, child] = node(input, offset);
@@ -170,12 +181,7 @@ const attributeValue = (input: string, offset = 0) => {
 		}
 		return [offset + 1, input.slice(start, offset)] as const;
 	}
-	offset += expect("{", input, offset);
-	const length = matchBalancedChars("{}", input.slice(offset - 1));
-	const value = eval(input.slice(offset, offset + length));
-	offset += length;
-	offset += expect("}", input, offset);
-	return [offset, value] as const;
+	return matchJsexpr(input, offset);
 };
 
 const matchBalancedChars = ([start, end]: string, input: string) => {
@@ -203,6 +209,41 @@ const matchBalancedChars = ([start, end]: string, input: string) => {
 			index += 1;
 		}
 	}
+};
+
+const matchJsexpr = (input: string, offset = 0) => {
+	offset += expect("{", input, offset);
+	const length = matchBalancedChars("{}", input.slice(offset - 1));
+	const value = eval(input.slice(offset, offset + length));
+	offset += length;
+	offset += expect("}", input, offset);
+	return [offset, value] as const;
+};
+
+const jsNode = (input: string, offset = 0): Result => {
+	const [newOffset, value] = matchJsexpr(input, offset);
+	return [newOffset, jsexprToNode(value)];
+};
+
+const jsexprToNode = (value: any): Node => {
+	switch (typeof value) {
+		case "bigint":
+		case "number":
+		case "boolean":
+		case "string": {
+			return value.toString();
+		}
+		case "symbol": {
+			return value.description;
+		}
+		case "function": {
+			return value;
+		}
+	}
+	if (Array.isArray(value)) {
+		return value.map(jsexprToNode);
+	}
+	throw new Error(`Unhandled js expression type "${typeof value}".`);
 };
 
 export const run = (parser: Parser) => (input: string) => {
