@@ -60,17 +60,28 @@ export const render = (node: MarkupNode): Node => {
 
 			window.addEventListener("resize", resize);
 
-			setTimeout(() => {
-				const handleKey = (e: KeyboardEvent) => {
-					if (document.activeElement !== canvas || e.repeat) return;
-					keys[e.key.toUpperCase()] = e.type === "keydown";
-					repaint();
-				};
+			// Safely add some listeners to the canvas when it's actually rendered
+			const observer = new MutationObserver(mutations => {
+				for (const mut of mutations) {
+					if (Array.from(mut.addedNodes).some(node => node === canvas)) {
+						const handleKey = (e: KeyboardEvent) => {
+							if (document.activeElement !== canvas || e.repeat) return;
+							keys[e.key.toUpperCase()] = e.type === "keydown";
+							repaint();
+						};
 
-				window.addEventListener("keyup", handleKey);
-				window.addEventListener("keydown", handleKey);
-				canvas.addEventListener("click", () => canvas.focus());
-				resize();
+						window.addEventListener("keyup", handleKey);
+						window.addEventListener("keydown", handleKey);
+						canvas.addEventListener("click", () => canvas.focus());
+
+						resize();
+						observer.disconnect();
+					}
+				}
+			});
+			observer.observe(document, {
+				childList: true,
+				subtree: true,
 			});
 
 			return canvas;

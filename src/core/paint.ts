@@ -1,3 +1,4 @@
+import { chunk } from "../core/util.js";
 import { type ElementNode, type Node } from "./markup.js";
 import { type Mouse } from "./render.js";
 
@@ -81,6 +82,48 @@ export const paint = (
 			case "box":
 			case "row":
 			case "column": {
+				const padding = normalisePadding(node.attributes.padding);
+				const origin = {
+					x: position.x + padding.left,
+					y: position.y + padding.top,
+				};
+				const positions = layout(node, context);
+				for (const i in positions) {
+					paint(
+						node.children[i],
+						{
+							x: origin.x + positions[i].x,
+							y: origin.y + positions[i].y,
+						},
+						context,
+						mouse
+					);
+				}
+				break;
+			}
+			case "canvas": {
+				(() => {
+					const child = (node.children[0] as string).slice(1, -1);
+					const painter: (
+						ctx: CanvasRenderingContext2D,
+						pos: Position,
+						size: Size
+					) => void = eval(child);
+					if (typeof painter !== "function") {
+						throw new Error("Child must be a function.");
+					}
+					if (painter.length !== 3) {
+						throw new Error(
+							"Function must take context, position and size as arguments."
+						);
+					}
+					context.save();
+					painter(context, position, size);
+					context.restore();
+				})();
+				break;
+			}
+			case "grid": {
 				const padding = normalisePadding(node.attributes.padding);
 				const origin = {
 					x: position.x + padding.left,
@@ -199,6 +242,35 @@ const measure = (node: Node, context: CanvasRenderingContext2D): Size => {
 				h: node.attributes.height ?? size.h + padding.left + padding.right,
 			};
 		}
+		case "canvas": {
+			return {
+				w: node.attributes.width ?? 100,
+				h: node.attributes.height ?? 100,
+			};
+		}
+		case "grid": {
+			if (!node.attributes.columns) {
+				throw new Error("A grid must have predefined colums.");
+			}
+			const rows = chunk(node.attributes.columns)(node.children).map(row =>
+				row.reduce(
+					(total, child) => {
+						const size = measure(child, context);
+						return {
+							w: total.w + size.w,
+							h: Math.max(total.h, size.h),
+						};
+					},
+					{ w: 0, h: 0 }
+				)
+			);
+			const w =
+				rows.map(({ w }) => w).reduce((max, w) => (w > max ? w : max)) +
+				(node.attributes.columns - 1) * gap;
+			const h =
+				rows.reduce((total, { h }) => total + h, 0) + (rows.length - 1) * gap;
+			return { w, h };
+		}
 		default:
 			throw new Error(`Cannot measure nodes of type "${node.name}".`);
 	}
@@ -213,6 +285,25 @@ const layout = (
 	const parentPadding = normalisePadding(node.attributes.padding);
 	const positions: Position[] = [];
 	switch (node.name) {
+		case "box":
+		case "row": {
+			let x = 0;
+			for (let i = 0; i < node.children.length; i++) {
+				const child = node.children[i];
+				const size = measure(child, context);
+				positions.push({
+					y:
+						node.attributes.alignCross === "end"
+							? parentSize.h - parentPadding.top - parentPadding.bottom - size.h
+							: node.attributes.alignCross === "center"
+							? -parentPadding.top + parentSize.h / 2 - size.h / 2
+							: 0,
+					x,
+				});
+				x += size.w + gap;
+			}
+			return positions;
+		}
 		case "column": {
 			let y = 0;
 			for (let i = 0; i < node.children.length; i++) {
@@ -231,23 +322,24 @@ const layout = (
 			}
 			return positions;
 		}
+		case "grid": {
+			const size = node.children
+				.map(child => measure(child, context))
+				.reduce((max, size) => ({
+					w: Math.max(max.w, size.w),
+					h: Math.max(max.h, size.h),
+				}));
+			return node.children.map((_, i) => {
+				const col = i % node.attributes.columns;
+				const row = Math.floor(i / node.attributes.columns);
+				return {
+					x: size.w * col + gap * col,
+					y: size.h * row + gap * row,
+				};
+			});
+		}
 		default: {
-			let x = 0;
-			for (let i = 0; i < node.children.length; i++) {
-				const child = node.children[i];
-				const size = measure(child, context);
-				positions.push({
-					y:
-						node.attributes.alignCross === "end"
-							? parentSize.h - parentPadding.top - parentPadding.bottom - size.h
-							: node.attributes.alignCross === "center"
-							? -parentPadding.top + parentSize.h / 2 - size.h / 2
-							: 0,
-					x,
-				});
-				x += size.w + gap;
-			}
-			return positions;
+			throw `Cannot layout nodes of type "${node.name}".`;
 		}
 	}
 };

@@ -4,8 +4,11 @@ type Entity = Readonly<{ id: number }> & { [key: string]: any };
 
 type System = (e: Entity, delta: number) => void;
 
+// https://github.com/hackergrrl/recs
+
 let LAST_ID = -1;
 const Game = () => {
+	let entityStoreIsDirty = false;
 	const entityStore: Record<
 		string,
 		{
@@ -15,6 +18,7 @@ const Game = () => {
 			events: { [event: string]: (e: Entity) => void };
 		}
 	> = {};
+	let systemStoreIsDirty = false;
 	const systemStore: Record<
 		string,
 		{ components: ReadonlyArray<Component<any>>; system: System }
@@ -35,6 +39,7 @@ const Game = () => {
 				entity: e,
 				events: {},
 			};
+			entityStoreIsDirty = true;
 			return id;
 		},
 		destroy: (id: number) => {
@@ -67,24 +72,43 @@ const Game = () => {
 		) => {
 			const id = ++LAST_ID;
 			systemStore[id] = { system, components };
+			systemStoreIsDirty = true;
 			return id;
 		},
 	};
 
-	const loop = () => {
-		let before = performance.now();
-		const tick = () => {
-			const now = performance.now();
-			const delta = now - before;
-			before = now;
+	const loop = (beforeTick?: (delta: number) => void) => {
+		let now = 0;
+		let before = 0;
+		let delta = 0;
+		let entities = Object.entries(entityStore);
+		let systems = Object.values(systemStore);
 
-			for (const [k, e] of Object.entries(entityStore)) {
-				for (const s of Object.values(systemStore)) {
+		const tick = () => {
+			now = performance.now();
+			delta = now - before;
+			before = now;
+			beforeTick?.(delta);
+
+			if (entityStoreIsDirty) {
+				entities = Object.entries(entityStore);
+				entityStoreIsDirty = false;
+			}
+			if (systemStoreIsDirty) {
+				systems = Object.values(systemStore);
+				systemStoreIsDirty = false;
+			}
+
+			for (const [k, e] of entities) {
+				for (const s of systems) {
 					if (s.components.every(c => c.name in e.entity)) {
 						s.system(e.entity, delta);
 					}
 				}
-				if (e.destroyed) delete entityStore[k];
+				if (e.destroyed) {
+					delete entityStore[k];
+					entityStoreIsDirty = true;
+				}
 			}
 
 			requestAnimationFrame(tick);
