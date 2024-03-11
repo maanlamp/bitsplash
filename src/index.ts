@@ -135,7 +135,7 @@ input.textContent = `
 				}
 			}/>
 			<grid columns={4} gap={4} fill="white" color="black">
-				{[...Array(28).fill(0)].map((_,i) => i)}
+				{[...Array(28)].map((_,i) => i)}
 			</grid>
 		</column>
 	</column>
