@@ -22,10 +22,9 @@ export type ElementNode = Readonly<{
 export type Node =
 	| TextNode
 	| ElementNode
-	| (() => Node)
 	| null
 	| undefined
-	| false
+	| boolean
 	| ReadonlyArray<Node>;
 
 type Result = readonly [number, Node];
@@ -225,22 +224,24 @@ const jsNode = (input: string, offset = 0): Result => {
 	return [newOffset, jsexprToNode(value)];
 };
 
-const jsexprToNode = (value: any): Node => {
+export const isJsAtom = (
+	value: any
+): value is bigint | number | boolean | string => {
 	switch (typeof value) {
 		case "bigint":
 		case "number":
 		case "boolean":
 		case "string": {
-			return value.toString();
-		}
-		case "symbol": {
-			return value.description;
-		}
-		case "function": {
-			return value;
+			return true;
 		}
 	}
-	if (Array.isArray(value)) {
+	return false;
+};
+
+const jsexprToNode = (value: any): Node => {
+	if (isJsAtom(value)) {
+		return value.toString();
+	} else if (Array.isArray(value)) {
 		return value.map(jsexprToNode);
 	}
 	throw new Error(`Unhandled js expression type "${typeof value}".`);

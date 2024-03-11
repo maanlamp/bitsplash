@@ -134,7 +134,7 @@ input.textContent = `
 					context.fillRect(pos.x,pos.y,size.w,size.h);
 				}
 			}/>
-			<grid columns={4} gap={4} fill="blue">
+			<grid columns={4} gap={4} fill="white" color="black">
 				{[...Array(28).fill(0)].map((_,i) => i)}
 			</grid>
 		</column>

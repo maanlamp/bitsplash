@@ -1,13 +1,11 @@
-import { ElementNode, type Node as MarkupNode } from "./markup.js";
+import { ElementNode, isJsAtom, type Node as MarkupNode } from "./markup.js";
 import { paint } from "./paint.js";
 
 export type Mouse = { x: number; y: number; [button: number]: boolean };
 
 export const render = (node: MarkupNode): Node | ReadonlyArray<Node> | null => {
-	if (typeof node === "string") {
-		return document.createTextNode(node);
-	} else if (typeof node === "function") {
-		return render(node());
+	if (isJsAtom(node) && node !== false) {
+		return document.createTextNode(node.toString());
 	} else if (!node) {
 		return null;
 	} else if (Array.isArray(node)) {

@@ -1,5 +1,4 @@
-import { chunk } from "../core/util.js";
-import { type ElementNode, type Node } from "./markup.js";
+import { isJsAtom, type ElementNode, type Node } from "./markup.js";
 import { type Mouse } from "./render.js";
 
 export type Position = Readonly<{
@@ -174,14 +173,12 @@ const measure = (
 	node: Node,
 	context: CanvasRenderingContext2D
 ): Size | ReadonlyArray<Size> => {
-	if (typeof node === "string") {
-		const measurement = context.measureText(node);
+	if (isJsAtom(node) && node !== false) {
+		const measurement = context.measureText(node.toString());
 		return {
 			w: measurement.actualBoundingBoxLeft + measurement.actualBoundingBoxRight,
 			h: measurement.fontBoundingBoxAscent + measurement.fontBoundingBoxDescent,
 		};
-	} else if (typeof node === "function") {
-		return measure(node(), context);
 	} else if (!node) {
 		return { w: 0, h: 0 };
 	} else if (Array.isArray(node)) {
@@ -199,12 +196,14 @@ const measure = (
 			};
 		}
 		case "column": {
-			const size = node.children
-				.flatMap(child => measure(child, context))
-				.reduce(
-					(acc, size) => ({ w: Math.max(acc.w, size.w), h: acc.h + size.h }),
-					{ w: 0, h: 0 } as Size
-				);
+			const sizes = node.children.flatMap(child => measure(child, context));
+			const size = sizes.reduce(
+				(acc, size) => ({
+					w: Math.max(acc.w, size.w),
+					h: acc.h + size.h,
+				}),
+				{ w: 0, h: 0 }
+			);
 			return {
 				w: node.attributes.width ?? size.w + padding.top + padding.bottom,
 				h:
@@ -212,24 +211,26 @@ const measure = (
 					size.h +
 						padding.left +
 						padding.right +
-						gap * Math.max(0, node.children.length - 1),
+						gap * Math.max(0, sizes.length - 1),
 			};
 		}
 		case "row":
 		case "box": {
-			const size = node.children
-				.flatMap(child => measure(child, context))
-				.reduce(
-					(acc, size) => ({ w: acc.w + size.w, h: Math.max(acc.h, size.h) }),
-					{ w: 0, h: 0 } as Size
-				);
+			const sizes = node.children.flatMap(child => measure(child, context));
+			const size = sizes.reduce(
+				(acc, size) => ({
+					w: acc.w + size.w,
+					h: Math.max(acc.h, size.h),
+				}),
+				{ w: 0, h: 0 }
+			);
 			return {
 				w:
 					node.attributes.width ??
 					size.w +
 						padding.top +
 						padding.bottom +
-						gap * Math.max(0, node.children.length - 1),
+						gap * Math.max(0, sizes.length - 1),
 				h: node.attributes.height ?? size.h + padding.left + padding.right,
 			};
 		}
@@ -243,22 +244,15 @@ const measure = (
 			if (!node.attributes.columns) {
 				throw new Error("A grid must have predefined colums.");
 			}
-			const rows = chunk(node.attributes.columns)(
-				node.children.flatMap(child => measure(child, context))
-			).map(row =>
-				row.reduce(
-					(total, size) => ({
-						w: total.w + size.w,
-						h: Math.max(total.h, size.h),
-					}),
-					{ w: 0, h: 0 }
-				)
+			const sizes = node.children.flatMap(child => measure(child, context));
+			const largestCell = sizes.reduce(
+				(max, { w, h }) => ({ w: Math.max(max.w, w), h: Math.max(max.h, h) }),
+				{ w: 0, h: 0 }
 			);
-			const w =
-				rows.map(({ w }) => w).reduce((max, w) => (w > max ? w : max)) +
-				(node.attributes.columns - 1) * gap;
-			const h =
-				rows.reduce((total, { h }) => total + h, 0) + (rows.length - 1) * gap;
+			const cols = Math.min(sizes.length, node.attributes.columns);
+			const w = largestCell.w * cols + (cols - 1) * gap;
+			const rows = Math.ceil(sizes.length / node.attributes.columns);
+			const h = largestCell.h * rows + gap * (rows - 1);
 			return { w, h };
 		}
 		default:
@@ -323,13 +317,17 @@ const layout = (
 			return positions;
 		}
 		case "grid": {
-			const size = node.children
-				.flatMap(child => measure(child, context))
-				.reduce((max, size) => ({
+			const children = node.children.flat();
+			const size = (
+				children.map(child => measure(child, context)) as Size[]
+			).reduce(
+				(max, size) => ({
 					w: Math.max(max.w, size.w),
 					h: Math.max(max.h, size.h),
-				}));
-			return node.children.flat().map((_, i) => {
+				}),
+				{ w: 0, h: 0 }
+			);
+			return children.map((_, i) => {
 				const col = i % node.attributes.columns;
 				const row = Math.floor(i / node.attributes.columns);
 				return {
