@@ -33,7 +33,7 @@ export const render = (node: MarkupNode): Node | ReadonlyArray<Node> | null => {
 			};
 			let keys: Record<string, boolean> = {};
 			const origin = { x: 0, y: 0 };
-			const repaint = (e?: MouseEvent) => {
+			const repaint = (e?: MouseEvent, onlyWhenFocused = false) => {
 				e?.preventDefault();
 				if (e) {
 					mouse[e.button] =
@@ -45,17 +45,20 @@ export const render = (node: MarkupNode): Node | ReadonlyArray<Node> | null => {
 				}
 				mouse.x = e?.clientX ?? mouse.x;
 				mouse.y = e?.clientY ?? mouse.y;
+				if (onlyWhenFocused && document.activeElement !== canvas) {
+					return;
+				}
 				requestAnimationFrame(() => {
 					context.clearRect(0, 0, canvas.width, canvas.height);
 					paint(node, origin, context, mouse);
 				});
 			};
-			canvas.addEventListener("mousemove", repaint);
-			canvas.addEventListener("mouseenter", repaint);
-			canvas.addEventListener("mouseleave", repaint);
-			canvas.addEventListener("wheel", repaint);
-			canvas.addEventListener("mousedown", repaint);
-			canvas.addEventListener("mouseup", repaint);
+			canvas.addEventListener("mousemove", e => repaint(e, true));
+			canvas.addEventListener("mouseenter", e => repaint(e, true));
+			canvas.addEventListener("mouseleave", e => repaint(e, true));
+			canvas.addEventListener("wheel", e => repaint(e, true));
+			canvas.addEventListener("mousedown", e => repaint(e, true));
+			canvas.addEventListener("mouseup", e => repaint(e, true));
 
 			const resize = () => {
 				const size = canvas.parentElement?.getBoundingClientRect();

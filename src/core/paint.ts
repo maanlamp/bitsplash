@@ -40,92 +40,100 @@ export const paint = (
 		}
 	} else {
 		node = node as ElementNode;
-		if (node.attributes.fill) {
-			// Saving and restoring only fillStyle to preserve transformations
-			const before = context.fillStyle;
-			context.fillStyle =
-				mouseIsInside && mouse[0] && node.attributes.click
-					? node.attributes.click
-					: node.attributes.fill;
-
-			if (mouseIsInside && mouse[0]) {
-				const scale = 0.9;
-				context.translate(
-					(size.w * (1 - scale)) / 2,
-					(size.h * (1 - scale)) / 2
-				);
-				context.scale(scale, scale);
-			}
-			context.beginPath();
-			context.roundRect(
+		if ((node as ElementNode).name === "image") {
+			context.drawImage(
+				_IMAGE_CACHE[node.attributes.url],
 				position.x,
-				position.y,
-				size.w,
-				size.h,
-				node.attributes.radius ?? 0
+				position.y
 			);
-			context.fill();
-			context.fillStyle = before;
-		}
+		} else {
+			if (node.attributes.fill) {
+				// Saving and restoring only fillStyle to preserve transformations
+				const before = context.fillStyle;
+				context.fillStyle =
+					mouseIsInside && mouse[0] && node.attributes.click
+						? node.attributes.click
+						: node.attributes.fill;
 
-		if (node.attributes.hover && mouseIsInside) {
-			// TODO: Think of proper shorthand parsing strategy
-			const [thickness, colour] = node.attributes.hover.split(" ");
-			context.strokeStyle = colour;
-			context.lineWidth = parseFloat(thickness);
-			context.strokeRect(position.x, position.y, size.w, size.h);
-		}
-
-		if (node.attributes.color) {
-			context.fillStyle = node.attributes.color;
-		}
-
-		switch (node.name) {
-			case "game": {
-				for (const child of node.children) {
-					paint(child, position, context, mouse);
-				}
-				break;
-			}
-			case "canvas": {
-				(() => {
-					const painter = node.attributes.painter;
-					if (typeof painter !== "function") {
-						throw new Error(
-							"A canvas must have a painter attribute with a function value"
-						);
-					}
-					if (painter.length !== 3) {
-						throw new Error(
-							"Function must take context, position and size as arguments."
-						);
-					}
-					context.save();
-					painter(context, position, size);
-					context.restore();
-				})();
-				break;
-			}
-			default: {
-				const padding = normalisePadding(node.attributes.padding);
-				const origin = {
-					x: position.x + padding.left,
-					y: position.y + padding.top,
-				};
-				const positions = layout(node, context);
-				const children = node.children.flat();
-				for (const i in positions) {
-					paint(
-						children[i],
-						{
-							x: origin.x + positions[i].x,
-							y: origin.y + positions[i].y,
-						},
-						context,
-						mouse
+				if (mouseIsInside && mouse[0]) {
+					const scale = 0.9;
+					context.translate(
+						(size.w * (1 - scale)) / 2,
+						(size.h * (1 - scale)) / 2
 					);
+					context.scale(scale, scale);
 				}
-				break;
+				context.beginPath();
+				context.roundRect(
+					position.x,
+					position.y,
+					size.w,
+					size.h,
+					node.attributes.radius ?? 0
+				);
+				context.fill();
+				context.fillStyle = before;
+			}
+
+			if (node.attributes.hover && mouseIsInside) {
+				// TODO: Think of proper shorthand parsing strategy
+				const [thickness, colour] = node.attributes.hover.split(" ");
+				context.strokeStyle = colour;
+				context.lineWidth = parseFloat(thickness);
+				context.strokeRect(position.x, position.y, size.w, size.h);
+			}
+
+			if (node.attributes.color) {
+				context.fillStyle = node.attributes.color;
+			}
+
+			switch (node.name) {
+				case "game": {
+					for (const child of node.children) {
+						paint(child, position, context, mouse);
+					}
+					break;
+				}
+				case "canvas": {
+					(() => {
+						const painter = node.attributes.painter;
+						if (typeof painter !== "function") {
+							throw new Error(
+								"A canvas must have a painter attribute with a function value"
+							);
+						}
+						if (painter.length !== 3) {
+							throw new Error(
+								"Function must take context, position and size as arguments."
+							);
+						}
+						context.save();
+						painter(context, position, size);
+						context.restore();
+					})();
+					break;
+				}
+				default: {
+					const padding = normalisePadding(node.attributes.padding);
+					const origin = {
+						x: position.x + padding.left,
+						y: position.y + padding.top,
+					};
+					const positions = layout(node, context);
+					const children = node.children.flat();
+					for (const i in positions) {
+						paint(
+							children[i],
+							{
+								x: origin.x + positions[i].x,
+								y: origin.y + positions[i].y,
+							},
+							context,
+							mouse
+						);
+					}
+					break;
+				}
 			}
 		}
 	}
@@ -168,6 +176,8 @@ export type Size = Readonly<{
 	w: number;
 	h: number;
 }>;
+
+const _IMAGE_CACHE: Record<string, HTMLImageElement> = {};
 
 const measure = (
 	node: Node,
@@ -255,6 +265,11 @@ const measure = (
 			const h = largestCell.h * rows + gap * (rows - 1);
 			return { w, h };
 		}
+		case "image": {
+			const img = (_IMAGE_CACHE[node.attributes.url] ??= new Image());
+			img.src ||= node.attributes.url;
+			return { w: img.width, h: img.height };
+		}
 		default:
 			throw new Error(`Cannot measure nodes of type "${node.name}".`);
 	}
@@ -269,30 +284,6 @@ const layout = (
 	const parentPadding = normalisePadding(node.attributes.padding);
 	const positions: Position[] = [];
 	switch (node.name) {
-		case "box":
-		case "row": {
-			let x = 0;
-			for (let i = 0; i < node.children.length; i++) {
-				const child = node.children[i];
-				const sizes = [measure(child, context)].flat();
-				for (const size of sizes) {
-					positions.push({
-						y:
-							node.attributes.alignCross === "end"
-								? parentSize.h -
-								  parentPadding.top -
-								  parentPadding.bottom -
-								  size.h
-								: node.attributes.alignCross === "center"
-								? -parentPadding.top + parentSize.h / 2 - size.h / 2
-								: 0,
-						x,
-					});
-					x += size.w + gap;
-				}
-			}
-			return positions;
-		}
 		case "column": {
 			let y = 0;
 			for (let i = 0; i < node.children.length; i++) {
@@ -337,7 +328,27 @@ const layout = (
 			});
 		}
 		default: {
-			throw `Cannot layout nodes of type "${node.name}".`;
+			let x = 0;
+			for (let i = 0; i < node.children.length; i++) {
+				const child = node.children[i];
+				const sizes = [measure(child, context)].flat();
+				for (const size of sizes) {
+					positions.push({
+						y:
+							node.attributes.alignCross === "end"
+								? parentSize.h -
+								  parentPadding.top -
+								  parentPadding.bottom -
+								  size.h
+								: node.attributes.alignCross === "center"
+								? -parentPadding.top + parentSize.h / 2 - size.h / 2
+								: 0,
+						x,
+					});
+					x += size.w + gap;
+				}
+			}
+			return positions;
 		}
 	}
 };

@@ -95,7 +95,7 @@ input.textContent = `
 				click="white"
 				fill="grey"
 				color="white"
-				radius={5}
+				radius={16}
 				padding={32}
 				gap={8}
 				alignCross="end">
@@ -136,6 +136,20 @@ input.textContent = `
 			}/>
 			<grid columns={4} gap={4} fill="white" color="black">
 				{[...Array(28)].map((_,i) => i)}
+			</grid>
+			<grid columns={4}>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
+				<image url="${shipSrc}"/>
 			</grid>
 		</column>
 	</column>
