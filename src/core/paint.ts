@@ -1,10 +1,15 @@
 import { isJsAtom, type ElementNode, type Node } from "./markup.js";
-import { type Mouse } from "./render.js";
 
 export type Position = Readonly<{
 	x: number;
 	y: number;
 }>;
+
+export type Mouse = {
+	x: number;
+	y: number;
+	[button: number]: boolean | undefined;
+};
 
 export const paint = (
 	node: Node,

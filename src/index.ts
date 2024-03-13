@@ -1,7 +1,8 @@
 import shipSrc from "./assets/ship.png";
-import Game from "./core/game.js";
-import { program, run } from "./core/markup.js";
-import { render } from "./core/render.js";
+import Game from "./core/game";
+import { ElementNode, Node, program, run } from "./core/markup";
+import { paint, type Mouse } from "./core/paint";
+import * as Vector2 from "./core/vector2";
 
 const clear = (node: Element) => {
 	while (node.lastChild) node.lastChild.remove();
@@ -60,29 +61,26 @@ html, body {
 #raw {
 	font-family: "Fira Code";
 	overflow: auto;
+
+	&.error {
+		background: red;
+		color: yellow;
+		padding: 1rem;
+		display: flex;
+	}
 }
 `.trim();
 document.head.append(style);
 
-let viewport: HTMLCanvasElement;
-let ctx: CanvasRenderingContext2D;
+let parsed: Node;
 const update = () => {
 	try {
-		const parsed = run(program)(
-			document.querySelector<HTMLTextAreaElement>("#input")!.value!
-		);
-		viewport = render(parsed) as HTMLCanvasElement;
-		ctx = viewport.getContext("2d")!;
-		clear(rendered).append(viewport);
+		parsed = run(program)(input.value);
+		raw.classList.remove("error");
 		clear(raw).append(JSON.stringify(parsed, null, 2));
-		raw.removeAttribute("style");
 	} catch (error: any) {
-		clear(rendered);
 		clear(raw).append(error.stack);
-		raw.style.background = "red";
-		raw.style.color = "yellow";
-		raw.style.padding = "1rem";
-		raw.style.display = "flex";
+		raw.classList.add("error");
 	}
 };
 
@@ -130,7 +128,7 @@ input.textContent = `
 			<box fill="purple">dolor</box>
 			<canvas painter={
 				(context, pos, size) => {
-					context.fillStyle = "red";
+					context.fillStyle = \`hsl(\${performance.now()/30%360}deg,100%,50%)\`;
 					context.fillRect(pos.x,pos.y,size.w,size.h);
 				}
 			}/>
@@ -163,76 +161,121 @@ update();
 // ECS
 
 const game = Game();
+rendered.append(game.renderer.viewport);
+const resize = () => {
+	const size = rendered.getBoundingClientRect();
+	game.renderer.viewport.width = size.width;
+	game.renderer.viewport.height = size.height;
+};
+window.addEventListener("resize", resize);
+resize();
 
 const Health = () => {
-	const maxHp = 100;
+	const max = 100;
 	return {
-		maxHp,
-		hp: maxHp,
+		max,
+		current: max,
 	};
 };
-
-const Position = () => ({
-	x: 50,
-	y: 50,
-});
 
 const shipImg = new Image();
 shipImg.src = shipSrc;
 const Drawable = () => ({
 	img: shipImg,
 	offsetX: 0,
-	offsetY: 0,
+	offsetY: -16,
 });
 
-const playerId = game.entities.create([Health, Position, Drawable]);
-
-game.systems.create([Position, Drawable], e => {
-	ctx.drawImage(e.Drawable.img, e.Position.x, e.Position.y);
+const Location = () => ({
+	angle: 0,
+	x: game.renderer.viewport.width / 2,
+	y: game.renderer.viewport.height / 2,
 });
 
-const DELTAS: number[] = [];
-const MAX_DELTAS = 150;
-const GRAPH_STEP_SIZE = 0.66;
-const GRAPH_HEIGHT = 50;
-const GRAPH_OFFSET_X = 8;
-const GRAPH_OFFSET_Y = 8;
-const beforeTick = (delta: number) => {
-	ctx.clearRect(0, 0, viewport.width, viewport.height);
-	ctx.save();
-	DELTAS.push(delta);
-	if (DELTAS.length > MAX_DELTAS) {
-		DELTAS.shift();
-	}
-	ctx.fillStyle = "rgba(0,0,0,0.5)";
-	ctx.fillRect(
-		GRAPH_OFFSET_X,
-		GRAPH_OFFSET_Y,
-		MAX_DELTAS * GRAPH_STEP_SIZE,
-		GRAPH_HEIGHT
-	);
-	ctx.strokeStyle = "lime";
-	ctx.moveTo(GRAPH_OFFSET_X, GRAPH_OFFSET_Y + GRAPH_HEIGHT);
-	ctx.beginPath();
-	for (let i = 0; i < DELTAS.length; i++) {
-		ctx.lineTo(
-			GRAPH_OFFSET_X + i * GRAPH_STEP_SIZE,
-			GRAPH_OFFSET_Y +
-				GRAPH_HEIGHT -
-				(GRAPH_HEIGHT - 18) * (1000 / DELTAS[i] / 60)
-		);
-	}
-	ctx.stroke();
-	ctx.fillStyle = "lime";
-	ctx.fillText(
-		(1000 / delta).toFixed() +
-			" FPS, μ∆=" +
-			(DELTAS.reduce((acc, d) => acc + d, 0) / DELTAS.length).toFixed(4),
-		GRAPH_OFFSET_X + 2,
-		GRAPH_OFFSET_Y + 11
-	);
-	ctx.restore();
-	// TODO: Consolidate ECS and render()
+const _keys: Record<string, boolean> = {};
+const handleKey = (e: KeyboardEvent) => {
+	if (e.repeat) return;
+	_keys[e.key.toUpperCase()] = e.type === "keydown";
 };
+window.addEventListener("keyup", handleKey);
+window.addEventListener("keydown", handleKey);
+const Keys = () => _keys;
+const keySystem = game.systems.create([Keys, Location], e => {
+	if (e.Keys.A) {
+		e.Location.angle -= 3;
+	}
+	if (e.Keys.D) {
+		e.Location.angle += 3;
+	}
+	if (e.Keys.W) {
+		const [x, y] = Vector2.lenDir(3, e.Location.angle - 90);
+		e.Location.x += x;
+		e.Location.y += y;
+	}
+	if (e.Keys.S) {
+		const [x, y] = Vector2.lenDir(-3, e.Location.angle - 90);
+		e.Location.x += x;
+		e.Location.y += y;
+	}
+});
 
-// game.loop(beforeTick);
+const _mouse: Mouse = { x: -Infinity, y: -Infinity };
+const handleMouseButton = (e: MouseEvent) => {
+	_mouse[e.button] = e.type === "mousedown";
+};
+window.addEventListener("mousedown", handleMouseButton);
+window.addEventListener("mouseup", handleMouseButton);
+window.addEventListener("mousemove", e => {
+	_mouse.x = e.x;
+	_mouse.y = e.y;
+});
+const Mouse = () => _mouse;
+
+const playerId = game.entities.create([Health, Location, Drawable, Keys]);
+
+const drawingSystem = game.systems.create([Location, Drawable], e => {
+	const c = game.renderer.context;
+	c.save();
+	c.translate(e.Location.x, e.Location.y);
+	c.rotate(Vector2.deg2rad(e.Location.angle));
+	c.drawImage(
+		e.Drawable.img,
+		-(e.Drawable.img.width / 2) + e.Drawable.offsetX,
+		-(e.Drawable.img.height / 2) + e.Drawable.offsetY
+	);
+	c.restore();
+});
+
+const healthBarSystem = game.systems.create([Health, Location, Drawable], e => {
+	const c = game.renderer.context;
+	const w = e.Drawable.img.width;
+	const h = e.Drawable.img.height;
+	c.save();
+	c.fillStyle = "red";
+	c.fillRect(
+		e.Location.x - w / 2 + e.Drawable.offsetX,
+		e.Location.y - h / 2 + e.Drawable.offsetY,
+		w,
+		8
+	);
+	c.fillStyle = "lime";
+	c.fillRect(
+		e.Location.x - w / 2 + e.Drawable.offsetX,
+		e.Location.y - h / 2 + e.Drawable.offsetY,
+		(e.Health.current / e.Health.max) * w,
+		8
+	);
+	c.restore();
+	e.Health.current -= 1;
+	if (e.Health.current < 0) {
+		e.Health.current = e.Health.max;
+	}
+});
+
+const uiEntity = game.entities.create([Mouse]);
+const UIsystem = game.systems.create([Mouse], e => {
+	const c = game.renderer.context;
+	paint((parsed as ElementNode).children[0], { x: 0, y: 0 }, c, e.Mouse);
+});
+
+game.loop();

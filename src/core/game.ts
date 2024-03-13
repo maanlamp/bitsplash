@@ -4,6 +4,10 @@ type Entity = Readonly<{ id: number }> & { [key: string]: any };
 
 type System = (e: Entity, delta: number) => void;
 
+type Layer = {
+	entities: Entity[];
+};
+
 // https://github.com/hackergrrl/recs
 
 let LAST_ID = -1;
@@ -46,8 +50,8 @@ const Game = () => {
 			entityStore[id].destroyed = true;
 		},
 		on: (
-			components: ReadonlyArray<Component<any>>,
 			event: string,
+			components: ReadonlyArray<Component<any>>,
 			handler: (e: Entity) => void
 		) => {
 			for (const e of Object.values(entityStore)) {
@@ -56,7 +60,7 @@ const Game = () => {
 				}
 			}
 		},
-		send: (components: ReadonlyArray<Component<any>>, event: string) => {
+		send: (event: string, components: ReadonlyArray<Component<any>>) => {
 			for (const e of Object.values(entityStore)) {
 				if (components.every(c => c.name in e.entity)) {
 					e.events[event](e.entity);
@@ -77,7 +81,7 @@ const Game = () => {
 		},
 	};
 
-	const loop = (beforeTick?: (delta: number) => void) => {
+	const loop = () => {
 		let now = 0;
 		let before = 0;
 		let delta = 0;
@@ -88,7 +92,6 @@ const Game = () => {
 			now = performance.now();
 			delta = now - before;
 			before = now;
-			beforeTick?.(delta);
 
 			if (entityStoreIsDirty) {
 				entities = Object.entries(entityStore);
@@ -99,6 +102,7 @@ const Game = () => {
 				systemStoreIsDirty = false;
 			}
 
+			renderer.context.clearRect(0, 0, viewport.width, viewport.height);
 			for (const [k, e] of entities) {
 				for (const s of systems) {
 					if (s.components.every(c => c.name in e.entity)) {
@@ -116,9 +120,20 @@ const Game = () => {
 		tick();
 	};
 
+	const viewport = document.createElement("canvas");
+	const context = viewport.getContext("2d");
+	if (!context) {
+		throw new Error("Could not get game viewport context.");
+	}
+	const renderer = {
+		viewport,
+		context,
+	};
+
 	return {
 		entities,
 		systems,
+		renderer,
 		loop,
 	};
 };

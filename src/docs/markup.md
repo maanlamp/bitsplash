@@ -1,5 +1,7 @@
 # Markup
 
+> ⚠️ **Nota bene:** This document is highly WIP.
+
 In BitSplash one defines a UI in an XML-ish dialect, similar to JSX:
 
 ```tsx
