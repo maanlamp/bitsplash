@@ -16,7 +16,17 @@ export const paint = (
 	position: Position,
 	context: CanvasRenderingContext2D,
 	mouse: Mouse
-) => {
+): void => {
+	if ((node as ElementNode).name === "game") {
+		return paint(
+			(node as ElementNode).children.find(
+				child => (child as ElementNode).name === "viewport"
+			),
+			position,
+			context,
+			mouse
+		);
+	}
 	context.save();
 	// TODO: Mouse position is interpreted as global, but paint position
 	// is interpreted as local, so either the "mouseIsInside" is wrong,
@@ -93,7 +103,7 @@ export const paint = (
 			}
 
 			switch (node.name) {
-				case "game": {
+				case "viewport": {
 					for (const child of node.children) {
 						paint(child, position, context, mouse);
 					}
@@ -204,7 +214,7 @@ const measure = (
 	const gap = parseFloat(node.attributes.gap ?? "0");
 	const padding = normalisePadding(node.attributes.padding);
 	switch (node.name) {
-		case "game": {
+		case "viewport": {
 			return {
 				w: context.canvas.width,
 				h: context.canvas.height,

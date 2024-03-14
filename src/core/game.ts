@@ -70,10 +70,7 @@ const Game = () => {
 	};
 
 	const systems = {
-		create: (
-			components: ReadonlyArray<Component<{}>>,
-			system: (e: Entity) => void
-		) => {
+		create: (components: ReadonlyArray<Component<{}>>, system: System) => {
 			const id = ++LAST_ID;
 			systemStore[id] = { system, components };
 			systemStoreIsDirty = true;

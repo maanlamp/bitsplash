@@ -1,4 +1,14 @@
-export const deg2rad = (deg: number) => (deg * Math.PI) / 180;
+export type Vector2 = [number, number];
 
-export const lenDir = (len: number, dir: number) =>
-	[Math.cos(deg2rad(dir)) * len, Math.sin(deg2rad(dir)) * len] as const;
+export const deg2rad = (deg: number) => deg * (Math.PI / 180);
+
+export const rad2deg = (rad: number) => rad * (180 / Math.PI);
+
+export const lenDir = (len: number, dir: number): Vector2 => [
+	Math.cos(deg2rad(dir)) * len,
+	Math.sin(deg2rad(dir)) * len,
+];
+
+export const magnitude = ([x, y]: Vector2) => Math.sqrt(x * x + y * y);
+
+export const angle = ([x, y]: Vector2) => Math.atan2(y, x);

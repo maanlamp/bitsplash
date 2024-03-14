@@ -85,72 +85,74 @@ const update = () => {
 };
 
 input.textContent = `
-<game hover="4px orange">
-	<column hover="2px red">
-		<row hover="2px green">
-			<column
-				hover="2px blue"
-				click="white"
-				fill="grey"
-				color="white"
-				radius={16}
-				padding={32}
-				gap={8}
-				alignCross="end">
-				<box fill="red">Lorem</box>
-				<box fill="green">Ipsum</box>
-				<box fill="blue">dolor</box>
-			</column>
-			<row
-				hover="2px yellow"
-				click="white"
-				fill="rgb(150,150,150)"
-				color="black"
-				radius={5}
-				padding={32}
-				alignCross="center"
-				gap={16}>
-				<box fill="cyan">sit</box>
-				<box fill="magenta">amet</box>
-				<box fill="yellow">consectetur</box>
+<game>
+	<viewport hover="4px orange">
+		<column hover="2px red">
+			<row hover="2px green">
+				<column
+					hover="2px blue"
+					click="white"
+					fill="grey"
+					color="white"
+					radius={16}
+					padding={32}
+					gap={8}
+					alignCross="end">
+					<box fill="red">Lorem</box>
+					<box fill="green">Ipsum</box>
+					<box fill="blue">dolor</box>
+				</column>
+				<row
+					hover="2px yellow"
+					click="white"
+					fill="rgb(150,150,150)"
+					color="black"
+					radius={5}
+					padding={32}
+					alignCross="center"
+					gap={16}>
+					<box fill="cyan">sit</box>
+					<box fill="magenta">amet</box>
+					<box fill="yellow">consectetur</box>
+				</row>
 			</row>
-		</row>
-		<column
-			hover="2px cyan"
-			click="white"
-			fill="rgb(220,220,220)"
-			color="white"
-			radius={5}
-			padding={8}
-			alignCross="end">
-			<box fill="orange">Lorem</box>
-			<box fill="teal">Ipsum</box>
-			<box fill="purple">dolor</box>
-			<canvas painter={
-				(context, pos, size) => {
-					context.fillStyle = \`hsl(\${performance.now()/30%360}deg,100%,50%)\`;
-					context.fillRect(pos.x,pos.y,size.w,size.h);
-				}
-			}/>
-			<grid columns={4} gap={4} fill="white" color="black">
-				{[...Array(28)].map((_,i) => i)}
-			</grid>
-			<grid columns={4}>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-				<image url="${shipSrc}"/>
-			</grid>
+			<column
+				hover="2px cyan"
+				click="white"
+				fill="rgb(220,220,220)"
+				color="white"
+				radius={5}
+				padding={8}
+				alignCross="end">
+				<box fill="orange">Lorem</box>
+				<box fill="teal">Ipsum</box>
+				<box fill="purple">dolor</box>
+				<canvas painter={
+					(context, pos, size) => {
+						context.fillStyle = "hsl(" + (performance.now() / 30 % 360)  + "deg,100%,50%)";
+						context.fillRect(pos.x,pos.y,size.w,size.h);
+					}
+				}/>
+				<grid columns={4} gap={4} fill="white" color="black">
+					{[...Array(28)].map((_,i) => i)}
+				</grid>
+				<grid columns={4}>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+					<image url="${shipSrc}"/>
+				</grid>
+			</column>
 		</column>
-	</column>
+	</viewport>
 </game>
 `.trim();
 
@@ -192,6 +194,13 @@ const Location = () => ({
 	y: game.renderer.viewport.height / 2,
 });
 
+const Physics = () => ({
+	force: [0, 0],
+	mass: 1,
+	drag: 0.005,
+	acceleration: 0.005,
+});
+
 const _keys: Record<string, boolean> = {};
 const handleKey = (e: KeyboardEvent) => {
 	if (e.repeat) return;
@@ -200,24 +209,6 @@ const handleKey = (e: KeyboardEvent) => {
 window.addEventListener("keyup", handleKey);
 window.addEventListener("keydown", handleKey);
 const Keys = () => _keys;
-const keySystem = game.systems.create([Keys, Location], e => {
-	if (e.Keys.A) {
-		e.Location.angle -= 3;
-	}
-	if (e.Keys.D) {
-		e.Location.angle += 3;
-	}
-	if (e.Keys.W) {
-		const [x, y] = Vector2.lenDir(3, e.Location.angle - 90);
-		e.Location.x += x;
-		e.Location.y += y;
-	}
-	if (e.Keys.S) {
-		const [x, y] = Vector2.lenDir(-3, e.Location.angle - 90);
-		e.Location.x += x;
-		e.Location.y += y;
-	}
-});
 
 const _mouse: Mouse = { x: -Infinity, y: -Infinity };
 const handleMouseButton = (e: MouseEvent) => {
@@ -231,7 +222,13 @@ window.addEventListener("mousemove", e => {
 });
 const Mouse = () => _mouse;
 
-const playerId = game.entities.create([Health, Location, Drawable, Keys]);
+const playerId = game.entities.create([
+	Health,
+	Location,
+	Drawable,
+	Keys,
+	Physics,
+]);
 
 const drawingSystem = game.systems.create([Location, Drawable], e => {
 	const c = game.renderer.context;
@@ -245,6 +242,67 @@ const drawingSystem = game.systems.create([Location, Drawable], e => {
 	);
 	c.restore();
 });
+
+const movementSystem = game.systems.create(
+	[Keys, Location, Physics],
+	(e, delta) => {
+		if (e.Keys.A) {
+			e.Location.angle -= 3;
+		}
+		if (e.Keys.D) {
+			e.Location.angle += 3;
+		}
+
+		let distance: Vector2.Vector2 = [0, 0];
+		if (e.Keys.W) {
+			distance = Vector2.lenDir(
+				e.Physics.acceleration * delta,
+				e.Location.angle - 90
+			);
+		}
+		if (e.Keys.S) {
+			distance = Vector2.lenDir(
+				-e.Physics.acceleration * delta,
+				e.Location.angle - 90
+			);
+		}
+
+		const speed: Vector2.Vector2 = [
+			distance[0] / e.Physics.mass,
+			distance[1] / e.Physics.mass,
+		];
+		e.Physics.force[0] += speed[0];
+		e.Physics.force[1] += speed[1];
+		e.Location.x += e.Physics.force[0];
+		e.Location.y += e.Physics.force[1];
+
+		e.Physics.force[0] *= 1 - e.Physics.drag / e.Physics.mass;
+		e.Physics.force[1] *= 1 - e.Physics.drag / e.Physics.mass;
+
+		if (Math.abs(e.Physics.force[0]) < 0.01) {
+			e.Physics.force[0] = 0;
+		}
+		if (Math.abs(e.Physics.force[1]) < 0.01) {
+			e.Physics.force[1] = 0;
+		}
+
+		const c = game.renderer.context;
+		c.save();
+		c.strokeStyle = "red";
+		c.lineWidth = 2;
+		const mag = Vector2.magnitude(e.Physics.force);
+		c.moveTo(e.Location.x, e.Location.y);
+		c.translate(e.Location.x, e.Location.y);
+		c.lineTo(
+			...Vector2.lenDir(
+				mag * 20,
+				Vector2.rad2deg(Vector2.angle(e.Physics.force))
+			)
+		);
+		c.stroke();
+		c.restore();
+	}
+);
 
 const healthBarSystem = game.systems.create([Health, Location, Drawable], e => {
 	const c = game.renderer.context;
