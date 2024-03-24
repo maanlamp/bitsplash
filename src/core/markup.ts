@@ -12,22 +12,24 @@ const isParseError = (value: any): value is ParseError => "offset" in value;
 
 export type TextNode = string;
 
+export type Attributes = Readonly<Record<string, any>>;
+
 export type ElementNode = Readonly<{
 	name: string;
-	children: ReadonlyArray<Node>;
-	attributes: Readonly<Record<string, any>>;
+	children: ReadonlyArray<MarkupNode>;
+	attributes: Attributes;
 }>;
 
 // TODO: Split into renderable and non-renderable
-export type Node =
+export type MarkupNode =
 	| TextNode
 	| ElementNode
 	| null
 	| undefined
 	| boolean
-	| ReadonlyArray<Node>;
+	| ReadonlyArray<MarkupNode>;
 
-type Result = readonly [number, Node];
+type Result = readonly [number, MarkupNode];
 
 type Parser = (input: string, offset?: number) => Result;
 
@@ -46,7 +48,7 @@ const whitespace = (input: string, offset = 0) =>
 
 export const program = (input: string, offset = 0): Result => {
 	offset += whitespace(input, offset);
-	const children: Node[] = [];
+	const children: MarkupNode[] = [];
 	while (true) {
 		try {
 			const [newOffset, child] = node(input, offset);
@@ -90,7 +92,7 @@ const node = (input: string, offset = 0): Result => {
 	}
 	offset += expect(">", input, offset);
 	offset += whitespace(input, offset);
-	const children: Node[] = [];
+	const children: MarkupNode[] = [];
 	while (true) {
 		try {
 			const [newOffset, child] = node(input, offset);
@@ -238,7 +240,7 @@ export const isJsAtom = (
 	return false;
 };
 
-const jsexprToNode = (value: any): Node => {
+const jsexprToNode = (value: any): MarkupNode => {
 	if (isJsAtom(value)) {
 		return value.toString();
 	} else if (Array.isArray(value)) {

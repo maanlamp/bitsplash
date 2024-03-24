@@ -1,7 +1,7 @@
 import shipSrc from "./assets/ship.png";
 import Game from "./core/game";
-import { ElementNode, Node, program, run } from "./core/markup";
-import { paint, type Mouse } from "./core/paint";
+import { ElementNode, MarkupNode, program, run } from "./core/markup";
+import { paint } from "./core/paint";
 import * as Vector2 from "./core/vector2";
 
 const clear = (node: Element) => {
@@ -72,7 +72,7 @@ html, body {
 `.trim();
 document.head.append(style);
 
-let parsed: Node;
+let parsed: MarkupNode;
 const update = () => {
 	try {
 		parsed = run(program)(input.value);
@@ -124,16 +124,19 @@ input.textContent = `
 				radius={5}
 				padding={8}
 				alignCross="end">
-				<box fill="orange">Lorem</box>
-				<box fill="teal">Ipsum</box>
-				<box fill="purple">dolor</box>
-				<canvas painter={
+				<box cursor="text" fill="orange" color="blue">Lorem</box>
+				<box cursor="text" fill="teal">Ipsum</box>
+				<box cursor="text" fill="purple">dolor</box>
+				<canvas cursor="pointer" painter={
 					(context, pos, size) => {
 						context.fillStyle = "hsl(" + (performance.now() / 30 % 360)  + "deg,100%,50%)";
 						context.fillRect(pos.x,pos.y,size.w,size.h);
 					}
 				}/>
-				<grid columns={4} gap={4} fill="white" color="black">
+				<grid width={100} columns="auto" gap={4} fill="white" color="black">
+					{[...Array(28)].map((_,i) => i)}
+				</grid>
+				<grid columns="4" gap={4} fill="yellow" color="black">
 					{[...Array(28)].map((_,i) => i)}
 				</grid>
 				<grid columns={4}>
@@ -163,22 +166,7 @@ update();
 // ECS
 
 const game = Game();
-rendered.append(game.renderer.viewport);
-const resize = () => {
-	const size = rendered.getBoundingClientRect();
-	game.renderer.viewport.width = size.width;
-	game.renderer.viewport.height = size.height;
-};
-window.addEventListener("resize", resize);
-resize();
-
-const Health = () => {
-	const max = 100;
-	return {
-		max,
-		current: max,
-	};
-};
+game.renderer.attach(rendered);
 
 const shipImg = new Image();
 shipImg.src = shipSrc;
@@ -201,34 +189,30 @@ const Physics = () => ({
 	acceleration: 0.005,
 });
 
-const _keys: Record<string, boolean> = {};
-const handleKey = (e: KeyboardEvent) => {
-	if (e.repeat) return;
-	_keys[e.key.toUpperCase()] = e.type === "keydown";
-};
-window.addEventListener("keyup", handleKey);
-window.addEventListener("keydown", handleKey);
-const Keys = () => _keys;
-
-const _mouse: Mouse = { x: -Infinity, y: -Infinity };
-const handleMouseButton = (e: MouseEvent) => {
-	_mouse[e.button] = e.type === "mousedown";
-};
-window.addEventListener("mousedown", handleMouseButton);
-window.addEventListener("mouseup", handleMouseButton);
-window.addEventListener("mousemove", e => {
-	_mouse.x = e.x;
-	_mouse.y = e.y;
-});
-const Mouse = () => _mouse;
+const Keys = () => game.input.keyboard;
+const Gamepad = () => game.input.gamepads;
+const Mouse = () => game.input.mouse;
 
 const playerId = game.entities.create([
-	Health,
 	Location,
 	Drawable,
 	Keys,
+	Gamepad,
 	Physics,
 ]);
+
+const ensureVisibleSystem = game.systems.create([Location], e => {
+	if (e.Location.x > game.renderer.viewport.width) {
+		e.Location.x = 0;
+	} else if (e.Location.x < 0) {
+		e.Location.x = game.renderer.viewport.width;
+	}
+	if (e.Location.y > game.renderer.viewport.height) {
+		e.Location.y = 0;
+	} else if (e.Location.y < 0) {
+		e.Location.y = game.renderer.viewport.height;
+	}
+});
 
 const drawingSystem = game.systems.create([Location, Drawable], e => {
 	const c = game.renderer.context;
@@ -243,7 +227,7 @@ const drawingSystem = game.systems.create([Location, Drawable], e => {
 	c.restore();
 });
 
-const movementSystem = game.systems.create(
+const keyboardMovementSystem = game.systems.create(
 	[Keys, Location, Physics],
 	(e, delta) => {
 		if (e.Keys.A) {
@@ -285,50 +269,59 @@ const movementSystem = game.systems.create(
 		if (Math.abs(e.Physics.force[1]) < 0.01) {
 			e.Physics.force[1] = 0;
 		}
-
-		const c = game.renderer.context;
-		c.save();
-		c.strokeStyle = "red";
-		c.lineWidth = 2;
-		const mag = Vector2.magnitude(e.Physics.force);
-		c.moveTo(e.Location.x, e.Location.y);
-		c.translate(e.Location.x, e.Location.y);
-		c.lineTo(
-			...Vector2.lenDir(
-				mag * 20,
-				Vector2.rad2deg(Vector2.angle(e.Physics.force))
-			)
-		);
-		c.stroke();
-		c.restore();
 	}
 );
 
-const healthBarSystem = game.systems.create([Health, Location, Drawable], e => {
-	const c = game.renderer.context;
-	const w = e.Drawable.img.width;
-	const h = e.Drawable.img.height;
-	c.save();
-	c.fillStyle = "red";
-	c.fillRect(
-		e.Location.x - w / 2 + e.Drawable.offsetX,
-		e.Location.y - h / 2 + e.Drawable.offsetY,
-		w,
-		8
-	);
-	c.fillStyle = "lime";
-	c.fillRect(
-		e.Location.x - w / 2 + e.Drawable.offsetX,
-		e.Location.y - h / 2 + e.Drawable.offsetY,
-		(e.Health.current / e.Health.max) * w,
-		8
-	);
-	c.restore();
-	e.Health.current -= 1;
-	if (e.Health.current < 0) {
-		e.Health.current = e.Health.max;
+const gamepadMovementSystem = game.systems.create(
+	[Gamepad, Location, Physics],
+	(e, delta) => {
+		const gamepad = navigator.getGamepads()[0];
+		if (!gamepad) {
+			return;
+		}
+		if (Vector2.magnitude(gamepad.axes[0], gamepad.axes[1]) >= 0.8) {
+			e.Location.angle =
+				Vector2.rad2deg(Vector2.angle(gamepad.axes[0], gamepad.axes[1])) + 90;
+		}
+		let distance: Vector2.Vector2 = [0, 0];
+		if (gamepad.buttons[0].pressed) {
+			distance = Vector2.lenDir(
+				e.Physics.acceleration * delta,
+				e.Location.angle - 90
+			);
+		}
+
+		const speed: Vector2.Vector2 = [
+			distance[0] / e.Physics.mass,
+			distance[1] / e.Physics.mass,
+		];
+		e.Physics.force[0] += speed[0];
+		e.Physics.force[1] += speed[1];
+		e.Location.x += e.Physics.force[0];
+		e.Location.y += e.Physics.force[1];
+
+		e.Physics.force[0] *= 1 - e.Physics.drag / e.Physics.mass;
+		e.Physics.force[1] *= 1 - e.Physics.drag / e.Physics.mass;
 	}
+);
+
+const physicsDebugSystem = game.systems.create([Physics, Location], e => {
+	const c = game.renderer.context;
+	c.save();
+	c.strokeStyle = "red";
+	c.lineWidth = 2;
+	const force = e.Physics.force as Vector2.Vector2;
+	const mag = Vector2.magnitude(...force);
+	c.moveTo(e.Location.x, e.Location.y);
+	c.translate(e.Location.x, e.Location.y);
+	c.lineTo(
+		...Vector2.lenDir(mag * 20, Vector2.rad2deg(Vector2.angle(...force)))
+	);
+	c.stroke();
+	c.restore();
 });
+
+const gamepadSystem = game.systems.create([Gamepad, Physics], e => {});
 
 const uiEntity = game.entities.create([Mouse]);
 const UIsystem = game.systems.create([Mouse], e => {

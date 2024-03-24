@@ -4,8 +4,10 @@ type Entity = Readonly<{ id: number }> & { [key: string]: any };
 
 type System = (e: Entity, delta: number) => void;
 
-type Layer = {
-	entities: Entity[];
+export type Mouse = {
+	x: number;
+	y: number;
+	[button: number]: boolean | undefined;
 };
 
 // https://github.com/hackergrrl/recs
@@ -33,6 +35,11 @@ const Game = () => {
 			components: ReadonlyArray<Component<{}>>,
 			init?: (e: T) => void
 		) => {
+			if (components.some(c => !c.name)) {
+				throw new Error(
+					"All components must have names. This is likely because you provided an anonymous function, often when using currying."
+				);
+			}
 			const id = ++LAST_ID;
 			const e: Entity = { id };
 			for (const c of components) e[c.name] = c();
@@ -67,7 +74,7 @@ const Game = () => {
 				}
 			}
 		},
-	};
+	} as const;
 
 	const systems = {
 		create: (components: ReadonlyArray<Component<{}>>, system: System) => {
@@ -76,7 +83,7 @@ const Game = () => {
 			systemStoreIsDirty = true;
 			return id;
 		},
-	};
+	} as const;
 
 	const loop = () => {
 		let now = 0;
@@ -125,14 +132,59 @@ const Game = () => {
 	const renderer = {
 		viewport,
 		context,
+		attach: (node: HTMLElement) => {
+			node.append(viewport);
+			const resize = () => {
+				const size = node.getBoundingClientRect();
+				viewport.width = size.width;
+				viewport.height = size.height;
+			};
+			resize();
+			new ResizeObserver(entries => {
+				if (entries.find(({ target }) => target === node)) {
+					resize();
+				}
+			}).observe(node);
+		},
+	} as const;
+
+	const keyboard: Record<string, boolean> = {};
+	const handleKey = (e: KeyboardEvent) => {
+		if (e.repeat) return;
+		keyboard[e.key.toUpperCase()] = e.type === "keydown";
 	};
+	window.addEventListener("keyup", handleKey);
+	window.addEventListener("keydown", handleKey);
+	window.addEventListener("gamepadconnected", ({ gamepad }) => {
+		gamepads[gamepad.index] = gamepad;
+	});
+	window.addEventListener("gamepaddisconnected", ({ gamepad }) => {
+		delete gamepads[gamepad.index];
+	});
+	const gamepads: Record<number, Gamepad> = {};
+	const mouse: Mouse = { x: -Infinity, y: -Infinity };
+	const handleMouseButton = (e: MouseEvent) => {
+		mouse[e.button] = e.type === "mousedown";
+	};
+	window.addEventListener("mousedown", handleMouseButton);
+	window.addEventListener("mouseup", handleMouseButton);
+	window.addEventListener("mousemove", e => {
+		mouse.x = e.x;
+		mouse.y = e.y;
+	});
+	const input = {
+		keyboard,
+		gamepads,
+		mouse,
+	} as const;
 
 	return {
 		entities,
 		systems,
 		renderer,
 		loop,
-	};
+		input,
+	} as const;
 };
 
 export default Game;

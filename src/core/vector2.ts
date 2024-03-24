@@ -9,6 +9,6 @@ export const lenDir = (len: number, dir: number): Vector2 => [
 	Math.sin(deg2rad(dir)) * len,
 ];
 
-export const magnitude = ([x, y]: Vector2) => Math.sqrt(x * x + y * y);
+export const magnitude = (x: number, y: number) => Math.sqrt(x * x + y * y);
 
-export const angle = ([x, y]: Vector2) => Math.atan2(y, x);
+export const angle = (x: number, y: number) => Math.atan2(y, x);

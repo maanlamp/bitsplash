@@ -1,18 +1,13 @@
-import { isJsAtom, type ElementNode, type Node } from "./markup.js";
+import { type Mouse } from "core/game";
+import { isJsAtom, type ElementNode, type MarkupNode } from "./markup.js";
 
 export type Position = Readonly<{
 	x: number;
 	y: number;
 }>;
 
-export type Mouse = {
-	x: number;
-	y: number;
-	[button: number]: boolean | undefined;
-};
-
 export const paint = (
-	node: Node,
+	node: MarkupNode,
 	position: Position,
 	context: CanvasRenderingContext2D,
 	mouse: Mouse
@@ -37,6 +32,8 @@ export const paint = (
 	// But it's not as easy as subtracting it once, since transformations
 	// can be applied and restored at any point in the paint.
 	const size = measure(node, context) as Size;
+
+	// TODO: Use context.isPointInPath
 	const mouseIsInside =
 		mouse.x > position.x &&
 		mouse.x < position.x + size.w &&
@@ -62,6 +59,9 @@ export const paint = (
 				position.y
 			);
 		} else {
+			if (mouseIsInside && node.attributes.cursor) {
+				context.canvas.style.cursor = node.attributes.cursor;
+			}
 			if (node.attributes.fill) {
 				// Saving and restoring only fillStyle to preserve transformations
 				const before = context.fillStyle;
@@ -98,12 +98,16 @@ export const paint = (
 				context.strokeRect(position.x, position.y, size.w, size.h);
 			}
 
+			// TODO: This forces inheritance by not resetting afterwards.
+			// Ideally, inheritance of theme variables should be propagated
+			// after the parse phase immediately, before painting
 			if (node.attributes.color) {
 				context.fillStyle = node.attributes.color;
 			}
 
 			switch (node.name) {
 				case "viewport": {
+					context.canvas.style.removeProperty("cursor");
 					for (const child of node.children) {
 						paint(child, position, context, mouse);
 					}
@@ -195,7 +199,7 @@ export type Size = Readonly<{
 const _IMAGE_CACHE: Record<string, HTMLImageElement> = {};
 
 const measure = (
-	node: Node,
+	node: MarkupNode,
 	context: CanvasRenderingContext2D
 ): Size | ReadonlyArray<Size> => {
 	if (isJsAtom(node) && node !== false) {
@@ -267,16 +271,25 @@ const measure = (
 		}
 		case "grid": {
 			if (!node.attributes.columns) {
-				throw new Error("A grid must have predefined colums.");
+				throw new Error("A grid must have predefined columns.");
+			}
+			if (node.attributes.columns === "auto" && !node.attributes.width) {
+				throw new Error(
+					"Auto column layout grid must have a predefined width."
+				);
 			}
 			const sizes = node.children.flatMap(child => measure(child, context));
 			const largestCell = sizes.reduce(
 				(max, { w, h }) => ({ w: Math.max(max.w, w), h: Math.max(max.h, h) }),
 				{ w: 0, h: 0 }
 			);
-			const cols = Math.min(sizes.length, node.attributes.columns);
+			const baseCols =
+				node.attributes.columns === "auto"
+					? Math.ceil(node.attributes.width / largestCell.w)
+					: node.attributes.columns;
+			const cols = Math.min(sizes.length, baseCols);
 			const w = largestCell.w * cols + (cols - 1) * gap;
-			const rows = Math.ceil(sizes.length / node.attributes.columns);
+			const rows = Math.ceil(sizes.length / baseCols);
 			const h = largestCell.h * rows + gap * (rows - 1);
 			return { w, h };
 		}
@@ -333,9 +346,13 @@ const layout = (
 				}),
 				{ w: 0, h: 0 }
 			);
+			const baseCols =
+				node.attributes.columns === "auto"
+					? Math.ceil(node.attributes.width / size.w)
+					: node.attributes.columns;
 			return children.map((_, i) => {
-				const col = i % node.attributes.columns;
-				const row = Math.floor(i / node.attributes.columns);
+				const col = i % baseCols;
+				const row = Math.floor(i / baseCols);
 				return {
 					x: size.w * col + gap * col,
 					y: size.h * row + gap * row,
