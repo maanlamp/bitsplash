@@ -1,4 +1,5 @@
 import Angle from "../angle.ts";
+import type { Properties } from "../properties";
 import Vector2 from "../vector2";
 
 const isPlainObject = (value: object): boolean => {
@@ -11,10 +12,16 @@ export const encodeValue = (value: unknown): unknown => {
 		return typeof value === "function" ? undefined : value;
 	}
 	if (value instanceof Vector2) {
-		return { $type: Vector2.name, x: value.x, y: value.y };
+		return {
+			$type: Vector2.name,
+			...(value as Properties<typeof value>),
+		};
 	}
 	if (value instanceof Angle) {
-		return { $type: Angle.name, x: value.x, y: value.y };
+		return {
+			$type: Angle.name,
+			...(value as Properties<typeof value>),
+		};
 	}
 	if (Array.isArray(value)) {
 		return value.map(encodeValue);

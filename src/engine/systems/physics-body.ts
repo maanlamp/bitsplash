@@ -1,11 +1,8 @@
 import { PhysicsBodyComponent } from "../components/physics-body";
 import { RigidbodyComponent } from "../components/rigidbody";
 import { TransformComponent } from "../components/transform";
+import type { Properties } from "../properties";
 import { type UpdateContext, UpdateSystem } from "../system";
-
-type Properties<T extends object> = {
-	[K in keyof T]: T[K];
-};
 
 export class PhysicsBodySystem implements UpdateSystem {
 	update({ ecs, world }: UpdateContext): void {
