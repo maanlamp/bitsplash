@@ -1,0 +1,12 @@
+.perfMonitor {
+	position: absolute;
+	top: 0;
+	left: 0;
+	pointer-events: none;
+	user-select: none;
+	background: color-mix(
+		in oklch,
+		var(--color-neutral-0),
+		transparent 25%
+	);
+}

@@ -1,0 +1,42 @@
+@mixin button-reset {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--unit-8);
+	border-radius: var(--radius-xl);
+	font: var(--font-body);
+	color: var(--on-surface);
+	cursor: pointer;
+	outline: var(--border-width) solid transparent;
+	outline-offset: var(--focus-ring-offset);
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard),
+		filter var(--duration-fast) var(--ease-standard),
+		opacity var(--duration-fast) var(--ease-standard);
+
+	&:focus-visible {
+		outline-color: var(--accent);
+	}
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+@mixin icon-button {
+	width: var(--unit-48);
+	height: var(--unit-48);
+	padding: 0;
+
+	&:hover:not(:disabled),
+	&:focus-visible {
+		background: var(--state-hover);
+	}
+
+	&[data-pressed] {
+		background: var(--accent);
+		color: var(--on-accent);
+	}
+}

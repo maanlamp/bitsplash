@@ -1,0 +1,146 @@
+@import url("https://fonts.googleapis.com/css2?family=SUSE+Mono:ital,wght@0,100..800;1,100..800&display=swap");
+
+@mixin colorScale($name, $base) {
+	--color-#{$name}-0: black;
+	--color-#{$name}-050: color-mix(in oklch, #{$base}, black 90%);
+	--color-#{$name}-100: color-mix(in oklch, #{$base}, black 80%);
+	--color-#{$name}-150: color-mix(in oklch, #{$base}, black 70%);
+	--color-#{$name}-200: color-mix(in oklch, #{$base}, black 60%);
+	--color-#{$name}-250: color-mix(in oklch, #{$base}, black 50%);
+	--color-#{$name}-300: color-mix(in oklch, #{$base}, black 40%);
+	--color-#{$name}-350: color-mix(in oklch, #{$base}, black 30%);
+	--color-#{$name}-400: color-mix(in oklch, #{$base}, black 20%);
+	--color-#{$name}-450: color-mix(in oklch, #{$base}, black 10%);
+	--color-#{$name}-500: #{$base};
+	--color-#{$name}-550: color-mix(in oklch, #{$base}, white 10%);
+	--color-#{$name}-600: color-mix(in oklch, #{$base}, white 20%);
+	--color-#{$name}-650: color-mix(in oklch, #{$base}, white 30%);
+	--color-#{$name}-700: color-mix(in oklch, #{$base}, white 40%);
+	--color-#{$name}-750: color-mix(in oklch, #{$base}, white 50%);
+	--color-#{$name}-800: color-mix(in oklch, #{$base}, white 60%);
+	--color-#{$name}-850: color-mix(in oklch, #{$base}, white 70%);
+	--color-#{$name}-900: color-mix(in oklch, #{$base}, white 80%);
+	--color-#{$name}-950: color-mix(in oklch, #{$base}, white 90%);
+	--color-#{$name}-1000: white;
+}
+
+:root {
+	@include colorScale(neutral, oklch(0.5 0 0));
+	@include colorScale(primary, oklch(0.5 0.14 245));
+	@include colorScale(secondary, oklch(0.5 0.15 310));
+	@include colorScale(tertiary, oklch(0.5 0.18 152));
+
+	@for $i from 0 through 48 {
+		--unit-#{$i}: #{$i * 0.0625rem};
+	}
+
+	--font-family-mono: "SUSE Mono", monospace;
+
+	--text-xs: var(--unit-11);
+	--text-sm: var(--unit-13);
+	--text-md: var(--unit-16);
+	--text-lg: var(--unit-20);
+	--text-xl: var(--unit-24);
+	--text-2xl: var(--unit-28);
+
+	--font-weight-regular: 500;
+	--font-weight-bold: 700;
+	--leading-tight: 1;
+	--leading-normal: 1.4;
+
+	--font-body: var(--font-weight-regular) var(--text-md) /
+		var(--leading-normal) var(--font-family-mono);
+	--font-body-strong: var(--font-weight-bold) var(--text-md) /
+		var(--leading-normal) var(--font-family-mono);
+	--font-heading: var(--font-weight-bold) var(--text-lg) /
+		var(--leading-tight) var(--font-family-mono);
+	--font-caption: var(--font-weight-regular) var(--text-sm) /
+		var(--leading-normal) var(--font-family-mono);
+	--font-kbd: var(--font-weight-regular) var(--text-xs) /
+		var(--leading-tight) var(--font-family-mono);
+	--font-hud: var(--font-weight-bold) var(--text-md) /
+		var(--leading-tight) var(--font-family-mono);
+
+		// TODO: No point in having separate radius values when they just map to units. That's why units are called units: they're generic and should be used directly.
+	--radius-sm: var(--unit-2);
+	--radius-md: var(--unit-4);
+	--radius-lg: var(--unit-8);
+	--radius-xl: var(--unit-12);
+	// TODO: Should be --unit-infinite: calc(infinity * 1px)
+	--radius-full: 9999px;
+
+	--checker: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%)
+		0 0 / 16px 16px;
+
+	--surface: var(--color-neutral-100);
+	--surface-raised: var(--color-neutral-200);
+	--surface-control: var(--color-neutral-300);
+	--surface-overlay: color-mix(
+		in oklch,
+		var(--color-neutral-100),
+		transparent 88%
+	);
+	--surface-overlay-raised: color-mix(
+		in oklch,
+		var(--color-neutral-550),
+		transparent 85%
+	);
+	--surface-inset: color-mix(
+		in oklch,
+		var(--color-neutral-1000),
+		transparent 92%
+	);
+
+	--on-surface: var(--color-neutral-800);
+	--on-surface-strong: var(--color-neutral-900);
+	--on-surface-muted: var(--color-neutral-700);
+	--on-surface-faint: var(--color-neutral-600);
+	--on-accent: var(--color-neutral-1000);
+
+	--border: var(--color-neutral-400);
+	--border-subtle: var(--color-neutral-300);
+	--border-width: var(--unit-2);
+	--focus-ring-offset: var(--unit-2);
+
+	--accent: var(--color-primary-500);
+	--accent-raised: var(--color-primary-700);
+	--accent-raised-hover: var(--color-primary-800);
+	--on-accent-raised: var(--color-primary-100);
+	--accent-danger: oklch(0.55 0.2 25);
+	--accent-positive: var(--color-tertiary-500);
+
+	--state-hover: color-mix(
+		in oklch,
+		var(--color-neutral-1000),
+		transparent 90%
+	);
+	--state-hover-strong: color-mix(
+		in oklch,
+		var(--color-neutral-1000),
+		transparent 85%
+	);
+	--scrim: color-mix(
+		in oklch,
+		var(--color-neutral-0),
+		transparent 45%
+	);
+	--overlay-blur-radius: var(--unit-16);
+	--overlay-blur: blur(var(--overlay-blur-radius));
+	--glass-fill: color-mix(
+		in oklch,
+		var(--color-neutral-650),
+		transparent 82%
+	);
+	--glass-blur: 1.5px;
+	--glass-edge-thickness: var(--unit-2);
+	--glass-edge-blur: blur(var(--unit-12));
+	--glass-edge-brightness: 2;
+	--glass-edge-sheen: color-mix(
+		in oklch,
+		var(--color-neutral-1000),
+		transparent 88%
+	);
+
+	--duration-fast: 100ms;
+	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}

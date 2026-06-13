@@ -1,0 +1,142 @@
+@use "./buttons" as b;
+@use "./glass" as g;
+
+.iconButton {
+	@include b.button-reset;
+	@include b.icon-button;
+}
+
+.iconButtonActive {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.recordActive {
+	background: var(--accent-danger);
+	color: var(--on-accent);
+}
+
+.toggleGroup {
+	display: flex;
+	gap: 0;
+	padding: var(--unit-2);
+	border-radius: calc(var(--radius-xl) + var(--unit-2));
+	background: var(--surface-inset);
+}
+
+.textToggle {
+	@include b.button-reset;
+	padding: var(--unit-8) var(--unit-16);
+	white-space: nowrap;
+
+	&:hover:not(:disabled),
+	&:focus-visible {
+		background: var(--state-hover);
+	}
+
+	&[data-pressed] {
+		background: var(--accent);
+		color: var(--on-accent);
+	}
+}
+
+.toggleGroup > * {
+	border-radius: var(--radius-sm);
+}
+
+.toggleGroup > *:first-child {
+	border-start-start-radius: var(--radius-xl);
+	border-end-start-radius: var(--radius-xl);
+}
+
+.toggleGroup > *:last-child {
+	border-start-end-radius: var(--radius-xl);
+	border-end-end-radius: var(--radius-xl);
+}
+
+.toolbarSeparator {
+	width: var(--border-width);
+	align-self: center;
+	margin: 0 var(--unit-2);
+	height: var(--unit-32);
+	background: var(--glass-edge-sheen);
+	backdrop-filter: var(--glass-edge-blur)
+		brightness(var(--glass-edge-brightness));
+	-webkit-backdrop-filter: var(--glass-edge-blur)
+		brightness(var(--glass-edge-brightness));
+}
+
+.select {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--unit-4);
+	width: 100%;
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-lg);
+	border: none;
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	cursor: pointer;
+	outline: var(--border-width) solid transparent;
+	outline-offset: var(--focus-ring-offset);
+	transition: outline-color var(--duration-fast) var(--ease-standard);
+
+	&:focus-visible {
+		outline-color: var(--accent);
+	}
+}
+
+.selectIcon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.tooltip {
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-6) var(--unit-12);
+	@include g.glass-surface($radius: var(--radius-md), $radius-px: 4);
+	overflow: clip;
+	--glass-tint: var(--surface-overlay-raised);
+	transform-origin: var(--transform-origin);
+	transition:
+		opacity var(--duration-fast) var(--ease-standard),
+		transform var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.95);
+	}
+}
+
+.kbd {
+	font: var(--font-kbd);
+	padding: var(--unit-2) var(--unit-4);
+	border-radius: var(--radius-sm);
+	background: color-mix(in oklch, var(--on-surface), transparent 75%);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.docName {
+	color: var(--on-surface-muted);
+	white-space: nowrap;
+}
+
+.spacer {
+	flex: 1;
+}
+
+.loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	color: var(--on-surface-faint);
+}

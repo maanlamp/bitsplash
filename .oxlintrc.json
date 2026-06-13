@@ -1,0 +1,40 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc"],
+	"categories": {
+		"correctness": "error"
+	},
+	"rules": {
+		"curly": ["error", "all"],
+		"func-style": [
+			"error",
+			"expression",
+			{ "allowArrowFunctions": true }
+		]
+	},
+	"env": {
+		"builtin": true
+	},
+	"options": {
+		"typeAware": true,
+		"typeCheck": true
+	},
+	"overrides": [
+		{
+			"files": ["src/engine/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/game/**", "**/editor/**"],
+								"message": "Engine must not import from the game or editor layers (README dependency rule)."
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}

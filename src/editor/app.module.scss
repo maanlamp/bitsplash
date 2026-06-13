@@ -1,0 +1,28 @@
+.canvasMount {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.canvasStack {
+	position: absolute;
+	inset: 0;
+}
+
+.canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+	outline: none;
+}
+
+.placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: var(--unit-16);
+	color: var(--on-surface-faint);
+	font: var(--font-body);
+	text-align: center;
+}

@@ -1,0 +1,246 @@
+.workspace {
+	height: 100%;
+	width: 100%;
+	padding: var(--unit-8);
+	background: var(--surface);
+	isolation: isolate;
+	display: flex;
+}
+
+.rootCell {
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+	position: relative;
+	display: grid;
+}
+
+.split {
+	height: 100%;
+	width: 100%;
+	display: flex;
+	min-width: 0;
+	min-height: 0;
+}
+
+.row {
+	flex-direction: row;
+}
+
+.column {
+	flex-direction: column;
+}
+
+.cell {
+	flex-grow: var(--flex);
+	flex-shrink: 1;
+	flex-basis: 0;
+	min-width: 0;
+	min-height: 0;
+	position: relative;
+	display: grid;
+}
+
+.slot {
+	position: absolute;
+	inset: 0;
+	background: var(--surface-raised);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 0 0 var(--border-width) transparent;
+	transition: box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.slotFocused {
+	box-shadow: 0 0 0 var(--border-width) var(--accent);
+}
+
+.strip {
+	flex: none;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-8);
+}
+
+.tab {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-md);
+	color: var(--on-surface-muted);
+	font: var(--font-body);
+	cursor: pointer;
+	user-select: none;
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		background: var(--surface-control);
+		color: var(--on-surface);
+	}
+}
+
+.tabActive {
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+}
+
+.tabSingle {
+	background: transparent;
+	color: var(--on-surface-strong);
+	font: var(--font-body-strong);
+	cursor: default;
+
+	&:hover {
+		background: transparent;
+		color: var(--on-surface-strong);
+	}
+}
+
+.tabDragging {
+	opacity: 0.85;
+	cursor: grabbing;
+	box-shadow: 0 0 0 var(--border-width) var(--accent);
+}
+
+.tabIcon {
+	flex: none;
+}
+
+.tabTitle {
+	white-space: nowrap;
+}
+
+.tabClose {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--unit-2);
+	border-radius: var(--radius-sm);
+	color: var(--on-surface-faint);
+	cursor: pointer;
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		background: var(--surface-raised);
+		color: var(--on-surface-strong);
+	}
+}
+
+.tabDot {
+	display: none;
+	width: var(--unit-6);
+	height: var(--unit-6);
+	border-radius: var(--radius-full);
+	background: var(--on-surface);
+}
+
+.tabX {
+	display: flex;
+}
+
+.tabClose[data-dirty="true"] {
+	.tabDot {
+		display: block;
+	}
+
+	.tabX {
+		display: none;
+	}
+}
+
+.tab:hover .tabClose[data-dirty="true"] {
+	.tabDot {
+		display: none;
+	}
+
+	.tabX {
+		display: flex;
+	}
+}
+
+.tabContent {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+
+.content {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}
+
+.hidden {
+	display: none;
+}
+
+.dropOverlay {
+	position: fixed;
+	left: var(--left);
+	top: var(--top);
+	width: var(--width);
+	height: var(--height);
+	background: color-mix(in oklab, var(--accent) 25%, transparent);
+	border: var(--border-width) solid var(--accent);
+	border-radius: var(--radius-md);
+	pointer-events: none;
+	transition:
+		left var(--duration-fast) var(--ease-standard),
+		top var(--duration-fast) var(--ease-standard),
+		width var(--duration-fast) var(--ease-standard),
+		height var(--duration-fast) var(--ease-standard);
+}
+
+.splitter {
+	flex: none;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	outline: none;
+	touch-action: none;
+}
+
+.splitterRow {
+	width: var(--unit-8);
+	cursor: ew-resize;
+}
+
+.splitterColumn {
+	height: var(--unit-8);
+	cursor: ns-resize;
+}
+
+.thumb {
+	border-radius: var(--radius-full);
+	background: var(--border);
+	transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.splitterRow .thumb {
+	width: var(--unit-3);
+	height: var(--unit-24);
+	max-height: 50%;
+}
+
+.splitterColumn .thumb {
+	height: var(--unit-3);
+	width: var(--unit-24);
+	max-width: 50%;
+}
+
+.splitter:hover .thumb,
+.splitter:active .thumb {
+	background: var(--accent);
+}

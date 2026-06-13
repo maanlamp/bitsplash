@@ -1,0 +1,25 @@
+.confirmPanel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-16);
+	padding: var(--unit-24);
+	min-width: 22rem;
+	max-width: 28rem;
+}
+
+.confirmTitle {
+	font: var(--font-body-strong);
+	color: var(--on-surface);
+}
+
+.confirmMessage {
+	color: var(--on-surface-muted);
+	font: var(--font-body);
+}
+
+.confirmActions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--unit-12);
+	margin-top: var(--unit-8);
+}

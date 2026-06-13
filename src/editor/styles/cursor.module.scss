@@ -1,0 +1,11 @@
+.grab {
+	cursor: grab;
+
+	&:active {
+		cursor: grabbing;
+	}
+}
+
+.hidden {
+	cursor: none;
+}

@@ -1,0 +1,56 @@
+.spriteEditor {
+	position: absolute;
+	inset: 0;
+	background: var(--surface);
+}
+
+.spriteToolbar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-4);
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	padding: var(--unit-4);
+	background: var(--surface-raised);
+}
+
+.spriteToolbarRow {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+}
+
+.spriteMain {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.spriteTopBar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--unit-4);
+	padding: var(--unit-4) var(--unit-8);
+	background: var(--surface-raised);
+}
+
+.spriteBody {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+
+.spritePanel {
+	position: relative;
+	overflow: hidden;
+}
+
+.spriteCanvasHost {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}

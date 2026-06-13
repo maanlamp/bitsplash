@@ -1,0 +1,115 @@
+@use "./styles/fields" as f;
+
+.inspector {
+	height: 100%;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-12);
+	padding: var(--unit-12);
+	color: var(--on-surface);
+}
+
+.inspectorEmpty {
+	color: var(--on-surface-faint);
+	font-style: italic;
+}
+
+.section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-4);
+}
+
+.sectionTitle {
+	font: var(--font-heading);
+	color: var(--on-surface-strong);
+	padding-bottom: var(--unit-2);
+}
+
+.fields {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: var(--unit-4) var(--unit-8);
+	align-items: center;
+}
+
+.fieldLabel {
+	color: var(--on-surface-faint);
+	white-space: nowrap;
+}
+
+.inlayHint {
+	opacity: .33;
+	pointer-events: none;
+	user-select: none;
+}
+
+.fieldInput {
+	@include f.field-input;
+}
+
+.fieldTextarea {
+	@include f.field-input;
+	resize: none;
+	field-sizing: content;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	min-height: var(--unit-24);
+	font: inherit;
+}
+
+.fileInputWrapper {
+	position: relative;
+	overflow: hidden;
+	cursor: pointer;
+	text-overflow: ellipsis;
+	@include f.field-input;
+}
+
+.fileInput {
+	position: absolute;
+	left: -1px;
+	top: -1px;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+	user-select: none;
+}
+
+.vec2 {
+	display: flex;
+	flex: 1;
+	gap: var(--unit-4);
+	min-width: 0;
+}
+
+.checkbox {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--unit-24);
+	aspect-ratio: 1 / 1;
+	flex: none;
+	border-radius: var(--radius-md);
+	background: var(--surface-control);
+	color: var(--on-accent);
+	cursor: pointer;
+	outline: none;
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&[data-checked] {
+		background: var(--accent);
+	}
+
+	&:focus-visible {
+		outline: var(--border-width) solid var(--accent);
+		outline-offset: var(--border-width);
+	}
+}
+
+.checkboxIndicator {
+	display: flex;
+	font-size: 0.85em;
+}

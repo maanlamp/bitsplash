@@ -1,0 +1,22 @@
+@mixin field-input {
+	flex: 1;
+	min-width: 0;
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-lg);
+	border: none;
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	outline: var(--border-width) solid transparent;
+	outline-offset: var(--focus-ring-offset);
+	transition: outline-color var(--duration-fast) var(--ease-standard);
+	display: flex;
+	gap: var(--unit-6);
+
+	&:focus-visible,&:focus-within {
+		outline-color: var(--accent);
+	}
+
+	input {
+		width: 100%;
+	}
+}

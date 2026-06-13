@@ -1,0 +1,115 @@
+@use "./glass" as g;
+
+.surface {
+	@include g.glass-surface();
+	transform-origin: var(--transform-origin);
+	transition:
+		opacity var(--duration-fast) var(--ease-standard),
+		transform var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.95);
+	}
+}
+
+.menu {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-2);
+	min-width: 220px;
+	padding: var(--unit-4);
+	--glass-tint: var(--surface-overlay-raised);
+}
+
+.selectPopup {
+	min-width: var(--anchor-width);
+	width: max-content;
+}
+
+.item {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-md);
+	color: var(--on-surface);
+	cursor: pointer;
+	white-space: nowrap;
+	user-select: none;
+	outline: none;
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		opacity var(--duration-fast) var(--ease-standard);
+
+	&:hover,
+	&:focus-visible,
+	&[data-highlighted] {
+		background: var(--state-hover);
+	}
+}
+
+.itemIcon {
+	flex: none;
+}
+
+.divider {
+	height: var(--border-width);
+	margin: var(--unit-2) var(--unit-8);
+	background: var(--border);
+}
+
+.contextTrigger {
+	display: contents;
+}
+
+.backdrop {
+	position: fixed;
+	inset: 0;
+	background: var(--scrim);
+	transition: opacity var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		opacity: 0;
+	}
+}
+
+.dialogPopup {
+	@include g.glass-surface($position: fixed);
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	transition:
+		opacity var(--duration-fast) var(--ease-standard),
+		transform var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: translate(-50%, -50%) scale(0.96);
+	}
+}
+
+.pickerPanel {
+	width: min(420px, 90vw);
+}
+
+.pickerInput {
+	width: 100%;
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-lg);
+	border: var(--border-width) solid var(--border);
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	outline: none;
+	transition: border-color var(--duration-fast) var(--ease-standard);
+
+	&:focus {
+		border-color: var(--accent);
+	}
+}
+
+.pickerEmpty {
+	padding: var(--unit-8) var(--unit-12);
+	color: var(--on-surface-faint);
+}

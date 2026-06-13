@@ -1,0 +1,58 @@
+{
+	"components": {
+		"Transform": {
+			"position": {
+				"$type": "Vector2",
+				"x": 0,
+				"y": 0
+			},
+			"rotation": {
+				"$type": "Angle",
+				"radians": 0
+			},
+			"scale": {
+				"$type": "Vector2",
+				"x": 1,
+				"y": 1
+			}
+		},
+		"PhysicsBody": {
+			"type": "dynamic",
+			"halfWidth": 8,
+			"halfHeight": 8,
+			"density": 1,
+			"friction": 0,
+			"restitution": 0,
+			"fixedRotation": true,
+			"bullet": true,
+			"linearDamping": 0,
+			"filterGroupIndex": -1
+		},
+		"PlayerInput": {
+			"maxSpeed": 96,
+			"acceleration": 2560,
+			"deceleration": 3200,
+			"airControl": 0.3,
+			"maxJumpSpeed": 320,
+			"minJumpSpeed": 160,
+			"airJumpSpeed": 224,
+			"maxJumps": 1,
+			"wallSlideSpeed": 64,
+			"canWallSlide": false,
+			"canWallJump": false
+		},
+		"Health": {
+			"hp": 100,
+			"maxHp": 100
+		},
+		"Sprite": {
+			"url": "/src/engine/assets/unknown.png",
+			"width": 16,
+			"height": 16
+		},
+		"Respawn": {
+			"delay": 6,
+			"spawnPoint": null
+		}
+	}
+}

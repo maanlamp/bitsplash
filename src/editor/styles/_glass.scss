@@ -1,0 +1,73 @@
+@mixin glass-surface(
+	$radius: var(--radius-lg),
+	$radius-px: 8,
+	$position: relative
+) {
+	$bleed: 28px;
+	$mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Crect width='100%25' height='100%25' rx='#{$radius-px}' ry='#{$radius-px}' fill='%23fff'/%3E%3C/svg%3E");
+
+	position: $position;
+	isolation: isolate;
+	border-radius: $radius;
+	color: var(--on-surface);
+
+	> * {
+		position: relative;
+	}
+
+	:where(&) > * {
+		transition: opacity var(--duration-fast) var(--ease-standard);
+	}
+
+	&::before {
+		content: "";
+		position: absolute;
+		inset: -$bleed;
+		background: var(--glass-tint, var(--surface-overlay));
+		backdrop-filter: var(--overlay-blur);
+		-webkit-backdrop-filter: var(--overlay-blur);
+		mask-image: $mask;
+		mask-position: center;
+		mask-repeat: no-repeat;
+		mask-size: calc(100% - #{$bleed * 2}) calc(100% - #{$bleed * 2});
+		-webkit-mask-image: $mask;
+		-webkit-mask-position: center;
+		-webkit-mask-repeat: no-repeat;
+		-webkit-mask-size: calc(100% - #{$bleed * 2})
+			calc(100% - #{$bleed * 2});
+		transition: opacity var(--duration-fast) var(--ease-standard);
+		pointer-events: none;
+	}
+
+	&::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		padding: var(--glass-edge-thickness);
+		background: var(--glass-edge-sheen);
+		backdrop-filter: var(--glass-edge-blur)
+			brightness(var(--glass-edge-brightness));
+		-webkit-backdrop-filter: var(--glass-edge-blur)
+			brightness(var(--glass-edge-brightness));
+		mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		mask-composite: exclude;
+		-webkit-mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor;
+		transition: opacity var(--duration-fast) var(--ease-standard);
+		pointer-events: none;
+	}
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		> *,
+		&::before,
+		&::after {
+			opacity: 0;
+		}
+	}
+}

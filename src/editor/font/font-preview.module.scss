@@ -1,0 +1,149 @@
+@use "../styles/fields" as f;
+
+.fontPreview {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	background: var(--surface);
+}
+
+.topBar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--unit-8) var(--unit-16);
+	padding: var(--unit-4) var(--unit-8);
+	background: var(--surface-raised);
+}
+
+.dot {
+	width: var(--unit-8);
+	height: var(--unit-8);
+	border-radius: 50%;
+	flex: none;
+}
+
+.dotNative {
+	background: var(--accent-positive);
+}
+
+.dotSynth {
+	background: var(--accent-danger);
+}
+
+.control {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	color: var(--on-surface-faint);
+	white-space: nowrap;
+}
+
+.sizeInput {
+	@include f.field-input;
+	flex: none;
+	field-sizing: content;
+	min-width: var(--unit-24);
+	padding-inline: var(--unit-8);
+	text-align: center;
+}
+
+.zoomValue {
+	min-width: var(--unit-24);
+	text-align: center;
+	color: var(--on-surface);
+}
+
+.body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-16);
+	padding: var(--unit-24);
+}
+
+.cells {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--unit-8);
+}
+
+.pair {
+	display: flex;
+	gap: var(--unit-2);
+}
+
+.cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-4);
+	border-radius: var(--radius-sm);
+	background: var(--surface-inset);
+}
+
+.cellGlyph {
+	display: grid;
+	place-items: center;
+	min-width: var(--unit-16);
+}
+
+.cellLabel {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+	line-height: 1;
+}
+
+.cellMissing {
+	background: color-mix(
+		in oklch,
+		var(--accent-danger),
+		transparent 85%
+	);
+
+	.cellGlyph {
+		outline: var(--border-width) dashed var(--accent-danger);
+		border-radius: var(--radius-sm);
+	}
+
+	.cellLabel {
+		color: var(--accent-danger);
+	}
+}
+
+.lineRow {
+	overflow-x: auto;
+	padding: var(--unit-12);
+	border-radius: var(--radius-md);
+	background: var(--surface-inset);
+}
+
+.line {
+	display: block;
+}
+
+.customInput {
+	@include f.field-input;
+	flex: none;
+	resize: none;
+	field-sizing: content;
+	min-height: var(--unit-32);
+	font: var(--font-body);
+}
+
+.lines {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-8);
+	margin-top: var(--unit-16);
+}
+
+.blankLine {
+	height: var(--unit-16);
+}

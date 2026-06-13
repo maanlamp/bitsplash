@@ -1,0 +1,103 @@
+.tree {
+	height: 100%;
+	overflow: auto;
+	padding: var(--unit-12);
+	outline: none;
+	color: var(--on-surface);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-8);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+	transition:
+		background var(--duration-fast) var(--ease-standard),
+		color var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		background: var(--state-hover);
+	}
+}
+
+.rowFocus {
+	background: var(--state-hover);
+	outline: var(--border-width) solid var(--accent);
+	outline-offset: calc(-1 * var(--border-width));
+}
+
+.rowSelected,
+.rowSelected:hover {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.rowHovered {
+	outline: var(--border-width) solid var(--accent);
+	outline-offset: calc(-1 * var(--border-width));
+}
+
+.rowMuted {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.rowIcon {
+	flex: none;
+}
+
+.chevron {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--unit-16);
+	height: var(--unit-16);
+	flex: none;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	border-radius: var(--radius-sm);
+	outline: none;
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&:hover,
+	&:focus-visible {
+		background: var(--state-hover-strong);
+	}
+
+	svg {
+		transition: transform var(--duration-fast) var(--ease-standard);
+	}
+}
+
+.chevronSpacer {
+	width: var(--unit-16);
+	flex: none;
+}
+
+.caretOpen {
+	transform: rotate(90deg);
+}
+
+.treeAction {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	width: 100%;
+	padding: var(--unit-8);
+	border: none;
+	background: transparent;
+	color: var(--on-surface-muted);
+	cursor: pointer;
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		background: var(--state-hover);
+	}
+}

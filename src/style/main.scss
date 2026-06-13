@@ -1,0 +1,16 @@
+@use "the-new-css-reset/css/reset.css";
+@use "./tokens";
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	overflow: hidden;
+	font: var(--font-body);
+	color: var(--on-surface-strong);
+	background: var(--surface);
+	color-scheme: dark;
+}

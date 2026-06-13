@@ -1,0 +1,38 @@
+@use "./styles/buttons" as b;
+
+.button {
+	@include b.button-reset;
+}
+
+.icon {
+	@include b.icon-button;
+}
+
+.text,
+.tertiary {
+	padding: var(--unit-12) var(--unit-20);
+
+	&:hover:not(:disabled) {
+		background: var(--state-hover);
+	}
+}
+
+.primary {
+	padding: var(--unit-12) var(--unit-24);
+	background: var(--accent);
+	color: var(--on-accent);
+
+	&:hover:not(:disabled) {
+		filter: brightness(1.08);
+	}
+}
+
+.secondary {
+	padding: var(--unit-12) var(--unit-24);
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+
+	&:hover:not(:disabled) {
+		filter: brightness(1.12);
+	}
+}
