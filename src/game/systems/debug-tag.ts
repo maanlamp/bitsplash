@@ -1,6 +1,7 @@
 import { RigidbodyComponent } from "../../engine/components/rigidbody";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
+import { resolveFont } from "../../engine/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
@@ -19,14 +20,7 @@ export class DebugTagSystem implements RenderSystem {
 			TransformComponent,
 			DebugTagComponent,
 		)) {
-			const families = assetManager.getFontFamilies(
-				tag.font,
-				tag.size,
-			);
-			if (!families) {
-				return;
-			}
-			const font = families[0];
+			const font = resolveFont(tag.font, assetManager);
 			if (!font) {
 				return;
 			}
@@ -47,6 +41,8 @@ export class DebugTagSystem implements RenderSystem {
 					align: "center",
 					color: [1, 1, 1, 1],
 					outline: [0, 0, 0, 1],
+					bold: tag.font.variant.includes("Bold"),
+					italic: tag.font.variant.includes("Italic"),
 				},
 			);
 		}

@@ -25,6 +25,7 @@ export class PhysicsBodySystem implements UpdateSystem {
 			});
 			rigidbody.body.setUserData(id);
 			ecs.addComponent(id, rigidbody);
+			ecs.removeComponent(id, PhysicsBodyComponent);
 		}
 	}
 }

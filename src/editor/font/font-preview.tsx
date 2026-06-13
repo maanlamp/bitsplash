@@ -30,8 +30,17 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 12;
 const SIZE_DEBOUNCE_MS = 200;
 
-const STYLE_OPTIONS: ReadonlyArray<
-	Readonly<{ id: FontStyle; label: string }>
+export const fontStyleLabels = [
+	"Regular",
+	"Bold",
+	"Italic",
+	"Bold Italic",
+] as const;
+
+export type FontStyleLabel = (typeof fontStyleLabels)[number];
+
+export const STYLE_OPTIONS: ReadonlyArray<
+	Readonly<{ id: FontStyle; label: FontStyleLabel }>
 > = [
 	{ id: STYLE_REGULAR, label: "Regular" },
 	{ id: STYLE_BOLD, label: "Bold" },

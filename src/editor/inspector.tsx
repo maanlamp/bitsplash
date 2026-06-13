@@ -10,7 +10,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import Angle from "../engine/angle.ts";
+import Angle from "../engine/angle";
 import type { ECS, EntityId } from "../engine/ecs";
 import {
 	fieldEnum,
@@ -28,6 +28,7 @@ import controls from "./styles/controls.module.scss";
 import surface from "./styles/surface.module.scss";
 import { toSentenceCase } from "./text-case";
 import { useEditorValue } from "./use-editor";
+import { getValueRenderer } from "./value-renderers";
 
 const commit = (
 	history: History,
@@ -46,9 +47,12 @@ const commit = (
 const NumberField = ({
 	value,
 	onCommit,
-	inlayHint
-}: Readonly<{ value: number; onCommit: (n: number) => void,
-	inlayHint?: ReactNode }>) => {
+	inlayHint,
+}: Readonly<{
+	value: number;
+	onCommit: (n: number) => void;
+	inlayHint?: ReactNode;
+}>) => {
 	const [text, setText] = useState(String(value));
 	const [focused, setFocused] = useState(false);
 	useEffect(() => {
@@ -65,24 +69,26 @@ const NumberField = ({
 		}
 	};
 	return (
-		<label 
-			className={styles.fieldInput}>
-			{inlayHint&&<div className={styles.inlayHint}>{inlayHint}</div>}
-		<input
-			type="number"
-			value={text}
-			onFocus={() => setFocused(true)}
-			onChange={(e) => setText(e.target.value)}
-			onBlur={() => {
-				setFocused(false);
-				apply();
-			}}
-			onKeyDown={(e) => {
-				if (e.key === "Enter") {
-					e.currentTarget.blur();
-				}
-			}}
-		/></label>
+		<label className={styles.fieldInput}>
+			{inlayHint && (
+				<div className={styles.inlayHint}>{inlayHint}</div>
+			)}
+			<input
+				type="number"
+				value={text}
+				onFocus={() => setFocused(true)}
+				onChange={(e) => setText(e.target.value)}
+				onBlur={() => {
+					setFocused(false);
+					apply();
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.currentTarget.blur();
+					}
+				}}
+			/>
+		</label>
 	);
 };
 
@@ -235,6 +241,44 @@ const FileField = ({
 	);
 };
 
+export const Vector2Field = ({
+	value,
+	history,
+}: Readonly<{
+	value: Vector2;
+	history: History;
+}>) => (
+	<div className={styles.vec2}>
+		<NumberField
+			value={value.x}
+			onCommit={(n) => commit(history, value, "x", n)}
+			inlayHint="X"
+		/>
+		<NumberField
+			value={value.y}
+			onCommit={(n) => commit(history, value, "y", n)}
+			inlayHint="Y"
+		/>
+	</div>
+);
+
+export const AngleField = ({
+	component,
+	fieldKey,
+	value,
+	history,
+}: Readonly<{
+	component: object;
+	fieldKey: string;
+	value: Angle;
+	history: History;
+}>) => (
+	<NumberField
+		value={value.radians}
+		onCommit={(n) => commit(history, component, fieldKey, n)}
+	/>
+);
+
 const FieldControl = ({
 	component,
 	fieldKey,
@@ -246,30 +290,17 @@ const FieldControl = ({
 	value: unknown;
 	history: History;
 }>) => {
-	if (value instanceof Vector2) {
-		return (
-			<div className={styles.vec2}>
-				<NumberField
-					value={value.x}
-					onCommit={(n) => commit(history, value, "x", n)}
-					inlayHint="X"
-				/>
-				<NumberField
-					value={value.y}
-					onCommit={(n) => commit(history, value, "y", n)}
-					inlayHint="Y"
-				/>
-			</div>
-		);
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		!Array.isArray(value)
+	) {
+		const renderer = getValueRenderer(value);
+		if (renderer) {
+			return <>{renderer({ value, history, component, fieldKey })}</>;
+		}
 	}
-	if (value instanceof Angle) {
-		return (
-			<NumberField
-				value={value.radians}
-				onCommit={(n) => commit(history, component, fieldKey, n)}
-			/>
-		);
-	}
+
 	if (typeof value === "boolean") {
 		return (
 			<Checkbox.Root
@@ -293,6 +324,7 @@ const FieldControl = ({
 			/>
 		);
 	}
+
 	const typeName = componentTypeName(component);
 
 	const accept = typeName
@@ -320,6 +352,7 @@ const FieldControl = ({
 			/>
 		);
 	}
+
 	if (typeName && isMultilineField(typeName, fieldKey)) {
 		return (
 			<MultilineField
@@ -328,6 +361,7 @@ const FieldControl = ({
 			/>
 		);
 	}
+
 	return (
 		<TextField
 			value={value as string}

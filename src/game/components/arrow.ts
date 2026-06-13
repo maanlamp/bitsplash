@@ -20,17 +20,24 @@ export class ArrowComponent {
 		speed: number = 360,
 		fade: number = 1,
 		stuckLifetime: number = 4,
+		aimAngle = 0,
+		launched = false,
+		stuck = false,
+		stuckRemaining = 0,
+		attachedTo = null,
+		attachOffsetX = 0,
+		attachOffsetY = 0,
 	) {
 		this.damage = damage;
 		this.speed = speed;
 		this.fade = fade;
 		this.stuckLifetime = stuckLifetime;
-		this.aimAngle = 0;
-		this.launched = false;
-		this.stuck = false;
-		this.stuckRemaining = 0;
-		this.attachedTo = null;
-		this.attachOffsetX = 0;
-		this.attachOffsetY = 0;
+		this.aimAngle = aimAngle;
+		this.launched = launched;
+		this.stuck = stuck;
+		this.stuckRemaining = stuckRemaining;
+		this.attachedTo = attachedTo;
+		this.attachOffsetX = attachOffsetX;
+		this.attachOffsetY = attachOffsetY;
 	}
 }

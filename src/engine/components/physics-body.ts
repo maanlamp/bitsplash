@@ -2,42 +2,6 @@ import { options } from "../serialization/field-enums";
 import { serializable } from "../serialization/serializable";
 import { RIGID_BODY_TYPES, type RigidBodyType } from "../world";
 
-export type PhysicsBodyDef = Readonly<{
-	type: RigidBodyType;
-	halfWidth: number;
-	halfHeight: number;
-	density: number;
-	friction: number;
-	restitution: number;
-	fixedRotation: boolean;
-	bullet: boolean;
-	linearDamping: number;
-	filterGroupIndex: number;
-	filterCategoryBits: number;
-	filterMaskBits: number;
-	sensor: boolean;
-	offsetX: number;
-	offsetY: number;
-}>;
-
-const DEFAULT_PHYSICS_BODY: PhysicsBodyDef = {
-	type: "dynamic",
-	halfWidth: 8,
-	halfHeight: 8,
-	density: 1,
-	friction: 0,
-	restitution: 0,
-	fixedRotation: true,
-	bullet: false,
-	linearDamping: 0,
-	filterGroupIndex: 0,
-	filterCategoryBits: 1,
-	filterMaskBits: 0xffff,
-	sensor: false,
-	offsetX: 0,
-	offsetY: 0,
-};
-
 @serializable("PhysicsBody")
 export class PhysicsBodyComponent {
 	@options(RIGID_BODY_TYPES)
@@ -57,21 +21,37 @@ export class PhysicsBodyComponent {
 	offsetX: number;
 	offsetY: number;
 
-	constructor(def: PhysicsBodyDef = DEFAULT_PHYSICS_BODY) {
-		this.type = def.type;
-		this.halfWidth = def.halfWidth;
-		this.halfHeight = def.halfHeight;
-		this.density = def.density;
-		this.friction = def.friction;
-		this.restitution = def.restitution;
-		this.fixedRotation = def.fixedRotation;
-		this.bullet = def.bullet;
-		this.linearDamping = def.linearDamping;
-		this.filterGroupIndex = def.filterGroupIndex;
-		this.filterCategoryBits = def.filterCategoryBits;
-		this.filterMaskBits = def.filterMaskBits;
-		this.sensor = def.sensor;
-		this.offsetX = def.offsetX;
-		this.offsetY = def.offsetY;
+	constructor(
+		type: RigidBodyType = "dynamic",
+		halfWidth: number = 8,
+		halfHeight: number = 8,
+		density: number = 1,
+		friction: number = 0,
+		restitution: number = 0,
+		fixedRotation: boolean = true,
+		bullet: boolean = false,
+		linearDamping: number = 0,
+		filterGroupIndex: number = 0,
+		filterCategoryBits: number = 1,
+		filterMaskBits: number = 0xffff,
+		sensor: boolean = false,
+		offsetX: number = 0,
+		offsetY: number = 0,
+	) {
+		this.type = type;
+		this.halfWidth = halfWidth;
+		this.halfHeight = halfHeight;
+		this.density = density;
+		this.friction = friction;
+		this.restitution = restitution;
+		this.fixedRotation = fixedRotation;
+		this.bullet = bullet;
+		this.linearDamping = linearDamping;
+		this.filterGroupIndex = filterGroupIndex;
+		this.filterCategoryBits = filterCategoryBits;
+		this.filterMaskBits = filterMaskBits;
+		this.sensor = sensor;
+		this.offsetX = offsetX;
+		this.offsetY = offsetY;
 	}
 }

@@ -2,8 +2,9 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { HealthBarComponent } from "../components/health-bar";
 import { HealthComponent } from "../components/health";
+import { HealthBarComponent } from "../components/health-bar";
+import { HealthBarStateComponent } from "../components/health-bar-state";
 
 const DAMAGE_DELAY = 0.5;
 const SLIDE_TAU = 0.2;
@@ -12,33 +13,36 @@ const VISIBLE_DURATION = 4;
 export class HealthBarSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = dt / 1000;
-		for (const [id, health] of ecs.query(HealthComponent)) {
-			let bar = ecs.getComponent(id, HealthBarComponent);
-			if (!bar) {
-				bar = new HealthBarComponent(health.hp);
-				ecs.addComponent(id, bar);
+		for (const [id, , health] of ecs.query(
+			HealthBarComponent,
+			HealthComponent,
+		)) {
+			let state = ecs.getComponent(id, HealthBarStateComponent);
+			if (!state) {
+				state = new HealthBarStateComponent(health.hp);
+				ecs.addComponent(id, state);
 				continue;
 			}
 
-			if (health.hp !== bar.lastHp) {
-				bar.visible = VISIBLE_DURATION;
+			if (health.hp !== state.lastHp) {
+				state.visible = VISIBLE_DURATION;
 			}
-			if (health.hp < bar.lastHp) {
-				bar.delay = DAMAGE_DELAY;
+			if (health.hp < state.lastHp) {
+				state.delay = DAMAGE_DELAY;
 			}
-			if (health.hp > bar.displayed) {
-				bar.displayed = health.hp;
+			if (health.hp > state.displayed) {
+				state.displayed = health.hp;
 			}
-			bar.lastHp = health.hp;
-			bar.visible = Math.max(0, bar.visible - dtSeconds);
+			state.lastHp = health.hp;
+			state.visible = Math.max(0, state.visible - dtSeconds);
 
-			if (bar.delay > 0) {
-				bar.delay = Math.max(0, bar.delay - dtSeconds);
-			} else if (bar.displayed > health.hp) {
+			if (state.delay > 0) {
+				state.delay = Math.max(0, state.delay - dtSeconds);
+			} else if (state.displayed > health.hp) {
 				const factor = 1 - Math.exp(-dtSeconds / SLIDE_TAU);
-				bar.displayed += (health.hp - bar.displayed) * factor;
-				if (bar.displayed - health.hp < 0.5) {
-					bar.displayed = health.hp;
+				state.displayed += (health.hp - state.displayed) * factor;
+				if (state.displayed - health.hp < 0.5) {
+					state.displayed = health.hp;
 				}
 			}
 		}

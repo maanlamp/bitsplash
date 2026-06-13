@@ -40,6 +40,7 @@ import Inspector from "./inspector";
 import { exportLevelJson } from "./level-export";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
+import "./register-renderers";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
 import SpriteEditor, {
 	type NewSpriteConfig,
@@ -242,6 +243,7 @@ const App = () => {
 	};
 
 	const onAssetCreated = (url: string): void => {
+		// TODO: This code is almost exactly the same as assets.ts listAssets().
 		const name = assetFilename(url);
 		const ext = name.split(".").toSpliced(0, 1).join(".");
 		const lower = name.toLowerCase();
@@ -257,9 +259,9 @@ const App = () => {
 		setAssets((prev) =>
 			prev.some((a) => a.url === url)
 				? prev
-				: [...prev, entry].sort((a, b) =>
-						a.name.localeCompare(b.name),
-					),
+				: [...prev, entry]
+						.sort((a, b) => a.name.localeCompare(b.name))
+						.sort((a, b) => a.ext.localeCompare(b.ext)),
 		);
 		removeViewNow(entry.isAudio ? NEW_AUDIO_VIEW : NEW_SPRITE_VIEW);
 		openView(assetViewId(entry));
@@ -571,7 +573,7 @@ const App = () => {
 			return;
 		}
 		const id = createEntity(inst.world, historyInstance, [
-			new TransformComponent(snap(pos.x), snap(pos.y)),
+			new TransformComponent(new Vector2(snap(pos.x), snap(pos.y))),
 			new SpriteComponent(),
 			new DebugTagComponent("entity"),
 		]);

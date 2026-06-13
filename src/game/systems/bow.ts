@@ -38,7 +38,9 @@ export class BowSystem implements UpdateSystem {
 
 			const facingLeft = Math.cos(angle) < 0;
 			sprite.flipX = facingLeft;
-			transform.rotation.radians = ( facingLeft ? angle + Math.PI : angle);
+			transform.rotation.radians = facingLeft
+				? angle + Math.PI
+				: angle;
 
 			const firing = !!input.mouse.buttons.left;
 			if (firing && !bow.wasFiring) {
@@ -69,7 +71,7 @@ export class BowSystem implements UpdateSystem {
 		const arrow = world.ecs.getComponent(arrowId, ArrowComponent);
 		const shotAngle = angle + (Math.random() * 2 - 1) * SHOT_SPREAD;
 		if (transform) {
-			transform.rotation.radians = (shotAngle);
+			transform.rotation.radians = shotAngle;
 		}
 		if (arrow) {
 			arrow.aimAngle = shotAngle;

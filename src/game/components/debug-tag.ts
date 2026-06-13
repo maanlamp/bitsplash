@@ -1,22 +1,16 @@
-import { file } from "../../engine/serialization/field-enums";
+import { FontSettings } from "../../engine/font-settings";
 import { serializable } from "../../engine/serialization/serializable";
-import yosterUrl from "../assets/yoster.ttf?url";
 
 @serializable("DebugTag")
 export class DebugTagComponent {
-	@file(".ttf,.otf,.woff,.woff2,.font.zip")
-	font: string;
-
-	size: number;
 	label: string;
+	font: FontSettings;
 
 	constructor(
 		label: string = "entity",
-		font: string = yosterUrl,
-		size: number = 12,
+		font: FontSettings = new FontSettings(),
 	) {
 		this.label = label;
 		this.font = font;
-		this.size = size;
 	}
 }

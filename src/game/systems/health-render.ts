@@ -1,11 +1,11 @@
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import { RigidbodyComponent } from "../../engine/components/rigidbody";
 import { TransformComponent } from "../../engine/components/transform";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { HealthBarComponent } from "../components/health-bar";
 import { HealthComponent } from "../components/health";
+import { HealthBarStateComponent } from "../components/health-bar-state";
 import { fadeAlpha, withAlpha } from "../fade";
 
 const FADE = 1;
@@ -14,18 +14,18 @@ export default class HealthRenderSystem implements RenderSystem {
 	constructor(private layer: number) {}
 
 	render({ ecs, renderer }: RenderContext) {
-		for (const [id, health, transform, body] of ecs.query(
+		for (const [id, health, transform, rb] of ecs.query(
 			HealthComponent,
 			TransformComponent,
-			PhysicsBodyComponent,
+			RigidbodyComponent,
 		)) {
-			const bar = ecs.getComponent(id, HealthBarComponent);
+			const bar = ecs.getComponent(id, HealthBarStateComponent);
 			if (!bar || bar.visible <= 0) {
 				continue;
 			}
 			const alpha = fadeAlpha(bar.visible, FADE);
 			const ox = transform.position.x - 16;
-			const oy = transform.position.y + body.halfHeight * -2 - 4;
+			const oy = transform.position.y + rb.halfExtents.y * -2 - 4;
 			const pct = Math.floor((health.hp / health.maxHp) * 100);
 			const color = `color-mix(in oklch, lime ${pct}%, red)`;
 			renderer.drawRect(this.layer, {

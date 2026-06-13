@@ -12,7 +12,8 @@
 	display: flex;
 	gap: var(--unit-6);
 
-	&:focus-visible,&:focus-within {
+	&:focus-visible,
+	&:focus-within {
 		outline-color: var(--accent);
 	}
 

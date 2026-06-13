@@ -1,3 +1,9 @@
+import { valueType } from "./serialization/value-type";
+
+@valueType({
+	encode: (v) => ({ x: v.x, y: v.y }),
+	decode: (raw) => new Vector2(raw.x as number, raw.y as number),
+})
 export default class Vector2 {
 	static zero(): Vector2 {
 		return new Vector2(0, 0);
@@ -38,7 +44,7 @@ export default class Vector2 {
 	public x: number;
 	public y: number;
 
-	constructor(x: number, y: number) {
+	constructor(x: number = 0, y: number = 0) {
 		this.x = x;
 		this.y = y;
 	}

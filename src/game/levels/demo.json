@@ -1935,8 +1935,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -1981,8 +1986,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2027,8 +2037,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2073,8 +2088,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2119,8 +2139,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2165,8 +2190,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2211,8 +2241,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2257,8 +2292,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2303,8 +2343,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2349,8 +2394,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/dpcomic.font.zip",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/dpcomic.font.zip",
+					"family": "DPComic",
+					"variant": "Regular",
 					"size": 16
+					}
 				}
 			}
 		},
@@ -2395,8 +2445,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2441,8 +2496,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2487,8 +2547,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2533,8 +2598,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2579,8 +2649,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2625,8 +2700,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2671,8 +2751,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra jump",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2717,8 +2802,13 @@
 				},
 				"DebugTag": {
 					"label": "Wall slide",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2763,8 +2853,13 @@
 				},
 				"DebugTag": {
 					"label": "Extra speed",
-					"font": "/src/game/assets/yoster.ttf",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
 					"size": 12
+					}
 				}
 			}
 		},
@@ -2789,11 +2884,25 @@
 				},
 				"DialogueSource": {
 					"text": "Hello <b>traveler</b>, beware the <color=#c81e1e>crimson\n  fog</color>... it <i><wave force=.5 speed=32>roars</wave></i>.",
-					"charactersPerSecond": 24
+					"charactersPerSecond": 24,
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
+					"size": 12
+					}
 				},
 				"Interactable": {
 					"radius": 48,
-					"prompt": "read"
+					"prompt": "read",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
+					"size": 12
+					}
 				},
 				"Sprite": {
 					"url": "/src/game/assets/signpost.png",
@@ -2823,11 +2932,25 @@
 				},
 				"DialogueSource": {
 					"text": "Hah! I <i>tricked</i> you. Have at thee!",
-					"charactersPerSecond": 24
+					"charactersPerSecond": 24,
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
+					"size": 12
+					}
 				},
 				"Interactable": {
 					"radius": 48,
-					"prompt": "read"
+					"prompt": "read",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/assets/yoster-island.font.zip",
+					"family": "Yoster Island",
+					"variant": "Regular",
+					"size": 12
+					}
 				},
 				"DamageTrigger": {
 					"amount": 25
@@ -2882,7 +3005,8 @@
 				"Health": {
 					"hp": 100,
 					"maxHp": 100
-				}
+				},
+				"HealthBar": {}
 			}
 		}
 	]

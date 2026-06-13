@@ -3,7 +3,7 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
-import jacquardFontUrl from "../assets/Jacquard24-Regular.ttf?url";
+import jacquardFontUrl from "../assets/yoster.ttf?url";
 import { DeathNoticeComponent } from "../components/death-notice";
 import { fadeAlpha, withAlpha } from "../fade";
 import { UI_SCALE } from "../settings";

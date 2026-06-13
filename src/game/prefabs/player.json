@@ -45,6 +45,7 @@
 			"hp": 100,
 			"maxHp": 100
 		},
+		"HealthBar": {},
 		"Sprite": {
 			"url": "/src/engine/assets/unknown.png",
 			"width": 16,

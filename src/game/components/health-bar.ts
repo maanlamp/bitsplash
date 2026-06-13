@@ -1,11 +1,4 @@
-export class HealthBarComponent {
-	displayed: number;
-	lastHp: number;
-	delay = 0;
-	visible = 0;
+import { serializable } from "../../engine/serialization/serializable";
 
-	constructor(hp: number) {
-		this.displayed = hp;
-		this.lastHp = hp;
-	}
-}
+@serializable("HealthBar")
+export class HealthBarComponent {}

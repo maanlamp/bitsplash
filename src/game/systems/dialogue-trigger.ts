@@ -1,9 +1,9 @@
+import { resolveFont } from "../../engine/resolve-font";
+import { parseRichText, wrapRichText } from "../../engine/rich-text";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { parseRichText, wrapRichText } from "../../engine/rich-text";
-import yosterFontUrl from "../assets/yoster.ttf?url";
 import { DialogueComponent } from "../components/dialogue";
 import { DialogueSourceComponent } from "../components/dialogue-source";
 import { InteractionStateComponent } from "../components/interaction-state";
@@ -15,10 +15,6 @@ export class DialogueTriggerSystem implements UpdateSystem {
 		if (ecs.query(DialogueComponent)[0]) {
 			return;
 		}
-		const font = assetManager.getFont(yosterFontUrl);
-		if (!font) {
-			return;
-		}
 		for (const event of events.read(InteractEvent)) {
 			const source = ecs.getComponent(
 				event.interactable,
@@ -26,6 +22,10 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			);
 			if (!source) {
 				continue;
+			}
+			const font = resolveFont(source.font, assetManager);
+			if (!font) {
+				return;
 			}
 			const lines = wrapRichText(
 				font,

@@ -61,7 +61,7 @@
 	--font-hud: var(--font-weight-bold) var(--text-md) /
 		var(--leading-tight) var(--font-family-mono);
 
-		// TODO: No point in having separate radius values when they just map to units. That's why units are called units: they're generic and should be used directly.
+	// TODO: No point in having separate radius values when they just map to units. That's why units are called units: they're generic and should be used directly.
 	--radius-sm: var(--unit-2);
 	--radius-md: var(--unit-4);
 	--radius-lg: var(--unit-8);

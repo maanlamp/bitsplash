@@ -69,6 +69,8 @@ export class InteractHintRenderSystem implements RenderSystem {
 				align: "center",
 				color: [1, 1, 1, 1],
 				outline: [0, 0, 0, 1],
+				bold: interactable.font.variant.includes("Bold"),
+				italic: interactable.font.variant.includes("Italic"),
 			},
 		);
 	}

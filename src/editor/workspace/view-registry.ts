@@ -1,7 +1,7 @@
 import {
-	CubeIcon,
 	FileAudioIcon,
 	FileImageIcon,
+	FilmSlateIcon,
 	GlobeIcon,
 	type Icon,
 	PuzzlePieceIcon,
@@ -82,7 +82,7 @@ export const viewIcon = (id: ViewId): Icon => {
 		case "canvas":
 			return GlobeIcon;
 		case "tree":
-			return CubeIcon;
+			return FilmSlateIcon;
 		case "inspector":
 			return PuzzlePieceIcon;
 		case "audio":

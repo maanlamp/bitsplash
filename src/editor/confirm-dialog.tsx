@@ -28,14 +28,14 @@ const ConfirmDialog = ({
 			if (!next) {
 				onCancel();
 			}
-		} }
+		}}
 	>
 		<AlertDialog.Portal>
 			<AlertDialog.Backdrop className={surface.backdrop} />
 			<AlertDialog.Popup
 				className={classNames(
 					surface.dialogPopup,
-					styles.confirmPanel
+					styles.confirmPanel,
 				)}
 			>
 				<AlertDialog.Title className={styles.confirmTitle}>

@@ -72,10 +72,7 @@ export class EditorCamera2DSystem implements UpdateSystem {
 		if (input.mouse.buttons.middle) {
 			return true;
 		}
-		return (
-			this.editor.mode === "pan" &&
-			(!!input.mouse.buttons.left)
-		);
+		return this.editor.mode === "pan" && !!input.mouse.buttons.left;
 	}
 
 	private pan(input: Input, camera: Camera2D): void {

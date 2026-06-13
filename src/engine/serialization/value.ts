@@ -1,39 +1,33 @@
-import Angle from "../angle.ts";
-import type { Properties } from "../properties";
-import Vector2 from "../vector2";
-
-const isPlainObject = (value: object): boolean => {
-	const proto = Object.getPrototypeOf(value);
-	return proto === Object.prototype || proto === null;
-};
+import {
+	getValueTypeAdapter,
+	getValueTypeName,
+} from "./value-type-registry";
 
 export const encodeValue = (value: unknown): unknown => {
 	if (value === null || typeof value !== "object") {
 		return typeof value === "function" ? undefined : value;
 	}
-	if (value instanceof Vector2) {
-		return {
-			$type: Vector2.name,
-			...(value as Properties<typeof value>),
-		};
-	}
-	if (value instanceof Angle) {
-		return {
-			$type: Angle.name,
-			...(value as Properties<typeof value>),
-		};
-	}
 	if (Array.isArray(value)) {
 		return value.map(encodeValue);
 	}
-	if (!isPlainObject(value)) {
+	const typeName = getValueTypeName(value);
+	if (typeName) {
+		const adapter = getValueTypeAdapter(typeName)!;
+		const encoded: Record<string, unknown> = { $type: typeName };
+		for (const [k, v] of Object.entries(adapter.encode(value))) {
+			encoded[k] = encodeValue(v);
+		}
+		return encoded;
+	}
+	const proto = Object.getPrototypeOf(value);
+	if (proto !== Object.prototype && proto !== null) {
 		return undefined;
 	}
 	const out: Record<string, unknown> = {};
-	for (const [key, v] of Object.entries(value)) {
-		const encoded = encodeValue(v);
-		if (encoded !== undefined) {
-			out[key] = encoded;
+	for (const [key, v] of Object.entries(value as object)) {
+		const enc = encodeValue(v);
+		if (enc !== undefined) {
+			out[key] = enc;
 		}
 	}
 	return out;
@@ -47,11 +41,17 @@ export const decodeValue = (value: unknown): unknown => {
 		return value.map(decodeValue);
 	}
 	const record = value as Record<string, unknown>;
-	if (record.$type === Vector2.name) {
-		return new Vector2(record.x as number, record.y as number);
-	}
-	if (record.$type === Angle.name) {
-		return new Angle(record.radians as number);
+	if (typeof record.$type === "string") {
+		const adapter = getValueTypeAdapter(record.$type);
+		if (adapter) {
+			const raw: Record<string, unknown> = {};
+			for (const [k, v] of Object.entries(record)) {
+				if (k !== "$type") {
+					raw[k] = decodeValue(v);
+				}
+			}
+			return adapter.decode(raw);
+		}
 	}
 	const out: Record<string, unknown> = {};
 	for (const [key, v] of Object.entries(record)) {

@@ -2,14 +2,6 @@ import unknownSrc from "../assets/unknown.png";
 import { file } from "../serialization/field-enums";
 import { serializable } from "../serialization/serializable";
 
-export type SpriteConfig = Readonly<{
-	key: string;
-	width: number;
-	height: number;
-	opacity?: number;
-	flipX?: boolean;
-}>;
-
 @serializable("Sprite")
 export class SpriteComponent {
 	@file("image/*")
@@ -20,16 +12,16 @@ export class SpriteComponent {
 	flipX: boolean;
 
 	constructor(
-		config: SpriteConfig = {
-			key: unknownSrc,
-			width: 16,
-			height: 16,
-		},
+		url: string = unknownSrc,
+		width: number = 16,
+		height: number = 16,
+		opacity: number = 1,
+		flipX: boolean = false,
 	) {
-		this.url = config.key;
-		this.width = config.width;
-		this.height = config.height;
-		this.opacity = config.opacity ?? 1;
-		this.flipX = config.flipX ?? false;
+		this.url = url;
+		this.width = width;
+		this.height = height;
+		this.opacity = opacity;
+		this.flipX = flipX;
 	}
 }

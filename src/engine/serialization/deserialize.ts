@@ -13,10 +13,7 @@ const reviveDefault = (
 	ctor: ComponentClass,
 	data: SerializedComponent,
 ): object => {
-	const instance = Object.create(ctor.prototype) as Record<
-		string,
-		unknown
-	>;
+	const instance = new (ctor as new () => Record<string, unknown>)();
 	for (const [key, value] of Object.entries(data)) {
 		instance[key] = decodeValue(value);
 	}

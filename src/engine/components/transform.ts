@@ -1,4 +1,4 @@
-import Angle from "../angle.ts";
+import Angle from "../angle";
 import { serializable } from "../serialization/serializable";
 import Vector2 from "../vector2";
 
@@ -9,12 +9,11 @@ export class TransformComponent {
 	scale: Vector2;
 
 	constructor(
-		x: number = 0,
-		y: number = 0,
-		rotation:Angle = Angle.zero(),
-		scale: Vector2 = Vector2.one(),
+		position = Vector2.zero(),
+		rotation = Angle.zero(),
+		scale = Vector2.one(),
 	) {
-		this.position = new Vector2(x, y);
+		this.position = position;
 		this.rotation = rotation;
 		this.scale = scale;
 	}
