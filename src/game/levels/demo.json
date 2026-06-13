@@ -1859,8 +1859,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"SpawnPoint": {
@@ -1884,8 +1884,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"SpawnPoint": {
@@ -1909,8 +1909,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -1955,8 +1955,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2001,8 +2001,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2047,8 +2047,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2093,8 +2093,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2139,8 +2139,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2185,8 +2185,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2231,8 +2231,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2277,8 +2277,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2317,14 +2317,14 @@
 						"x": 864,
 						"y": 480
 					},
-					"rotation": {
-						"$type": "Angle",
-						"radians": 0
-					},
 					"scale": {
 						"$type": "Vector2",
 						"x": 1,
 						"y": 1
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2369,8 +2369,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2415,8 +2415,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2461,8 +2461,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2507,8 +2507,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2553,8 +2553,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2599,8 +2599,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2645,8 +2645,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2691,8 +2691,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2737,8 +2737,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {
@@ -2783,8 +2783,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"DialogueSource": {
@@ -2817,8 +2817,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"DialogueSource": {
@@ -2854,8 +2854,8 @@
 						"y": 1
 					},
 					"rotation": {
-						"$type":"Angle",
-						"radians":0
+						"$type": "Angle",
+						"radians": 0
 					}
 				},
 				"PhysicsBody": {

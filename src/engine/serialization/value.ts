@@ -13,6 +13,9 @@ export const encodeValue = (value: unknown): unknown => {
 	if (value instanceof Vector2) {
 		return { $type: Vector2.name, x: value.x, y: value.y };
 	}
+	if (value instanceof Angle) {
+		return { $type: Angle.name, x: value.x, y: value.y };
+	}
 	if (Array.isArray(value)) {
 		return value.map(encodeValue);
 	}
