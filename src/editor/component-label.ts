@@ -1,5 +1,8 @@
 import { componentTypeName } from "../engine/serialization/registry";
+import { toSentenceCase } from "./text-case";
 
 export const componentLabel = (component: object): string =>
-	componentTypeName(component) ??
-	component.constructor.name.replace(/Component$/, "");
+	toSentenceCase(
+		componentTypeName(component) ??
+			component.constructor.name.replace(/Component$/, ""),
+	);

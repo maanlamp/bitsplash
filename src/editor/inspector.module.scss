@@ -5,7 +5,7 @@
 	overflow: auto;
 	display: flex;
 	flex-direction: column;
-	gap: var(--unit-12);
+	gap: var(--unit-20);
 	padding: var(--unit-12);
 	color: var(--on-surface);
 }
@@ -18,13 +18,12 @@
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: var(--unit-4);
+	gap: var(--unit-8);
 }
 
 .sectionTitle {
-	font: var(--font-heading);
+	font: var(--font-body);
 	color: var(--on-surface-strong);
-	padding-bottom: var(--unit-2);
 }
 
 .fields {
@@ -40,7 +39,7 @@
 }
 
 .inlayHint {
-	opacity: .33;
+	opacity: 0.33;
 	pointer-events: none;
 	user-select: none;
 }
@@ -89,7 +88,7 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: var(--unit-24);
+	width: var(--unit-28);
 	aspect-ratio: 1 / 1;
 	flex: none;
 	border-radius: var(--radius-md);
@@ -112,4 +111,10 @@
 .checkboxIndicator {
 	display: flex;
 	font-size: 0.85em;
+	transition: all var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style] {
+		opacity: 0;
+		scale: 0;
+	}
 }
