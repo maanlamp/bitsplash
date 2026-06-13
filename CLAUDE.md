@@ -1,4 +1,4 @@
-# fantasy-platformer
+# Bitsplash
 
 A 2D platformer game running in the browser on an HTML `<canvas>`, built with a
 hand-rolled Entity-Component-System (ECS) and the **planck** physics engine
