@@ -1,6 +1,7 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"plugins": ["typescript", "unicorn", "oxc"],
+	"jsPlugins": ["./require-default-fields-oxc-plugin.ts"],
 	"categories": {
 		"correctness": "error"
 	},
@@ -10,7 +11,8 @@
 			"error",
 			"expression",
 			{ "allowArrowFunctions": true }
-		]
+		],
+		"ecs-conventions/require-default-fields": "error"
 	},
 	"env": {
 		"builtin": true
@@ -30,6 +32,22 @@
 							{
 								"group": ["**/game/**", "**/editor/**"],
 								"message": "Engine must not import from the game or editor layers (README dependency rule)."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/editor/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/game/**"],
+								"message": "Editor must not import from the game layer (README dependency rule)."
 							}
 						]
 					}
