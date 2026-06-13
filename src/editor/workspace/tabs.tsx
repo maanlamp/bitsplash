@@ -297,7 +297,13 @@ const Tab = ({
 				single ? styles.tabSingle : active && styles.tabActive,
 				api.dragging === id && styles.tabDragging,
 			)}
-			onClick={() => api.activate(id)}
+			onMouseUp={(e) => {
+				if (e.button === 0) {
+					api.activate(id);
+				} else if (e.button === 1 && isClosable(id)) {
+					api.close(id);
+				}
+			}}
 			onKeyDown={onKeyDown}
 			{...api.dragProps(id)}
 		>
