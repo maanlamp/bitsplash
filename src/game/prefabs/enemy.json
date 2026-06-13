@@ -47,9 +47,16 @@
 		},
 		"Patrol": {
 			"speed": 48,
-			"interval": 1.5,
-			"direction": 1,
-			"timer": 1.5
+			"interval": 1.5
+		},
+		"StateMachine": {
+			"defId": "patrol",
+			"current": "right",
+			"elapsed": 0,
+			"params": {
+				"elapsed": 0,
+				"interval": 1.5
+			}
 		}
 	}
 }

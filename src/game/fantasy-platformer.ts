@@ -6,6 +6,7 @@ import {
 	TileDecorations,
 } from "../engine/decorations";
 import type { ECS } from "../engine/ecs";
+import { StateMachineSystem } from "../engine/fsm/state-machine-system";
 import { Game } from "../engine/game";
 import type { SerializedWorld } from "../engine/serialization/registry";
 import { serializeWorld } from "../engine/serialization/serialize";
@@ -58,6 +59,9 @@ import { SpawnSystem } from "./systems/spawn";
 import { TileUnstuckSystem } from "./systems/tile-unstuck";
 import { VoiceSystem } from "./systems/voice";
 
+// This is insane
+import.meta.glob("./fsm/*", { eager: true });
+
 export const Layer = {
 	DEBUG_GRID: 0,
 	SURFACE_DECO_BACK: 10,
@@ -100,6 +104,7 @@ export default class FantasyPlatformer {
 			new PhysicsBodySystem(),
 			new PlayerMovementStateSystem(),
 			new PlayerInputSystem(),
+			new StateMachineSystem(),
 			new PatrolSystem(),
 			new GroundDetectionSystem(),
 			new PhysicsSystem(),

@@ -109,7 +109,7 @@ below and a detailed architectural plan under `docs/plans/`.
 
 **Foundations first** (unblock the rest):
 
-1. **Generic State Machine** — small, no deps; unblocks Animation + AI.
+1. ~~**Generic State Machine**~~ — done. Unblocks Animation + AI.
 2. **Prefabs** (instance = `{prefab, overrides}`) — fixes the scene/save entity
    format before anything serializes it.
 3. **Scene System** — the keystone. Removes the `Game.world` singleton; nearly
@@ -350,15 +350,24 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 >
 > Full architectural plan: `docs/plans/state-machine.md`.
 
-- 💡 **Generic FSM core** — `StateMachineComponent` (current state, elapsed,
-  params/blackboard) + a `StateMachineDef` (states + prioritized transitions +
-  any-state transitions); a `StateMachineSystem` ticks it and emits
-  `StateEnter`/`StateExit` events. No callbacks on the FSM.
-- 💡 **Pluggable condition evaluator** — transitions evaluate via either **code
-  predicates** over a blackboard (code-first AI) or **data-driven parameter
-  conditions** (`speed > 0.1`, `trigger:attack`; Unity-Animator-style, authorable
-  in the sprite editor for animation). Same core, two condition sources.
-- 💡 Consumers: AI policy, animation graph, player movement, cutscene states.
+- [x] **Generic FSM core** — `StateMachineComponent` (current state, elapsed,
+      params/blackboard) + a `FsmDef` (states + prioritized transitions +
+      any-state transitions); a `StateMachineSystem` ticks it and emits
+      `StateEnterEvent`/`StateExitEvent`. No callbacks on the FSM.
+- [x] **`@fsm(id)` decorator** — registers a def class by id at import time,
+      mirroring the `@serializable` pattern. Game defs live under `game/fsm/` and
+      are loaded via `import.meta.glob`.
+- [x] **Pluggable condition evaluator** — transitions evaluate via either **code
+      predicates** over a blackboard (code-first AI) or **data-driven parameter
+      conditions** (`speed > 0.1`, `trigger:attack`; Unity-Animator-style, authorable
+      in the sprite editor for animation). Same core, two condition sources.
+      `elapsed` is injected into params as a reserved key before evaluation.
+- [x] **`PatrolDef`** — first code-condition consumer; `PatrolSystem` migrated to
+      read direction from FSM state.
+- 💡 Migrate player movement onto FSM.
+- 💡 AI decision policy (Idle/Patrol/Chase/Attack/Flee) built on FSM.
+- 💡 Data-condition evaluator wired into animation consumer.
+- 💡 Editor authoring of data-condition defs (animation graph in sprite editor).
 
 ---
 
@@ -453,7 +462,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 **Animator** — `AnimatorComponent` (current clip/state, frame, elapsed, speed,
   playing); `AnimationSystem` advances frames and writes the sprite's source rect.
 - 💡 **Animation graph = the generic FSM** — states map to clips; data-driven param
-  conditions (`speed > 0.1`, `trigger:attack`) drive transitions; `StateEnter`
+  conditions (`speed > 0.1`, `trigger:attack`) drive transitions; `StateEnterEvent`
   switches the playing clip. Hard cuts in v1.
 - 💡 **Animation events** — frame-tagged events emitted on the bus (footstep,
   spawn-hitbox, fire), consumed by gameplay systems.
