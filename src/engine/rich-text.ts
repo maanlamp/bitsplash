@@ -92,18 +92,24 @@ const parseTag = (inner: string): Tag => {
 	return { name: name.toLowerCase(), shorthand, attrs };
 };
 
+const HEX = /^[0-9a-fA-F]{3,8}$/;
+
+const normalizeColor = (value: string): string =>
+	HEX.test(value) ? `#${value}` : value;
+
 const applyTag = (current: Style, tag: Tag): Style => {
 	switch (tag.name) {
 		case "b":
 			return { ...current, bold: true };
 		case "i":
 			return { ...current, italic: true };
-		case "color":
+		case "color": {
+			const raw = tag.shorthand ?? tag.attrs.get("value") ?? null;
 			return {
 				...current,
-				color:
-					tag.shorthand ?? tag.attrs.get("value") ?? current.color,
+				color: raw === null ? current.color : normalizeColor(raw),
 			};
+		}
 		case "wave":
 			return {
 				...current,

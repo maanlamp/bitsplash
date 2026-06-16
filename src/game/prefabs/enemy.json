@@ -49,6 +49,9 @@
 			"speed": 48,
 			"interval": 1.5
 		},
+		"Tags": {
+			"tags": ["enemy", "patrol"]
+		},
 		"StateMachine": {
 			"defId": "patrol",
 			"current": "right",

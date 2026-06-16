@@ -6,6 +6,7 @@ import { TILE_SIZE } from "../../engine/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
+import { InkStoryComponent } from "../../engine/components/ink-story";
 import { InteractionStateComponent } from "../components/interaction-state";
 import { PlayerInputComponent } from "../components/player-input";
 import { RespawnComponent } from "../components/respawn";
@@ -88,6 +89,7 @@ export const spawnRuntimeEntities = (
 		spawnBow(deps.world, { owner: player[0] });
 	}
 	deps.world.ecs.createEntity([new InteractionStateComponent()]);
+	deps.world.ecs.createEntity([new InkStoryComponent()]);
 };
 
 export const loadDemoLevel = (

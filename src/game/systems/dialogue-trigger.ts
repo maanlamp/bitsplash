@@ -1,14 +1,16 @@
+import { DialogueComponent } from "../../engine/components/dialogue";
+import { InkStoryComponent } from "../../engine/components/ink-story";
 import { resolveFont } from "../../engine/resolve-font";
-import { parseRichText, wrapRichText } from "../../engine/rich-text";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { DialogueComponent } from "../components/dialogue";
 import { DialogueSourceComponent } from "../components/dialogue-source";
 import { InteractionStateComponent } from "../components/interaction-state";
-import { dialogueTextWidth } from "../dialogue-ui";
 import { InteractEvent } from "../events";
+import { ensureStory } from "../ink/bindings";
+import { fontForTag } from "../ink/fonts";
+import { tagValue } from "../ink/tags";
 
 export class DialogueTriggerSystem implements UpdateSystem {
 	update({ ecs, events, assetManager }: UpdateContext): void {
@@ -23,22 +25,20 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			if (!source) {
 				continue;
 			}
-			const font = resolveFont(source.font, assetManager);
-			if (!font) {
+			const inkEntry = ecs.query(InkStoryComponent)[0];
+			if (!inkEntry) {
 				return;
 			}
-			const lines = wrapRichText(
-				font,
-				parseRichText(source.text),
-				dialogueTextWidth,
+			const story = ensureStory(inkEntry[1], events);
+			const font = fontForTag(
+				tagValue(story.TagsForContentAtPath(source.knot), "font"),
 			);
+			if (!resolveFont(font, assetManager)) {
+				return;
+			}
+			story.ChoosePathString(source.knot);
 			ecs.createEntity([
-				new DialogueComponent(
-					lines,
-					source.charactersPerSecond,
-					event.interactable,
-					event.interactable,
-				),
+				new DialogueComponent(event.interactable, font),
 			]);
 			const stateEntry = ecs.query(InteractionStateComponent)[0];
 			if (stateEntry) {

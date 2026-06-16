@@ -1,0 +1,31 @@
+{
+	"id": "massacre",
+	"name": "Massacre",
+	"fsm": "massacre-quest",
+	"objectives": [
+		{
+			"activeInStage": "active",
+			"type": "killTagged",
+			"tag": "patrol",
+			"count": 5,
+			"objectiveText": "Kill $count patrollers ($kills/$count)",
+			"onComplete": { "type": "advanceStage", "to": "return" }
+		}
+	],
+	"rewards": [
+		{
+			"onStage": "complete",
+			"type": "item",
+			"itemId": "potion_healing",
+			"count": 1
+		}
+	],
+	"stageObjectives": {
+		"return": "Return to the stranger"
+	},
+	"stageNotices": {
+		"active": "New Quest: Massacre",
+		"return": "Objective complete",
+		"complete": "Quest complete: Massacre"
+	}
+}
