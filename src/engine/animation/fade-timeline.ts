@@ -1,5 +1,6 @@
 import type { Milliseconds, Seconds } from "../duration";
 import { valueType } from "../serialization/value-type";
+import { ease } from "./easing";
 
 @valueType()
 export class FadeTimeline {
@@ -35,13 +36,14 @@ export class FadeTimeline {
 
 	alpha(): number {
 		const { elapsed, fadeIn, hold, fadeOut } = this;
+		const ramp = ease("linear");
 		if (elapsed < fadeIn) {
-			return fadeIn > 0 ? elapsed / fadeIn : 1;
+			return fadeIn > 0 ? ramp(elapsed / fadeIn) : 1;
 		}
 		if (elapsed < fadeIn + hold) {
 			return 1;
 		}
 		const into = elapsed - fadeIn - hold;
-		return fadeOut > 0 ? 1 - into / fadeOut : 0;
+		return fadeOut > 0 ? 1 - ramp(into / fadeOut) : 0;
 	}
 }

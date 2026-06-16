@@ -10,6 +10,7 @@ import { InteractionStateComponent } from "../components/interaction-state";
 import { InteractEvent } from "../events";
 import { ensureStory } from "../ink/bindings";
 import { fontForTag } from "../ink/fonts";
+import { panelForTag } from "../ink/panels";
 import { tagValue } from "../ink/tags";
 
 export class DialogueTriggerSystem implements UpdateSystem {
@@ -30,15 +31,15 @@ export class DialogueTriggerSystem implements UpdateSystem {
 				return;
 			}
 			const story = ensureStory(inkEntry[1], events);
-			const font = fontForTag(
-				tagValue(story.TagsForContentAtPath(source.knot), "font"),
-			);
+			const tags = story.TagsForContentAtPath(source.knot);
+			const font = fontForTag(tagValue(tags, "font"));
 			if (!resolveFont(font, assetManager)) {
 				return;
 			}
+			const panel = panelForTag(tagValue(tags, "panel"));
 			story.ChoosePathString(source.knot);
 			ecs.createEntity([
-				new DialogueComponent(event.interactable, font),
+				new DialogueComponent(event.interactable, font, panel),
 			]);
 			const stateEntry = ecs.query(InteractionStateComponent)[0];
 			if (stateEntry) {

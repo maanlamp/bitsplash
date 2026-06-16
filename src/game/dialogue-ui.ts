@@ -1,9 +1,9 @@
 export const DIALOGUE_UI = {
 	panelWidth: 280,
 	maxTextLines: 3,
-	padding: 8,
+	padding: 16,
 	marginBottom: 8,
-	optionGap: 6,
+	optionGap: 16,
 };
 
 export const dialogueTextWidth =

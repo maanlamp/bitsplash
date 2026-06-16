@@ -1,5 +1,6 @@
 import { loadFontsFromUrl } from "./font-source";
 import { loadFont, loadImage, type LoadedFont } from "./load";
+import { readPngMetadata } from "./png-metadata";
 
 type Asset<T> = Readonly<
 	| { status: "loading" }
@@ -23,6 +24,34 @@ export default class AssetManager {
 		} else {
 			const asset = this.assets.get(url) as
 				| Asset<HTMLImageElement>
+				| undefined;
+			if (asset?.status !== "ready") {
+				return;
+			}
+			return asset.data;
+		}
+	}
+
+	getImageMetadata(
+		url: string,
+	): Record<string, unknown> | null | void {
+		const key = `meta@${url}`;
+		if (!this.assets.has(key)) {
+			this.assets.set(key, { status: "loading" });
+			void fetch(url)
+				.then((response) => response.arrayBuffer())
+				.then((buffer) => {
+					this.assets.set(key, {
+						status: "ready",
+						data: readPngMetadata(buffer),
+					});
+				})
+				.catch((error) => {
+					this.assets.set(key, { status: "error", error });
+				});
+		} else {
+			const asset = this.assets.get(key) as
+				| Asset<Record<string, unknown> | null>
 				| undefined;
 			if (asset?.status !== "ready") {
 				return;

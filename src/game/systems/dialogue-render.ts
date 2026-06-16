@@ -1,21 +1,54 @@
+import { DialogueComponent } from "../../engine/components/dialogue";
 import { FontSettings } from "../../engine/font-settings";
+import { type LoadedFont, STYLE_REGULAR } from "../../engine/load";
+import { nineSliceInsets } from "../../engine/png-metadata";
+import {
+	drawNineSlice,
+	type NineSliceInsets,
+} from "../../engine/render/nine-slice";
 import { resolveFont } from "../../engine/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
-import { DialogueComponent } from "../../engine/components/dialogue";
 import fsPixelSansUrl from "../assets/fs-pixel-sans-unicode.font.zip?url";
 import { DIALOGUE_UI } from "../dialogue-ui";
 import { withAlpha } from "../fade";
 import { UI_SCALE } from "../settings";
 
-const WHITE: [number, number, number, number] = [1, 1, 1, 1];
-const ACCENT: [number, number, number, number] = [1, 0.85, 0.4, 1];
+const FALLBACK_INSETS: NineSliceInsets = {
+	left: 6,
+	right: 6,
+	top: 6,
+	bottom: 7,
+	gap: 2,
+};
+
+const TEXT: [number, number, number, number] = [0, 0, 0, 1];
+const ACCENT: [number, number, number, number] = [0.478, 0.329, 0.063, 1];
 const MORE_ALPHA = 0.5;
 
 const PLAYER_FONT = new FontSettings(fsPixelSansUrl);
+
+type Metrics = Readonly<{
+	ex: number;
+	above: number;
+	below: number;
+	line: number;
+}>;
+
+const metricsOf = (font: LoadedFont): Metrics => {
+	const face = font.faces[STYLE_REGULAR];
+	const x = face.glyphCache.get(face.shape.glyphId(120));
+	const ex = x ? x.bearingY : font.ascent / 2;
+	return {
+		ex,
+		above: font.ascent - ex,
+		below: font.lineHeight - font.ascent,
+		line: font.lineHeight,
+	};
+};
 
 export class DialogueRenderSystem implements RenderSystem {
 	render({ renderer, ecs, assetManager, time }: RenderContext): void {
@@ -30,40 +63,63 @@ export class DialogueRenderSystem implements RenderSystem {
 		}
 		const optionFont = resolveFont(PLAYER_FONT, assetManager) ?? font;
 
+		const tm = metricsOf(font);
+		const om = metricsOf(optionFont);
+
 		const page = state.pages[state.pageIndex] ?? [];
 		const lineCount = Math.max(1, page.length);
-		const textRegionH = lineCount * font.lineHeight;
 
 		const lastPage = state.pageIndex >= state.pages.length - 1;
 		const choices = state.complete && lastPage ? state.choices : [];
-		const optionsH =
-			choices.length > 0
-				? DIALOGUE_UI.optionGap +
-					choices.length * optionFont.lineHeight
-				: 0;
+
+		const insets =
+			nineSliceInsets(
+				assetManager.getImageMetadata(state.panel) || null,
+			) ?? FALLBACK_INSETS;
+
+		const lastTextBaseline = (lineCount - 1) * tm.line + tm.ex;
+		let contentBottom = lastTextBaseline;
+		let lastBelow = tm.below;
+		let optionsTop = 0;
+		if (choices.length > 0) {
+			optionsTop = lastTextBaseline + DIALOGUE_UI.optionGap;
+			contentBottom =
+				optionsTop + (choices.length - 1) * om.line + om.ex;
+			lastBelow = om.below;
+		}
+
+		const topInset = Math.max(DIALOGUE_UI.padding, tm.above);
+		const bottomInset = Math.max(DIALOGUE_UI.padding, lastBelow);
 
 		const screenW = renderer.width / UI_SCALE;
 		const screenH = renderer.height / UI_SCALE;
 		const panelW = DIALOGUE_UI.panelWidth;
-		const panelH = DIALOGUE_UI.padding * 2 + textRegionH + optionsH;
-		const panelX = (screenW - panelW) / 2;
-		const panelY = screenH - panelH - DIALOGUE_UI.marginBottom;
+		const panelH = Math.round(topInset + contentBottom + bottomInset);
+		const panelX = Math.round((screenW - panelW) / 2);
+		const restY = screenH - panelH - DIALOGUE_UI.marginBottom;
+		const slideDistance = panelH + DIALOGUE_UI.marginBottom;
+		const panelY = Math.round(
+			restY + (1 - state.slide.value()) * slideDistance,
+		);
 
-		renderer.drawRect(UI_LAYER_MIN, {
-			x: panelX,
-			y: panelY,
-			width: panelW,
-			height: panelH,
-			fill: [0, 0, 0, 1],
-		});
+		const panel = assetManager.getImage(state.panel);
+		if (panel) {
+			drawNineSlice(renderer, UI_LAYER_MIN, panel, {
+				x: panelX,
+				y: panelY,
+				width: panelW,
+				height: panelH,
+				insets,
+			});
+		}
 
 		const revealed = Math.floor(state.revealed);
 		const textX = panelX + DIALOGUE_UI.padding;
-		const baseY = panelY + DIALOGUE_UI.padding + font.ascent;
+		const baseY = panelY + topInset + tm.ex;
 		const t = time.elapsed;
 		let index = 0;
 		for (let line = 0; line < page.length; line++) {
-			const y = baseY + line * font.lineHeight;
+			const y = baseY + line * tm.line;
 			for (const g of page[line]!.glyphs) {
 				if (index < revealed) {
 					let dx = 0;
@@ -81,7 +137,7 @@ export class DialogueRenderSystem implements RenderSystem {
 						g.style,
 						textX + g.x + dx,
 						y + dy,
-						g.color ?? WHITE,
+						g.color ?? TEXT,
 					);
 				}
 				index++;
@@ -94,17 +150,12 @@ export class DialogueRenderSystem implements RenderSystem {
 				font,
 				"...",
 				panelX + panelW - DIALOGUE_UI.padding,
-				baseY + (lineCount - 1) * font.lineHeight,
-				{ align: "right", color: withAlpha(WHITE, MORE_ALPHA) },
+				baseY + (lineCount - 1) * tm.line,
+				{ align: "right", color: withAlpha(TEXT, MORE_ALPHA) },
 			);
 		}
 
-		const optionBaseY =
-			panelY +
-			DIALOGUE_UI.padding +
-			textRegionH +
-			DIALOGUE_UI.optionGap +
-			optionFont.ascent;
+		const optionBaseY = panelY + topInset + optionsTop + om.ex;
 		for (let i = 0; i < choices.length; i++) {
 			const selected = i === state.selectedOption;
 			renderer.drawText(
@@ -112,8 +163,8 @@ export class DialogueRenderSystem implements RenderSystem {
 				optionFont,
 				`${selected ? "> " : "  "}${choices[i]}`,
 				textX,
-				optionBaseY + i * optionFont.lineHeight,
-				{ align: "left", color: selected ? ACCENT : WHITE },
+				optionBaseY + i * om.line,
+				{ align: "left", color: selected ? ACCENT : TEXT },
 			);
 		}
 	}

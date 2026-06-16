@@ -35,6 +35,9 @@ export type DialogueBindings = Readonly<{
 const COMMA_PAUSE = 8;
 const STOP_PAUSE = 20;
 
+const SLIDE_IN = 0.35 as Seconds;
+const SLIDE_OUT = 0.25 as Seconds;
+
 const punctuationPause = (char: string | undefined): number => {
 	if (char === ",") {
 		return COMMA_PAUSE;
@@ -141,16 +144,34 @@ export class DialogueSystem implements UpdateSystem {
 
 		if (!state.opened) {
 			state.opened = true;
+			state.phase = "entering";
+			state.slide.retarget(0, 1, SLIDE_IN, "easeOutBack");
 			this.setCameraTargets(ecs, [this.playerId(ecs), state.source]);
 			events.emit(new DialogueOpenedEvent(id));
 			this.gatherBlock(story, state, assetManager);
+		}
+
+		state.slide.tick(dt);
+
+		if (state.phase === "closing") {
+			if (state.slide.done()) {
+				this.finishClose(ecs, events, id, state);
+			}
+			return;
+		}
+
+		if (state.phase === "entering") {
+			if (!state.slide.done()) {
+				return;
+			}
+			state.phase = "open";
 		}
 
 		const escHeld = this.bindings.cancelHeld(ctx);
 		const escPressed = escHeld && !state.escHeld;
 		state.escHeld = escHeld;
 		if (escPressed) {
-			this.close(ecs, events, id, state);
+			this.beginClose(state);
 			return;
 		}
 
@@ -207,7 +228,7 @@ export class DialogueSystem implements UpdateSystem {
 		if (state.choices.length === 0) {
 			if (pressed) {
 				consume();
-				this.close(ecs, events, id, state);
+				this.beginClose(state);
 			}
 			return;
 		}
@@ -222,7 +243,7 @@ export class DialogueSystem implements UpdateSystem {
 			consume();
 			story.ChooseChoiceIndex(state.selectedOption);
 			if (!this.gatherBlock(story, state, assetManager)) {
-				this.close(ecs, events, id, state);
+				this.beginClose(state);
 			}
 		}
 	}
@@ -277,7 +298,20 @@ export class DialogueSystem implements UpdateSystem {
 		state.navDownHeld = downHeld;
 	}
 
-	private close(
+	private beginClose(state: DialogueComponent): void {
+		if (state.phase === "closing") {
+			return;
+		}
+		state.phase = "closing";
+		state.slide.retarget(
+			state.slide.value(),
+			0,
+			SLIDE_OUT,
+			"easeInCubic",
+		);
+	}
+
+	private finishClose(
 		ecs: ECS,
 		events: EventBus,
 		id: EntityId,
