@@ -4,15 +4,15 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
-import { DeathNoticeComponent } from "../components/death-notice";
+import { QuestNoticeComponent } from "../components/quest-notice";
 import { withAlpha } from "../fade";
 import { UI_SCALE } from "../settings";
 
 const PADDING = 8;
 
-export class DeathOverlayRenderSystem implements RenderSystem {
+export class QuestNoticeRenderSystem implements RenderSystem {
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		const [, notice] = ecs.query(DeathNoticeComponent)[0] ?? [];
+		const [, notice] = ecs.query(QuestNoticeComponent)[0] ?? [];
 		if (!notice) {
 			return;
 		}
@@ -25,7 +25,7 @@ export class DeathOverlayRenderSystem implements RenderSystem {
 		const screenW = renderer.width / UI_SCALE;
 		const screenH = renderer.height / UI_SCALE;
 		const barHeight = font.lineHeight + PADDING * 2;
-		const barY = (screenH - barHeight) / 2;
+		const barY = screenH / 3 - barHeight / 2;
 
 		renderer.drawRect(UI_LAYER_MIN, {
 			x: 0,
@@ -37,12 +37,12 @@ export class DeathOverlayRenderSystem implements RenderSystem {
 		renderer.drawText(
 			UI_LAYER_MIN + 1,
 			font,
-			"You died",
+			notice.text,
 			screenW / 2,
 			barY + PADDING + font.ascent,
 			{
 				align: "center",
-				color: withAlpha([1, 0, 0, 1], alpha),
+				color: withAlpha([1, 0.85, 0.4, 1], alpha),
 			},
 		);
 	}

@@ -1,3 +1,4 @@
+import type { Seconds } from "../duration";
 import { type UpdateContext, UpdateSystem } from "../system";
 import type { Params } from "./conditions";
 import { StateEnterEvent, StateExitEvent } from "./events";
@@ -18,7 +19,7 @@ export class StateMachineSystem extends UpdateSystem {
 
 			const def = sm.def;
 
-			sm.elapsed += dt / 1000;
+			sm.elapsed = (sm.elapsed + dt / 1000) as Seconds;
 
 			const currentNode = def.states[sm.current];
 			if (!currentNode) {
@@ -39,7 +40,7 @@ export class StateMachineSystem extends UpdateSystem {
 
 				events.emit(new StateExitEvent(id, sm.current));
 				sm.current = transition.to;
-				sm.elapsed = 0;
+				sm.elapsed = 0 as Seconds;
 				events.emit(new StateEnterEvent(id, sm.current));
 
 				consumeTriggers(transition.cond, def, sm.params);

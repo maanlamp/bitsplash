@@ -5,8 +5,8 @@ export class HealthComponent {
 	hp: number;
 	maxHp: number;
 
-	constructor(hp: number = 100, maxHp = hp) {
-		this.hp = hp;
+	constructor(maxHp: number = 100, hp = maxHp) {
 		this.maxHp = maxHp;
+		this.hp = hp;
 	}
 }

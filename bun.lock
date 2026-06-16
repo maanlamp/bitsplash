@@ -11,6 +11,7 @@
         "classnames": "2.5.1",
         "colorjs.io": "0.6.1",
         "fflate": "0.8.3",
+        "inkjs": "2.4.0",
         "motion": "12.40.0",
         "oxfmt": "0.52.0",
         "oxlint": "1.67.0",
@@ -358,6 +359,8 @@
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 
     "immutable": ["immutable@5.1.6", "", {}, "sha512-q1swsS8K7L8usSHuOqF2TAoCCkonYz0SG38wLAggaa4Wml70zixIvt2ql4coQ2C2B3hTjltJry4r6bULwgAXLQ=="],
+
+    "inkjs": ["inkjs@2.4.0", "", { "bin": { "inkjs-compiler": "bin/inkjs-compiler.js" } }, "sha512-EoPCYESIbMtfI8SqEDZCJwn+A5is0QozMLw250iic1ReJCgZpRKIezWj0VqgRUzAx0f3MmEbsUjY/ILe2815JQ=="],
 
     "is-extglob": ["is-extglob@2.1.1", "", {}, "sha512-SbKbANkN603Vi4jEZv49LeVJMn4yGwsbzZworEoyEiutsN3nJYdbO36zfhGJ6QEDpOZIFkDtnq5JRxmvl3jsoQ=="],
 

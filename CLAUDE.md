@@ -23,3 +23,16 @@ canvas.
 ## Project
 
 Reference README.md for more information about the project, what goals we have, what rules to follow, etc.
+
+## UX decisions are not yours to make
+
+NEVER make a user-experience decision without asking the user directly first. This applies to
+anything that shapes how a user (game author or player) experiences a flow: error handling and where/how
+failures surface, field interaction, validation behavior, when/whether something blocks an action,
+notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems
+obvious, and even mid-task. This is crucial across **all** parts of the project (editor, game runtime,
+serialization, save/load — each may have different consumers with different needs; do not lock one
+decision across all of them).
+
+Exception: trivial, conventional accessibility/correctness choices (e.g. "a clickable element should be a
+`<button>`") are fine to make without asking.

@@ -1,13 +1,18 @@
-import {
-	fontStyleLabels,
-	type FontStyleLabel,
-} from "../editor/font/font-preview";
-import yosterIslandUrl from "../game/assets/yoster-island.font.zip?url";
-import { file, options } from "./serialization/field-enums";
+import { file, options, required } from "./serialization/field-enums";
 import { valueType } from "./serialization/value-type";
+
+export const fontStyleLabels = [
+	"Regular",
+	"Bold",
+	"Italic",
+	"Bold Italic",
+] as const;
+
+export type FontStyleLabel = (typeof fontStyleLabels)[number];
 
 @valueType()
 export class FontSettings {
+	@required()
 	@file(".ttf,.otf,.woff,.woff2,.font.zip")
 	font: string;
 	family: string;
@@ -16,8 +21,8 @@ export class FontSettings {
 	variant: FontStyleLabel;
 
 	constructor(
-		font: string = yosterIslandUrl,
-		size: number = 12,
+		font: string = "",
+		size: number = 16,
 		variant: FontStyleLabel = "Regular",
 		family: string = "",
 	) {

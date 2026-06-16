@@ -1,11 +1,11 @@
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
+import { resolveFont } from "../../engine/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import yosterFontUrl from "../assets/yoster.ttf?url";
-import { DialogueComponent } from "../components/dialogue";
+import { DialogueComponent } from "../../engine/components/dialogue";
 import { InteractableComponent } from "../components/interactable";
 import { InteractionStateComponent } from "../components/interaction-state";
 import { InputBindings } from "../input-bindings";
@@ -52,7 +52,7 @@ export class InteractHintRenderSystem implements RenderSystem {
 				});
 			}
 		}
-		const font = assetManager.getFont(yosterFontUrl);
+		const font = resolveFont(interactable.font, assetManager);
 		if (!font) {
 			return;
 		}
@@ -69,8 +69,6 @@ export class InteractHintRenderSystem implements RenderSystem {
 				align: "center",
 				color: [1, 1, 1, 1],
 				outline: [0, 0, 0, 1],
-				bold: interactable.font.variant.includes("Bold"),
-				italic: interactable.font.variant.includes("Italic"),
 			},
 		);
 	}

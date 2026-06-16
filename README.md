@@ -176,11 +176,17 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - [x] Serializable component framework
 - [x] Field decorators for extended types
 - [x] Strongly typed component fields (custom primitives)
-- 💡 Custom value-type (de)serialization registry — currently the only special
-  type (`Vector2`) is hardcoded in `serialization/value.ts`. Fine until a second
-  custom type appears; replace the inline `instanceof` checks with a small
-  `{ ctor, $type, encode, decode }` registry then. Engine-internal, so import
-  polarity is unaffected.
+- [x] Generic `TagsComponent` (engine; semantic entity roles as a JSON-safe `string[]` + `has(tag)`) — systems filter on roles ("enemy", "patrol") rather than on behaviour/AI components, mirroring Unity GameplayTags / Bevy marker components / Godot groups
+- [x] Custom value-type (de)serialization registry (`serialization/value-type-registry.ts`)
+      — value types opt in with the `@valueType()` class decorator and are encoded/decoded
+      by `$type` through the registry (no inline `instanceof` special-casing). `Vector2`,
+      `Angle`, `FontSettings`, and `FadeTimeline` are registered this way. Engine-internal,
+      so import polarity is unaffected.
+- [x] Transient runtime components are deliberately **not** `@serializable` — overlay/notice
+      state spawned by systems during play (`DeathNoticeComponent`, `QuestNoticeComponent`,
+      the runtime `DialogueComponent`) is never authored content, so it stays out of level/save
+      data per "save = authored initial state only." Omitting `@serializable` is the deliberate
+      marker, not an oversight.
 
 ---
 
@@ -455,6 +461,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 >
 > Full architectural plan: `docs/plans/animation.md`.
 
+- 🚧 `FadeTimeline` value type (engine/animation; fade-in/hold/fade-out with `tick()`/`alpha()`/`done()`) — a deliberate stopgap powering the death + quest notice overlays; to be folded into a timeline clip once the animation system lands
 - 💡 **Spritesheet clips** — a clip = ordered frame rects (in a metadata-tagged
   spritesheet PNG) + per-frame durations + loop flag. `SpriteComponent` gains an
   optional source-rect the animator drives; the renderer samples it (tiles already
@@ -587,8 +594,9 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ### Integration Targets
 
-- 🚧 Dialogue (proximity interaction → camera framing → revealing text panel; reusable Dialogue component decoupled from the trigger. Interaction is now generic: `InteractionSystem` emits `InteractEvent`; a `DialogueSourceComponent` + trigger system opens the dialogue — no signpost coupling)
+- 🚧 Dialogue (proximity interaction → camera framing → revealing text panel. Interaction is generic: `InteractionSystem` emits `InteractEvent`; a `DialogueSourceComponent` (referencing an Ink **knot**) + trigger system opens the dialogue — no signpost coupling. **Branching narrative runs on [inkjs](https://github.com/y-lohse/inkjs)** (the Ink runtime): one global `Story` compiled in-browser at runtime via inkjs's `Compiler` from `game/ink/*.ink` (a master file `INCLUDE`s per-conversation scene files), held on a runtime `InkStoryComponent` (live `Story` not serialized + `state.ToJson()` serialized, mirroring the FSM component). The dialogue system steps `Continue()`/`currentChoices`/`ChooseChoiceIndex`; Ink **variables** + auto **visit-counts** replace the old hand-rolled blackboard/conditions/effects. Game actions are Ink `EXTERNAL` functions bound to bus events (`start_quest`/`advance_quest`/`decline_quest`/`give_item`); side-effects fire at the authored beat (e.g. on the confirm choice). Reused presentation layer: rich-text (`<b>`/`<color=hex>`/`<wave>`, passed through Ink untouched — color drops the `#` since Ink reserves it for tags), sentence-aware interact-advanced pagination, keyboard option nav (nav + confirm). Per-conversation speaker font via Ink knot **tags** (`# font: doublehomicide`); options always render in the player font)
 - 🚧 Signposts / world objects (generalized to a generic `Interactable` + `DialogueSource` archetype with a per-interactable `prompt`; the "Press <key> to <prompt>" hint works for any interactable)
+- 🚧 Quests (data-driven JSON quests under `game/quests/*.json`; stage progression expressed as the generic FSM via a per-quest `@fsm` def + a `StateMachineComponent` on the quest entity, stage mirrored into a serializable `QuestComponent` **and an Ink variable** (`quest_<id>`) that dialogue gates on; `killTagged` objectives counted off a tags-snapshot `KillEvent`; extensible `RewardHandler` registry emitting `QuestRewardEvent`, inventory grant pending; dialogue drives start/advance via Ink `EXTERNAL` functions → bus events; quest-giver NPC prefab + Ink dialogue; top-right objective HUD + fading quest-notice overlay. First quest: "Massacre". Ink and the engine FSM stay orthogonal — Ink is the narrative VM, the FSM drives gameplay/quest progression)
 - 💡 Books / journals
 - 💡 Cutscenes
 - 💡 System-driven narration

@@ -16,8 +16,10 @@ import {
 	fieldEnum,
 	isFileField,
 	isMultilineField,
+	isRequiredField,
 } from "../engine/serialization/field-enums";
 import { componentTypeName } from "../engine/serialization/registry";
+import { getValueTypeName } from "../engine/serialization/value-type-registry";
 import Vector2 from "../engine/vector2";
 import { setField } from "./commands";
 import { componentLabel } from "./component-label";
@@ -30,7 +32,7 @@ import { toSentenceCase } from "./text-case";
 import { useEditorValue } from "./use-editor";
 import { getValueRenderer } from "./value-renderers";
 
-const commit = (
+export const commit = (
 	history: History,
 	target: object,
 	key: string,
@@ -44,7 +46,7 @@ const commit = (
 	setField(history, record, key, before!, after);
 };
 
-const NumberField = ({
+export const NumberField = ({
 	value,
 	onCommit,
 	inlayHint,
@@ -94,8 +96,13 @@ const NumberField = ({
 
 const TextField = ({
 	value,
+	invalid,
 	onCommit,
-}: Readonly<{ value: string; onCommit: (s: string) => void }>) => {
+}: Readonly<{
+	value: string;
+	invalid?: boolean;
+	onCommit: (s: string) => void;
+}>) => {
 	const [text, setText] = useState(value);
 	const [focused, setFocused] = useState(false);
 	useEffect(() => {
@@ -106,7 +113,10 @@ const TextField = ({
 	return (
 		<input
 			type="text"
-			className={styles.fieldInput}
+			className={classNames(
+				styles.fieldInput,
+				invalid && styles.inputInvalid,
+			)}
 			value={text}
 			onFocus={() => setFocused(true)}
 			onChange={(e) => setText(e.target.value)}
@@ -149,7 +159,7 @@ const MultilineField = ({
 	);
 };
 
-const EnumField = ({
+export const EnumField = ({
 	value,
 	options,
 	onCommit,
@@ -199,10 +209,12 @@ const EnumField = ({
 const FileField = ({
 	value,
 	accept,
+	invalid,
 	onCommit,
 }: Readonly<{
 	value: string;
 	accept: string;
+	invalid?: boolean;
 	onCommit: (s: string) => void;
 }>) => {
 	const ref = useRef<HTMLInputElement>(null);
@@ -213,9 +225,14 @@ const FileField = ({
 				ref.current?.click();
 			}}
 			aria-label="Select file"
-			className={styles.fileInputWrapper}
+			className={classNames(
+				styles.fileInputWrapper,
+				invalid && styles.inputInvalid,
+			)}
 		>
-			<span>{value}</span>
+			<span className={value ? undefined : styles.filePlaceholder}>
+				{value || "Choose a file…"}
+			</span>
 			<input
 				ref={ref}
 				type="file"
@@ -279,7 +296,37 @@ export const AngleField = ({
 	/>
 );
 
-const FieldControl = ({
+const isEmptyValue = (value: unknown): boolean =>
+	value === "" || value === null || value === undefined;
+
+const isValueObject = (value: unknown): value is object =>
+	value !== null &&
+	typeof value === "object" &&
+	!Array.isArray(value);
+
+const missingRequired = (value: object): boolean => {
+	const typeName =
+		componentTypeName(value) ?? getValueTypeName(value);
+	for (const [key, field] of Object.entries(value)) {
+		if (
+			typeName &&
+			isRequiredField(typeName, key) &&
+			isEmptyValue(field)
+		) {
+			return true;
+		}
+		if (
+			isValueObject(field) &&
+			getValueTypeName(field) &&
+			missingRequired(field)
+		) {
+			return true;
+		}
+	}
+	return false;
+};
+
+export const FieldControl = ({
 	component,
 	fieldKey,
 	value,
@@ -290,11 +337,7 @@ const FieldControl = ({
 	value: unknown;
 	history: History;
 }>) => {
-	if (
-		value !== null &&
-		typeof value === "object" &&
-		!Array.isArray(value)
-	) {
+	if (isValueObject(value)) {
 		const renderer = getValueRenderer(value);
 		if (renderer) {
 			return <>{renderer({ value, history, component, fieldKey })}</>;
@@ -325,18 +368,32 @@ const FieldControl = ({
 		);
 	}
 
-	const typeName = componentTypeName(component);
+	const typeName =
+		componentTypeName(component) ?? getValueTypeName(component);
+
+	const requiredMissing =
+		!!typeName &&
+		isRequiredField(typeName, fieldKey) &&
+		isEmptyValue(value);
 
 	const accept = typeName
 		? isFileField(typeName, fieldKey)
 		: undefined;
 	if (accept !== undefined) {
 		return (
-			<FileField
-				value={value as string}
-				accept={accept}
-				onCommit={(s) => commit(history, component, fieldKey, s)}
-			/>
+			<div className={styles.fieldCell}>
+				<FileField
+					value={value as string}
+					accept={accept}
+					invalid={requiredMissing}
+					onCommit={(s) => commit(history, component, fieldKey, s)}
+				/>
+				{requiredMissing && (
+					<span className={styles.fieldError}>
+						Required — no file set
+					</span>
+				)}
+			</div>
 		);
 	}
 
@@ -363,10 +420,16 @@ const FieldControl = ({
 	}
 
 	return (
-		<TextField
-			value={value as string}
-			onCommit={(s) => commit(history, component, fieldKey, s)}
-		/>
+		<div className={styles.fieldCell}>
+			<TextField
+				value={value as string}
+				invalid={requiredMissing}
+				onCommit={(s) => commit(history, component, fieldKey, s)}
+			/>
+			{requiredMissing && (
+				<span className={styles.fieldError}>Required</span>
+			)}
+		</div>
 	);
 };
 
@@ -378,26 +441,55 @@ const ComponentSection = ({
 	if (entries.length === 0) {
 		return null;
 	}
+	const incomplete = missingRequired(component);
+	const renderer = getValueRenderer(component);
 	return (
 		<section className={styles.section}>
-			<div className={styles.sectionTitle}>
+			<div
+				className={classNames(
+					styles.sectionTitle,
+					incomplete && styles.sectionTitleError,
+				)}
+			>
 				{componentLabel(component)}
+				{incomplete && (
+					<span
+						className={styles.sectionError}
+						title="This component has required fields that are not set"
+					>
+						!
+					</span>
+				)}
 			</div>
-			<div className={styles.fields}>
-				{entries.map(([key, value]) => (
-					<Fragment key={key}>
-						<span className={styles.fieldLabel}>
-							{toSentenceCase(key)}
-						</span>
-						<FieldControl
-							component={component}
-							fieldKey={key}
-							value={value}
-							history={history}
-						/>
-					</Fragment>
-				))}
-			</div>
+			{renderer ? (
+				renderer({
+					value: component,
+					history,
+					component,
+					fieldKey: "",
+				})
+			) : (
+				<div className={styles.fields}>
+					{entries.map(([key, value]) => (
+						<Fragment key={key}>
+							<span
+								className={classNames(
+									styles.fieldLabel,
+									isValueObject(value) && styles.fieldLabelTop,
+								)}
+							>
+								{toSentenceCase(key)}
+							</span>
+							<FieldControl
+								component={component}
+								fieldKey={key}
+								value={value}
+								history={history}
+							/>
+						</Fragment>
+					))}
+				</div>
+			)}
 		</section>
 	);
 };

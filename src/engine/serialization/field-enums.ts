@@ -91,3 +91,65 @@ export const isMultilineField = (
 	typeName: string,
 	field: string,
 ): boolean => multilineFields.has(`${typeName}.${field}`);
+
+const requiredFields = new Set<string>();
+
+type FieldRequiredMetadata = {
+	requiredFields?: Record<string, true>;
+};
+
+export const required =
+	() =>
+	(_value: undefined, context: ClassFieldDecoratorContext): void => {
+		const meta = context.metadata as FieldRequiredMetadata;
+		(meta.requiredFields ??= {})[String(context.name)] = true;
+	};
+
+export const collectRequiredFields = (
+	typeName: string,
+	metadata: DecoratorMetadata,
+): void => {
+	const meta = metadata as FieldRequiredMetadata;
+	if (!meta.requiredFields) {
+		return;
+	}
+	for (const field of Object.keys(meta.requiredFields)) {
+		requiredFields.add(`${typeName}.${field}`);
+	}
+};
+
+export const isRequiredField = (
+	typeName: string,
+	field: string,
+): boolean => requiredFields.has(`${typeName}.${field}`);
+
+const skipFields = new Set<string>();
+
+type FieldSkipMetadata = {
+	skipFields?: Record<string, true>;
+};
+
+export const skip =
+	() =>
+	(_value: undefined, context: ClassFieldDecoratorContext): void => {
+		const meta = context.metadata as FieldSkipMetadata;
+		(meta.skipFields ??= {})[String(context.name)] = true;
+	};
+
+export const collectSkipFields = (
+	typeName: string,
+	metadata: DecoratorMetadata,
+): void => {
+	const meta = metadata as FieldSkipMetadata;
+	if (!meta.skipFields) {
+		return;
+	}
+	for (const field of Object.keys(meta.skipFields)) {
+		skipFields.add(`${typeName}.${field}`);
+	}
+};
+
+export const isSkipField = (
+	typeName: string,
+	field: string,
+): boolean => skipFields.has(`${typeName}.${field}`);

@@ -7,6 +7,7 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import type { Seconds } from "../../engine/duration";
 import { TILE_SIZE } from "../../engine/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
@@ -28,7 +29,7 @@ export class ArrowSystem implements UpdateSystem {
 	}
 
 	update({ dt, ecs, world, events }: UpdateContext): void {
-		const seconds = dt / 1000;
+		const dtSeconds = (dt / 1000) as Seconds;
 		for (const [id, arrow, transform, rb, sprite] of ecs.query(
 			ArrowComponent,
 			TransformComponent,
@@ -59,7 +60,8 @@ export class ArrowSystem implements UpdateSystem {
 					transform.position.set(x, y);
 					rb.body.setTransform({ x, y }, rb.body.getAngle());
 				}
-				arrow.stuckRemaining -= seconds;
+				arrow.stuckRemaining = (arrow.stuckRemaining -
+					dtSeconds) as Seconds;
 				sprite.opacity = fadeAlpha(arrow.stuckRemaining, arrow.fade);
 				if (arrow.stuckRemaining <= 0) {
 					world.despawn(id);
@@ -80,7 +82,7 @@ export class ArrowSystem implements UpdateSystem {
 			const direction = velocity.clone().div(speed);
 			rb.body.setAngle(direction.angle());
 
-			const reach = speed * seconds + ARROW_REACH;
+			const reach = speed * dtSeconds + ARROW_REACH;
 			const target = transform.position
 				.clone()
 				.add(direction.clone().mul(reach));

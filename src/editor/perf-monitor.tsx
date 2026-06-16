@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type FantasyPlatformer from "../game/fantasy-platformer";
+import type { Game } from "../engine/game";
 import styles from "./perf-monitor.module.scss";
 
 const WINDOW = 120;
@@ -15,7 +15,7 @@ const ACCENT_COLOR = "#7fe0a8";
 const SPIKE_COLOR = "#e0795f";
 const REFERENCE_COLOR = "rgba(255, 255, 255, 0.18)";
 
-const PerfMonitor = ({ game }: { game: FantasyPlatformer }) => {
+const PerfMonitor = ({ game }: { game: Game }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	useEffect(() => {

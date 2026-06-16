@@ -1,11 +1,18 @@
 import AssetManager from "./assets";
 import AudioManager from "./audio/audio";
 import { Clock } from "./clock";
+import type { Milliseconds } from "./duration";
 import type { ECS } from "./ecs";
 import EventBus from "./events";
 import { Input } from "./input/input";
 import Renderer2D from "./renderer-2d";
+import type { SceneFactory, SceneSetup } from "./scene/scene";
+import type { SerializedWorld } from "./serialization/registry";
+import { serializeWorld } from "./serialization/serialize";
+import type { UpdateSystem } from "./system";
 import { renderActiveCamera } from "./systems/camera-2d";
+import type { TileGrid } from "./tilemap/grid";
+import type Vector2 from "./vector2";
 import Viewport from "./viewport";
 import { World } from "./world";
 
@@ -36,6 +43,11 @@ export class Game {
 	private lastFps = 0;
 	private lastFrameTime = 0;
 
+	private scene: SceneSetup | null = null;
+	private gameplaySystems: ReadonlyArray<UpdateSystem> = [];
+	private simulating = false;
+	private snapshot: SerializedWorld | null = null;
+
 	constructor(options: GameOptions) {
 		this.renderer = new Renderer2D(this.viewport);
 		this.input = new Input(this.viewport.element);
@@ -47,6 +59,43 @@ export class Game {
 
 	get ecs(): ECS {
 		return this.world.ecs;
+	}
+
+	buildScene(factory: SceneFactory): void {
+		const setup = factory({ game: this });
+		this.scene = setup;
+		this.gameplaySystems = setup.gameplaySystems;
+	}
+
+	get tileGrid(): TileGrid | undefined {
+		return this.scene?.tileGrid;
+	}
+
+	defaultEntity(position: Vector2): ReadonlyArray<object> {
+		return this.scene?.defaultEntity?.(position) ?? [];
+	}
+
+	setSimulating(enabled: boolean): void {
+		if (enabled === this.simulating || !this.scene) {
+			return;
+		}
+		this.simulating = enabled;
+		if (enabled) {
+			this.snapshot = serializeWorld(this.ecs);
+		}
+		for (const system of this.gameplaySystems) {
+			if (enabled) {
+				this.ecs.addUpdateSystem(system);
+			} else {
+				this.ecs.removeUpdateSystem(system);
+			}
+		}
+		if (enabled) {
+			this.scene.spawnRuntimeEntities();
+		} else if (this.snapshot) {
+			this.scene.restore(this.snapshot);
+			this.snapshot = null;
+		}
 	}
 
 	get paused(): boolean {
@@ -76,7 +125,7 @@ export class Game {
 			}
 
 			const before = performance.now();
-			const delta = time - lastTime;
+			const delta = (time - lastTime) as Milliseconds;
 			const fps = delta > 0 ? 1000 / delta : 0;
 			this.lastFps = fps;
 

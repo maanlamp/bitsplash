@@ -2,6 +2,8 @@ import {
 	collectFieldEnums,
 	collectFileFields,
 	collectMultilineFields,
+	collectRequiredFields,
+	collectSkipFields,
 } from "./field-enums";
 import { type ComponentClass, registerComponent } from "./registry";
 
@@ -12,4 +14,6 @@ export const serializable =
 		collectFieldEnums(typeName, context.metadata);
 		collectFileFields(typeName, context.metadata);
 		collectMultilineFields(typeName, context.metadata);
+		collectRequiredFields(typeName, context.metadata);
+		collectSkipFields(typeName, context.metadata);
 	};

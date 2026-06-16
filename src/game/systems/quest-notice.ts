@@ -2,11 +2,11 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { DeathNoticeComponent } from "../components/death-notice";
+import { QuestNoticeComponent } from "../components/quest-notice";
 
-export class DeathNoticeSystem implements UpdateSystem {
+export class QuestNoticeSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
-		for (const [id, notice] of ecs.query(DeathNoticeComponent)) {
+		for (const [id, notice] of ecs.query(QuestNoticeComponent)) {
 			notice.fade.tick(dt);
 			if (notice.fade.done()) {
 				ecs.destroyEntity(id);

@@ -1,29 +1,31 @@
+import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
+import { skip } from "../../engine/serialization/field-enums";
 import { serializable } from "../../engine/serialization/serializable";
 
 @serializable("Arrow")
 export class ArrowComponent {
 	damage: number;
 	speed: number;
-	fade: number;
-	stuckLifetime: number;
+	fade: Seconds;
+	stuckLifetime: Seconds;
 	aimAngle: number;
-	launched: boolean;
-	stuck: boolean;
-	stuckRemaining: number;
-	attachedTo: EntityId | null;
-	attachOffsetX: number;
-	attachOffsetY: number;
+	@skip() launched: boolean;
+	@skip() stuck: boolean;
+	@skip() stuckRemaining: Seconds;
+	@skip() attachedTo: EntityId | null;
+	@skip() attachOffsetX: number;
+	@skip() attachOffsetY: number;
 
 	constructor(
 		damage: number = 25,
 		speed: number = 360,
-		fade: number = 1,
-		stuckLifetime: number = 4,
+		fade: Seconds = 1 as Seconds,
+		stuckLifetime: Seconds = 4 as Seconds,
 		aimAngle = 0,
 		launched = false,
 		stuck = false,
-		stuckRemaining = 0,
+		stuckRemaining: Seconds = 0 as Seconds,
 		attachedTo = null,
 		attachOffsetX = 0,
 		attachOffsetY = 0,

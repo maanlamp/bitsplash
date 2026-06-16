@@ -1,18 +1,17 @@
 import { IconContext } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { SpriteComponent } from "../engine/components/sprite";
-import { TransformComponent } from "../engine/components/transform";
 import type { EntityId } from "../engine/ecs";
+import type { Game } from "../engine/game";
+import { createGame } from "../engine/scene/registry";
 import { serializeWorld } from "../engine/serialization/serialize";
 import { pickActiveCamera2D } from "../engine/systems/camera-2d";
 import { DebugGridSystem } from "../engine/systems/debug-grid";
 import { TILE_SIZE } from "../engine/tile";
 import Vector2 from "../engine/vector2";
-import { DebugTagComponent } from "../game/components/debug-tag";
-import FantasyPlatformer, { Layer } from "../game/fantasy-platformer";
 import styles from "./app.module.scss";
 import { type AssetCreateActions } from "./asset-context-menu";
+import { AssetManagerProvider } from "./asset-manager-context";
 import {
 	assetFilename,
 	isFontName,
@@ -26,6 +25,7 @@ import {
 	duplicateEntity,
 } from "./commands";
 import ConfirmDialog from "./confirm-dialog";
+import { EditorLayer } from "./constants";
 import { setCursorMode } from "./cursor";
 import { EditorState } from "./editor-state";
 import {
@@ -81,10 +81,10 @@ const NEW_AUDIO_VIEW = "audio:new";
 const snap = (value: number): number =>
 	Math.round(value / TILE_SIZE) * TILE_SIZE;
 
-const App = () => {
+const App = ({ defaultScene }: { defaultScene: string }) => {
 	const mountRef = useRef<HTMLDivElement>(null);
 	const [store] = useState(() => new EditorState());
-	const [game, setGame] = useState<FantasyPlatformer | null>(null);
+	const [game, setGame] = useState<Game | null>(null);
 	const [addTarget, setAddTarget] = useState<EntityId | null>(null);
 	const createPosRef = useRef<Vector2 | null>(null);
 
@@ -278,7 +278,7 @@ const App = () => {
 		focusView("canvas");
 	};
 
-	const gameInstanceRef = useRef<FantasyPlatformer>(null);
+	const gameInstanceRef = useRef<Game>(null);
 	const editorCameraSystemRef = useRef<EditorCamera2DSystem>(null);
 	const tileEditorSystemRef = useRef<TileEditorSystem>(null);
 	const entityEditorSystemRef = useRef<EntityEditorSystem>(null);
@@ -471,8 +471,12 @@ const App = () => {
 			throw new Error("Null canvas mount ref.");
 		}
 
-		gameInstanceRef.current = new FantasyPlatformer();
+		gameInstanceRef.current = createGame(defaultScene);
 		const instance = gameInstanceRef.current;
+		const tileGrid = instance.tileGrid;
+		if (!tileGrid) {
+			throw new Error("Editor requires a scene with a tile grid.");
+		}
 		attachViewport(mountRef.current);
 		const history = new History();
 		setHistoryInstance(history);
@@ -487,7 +491,7 @@ const App = () => {
 				void fetch("/__save-level", {
 					method: "POST",
 					body: exportLevelJson(
-						instance.tileGrid,
+						tileGrid,
 						serializeWorld(instance.ecs),
 					),
 				});
@@ -495,11 +499,11 @@ const App = () => {
 		});
 
 		editorCameraSystemRef.current = new EditorCamera2DSystem(
-			instance.tileGrid,
+			tileGrid,
 			store,
 		);
 		tileEditorSystemRef.current = new TileEditorSystem(
-			instance.tileGrid,
+			tileGrid,
 			store,
 			history,
 		);
@@ -508,16 +512,16 @@ const App = () => {
 			history,
 		);
 		tileEditorPreviewSystemRef.current = new TileEditorPreviewSystem(
-			instance.tileGrid,
-			Layer.EDITOR_PREVIEW,
+			tileGrid,
+			EditorLayer.EDITOR_PREVIEW,
 			store,
 		);
 		entityHighlightSystemRef.current = new EntityHighlightSystem(
 			store,
-			Layer.EDITOR_PREVIEW,
+			EditorLayer.EDITOR_PREVIEW,
 		);
 		debugGridSystemRef.current = new DebugGridSystem(
-			Layer.DEBUG_GRID,
+			EditorLayer.DEBUG_GRID,
 		);
 		setEditorSystemsActive(true);
 
@@ -532,7 +536,7 @@ const App = () => {
 			detachViewportRef.current = null;
 			setGame(null);
 		};
-	}, [store]);
+	}, [store, defaultScene]);
 
 	useEffect(() => {
 		const el = game?.viewport.element;
@@ -572,11 +576,11 @@ const App = () => {
 		if (!inst || !historyInstance || !pos) {
 			return;
 		}
-		const id = createEntity(inst.world, historyInstance, [
-			new TransformComponent(new Vector2(snap(pos.x), snap(pos.y))),
-			new SpriteComponent(),
-			new DebugTagComponent("entity"),
-		]);
+		const id = createEntity(
+			inst.world,
+			historyInstance,
+			inst.defaultEntity(new Vector2(snap(pos.x), snap(pos.y))),
+		);
 		store.setSelected(id);
 	};
 
@@ -696,39 +700,41 @@ const App = () => {
 		<IconContext
 			value={{ color: "currentColor", size: "1em", weight: "bold" }}
 		>
-			<Workspace
-				workspace={workspace}
-				onChange={updateWorkspace}
-				renderView={renderView}
-				onCloseView={closeView}
-				dirtyViews={dirtyViews}
-			/>
-			{addTarget && deps && (
-				<AddComponentPicker
-					entity={addTarget}
-					deps={deps}
-					onClose={() => setAddTarget(null)}
+			<AssetManagerProvider value={game?.assetManager ?? null}>
+				<Workspace
+					workspace={workspace}
+					onChange={updateWorkspace}
+					renderView={renderView}
+					onCloseView={closeView}
+					dirtyViews={dirtyViews}
 				/>
-			)}
-			<NewSpriteDialog
-				open={!!newSpriteKind}
-				isTileset={newSpriteKind?.isTileset ?? false}
-				onConfirm={confirmNewSprite}
-				onClose={() => setNewSpriteKind(null)}
-			/>
-			<ConfirmDialog
-				open={!!pendingDiscard}
-				title="Discard your changes?"
-				message="Your changes here haven't been saved yet."
-				confirmLabel="Yes, discard"
-				cancelLabel="No, keep"
-				onConfirm={() => {
-					const proceed = pendingDiscard;
-					setPendingDiscard(null);
-					proceed?.();
-				}}
-				onCancel={() => setPendingDiscard(null)}
-			/>
+				{addTarget && deps && (
+					<AddComponentPicker
+						entity={addTarget}
+						deps={deps}
+						onClose={() => setAddTarget(null)}
+					/>
+				)}
+				<NewSpriteDialog
+					open={!!newSpriteKind}
+					isTileset={newSpriteKind?.isTileset ?? false}
+					onConfirm={confirmNewSprite}
+					onClose={() => setNewSpriteKind(null)}
+				/>
+				<ConfirmDialog
+					open={!!pendingDiscard}
+					title="Discard your changes?"
+					message="Your changes here haven't been saved yet."
+					confirmLabel="Yes, discard"
+					cancelLabel="No, keep"
+					onConfirm={() => {
+						const proceed = pendingDiscard;
+						setPendingDiscard(null);
+						proceed?.();
+					}}
+					onCancel={() => setPendingDiscard(null)}
+				/>
+			</AssetManagerProvider>
 		</IconContext>
 	);
 };

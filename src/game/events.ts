@@ -1,24 +1,5 @@
 import type { EntityId } from "../engine/ecs";
 
-export class DialogueOpenedEvent {
-	constructor(public dialogue: EntityId) {}
-}
-
-export class DialogueClosedEvent {
-	constructor(
-		public dialogue: EntityId,
-		public source: EntityId | null = null,
-	) {}
-}
-
-export class CharacterRevealedEvent {
-	constructor(
-		public dialogue: EntityId,
-		public char: string,
-		public index: number,
-	) {}
-}
-
 export class InteractEvent {
 	constructor(
 		public interactable: EntityId,
@@ -41,5 +22,37 @@ export class SpawnEvent {
 	constructor(
 		public spawnPoint: EntityId,
 		public id: EntityId,
+	) {}
+}
+
+export class KillEvent {
+	constructor(
+		public entity: EntityId,
+		public tags: readonly string[],
+	) {}
+}
+
+export class StartQuestEvent {
+	constructor(
+		public quest: string,
+		public stage: string = "offered",
+	) {}
+}
+
+export class AdvanceQuestEvent {
+	constructor(
+		public quest: string,
+		public to: string,
+	) {}
+}
+
+export class QuestDeclinedEvent {
+	constructor(public quest: string) {}
+}
+
+export class QuestRewardEvent {
+	constructor(
+		public quest: string,
+		public reward: Readonly<Record<string, unknown>>,
 	) {}
 }

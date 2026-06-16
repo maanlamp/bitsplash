@@ -3,4 +3,6 @@ export const InputBindings = {
 	right: "D",
 	jump: "SPACE",
 	interact: "E",
+	up: "W",
+	down: "S",
 };

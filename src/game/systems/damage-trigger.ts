@@ -2,9 +2,10 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { DialogueClosedEvent } from "../../engine/dialogue/events";
 import { DamageTriggerComponent } from "../components/damage-trigger";
 import { PlayerInputComponent } from "../components/player-input";
-import { DamageEvent, DialogueClosedEvent } from "../events";
+import { DamageEvent } from "../events";
 
 export class DamageTriggerSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {

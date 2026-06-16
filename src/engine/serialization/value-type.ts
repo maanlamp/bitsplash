@@ -2,13 +2,14 @@ import {
 	collectFieldEnums,
 	collectFileFields,
 	collectMultilineFields,
+	collectRequiredFields,
+	collectSkipFields,
 } from "./field-enums";
 import {
 	registerValueType,
 	type ValueTypeAdapter,
 } from "./value-type-registry";
 
-// value-type.ts
 export function valueType<T extends object>(
 	adapter: ValueTypeAdapter<T>,
 ): (
@@ -38,5 +39,7 @@ export function valueType<T extends object>(
 		collectFieldEnums(name, context.metadata);
 		collectFileFields(name, context.metadata);
 		collectMultilineFields(name, context.metadata);
+		collectRequiredFields(name, context.metadata);
+		collectSkipFields(name, context.metadata);
 	};
 }

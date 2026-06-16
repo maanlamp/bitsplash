@@ -1,23 +1,23 @@
+import type { Seconds } from "../duration";
+import { skip } from "../serialization/field-enums";
 import { serializable } from "../serialization/serializable";
 import type { Params } from "./conditions";
 import type { StateMachineDef } from "./state-machine";
 
 @serializable("StateMachine")
 export class StateMachineComponent {
-	// Not serialized: class instance, skipped by encodeValue.
-	def: StateMachineDef | null;
+	@skip() def: StateMachineDef | null;
 
-	// Serialized: runtime state.
 	defId: string;
-	current: string;
-	elapsed: number;
-	params: Params;
+	@skip() current: string;
+	@skip() elapsed: Seconds;
+	@skip() params: Params;
 
 	constructor(
 		def: StateMachineDef | null = null,
 		defId = "",
 		current = "",
-		elapsed = 0,
+		elapsed: Seconds = 0 as Seconds,
 		params: Params = {},
 	) {
 		this.def = def;

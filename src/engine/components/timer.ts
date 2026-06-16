@@ -1,8 +1,10 @@
+import type { Seconds } from "../duration";
+
 export class TimerComponent {
-	remaining: number;
+	remaining: Seconds;
 	event: object;
 
-	constructor(remaining: number, event: object) {
+	constructor(remaining: Seconds, event: object) {
 		this.remaining = remaining;
 		this.event = event;
 	}

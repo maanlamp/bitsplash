@@ -1,4 +1,5 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
+import { isSkipField } from "./field-enums";
 import {
 	componentTypeName,
 	type SerializedComponent,
@@ -8,10 +9,14 @@ import {
 import { encodeValue } from "./value";
 
 const serializeComponent = (
+	typeName: string,
 	component: object,
 ): SerializedComponent => {
 	const out: SerializedComponent = {};
 	for (const [key, value] of Object.entries(component)) {
+		if (isSkipField(typeName, key)) {
+			continue;
+		}
 		const encoded = encodeValue(value);
 		if (encoded !== undefined) {
 			out[key] = encoded;
@@ -31,7 +36,7 @@ export const serializeEntity = (
 		if (!typeName) {
 			continue;
 		}
-		components[typeName] = serializeComponent(component);
+		components[typeName] = serializeComponent(typeName, component);
 		any = true;
 	}
 	return any ? { id, components } : null;

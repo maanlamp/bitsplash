@@ -8,6 +8,7 @@ import classNames from "classnames";
 import { useEffect, useRef, useState } from "react";
 import type AssetManager from "../../engine/assets";
 import { blitText, supportsChar } from "../../engine/font-blit";
+import type { FontStyleLabel } from "../../engine/font-settings";
 import {
 	type FontStyle,
 	type LoadedFont,
@@ -29,15 +30,6 @@ const DEFAULT_ZOOM = 4;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 12;
 const SIZE_DEBOUNCE_MS = 200;
-
-export const fontStyleLabels = [
-	"Regular",
-	"Bold",
-	"Italic",
-	"Bold Italic",
-] as const;
-
-export type FontStyleLabel = (typeof fontStyleLabels)[number];
 
 export const STYLE_OPTIONS: ReadonlyArray<
 	Readonly<{ id: FontStyle; label: FontStyleLabel }>
@@ -117,8 +109,8 @@ const PANGRAMS: ReadonlyArray<string> = [
 const clamp = (value: number, min: number, max: number): number =>
 	Math.min(max, Math.max(min, value));
 
-const useFamilies = (
-	assetManager: AssetManager,
+export const useFamilies = (
+	assetManager: AssetManager | null,
 	url: string,
 	size: number,
 ): ReadonlyArray<LoadedFont> | null => {
@@ -126,6 +118,9 @@ const useFamilies = (
 		useState<ReadonlyArray<LoadedFont> | null>(null);
 	useEffect(() => {
 		setFamilies(null);
+		if (!assetManager || !url) {
+			return;
+		}
 		let raf = 0;
 		const poll = () => {
 			const loaded = assetManager.getFontFamilies(url, size);
@@ -141,7 +136,7 @@ const useFamilies = (
 	return families;
 };
 
-const BlittedLine = ({
+export const BlittedLine = ({
 	font,
 	text,
 	style,

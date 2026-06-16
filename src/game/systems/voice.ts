@@ -2,8 +2,8 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { CharacterRevealedEvent } from "../../engine/dialogue/events";
 import voiceUrl from "../assets/voice_01.wav?url";
-import { CharacterRevealedEvent } from "../events";
 
 const VOICE_CLIP = voiceUrl;
 

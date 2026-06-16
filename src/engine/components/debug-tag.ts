@@ -1,5 +1,5 @@
-import { FontSettings } from "../../engine/font-settings";
-import { serializable } from "../../engine/serialization/serializable";
+import { FontSettings } from "../font-settings";
+import { serializable } from "../serialization/serializable";
 
 @serializable("DebugTag")
 export class DebugTagComponent {

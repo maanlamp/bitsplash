@@ -24,6 +24,26 @@
 .sectionTitle {
 	font: var(--font-body);
 	color: var(--on-surface-strong);
+	display: flex;
+	align-items: center;
+	gap: var(--unit-6);
+}
+
+.sectionTitleError {
+	color: var(--accent-danger);
+}
+
+.sectionError {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--unit-16);
+	height: var(--unit-16);
+	border-radius: var(--radius-md);
+	background: var(--accent-danger);
+	color: var(--on-accent);
+	font-size: 0.75em;
+	font-weight: 700;
 }
 
 .fields {
@@ -36,6 +56,11 @@
 .fieldLabel {
 	color: var(--on-surface-faint);
 	white-space: nowrap;
+}
+
+.fieldLabelTop {
+	align-self: start;
+	padding-top: var(--unit-8);
 }
 
 .inlayHint {
@@ -56,6 +81,27 @@
 	overflow-wrap: anywhere;
 	min-height: var(--unit-24);
 	font: inherit;
+}
+
+.fieldCell {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--unit-4);
+}
+
+.fieldError {
+	color: var(--accent-danger);
+	font-size: 0.85em;
+}
+
+.inputInvalid {
+	outline-color: var(--accent-danger);
+}
+
+.filePlaceholder {
+	color: var(--on-surface-faint);
 }
 
 .fileInputWrapper {

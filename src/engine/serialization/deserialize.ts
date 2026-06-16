@@ -1,5 +1,6 @@
 import type { EntityId } from "../ecs";
 import type { World } from "../world";
+import { isSkipField } from "./field-enums";
 import {
 	type ComponentClass,
 	componentClass,
@@ -10,11 +11,15 @@ import {
 import { decodeValue } from "./value";
 
 const reviveDefault = (
+	typeName: string,
 	ctor: ComponentClass,
 	data: SerializedComponent,
 ): object => {
 	const instance = new (ctor as new () => Record<string, unknown>)();
 	for (const [key, value] of Object.entries(data)) {
+		if (isSkipField(typeName, key)) {
+			continue;
+		}
 		instance[key] = decodeValue(value);
 	}
 	return instance;
@@ -30,7 +35,7 @@ export const deserializeEntity = (
 		if (!ctor) {
 			continue;
 		}
-		components.push(reviveDefault(ctor, data));
+		components.push(reviveDefault(typeName, ctor, data));
 	}
 	return world.ecs.createEntity(components, entity.id as EntityId);
 };

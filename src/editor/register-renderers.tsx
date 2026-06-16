@@ -1,8 +1,11 @@
 import Angle from "../engine/angle";
+import { SpriteComponent } from "../engine/components/sprite";
+import { FontSettings } from "../engine/font-settings";
 import Vector2 from "../engine/vector2";
+import FontSettingsField from "./font/font-settings-field";
 import { AngleField, Vector2Field } from "./inspector";
+import SpriteField from "./sprite/sprite-field";
 import { registerValueRenderer } from "./value-renderers";
-// import FontSettings from "../game/font-settings";
 
 registerValueRenderer(Angle, ({ value, history }) => (
 	<AngleField
@@ -15,4 +18,12 @@ registerValueRenderer(Angle, ({ value, history }) => (
 
 registerValueRenderer(Vector2, ({ value, history }) => (
 	<Vector2Field value={value} history={history} />
+));
+
+registerValueRenderer(FontSettings, ({ value, history }) => (
+	<FontSettingsField value={value} history={history} />
+));
+
+registerValueRenderer(SpriteComponent, ({ value, history }) => (
+	<SpriteField value={value} history={history} />
 ));
