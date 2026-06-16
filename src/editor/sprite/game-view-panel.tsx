@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { Game } from "../../engine/game";
 import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
 import { TilemapRenderSystem } from "../../engine/systems/tilemap-render";
@@ -12,6 +11,7 @@ import type { History } from "../history";
 import { bresenham } from "../line";
 import { cursorForTool, toolShowsBrush } from "./sprite-tools";
 import { SpriteLayer } from "./layers";
+import { createPreviewGame } from "./preview-game";
 import { populateSampleGrid, sampleBounds } from "./sample-layout";
 import { SpriteCameraSystem } from "./sprite-camera";
 import { SpriteCheckerSystem } from "./sprite-checker";
@@ -42,7 +42,7 @@ const GameViewPanel = ({
 			return;
 		}
 
-		const game = new Game({ gravity: { x: 0, y: 0 } });
+		const { game, scene } = createPreviewGame();
 		const detach = game.viewport.attach(container);
 		const element = game.viewport.element;
 		const srcSize = doc.width / SHEET_COLUMNS;
@@ -52,10 +52,10 @@ const GameViewPanel = ({
 		populateSampleGrid(grid);
 		const bounds = sampleBounds();
 
-		game.ecs.addUpdateSystem(
+		scene.ecs.addUpdateSystem(
 			new SpriteCameraSystem(state, bounds, TILE_SIZE),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteCheckerSystem(SpriteLayer.BACKGROUND, {
 				x: bounds.min.x,
 				y: bounds.min.y,
@@ -63,13 +63,13 @@ const GameViewPanel = ({
 				height: bounds.max.y - bounds.min.y,
 			}),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new TilemapRenderSystem(grid, doc.canvas, SpriteLayer.CONTENT),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteHoverSystem(SpriteLayer.CONTENT, hover, state),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteGridSystem(SpriteLayer.CONTENT, srcSize, {
 				x: bounds.min.x,
 				y: bounds.min.y,
@@ -105,7 +105,7 @@ const GameViewPanel = ({
 		let lastTy = 0;
 
 		const worldOf = (e: PointerEvent): Vector2 | null => {
-			const camera = pickActiveCamera2D(game.ecs);
+			const camera = pickActiveCamera2D(scene.ecs);
 			if (!camera) {
 				return null;
 			}

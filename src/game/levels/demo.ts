@@ -1,12 +1,10 @@
 import type { Bounds } from "../../engine/camera-2d";
+import { InkStoryComponent } from "../../engine/components/ink-story";
 import { TransformComponent } from "../../engine/components/transform";
-import { deserializeWorld } from "../../engine/serialization/deserialize";
-import type { SerializedWorld } from "../../engine/serialization/registry";
 import { TILE_SIZE } from "../../engine/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
-import { InkStoryComponent } from "../../engine/components/ink-story";
 import { InteractionStateComponent } from "../components/interaction-state";
 import { PlayerInputComponent } from "../components/player-input";
 import { RespawnComponent } from "../components/respawn";
@@ -14,7 +12,6 @@ import { SpawnPointComponent } from "../components/spawn-point";
 import { spawnBow } from "../entities/bow";
 import { spawnCamera2D } from "../entities/camera-2d";
 import { spawnPrefab } from "../prefabs";
-import level from "./demo.json";
 
 // Ensure these are bundled, important for loading
 import.meta.glob(
@@ -34,16 +31,6 @@ const levelBounds = (tileGrid: TileGrid): Bounds | null => {
 			(gb.maxY + 1) * TILE_SIZE,
 		),
 	};
-};
-
-export const loadDemoTiles = (tileGrid: TileGrid): void => {
-	for (const r of level.tiles) {
-		for (let gy = r.y; gy < r.y + r.h; gy++) {
-			for (let gx = r.x; gx < r.x + r.w; gx++) {
-				tileGrid.setTile(gx, gy);
-			}
-		}
-	}
 };
 
 const spawnInitialEntities = (world: World): void => {
@@ -69,13 +56,6 @@ const spawnInitialEntities = (world: World): void => {
 	}
 };
 
-export const loadLevelEntities = (
-	deps: Readonly<{ tileGrid: TileGrid; world: World }>,
-	entities: SerializedWorld,
-): void => {
-	deserializeWorld(deps.world, entities);
-};
-
 export const spawnRuntimeEntities = (
 	deps: Readonly<{ tileGrid: TileGrid; world: World }>,
 ): void => {
@@ -91,17 +71,3 @@ export const spawnRuntimeEntities = (
 	deps.world.ecs.createEntity([new InteractionStateComponent()]);
 	deps.world.ecs.createEntity([new InkStoryComponent()]);
 };
-
-export const loadDemoLevel = (
-	deps: Readonly<{ tileGrid: TileGrid; world: World }>,
-): void => {
-	loadDemoTiles(deps.tileGrid);
-	loadLevelEntities(
-		deps,
-		level.entities as unknown as SerializedWorld,
-	);
-};
-
-if (import.meta.hot) {
-	import.meta.hot.accept("./demo.json", () => {});
-}

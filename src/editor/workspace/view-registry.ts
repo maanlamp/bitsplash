@@ -8,6 +8,7 @@ import {
 	SquaresFourIcon,
 	TextAaIcon,
 } from "@phosphor-icons/react";
+import { sceneSummaries } from "../../engine/scene/registry";
 import {
 	type AssetEntry,
 	assetFilename,
@@ -16,7 +17,7 @@ import {
 import type { ViewId } from "./layout";
 
 export type ViewKind =
-	| "canvas"
+	| "scene"
 	| "tree"
 	| "inspector"
 	| "sprite"
@@ -56,16 +57,25 @@ export const assetViewId = (entry: AssetEntry): ViewId =>
 export const isAssetView = (id: ViewId): boolean =>
 	ASSET_KINDS.includes(parseViewId(id).kind);
 
+export const isSceneView = (id: ViewId): boolean =>
+	parseViewId(id).kind === "scene";
+
 export const isClosable = (id: ViewId): boolean =>
-	isAssetView(id) || parseViewId(id).kind === "inspector";
+	isAssetView(id) ||
+	isSceneView(id) ||
+	parseViewId(id).kind === "inspector";
 
 export const viewTitle = (id: ViewId): string => {
 	const { kind, param } = parseViewId(id);
 	switch (kind) {
-		case "canvas":
-			return "World";
+		case "scene":
+			return (
+				sceneSummaries().find((s) => s.id === param)?.name ??
+				param ??
+				"Scene"
+			);
 		case "tree":
-			return "Scene";
+			return "Project";
 		case "inspector":
 			return "Inspector";
 		default:
@@ -79,7 +89,7 @@ export const viewTitle = (id: ViewId): string => {
 export const viewIcon = (id: ViewId): Icon => {
 	const { kind, param } = parseViewId(id);
 	switch (kind) {
-		case "canvas":
+		case "scene":
 			return GlobeIcon;
 		case "tree":
 			return FilmSlateIcon;
@@ -101,8 +111,11 @@ export const isValidViewId = (
 	assets: ReadonlyArray<AssetEntry>,
 ): boolean => {
 	const { kind, param } = parseViewId(id);
-	if (kind === "canvas" || kind === "tree" || kind === "inspector") {
+	if (kind === "tree" || kind === "inspector") {
 		return true;
+	}
+	if (kind === "scene") {
+		return !!param && sceneSummaries().some((s) => s.id === param);
 	}
 	if (!ASSET_KINDS.includes(kind)) {
 		return false;

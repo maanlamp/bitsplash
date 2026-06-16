@@ -1,4 +1,14 @@
 {
+	"version": 1,
+	"kind": "platformer",
+	"name": "Demo",
+	"config": {
+		"gravity": {
+			"x": 0,
+			"y": 640
+		},
+		"uiScale": 3
+	},
 	"tiles": [
 		{
 			"x": 35,

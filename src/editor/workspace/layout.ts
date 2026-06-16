@@ -300,7 +300,7 @@ export const resizeSplit = (
 			: node,
 	);
 
-export const defaultWorkspace = (): Workspace => ({
+export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 	version: WORKSPACE_VERSION,
 	root: {
 		type: "split",
@@ -308,8 +308,8 @@ export const defaultWorkspace = (): Workspace => ({
 		sizes: [0.22, 0.78],
 		children: [
 			{ type: "tabs", views: ["tree"], active: "tree" },
-			{ type: "tabs", views: ["canvas"], active: "canvas" },
+			{ type: "tabs", views: [sceneView], active: sceneView },
 		],
 	},
-	focused: "canvas",
+	focused: sceneView,
 });

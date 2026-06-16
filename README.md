@@ -112,8 +112,11 @@ below and a detailed architectural plan under `docs/plans/`.
 1. ~~**Generic State Machine**~~ — done. Unblocks Animation + AI.
 2. **Prefabs** (instance = `{prefab, overrides}`) — fixes the scene/save entity
    format before anything serializes it.
-3. **Scene System** — the keystone. Removes the `Game.world` singleton; nearly
-   everything else keys off the scene boundary.
+3. ~~**Scene System** — the keystone. Removes the `Game.world` singleton~~ — core
+   done (Scene-owns-World, SceneManager + additive stack, context split, per-scene
+   texture compositor, multi-viewport `scene:<id>` editor views + project tree +
+   per-scene play, `*.scene.json` format). Transitions, persistent scene, in-game-UI-
+   as-scenes, and a scene-management/create panel still pending.
 
 **Then** (depend on the above): Save → Asset Lifecycle → AI; Animation (after the
 State Machine).
@@ -124,9 +127,9 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ## Cross-cutting seams (touched by multiple systems — design once)
 
-- **Kill the `Game.world` singleton** (Scene) — the first big refactor; the
+- ~~**Kill the `Game.world` singleton** (Scene) — the first big refactor; the
   context split (global services vs per-scene ecs/world/events) underlies the
-  whole frame loop.
+  whole frame loop.~~ — done.
 - **`PlayerInput` → intent + actuation refactor** (AI unified intent) — player and
   AI write the same intent components.
 - **Renderer changes** — a GPU-texture `evict(image)` API (Asset unload) and
@@ -137,8 +140,10 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
   owns the dangling-override-key validation.
 - **Spritesheet/atlas PNG iTXt metadata** — shared by tiles, animation frames, and
   the sprite editor; finalize the format once.
-- **Global vs per-scene event bus** — cross-scene/transition events on a global
-  bus, gameplay events on each scene's `world.events`.
+- ~~**Global vs per-scene event bus** — cross-scene/transition events on a global
+  bus, gameplay events on each scene's `world.events`.~~ — split in place
+  (`Game.events` global; each scene's `world.events` for gameplay). The global bus
+  has no consumers yet (transitions pending).
 - **Fullscreen wrapper + debug-overlay portal** (Profiling) — also the enabler for
   the AI debugger and any other in-playtest debug chrome.
 
@@ -232,20 +237,37 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ### Model
 
-- 💡 **Scene = own World** — each scene owns its own ECS + physics world + event
-  bus (+ optional tilemap). Full isolation: no cross-scene collisions, clean
-  load/unload. Replaces the current single `Game.world` singleton.
-- 💡 **Code factory + content data** — a scene _kind_ is a TS factory that builds
-  the World, tilemap, and system set (generalizing today's `FantasyPlatformer`
-  constructor); authored _content_ (tiles + entities + config) is a serialized
-  scene file loaded into it. Scene kinds are registered by name.
-- 💡 **Additive stack** — the `SceneManager` runs a stack of simultaneously-active
-  scenes (gameplay + HUD + pause overlay + a persistent scene). Each stack entry
-  carries explicit flags: `update`, `render`, `blocksUpdateBelow`,
-  `blocksInputBelow`.
-- 💡 **Per-scene play/edit lifecycle** — the snapshot → simulate → restore +
-  spawn-runtime-on-play flow moves out of `FantasyPlatformer` into the
-  Scene/SceneManager (engine), driven per focused scene in the editor.
+- [x] **Scene = own World** — each scene owns its own ECS + physics world + event
+      bus (+ optional tilemap). Full isolation; killed the single `Game.world`
+      singleton (`Game` now owns a `SceneManager`; the update/render context is split
+      into global services vs per-scene `ecs`/`world`/`events`, gameplay events on
+      each scene's `world.events`). Clean unload (`World.clear`) exists; the
+      transition-driven unload flow is still pending (below).
+- [x] **Code factory + content data** — a scene _kind_ is a TS factory
+      (`registerScene(kind, factory)`) that builds the World (from `config.gravity`),
+      tilemap, and system set (`FantasyPlatformer` collapsed into the `platformer`
+      factory). Authored _content_ is a serialized `*.scene.json`
+      (`{ version, kind, config, tiles, entities }`, config is the source of truth)
+      loaded by engine `createScene`. Entities stay in the bare serialized form;
+      prefab-instance entities + save migration are deferred to Prefabs/Save.
+- [x] **Additive stack** — the `SceneManager` runs a stack of
+      simultaneously-active scenes; each entry carries explicit flags `update`,
+      `render`, `blocksUpdateBelow`, `blocksInputBelow`. Update walks top→bottom
+      (stops at `blocksUpdateBelow`), render bottom→top, with a single screen-space
+      UI overlay pass. (`blocksInputBelow` is modeled + queryable via
+      `receivesInput`, but not yet enforced on the global `Input` — frozen scenes
+      simply aren't updated.)
+- [x] **Per-scene texture compositor** — each active scene renders its full
+      screen-space image (camera world pass + its own UI pass at the scene's
+      `uiScale`) into its **own** `RenderTarget`; the stack is composited bottom→top
+      to the viewport in one `Renderer2D.composite` pass. Replaces the old
+      last-camera-wins `present` + single shared screen-space UI overlay. The renderer
+      is no longer a `GlobalService` — it's passed per render call, so a scene can
+      render to any viewport's renderer (multi-viewport). The playtest pause is now a
+      real composited transparent overlay scene (no giant-rect hack).
+- [x] **Per-scene play/edit lifecycle** — the snapshot → simulate → restore +
+      spawn-runtime-on-play flow moved out of `FantasyPlatformer` onto `Scene`
+      (engine), driven for the editor's focused scene.
 
 ### Transitions & lifecycle
 
@@ -268,14 +290,42 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 Menus / HUD render as **canvas (screen-space WebGL) entities within a
   scene's world** — React DOM is editor-only. A main-menu scene is a World of UI
   entities; this matures the existing screen-space UI pass.
+- 💡 **Goal: all in-game UI becomes its own stacked scene** (composited on top by
+  the per-scene texture compositor) — not UI-layer render systems living inside the
+  gameplay scene as today (health bars, dialogue panel, quest/objective HUD, death
+  overlay, interact hints). Each UI render system would be relocated to where it
+  belongs (a UI scene). **Parked** pending the cross-world data-access model: unlike
+  Unity/Godot/Unreal (which don't isolate scenes into separate worlds, so a HUD
+  reading game state is free and UI placement is case-by-case there), bitsplash's
+  "Scene = isolated World" means a UI scene must explicitly read the gameplay
+  world's ECS. Decide that model (persistent scene / explicit source-scene
+  reference / relaxed cross-scene queries) before splitting the HUD out. Pure menus
+  (main/pause) are uncoupled and can become scenes first.
 
 ### Editor integration
 
-- 💡 Scene management panel (list / create / open / close project scenes, set the
-  start scene).
-- 💡 Multiple scenes open at once, each in its own viewport (side-by-side) —
-  depends on multi-target rendering (→ Editor docking + renderer split-screen).
-- 💡 Per-scene play/edit controls.
+- [x] **Editor operates on the focused scene view** — the project is a set of
+      lazily-instantiated scenes (`editor/project.ts`, backed by `sceneSummaries()` +
+      `createScene(id)`). The editor systems target the **focused** scene view's scene
+      (`editor/scene-view.ts` binds camera/tile/entity/preview/highlight/grid + a
+      per-view `History` + per-view `Input` to one scene). Entity ids are globally
+      unique, so selection/hover read against the focused scene unambiguously.
+- [x] **Project tree** (`editor/project-tree.tsx`, renamed from `entity-tree`) —
+      lists **Game → Scene(s) → World → Entity → Component** + an Assets sibling.
+      Scene rows open/focus a `scene:<id>` view; expanding a scene lazily instantiates
+      its world to list entities.
+- [x] **Multiple scenes open at once, each in its own viewport** (side-by-side) —
+      each `scene:<id>` view owns its own canvas + WebGL context + `Renderer2D`
+      (`editor/scene-view-panel.tsx`); one editor loop renders every open scene view to
+      its own renderer, updating editor systems only for the focused view.
+- [x] **Per-scene play/edit controls** — each scene view's floating toolbar plays
+      **that** scene: it becomes the `SceneManager` base, simulates, and the editor
+      **unmounts**, mounting only a fullscreen play surface (the engine `Game`'s
+      viewport). Exit restores the scene + remounts the editor. Session-only default
+      scene (no disk write).
+- 💡 Scene management panel (create / delete / rename project scenes, persist the
+  start scene to a project config) — listing / open / close exist via the tree +
+  tabs; creation and a persisted start scene are still pending.
 
 ---
 
@@ -857,11 +907,13 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
       can't do cross-region drag and unmounts inactive panels, which would kill the
       live canvas) but carries the a11y base-ui would give: `tablist`/`tab`/
       `tabpanel` roles, `aria-selected`, roving `tabIndex`, and arrow/Home/End nav.
-- 💡 **Multiple scene viewports** — each `scene:<id>` view owns its own canvas +
-  WebGL context + `Renderer2D` instance (browsers allow ~16 contexts). Texture
-  duplication across contexts is acceptable because the **editor isn't
-  memory-budgeted** (per editor-vs-runtime separation). Editor tooling
-  (camera/tile/selection) targets the **focused** viewport's scene world.
+- [x] **Multiple scene viewports** — each `scene:<id>` view owns its own canvas +
+      WebGL context + `Renderer2D` instance (browsers allow ~16 contexts). Texture
+      duplication across contexts is acceptable because the **editor isn't
+      memory-budgeted** (per editor-vs-runtime separation). Editor tooling
+      (camera/tile/selection) targets the **focused** viewport's scene world.
+      (`editor/scene-view.ts` + `scene-view-panel.tsx`; the `canvas` singleton view
+      is gone, replaced by parameterized `scene:<id>` views.)
 - [x] **Robust, versioned persistence** — the layout tree + active tabs + sizes
       persisted to localStorage, **validated on load** (dangling view ids dropped, not
       crashed) and schema-versioned for migration. (`editor/workspace/persist.ts`;

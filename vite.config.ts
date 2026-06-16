@@ -6,12 +6,17 @@ import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 
-const LEVEL_PATH = fileURLToPath(
-	new URL("./src/game/levels/demo.json", import.meta.url),
+const LEVELS_DIR = fileURLToPath(
+	new URL("./src/game/levels", import.meta.url),
 );
 
 const liveSaveLevel = (): Plugin => ({
 	name: "live-save-level",
+	handleHotUpdate(ctx) {
+		if (ctx.file.endsWith(".scene.json")) {
+			return [];
+		}
+	},
 	configureServer(server) {
 		server.middlewares.use("/__save-level", (req, res) => {
 			if (req.method !== "POST") {
@@ -19,14 +24,22 @@ const liveSaveLevel = (): Plugin => ({
 				res.end();
 				return;
 			}
+			const sceneId = req.headers["x-scene-id"];
+			const id =
+				typeof sceneId === "string" && /^[\w-]+$/.test(sceneId)
+					? sceneId
+					: "demo";
+			const path = `${LEVELS_DIR}/${id}.scene.json`;
 			let body = "";
 			req.on("data", (chunk) => {
 				body += chunk;
 			});
 			req.on("end", () => {
-				writeFile(LEVEL_PATH, body).then(
+				writeFile(path, body).then(
 					() => {
-						server.config.logger.info("[live-save] wrote demo.json");
+						server.config.logger.info(
+							`[live-save] wrote ${id}.scene.json`,
+						);
 						res.statusCode = 204;
 						res.end();
 					},

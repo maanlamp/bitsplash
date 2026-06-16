@@ -441,7 +441,7 @@ export default class Renderer2D {
 	private fontCache = new WeakMap<LoadedFont, FontAtlas>();
 	private whiteTex: WebGLTexture;
 	private colors = new ColorResolver();
-	private uiTarget: RenderTarget | null = null;
+	private sceneTargets = new Map<object, RenderTarget>();
 
 	constructor(viewport: Viewport) {
 		this.viewport = viewport;
@@ -1201,6 +1201,7 @@ export default class Renderer2D {
 	renderTo(
 		target: RenderTarget,
 		includeLayer?: (id: number) => boolean,
+		clear = true,
 	): void {
 		const gl = this.gl;
 		const texW = target.width;
@@ -1243,12 +1244,42 @@ export default class Renderer2D {
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 		gl.viewport(0, 0, texW, texH);
-		gl.clearColor(0, 0, 0, 0);
-		gl.clear(gl.COLOR_BUFFER_BIT);
+		if (clear) {
+			gl.clearColor(0, 0, 0, 0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+		}
 		for (const id of ordered) {
 			const layer = this.layers.get(id)!;
 			applyCompositeBlend(gl, layer.blend);
 			this.drawBlit(layer.scratch.tex, layer.opacity, -1, 1, 1, -1);
+		}
+	}
+
+	clearTarget(target: RenderTarget): void {
+		const gl = this.gl;
+		if (target.width <= 0 || target.height <= 0) {
+			return;
+		}
+		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+		gl.viewport(0, 0, target.width, target.height);
+		gl.clearColor(0, 0, 0, 0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+	}
+
+	sceneTarget(key: object): RenderTarget {
+		let target = this.sceneTargets.get(key);
+		if (!target) {
+			target = this.createRenderTarget();
+			this.sceneTargets.set(key, target);
+		}
+		return target;
+	}
+
+	releaseSceneTarget(key: object): void {
+		const target = this.sceneTargets.get(key);
+		if (target) {
+			target.dispose();
+			this.sceneTargets.delete(key);
 		}
 	}
 
@@ -1361,47 +1392,28 @@ export default class Renderer2D {
 		gl.bindVertexArray(null);
 	}
 
-	presentOverlay(target: RenderTarget): void {
+	composite(
+		targets: ReadonlyArray<RenderTarget>,
+		dest: PresentDest,
+	): void {
 		const gl = this.gl;
 		const vw = this.viewport.width;
 		const vh = this.viewport.height;
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-		gl.viewport(0, 0, vw, vh);
-		applyCompositeBlend(gl, BlendMode.NORMAL);
-		this.drawBlit(target.tex, 1, -1, 1, 1, -1);
-	}
-
-	renderUiOverlay(minLayer: number, uiScale: number): void {
-		const vw = this.viewport.width;
-		const vh = this.viewport.height;
-		if (vw <= 0 || vh <= 0 || uiScale <= 0) {
+		if (vw <= 0 || vh <= 0) {
 			return;
 		}
-		if (!this.uiTarget) {
-			this.uiTarget = this.createRenderTarget();
-		}
-		const target = this.uiTarget;
-		target.resize(vw, vh);
-		target.setSpan(vw / uiScale, vh / uiScale);
-		target.setOrigin(0, 0);
-		this.renderTo(target, (id) => id >= minLayer);
-		this.presentOverlay(target);
-	}
-
-	present(target: RenderTarget, dest: PresentDest): void {
-		const gl = this.gl;
-		const vw = this.viewport.width;
-		const vh = this.viewport.height;
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.viewport(0, 0, vw, vh);
-		gl.disable(gl.BLEND);
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		const left = (dest.x / vw) * 2 - 1;
 		const right = ((dest.x + dest.w) / vw) * 2 - 1;
 		const top = 1 - (dest.y / vh) * 2;
 		const bottom = 1 - ((dest.y + dest.h) / vh) * 2;
-		this.drawBlit(target.tex, 1, left, top, right, bottom);
+		applyCompositeBlend(gl, BlendMode.NORMAL);
+		for (const target of targets) {
+			this.drawBlit(target.tex, 1, left, top, right, bottom);
+		}
 	}
 
 	endFrame(): void {

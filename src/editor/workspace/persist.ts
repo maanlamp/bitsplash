@@ -19,15 +19,16 @@ const hasView = (node: LayoutNode): boolean => {
 
 export const loadWorkspace = (
 	isValid: (id: ViewId) => boolean,
+	fallbackSceneView: ViewId,
 ): Workspace => {
 	try {
 		const raw = localStorage.getItem(KEY);
 		if (!raw) {
-			return defaultWorkspace();
+			return defaultWorkspace(fallbackSceneView);
 		}
 		const parsed = JSON.parse(raw) as Workspace;
 		if (parsed.version !== WORKSPACE_VERSION || !parsed.root) {
-			return defaultWorkspace();
+			return defaultWorkspace(fallbackSceneView);
 		}
 		let root = parsed.root;
 		for (const id of allViewIds(root)) {
@@ -36,7 +37,7 @@ export const loadWorkspace = (
 			}
 		}
 		if (!hasView(root)) {
-			return defaultWorkspace();
+			return defaultWorkspace(fallbackSceneView);
 		}
 		const focused =
 			parsed.focused && isValid(parsed.focused)
@@ -44,7 +45,7 @@ export const loadWorkspace = (
 				: null;
 		return { version: WORKSPACE_VERSION, root, focused };
 	} catch {
-		return defaultWorkspace();
+		return defaultWorkspace(fallbackSceneView);
 	}
 };
 

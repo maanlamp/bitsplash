@@ -1,3 +1,4 @@
+import type { Scene, SceneFile } from "../engine/scene/scene";
 import type { SerializedWorld } from "../engine/serialization/registry";
 import type { TileGrid } from "../engine/tilemap/grid";
 
@@ -43,8 +44,17 @@ const tileRects = (grid: TileGrid): TileRect[] => {
 	return rects;
 };
 
-export const exportLevelJson = (
-	grid: TileGrid,
+export const exportSceneJson = (
+	scene: Scene,
 	entities: SerializedWorld,
-): string =>
-	JSON.stringify({ tiles: tileRects(grid), entities }, null, "\t");
+): string => {
+	const file: SceneFile = {
+		version: 1,
+		kind: scene.kind,
+		name: scene.name,
+		config: scene.config,
+		tiles: scene.tileGrid ? tileRects(scene.tileGrid) : [],
+		entities,
+	};
+	return JSON.stringify(file, null, "\t");
+};

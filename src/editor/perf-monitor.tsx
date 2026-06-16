@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { Game } from "../engine/game";
 import styles from "./perf-monitor.module.scss";
+
+export type FrameStats = Readonly<{
+	frameTime: number;
+	fps: number;
+}>;
 
 const WINDOW = 120;
 const CSS_WIDTH = 168;
@@ -15,7 +19,7 @@ const ACCENT_COLOR = "#7fe0a8";
 const SPIKE_COLOR = "#e0795f";
 const REFERENCE_COLOR = "rgba(255, 255, 255, 0.18)";
 
-const PerfMonitor = ({ game }: { game: Game }) => {
+const PerfMonitor = ({ stats }: { stats: FrameStats }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	useEffect(() => {
@@ -41,8 +45,8 @@ const PerfMonitor = ({ game }: { game: Game }) => {
 		let raf = 0;
 
 		const draw = () => {
-			const frameTime = game.frameTime;
-			const fps = game.fps;
+			const frameTime = stats.frameTime;
+			const fps = stats.fps;
 
 			samples[head] = frameTime;
 			head = (head + 1) % WINDOW;
@@ -121,7 +125,7 @@ const PerfMonitor = ({ game }: { game: Game }) => {
 
 		raf = requestAnimationFrame(draw);
 		return () => cancelAnimationFrame(raf);
-	}, [game]);
+	}, [stats]);
 
 	return (
 		<canvas

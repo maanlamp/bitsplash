@@ -6,6 +6,6 @@ import "./style/main.scss";
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		<App defaultScene="platformer" />
+		<App startScene="demo" />
 	</StrictMode>,
 );

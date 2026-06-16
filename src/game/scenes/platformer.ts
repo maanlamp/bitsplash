@@ -8,9 +8,11 @@ import {
 import { DialogueSystem } from "../../engine/dialogue/dialogue-system";
 import { FontSettings } from "../../engine/font-settings";
 import { StateMachineSystem } from "../../engine/fsm/state-machine-system";
-import type { SerializedWorld } from "../../engine/serialization/registry";
-import { registerScene } from "../../engine/scene/registry";
-import type { SceneSetup } from "../../engine/scene/scene";
+import {
+	registerScene,
+	registerSceneFile,
+} from "../../engine/scene/registry";
+import { Scene, type SceneFile } from "../../engine/scene/scene";
 import { Camera2DFollowSystem } from "../../engine/systems/camera-2d-follow";
 import { CameraShakeSystem } from "../../engine/systems/camera-shake";
 import { DebugTagSystem } from "../../engine/systems/debug-tag";
@@ -23,18 +25,13 @@ import { TimerSystem } from "../../engine/systems/timer";
 import { TileCollisionBaker } from "../../engine/tilemap/collision";
 import { TileGrid } from "../../engine/tilemap/grid";
 import type Vector2 from "../../engine/vector2";
+import { World } from "../../engine/world";
 import tilesetUrl from "../assets/dirt.tileset.png";
 import fsPixelSansUrl from "../assets/fs-pixel-sans-unicode.font.zip?url";
 import knickKnacksUrl from "../assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "../assets/tile-decorations.png";
-import { GRAVITY } from "../constants";
 import { platformerDialogueBindings } from "../dialogue-bindings";
-import {
-	loadDemoLevel,
-	loadLevelEntities,
-	spawnRuntimeEntities,
-} from "../levels/demo";
-import { UI_SCALE } from "../settings";
+import { spawnRuntimeEntities } from "../levels/demo";
 import { ArrowSystem } from "../systems/arrow";
 import { BowSystem } from "../systems/bow";
 import { DamageShakeSystem } from "../systems/damage-shake";
@@ -62,7 +59,8 @@ import { SpawnSystem } from "../systems/spawn";
 import { TileUnstuckSystem } from "../systems/tile-unstuck";
 import { VoiceSystem } from "../systems/voice";
 
-// This is insane
+import "./pause";
+
 import.meta.glob("../fsm/*", { eager: true });
 
 export const Layer = {
@@ -74,97 +72,105 @@ export const Layer = {
 	DEBUG_TAG: 90,
 } as const;
 
-registerScene({
-	kind: "platformer",
-	gravity: GRAVITY,
-	uiScale: UI_SCALE,
-	build: ({ game }): SceneSetup => {
-		const { ecs, world } = game;
+registerScene("platformer", ({ config, name }): Scene => {
+	const world = new World(config.gravity);
+	const ecs = world.ecs;
 
-		const tileGrid = new TileGrid();
-		new TileCollisionBaker(tileGrid, world);
-		const surfaceDecorations = new SurfaceDecorations(
-			tileGrid,
-			knickKnacksUrl,
-			Layer.SURFACE_DECO_BACK,
-			Layer.SURFACE_DECO_FRONT,
-		);
-		const tileDecorations = new TileDecorations(
-			tileGrid,
-			tileDecorationsUrl,
-			Layer.TILE_DECO,
-		);
+	const tileGrid = new TileGrid();
+	new TileCollisionBaker(tileGrid, world);
+	const surfaceDecorations = new SurfaceDecorations(
+		tileGrid,
+		knickKnacksUrl,
+		Layer.SURFACE_DECO_BACK,
+		Layer.SURFACE_DECO_FRONT,
+	);
+	const tileDecorations = new TileDecorations(
+		tileGrid,
+		tileDecorationsUrl,
+		Layer.TILE_DECO,
+	);
 
-		const gameplaySystems = [
-			new PhysicsBodySystem(),
-			new PlayerMovementStateSystem(),
-			new PlayerInputSystem(),
-			new StateMachineSystem(),
-			new PatrolSystem(),
-			new GroundDetectionSystem(),
-			new PhysicsSystem(),
-			new TileUnstuckSystem(tileGrid),
-			new BowSystem(),
-			new ArrowSystem(tileGrid),
-			new PickupSystem(),
-			new InteractionSystem(),
-			new DialogueTriggerSystem(),
-			new DialogueSystem(platformerDialogueBindings),
-			new DamageTriggerSystem(),
-			new HealthSystem(),
-			new DamageShakeSystem(),
-			new DeathSystem(),
-			new QuestSystem(),
-			new TimerSystem(),
-			new SpawnSystem(),
-			new DeathNoticeSystem(),
-			new QuestNoticeSystem(),
-			new HealthBarSystem(),
-			new VoiceSystem(),
-			new Camera2DFollowSystem(),
-			new CameraShakeSystem(),
-		];
+	const gameplaySystems = [
+		new PhysicsBodySystem(),
+		new PlayerMovementStateSystem(),
+		new PlayerInputSystem(),
+		new StateMachineSystem(),
+		new PatrolSystem(),
+		new GroundDetectionSystem(),
+		new PhysicsSystem(),
+		new TileUnstuckSystem(tileGrid),
+		new BowSystem(),
+		new ArrowSystem(tileGrid),
+		new PickupSystem(),
+		new InteractionSystem(),
+		new DialogueTriggerSystem(),
+		new DialogueSystem(platformerDialogueBindings),
+		new DamageTriggerSystem(),
+		new HealthSystem(),
+		new DamageShakeSystem(),
+		new DeathSystem(),
+		new QuestSystem(),
+		new TimerSystem(),
+		new SpawnSystem(),
+		new DeathNoticeSystem(),
+		new QuestNoticeSystem(),
+		new HealthBarSystem(),
+		new VoiceSystem(),
+		new Camera2DFollowSystem(),
+		new CameraShakeSystem(),
+	];
 
-		ecs.addRenderSystem(
-			new DecorationsRenderSystem(surfaceDecorations),
-		);
-		ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
-		ecs.addRenderSystem(new DebugTagSystem(Layer.DEBUG_TAG));
-		ecs.addRenderSystem(
-			new InteractHintRenderSystem(Layer.DEBUG_TAG, Layer.PLAYER),
-		);
-		ecs.addRenderSystem(new DialogueRenderSystem());
-		ecs.addRenderSystem(new SpriteRenderSystem(Layer.PLAYER));
-		ecs.addRenderSystem(
-			new TilemapRenderSystem(tileGrid, tilesetUrl, Layer.TILEMAP),
-		);
-		ecs.addRenderSystem(new HealthRenderSystem(Layer.TILEMAP));
-		ecs.addRenderSystem(new DeathOverlayRenderSystem());
-		ecs.addRenderSystem(new QuestNoticeRenderSystem());
-		ecs.addRenderSystem(new ObjectiveRenderSystem());
+	ecs.addRenderSystem(
+		new DecorationsRenderSystem(surfaceDecorations),
+	);
+	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
+	ecs.addRenderSystem(new DebugTagSystem(Layer.DEBUG_TAG));
+	ecs.addRenderSystem(
+		new InteractHintRenderSystem(Layer.DEBUG_TAG, Layer.PLAYER),
+	);
+	ecs.addRenderSystem(new DialogueRenderSystem());
+	ecs.addRenderSystem(new SpriteRenderSystem(Layer.PLAYER));
+	ecs.addRenderSystem(
+		new TilemapRenderSystem(tileGrid, tilesetUrl, Layer.TILEMAP),
+	);
+	ecs.addRenderSystem(new HealthRenderSystem(Layer.TILEMAP));
+	ecs.addRenderSystem(new DeathOverlayRenderSystem());
+	ecs.addRenderSystem(new QuestNoticeRenderSystem());
+	ecs.addRenderSystem(new ObjectiveRenderSystem());
 
-		loadDemoLevel({ tileGrid, world });
-
-		return {
-			gameplaySystems,
-			tileGrid,
-			spawnRuntimeEntities: () =>
-				spawnRuntimeEntities({ tileGrid, world }),
-			restore: (snapshot: SerializedWorld) => {
-				world.clear();
-				loadLevelEntities({ tileGrid, world }, snapshot);
-			},
-			defaultEntity: (position: Vector2) => [
-				new TransformComponent(position),
-				new SpriteComponent(),
-				new DebugTagComponent(
-					"entity",
-					new FontSettings(fsPixelSansUrl),
-				),
-			],
-		};
-	},
+	return new Scene({
+		kind: "platformer",
+		name,
+		config,
+		world,
+		tileGrid,
+		gameplaySystems,
+		spawnRuntimeEntities: () =>
+			spawnRuntimeEntities({ tileGrid, world }),
+		defaultEntity: (position: Vector2) => [
+			new TransformComponent(position),
+			new SpriteComponent(),
+			new DebugTagComponent(
+				"entity",
+				new FontSettings(fsPixelSansUrl),
+			),
+		],
+	});
 });
+
+const sceneFiles = import.meta.glob("../levels/*.scene.json", {
+	eager: true,
+});
+for (const [path, mod] of Object.entries(sceneFiles)) {
+	const id = path
+		.split("/")
+		.pop()!
+		.replace(/\.scene\.json$/, "");
+	registerSceneFile(
+		id,
+		(mod as { default: unknown }).default as SceneFile,
+	);
+}
 
 if (import.meta.hot) {
 	import.meta.hot.accept(() => {

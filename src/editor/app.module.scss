@@ -16,6 +16,12 @@
 	outline: none;
 }
 
+.playSurface {
+	position: fixed;
+	inset: 0;
+	background: var(--surface);
+}
+
 .placeholder {
 	display: flex;
 	align-items: center;

@@ -2,6 +2,8 @@ import type { Camera2D } from "../camera-2d";
 import { Camera2DComponent } from "../components/camera-2d";
 import type { ReadonlyECS } from "../ecs";
 import type Renderer2D from "../renderer-2d";
+import type { RenderTarget } from "../render-target";
+import type { Scene } from "../scene/scene";
 import { UI_LAYER_MIN } from "../ui";
 
 export const pickActiveCamera2D = (
@@ -19,37 +21,38 @@ export const pickActiveCamera2D = (
 	return best ? best.camera : null;
 };
 
-export const renderActiveCamera = (
+export const renderSceneToTexture = (
 	renderer: Renderer2D,
-	ecs: ReadonlyECS,
-	uiScale = 1,
+	scene: Scene,
+	target: RenderTarget,
 ): void => {
-	const camera = pickActiveCamera2D(ecs);
 	const vw = renderer.width;
 	const vh = renderer.height;
-	if (!camera || vw <= 0 || vh <= 0 || camera.zoom <= 0) {
+	if (vw <= 0 || vh <= 0) {
 		return;
 	}
-	camera.viewportWidth = vw;
-	camera.viewportHeight = vh;
+	target.resize(vw, vh);
 
-	const z = camera.zoom;
-	if (!camera.target) {
-		camera.target = renderer.createRenderTarget();
+	const camera = pickActiveCamera2D(scene.world.ecs);
+	let drewWorld = false;
+	if (camera && camera.zoom > 0) {
+		camera.viewportWidth = vw;
+		camera.viewportHeight = vh;
+		const z = camera.zoom;
+		const spanX = vw / z;
+		const spanY = vh / z;
+		target.setSpan(spanX, spanY);
+		const snappedX =
+			Math.round((camera.position.x + camera.shake.x) * z) / z;
+		const snappedY =
+			Math.round((camera.position.y + camera.shake.y) * z) / z;
+		target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
+		renderer.renderTo(target, (id) => id < UI_LAYER_MIN, true);
+		drewWorld = true;
 	}
-	camera.target.resize(vw, vh);
 
-	const spanX = vw / z;
-	const spanY = vh / z;
-	camera.target.setSpan(spanX, spanY);
-
-	const snappedX =
-		Math.round((camera.position.x + camera.shake.x) * z) / z;
-	const snappedY =
-		Math.round((camera.position.y + camera.shake.y) * z) / z;
-	camera.target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
-
-	renderer.renderTo(camera.target, (id) => id < UI_LAYER_MIN);
-	renderer.present(camera.target, { x: 0, y: 0, w: vw, h: vh });
-	renderer.renderUiOverlay(UI_LAYER_MIN, uiScale);
+	const uiScale = scene.config.uiScale ?? 1;
+	target.setSpan(vw / uiScale, vh / uiScale);
+	target.setOrigin(0, 0);
+	renderer.renderTo(target, (id) => id >= UI_LAYER_MIN, !drewWorld);
 };

@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { Game } from "../../engine/game";
 import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
 import Vector2 from "../../engine/vector2";
@@ -9,6 +8,7 @@ import type { History } from "../history";
 import { bresenham } from "../line";
 import { cursorForTool, toolShowsBrush } from "./sprite-tools";
 import { SpriteLayer } from "./layers";
+import { createPreviewGame } from "./preview-game";
 import { SpriteCameraSystem } from "./sprite-camera";
 import { SpriteCheckerSystem } from "./sprite-checker";
 import type {
@@ -40,7 +40,7 @@ const TexturePanel = ({
 			return;
 		}
 
-		const game = new Game({ gravity: { x: 0, y: 0 } });
+		const { game, scene } = createPreviewGame();
 		const detach = game.viewport.attach(container);
 		const element = game.viewport.element;
 		const tileSize = isTileset ? doc.width / SHEET_COLUMNS : 0;
@@ -52,7 +52,7 @@ const TexturePanel = ({
 		const inBounds = (x: number, y: number): boolean =>
 			x >= 0 && y >= 0 && x < doc.width && y < doc.height;
 
-		game.ecs.addUpdateSystem(
+		scene.ecs.addUpdateSystem(
 			new SpriteCameraSystem(
 				state,
 				{
@@ -62,7 +62,7 @@ const TexturePanel = ({
 				padding,
 			),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteCheckerSystem(SpriteLayer.BACKGROUND, {
 				x: 0,
 				y: 0,
@@ -70,13 +70,13 @@ const TexturePanel = ({
 				height: doc.height,
 			}),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteImageRenderSystem(doc, SpriteLayer.CONTENT),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteHoverSystem(SpriteLayer.CONTENT, hover, state),
 		);
-		game.ecs.addRenderSystem(
+		scene.ecs.addRenderSystem(
 			new SpriteGridSystem(SpriteLayer.CONTENT, tileSize, {
 				x: 0,
 				y: 0,
@@ -108,7 +108,7 @@ const TexturePanel = ({
 		const pixelAt = (
 			e: PointerEvent,
 		): { x: number; y: number } | null => {
-			const camera = pickActiveCamera2D(game.ecs);
+			const camera = pickActiveCamera2D(scene.ecs);
 			if (!camera) {
 				return null;
 			}

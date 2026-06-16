@@ -2,25 +2,17 @@ import AssetManager from "./assets";
 import AudioManager from "./audio/audio";
 import { Clock } from "./clock";
 import type { Milliseconds } from "./duration";
-import type { ECS } from "./ecs";
 import EventBus from "./events";
 import { Input } from "./input/input";
 import Renderer2D from "./renderer-2d";
-import type { SceneFactory, SceneSetup } from "./scene/scene";
-import type { SerializedWorld } from "./serialization/registry";
-import { serializeWorld } from "./serialization/serialize";
-import type { UpdateSystem } from "./system";
-import { renderActiveCamera } from "./systems/camera-2d";
-import type { TileGrid } from "./tilemap/grid";
-import type Vector2 from "./vector2";
+import type { Scene } from "./scene/scene";
+import { SceneManager } from "./scene/scene-manager";
+import type { GlobalServices } from "./services";
 import Viewport from "./viewport";
-import { World } from "./world";
 
 export type FrameInfo = Readonly<{ delta: number; fps: number }>;
 
 export type GameOptions = Readonly<{
-	gravity: Readonly<{ x: number; y: number }>;
-	uiScale?: number;
 	onFrame?: (info: FrameInfo) => void;
 }>;
 
@@ -28,14 +20,13 @@ export class Game {
 	readonly viewport = new Viewport();
 	readonly renderer: Renderer2D;
 	readonly input: Input;
-	readonly world: World;
 	readonly assetManager = new AssetManager();
 	readonly events = new EventBus();
 	readonly audio: AudioManager;
+	readonly services: GlobalServices;
+	readonly sceneManager: SceneManager;
+
 	private clock = new Clock();
-
-	uiScale: number;
-
 	private isPaused = false;
 	private onFrame?: (info: FrameInfo) => void;
 	private rafId: number | null = null;
@@ -43,59 +34,23 @@ export class Game {
 	private lastFps = 0;
 	private lastFrameTime = 0;
 
-	private scene: SceneSetup | null = null;
-	private gameplaySystems: ReadonlyArray<UpdateSystem> = [];
-	private simulating = false;
-	private snapshot: SerializedWorld | null = null;
-
 	constructor(options: GameOptions) {
 		this.renderer = new Renderer2D(this.viewport);
 		this.input = new Input(this.viewport.element);
-		this.world = new World(options.gravity);
-		this.audio = new AudioManager(this.viewport.element);
-		this.uiScale = options.uiScale ?? 1;
+		this.audio = new AudioManager();
 		this.onFrame = options.onFrame;
+		this.services = {
+			input: this.input,
+			assetManager: this.assetManager,
+			audio: this.audio,
+			clock: this.clock,
+			events: this.events,
+		};
+		this.sceneManager = new SceneManager(this.services);
 	}
 
-	get ecs(): ECS {
-		return this.world.ecs;
-	}
-
-	buildScene(factory: SceneFactory): void {
-		const setup = factory({ game: this });
-		this.scene = setup;
-		this.gameplaySystems = setup.gameplaySystems;
-	}
-
-	get tileGrid(): TileGrid | undefined {
-		return this.scene?.tileGrid;
-	}
-
-	defaultEntity(position: Vector2): ReadonlyArray<object> {
-		return this.scene?.defaultEntity?.(position) ?? [];
-	}
-
-	setSimulating(enabled: boolean): void {
-		if (enabled === this.simulating || !this.scene) {
-			return;
-		}
-		this.simulating = enabled;
-		if (enabled) {
-			this.snapshot = serializeWorld(this.ecs);
-		}
-		for (const system of this.gameplaySystems) {
-			if (enabled) {
-				this.ecs.addUpdateSystem(system);
-			} else {
-				this.ecs.removeUpdateSystem(system);
-			}
-		}
-		if (enabled) {
-			this.scene.spawnRuntimeEntities();
-		} else if (this.snapshot) {
-			this.scene.restore(this.snapshot);
-			this.snapshot = null;
-		}
+	get scene(): Scene | null {
+		return this.sceneManager.base;
 	}
 
 	get paused(): boolean {
@@ -134,28 +89,12 @@ export class Game {
 
 			this.input.update();
 			if (!this.isPaused) {
-				this.ecs.update({
-					dt: delta,
-					time: now,
-					ecs: this.ecs,
-					world: this.world,
-					input: this.input,
-					assetManager: this.assetManager,
-					events: this.events,
-					audio: this.audio,
-				});
+				this.sceneManager.update({ dt: delta, time: now });
 			}
-			this.renderer.beginFrame();
-			this.ecs.render({
-				renderer: this.renderer,
-				time: now,
-				ecs: this.ecs,
-				input: this.input,
-				assetManager: this.assetManager,
-			});
+			this.sceneManager.render(this.renderer, { time: now });
 			this.onFrame?.({ delta, fps });
-			renderActiveCamera(this.renderer, this.ecs, this.uiScale);
 			this.renderer.endFrame();
+			this.sceneManager.clearEvents();
 			this.events.clear();
 
 			this.lastFrameTime = performance.now() - before;

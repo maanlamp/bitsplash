@@ -34,7 +34,7 @@ export default class AudioManager {
 	private workletLoaded = false;
 	private resumed = false;
 
-	constructor(gestureTarget: HTMLElement) {
+	constructor() {
 		void this.ctx.audioWorklet
 			.addModule(
 				new URL("./granular-processor.js", import.meta.url).href,
@@ -42,7 +42,7 @@ export default class AudioManager {
 			.then(() => {
 				this.workletLoaded = true;
 			});
-		this.installAutoResume(gestureTarget);
+		this.installAutoResume();
 	}
 
 	get sampleRate(): number {
@@ -151,7 +151,7 @@ export default class AudioManager {
 		return asset.data;
 	}
 
-	private installAutoResume(target: HTMLElement): void {
+	private installAutoResume(): void {
 		const resume = (): void => {
 			if (this.resumed) {
 				return;
@@ -159,11 +159,11 @@ export default class AudioManager {
 			this.resumed = true;
 			void this.ctx.resume();
 			for (const type of RESUME_EVENTS) {
-				target.removeEventListener(type, resume);
+				window.removeEventListener(type, resume);
 			}
 		};
 		for (const type of RESUME_EVENTS) {
-			target.addEventListener(type, resume);
+			window.addEventListener(type, resume);
 		}
 	}
 }

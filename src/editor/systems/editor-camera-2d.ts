@@ -16,13 +16,13 @@ import {
 import type { EditorState } from "../editor-state";
 
 export class EditorCamera2DSystem implements UpdateSystem {
-	private grid: TileGrid;
+	private grid: TileGrid | null;
 	private editor: EditorState;
 	private cameraId: EntityId | null = null;
 	private cameraComponent: Camera2DComponent | null = null;
 	private lastDragScreen: Vector2 | null = null;
 
-	constructor(grid: TileGrid, editor: EditorState) {
+	constructor(grid: TileGrid | null, editor: EditorState) {
 		this.grid = grid;
 		this.editor = editor;
 	}
@@ -39,6 +39,10 @@ export class EditorCamera2DSystem implements UpdateSystem {
 		}
 	}
 
+	ensure(ecs: ECS): void {
+		this.ensureCamera(ecs);
+	}
+
 	private ensureCamera(ecs: ECS): Camera2DComponent {
 		if (this.cameraId) {
 			const existing = ecs.getComponent(
@@ -51,7 +55,7 @@ export class EditorCamera2DSystem implements UpdateSystem {
 			}
 		}
 		const camera = new Camera2D();
-		const bounds = this.grid.bounds();
+		const bounds = this.grid?.bounds();
 		if (bounds) {
 			camera.position.set(
 				((bounds.minX + bounds.maxX + 1) / 2) * TILE_SIZE,
