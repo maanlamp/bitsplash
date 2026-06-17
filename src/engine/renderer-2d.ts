@@ -1283,6 +1283,35 @@ export default class Renderer2D {
 		}
 	}
 
+	dispose(): void {
+		const gl = this.gl;
+		for (const target of this.sceneTargets.values()) {
+			target.dispose();
+		}
+		this.sceneTargets.clear();
+		for (const layer of this.layers.values()) {
+			layer.scratch.dispose();
+		}
+		this.layers.clear();
+		for (const array of this.tileArrayCache.values()) {
+			gl.deleteTexture(array.texture);
+		}
+		this.tileArrayCache.clear();
+		gl.deleteTexture(this.whiteTex);
+		gl.deleteBuffer(this.quadVbo);
+		gl.deleteVertexArray(this.quadVao);
+		gl.deleteBuffer(this.tileVbo);
+		gl.deleteVertexArray(this.tileVao);
+		gl.deleteBuffer(this.blitVbo);
+		gl.deleteVertexArray(this.blitVao);
+		gl.deleteProgram(this.quad.program);
+		gl.deleteProgram(this.text.program);
+		gl.deleteProgram(this.tile.program);
+		gl.deleteProgram(this.quadOutline.program);
+		gl.deleteProgram(this.blit.program);
+		gl.getExtension("WEBGL_lose_context")?.loseContext();
+	}
+
 	private runCommand(
 		cmd: LayerCommand,
 		target: RenderTarget,

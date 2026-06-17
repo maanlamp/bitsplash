@@ -26,7 +26,9 @@ const FALLBACK_INSETS: NineSliceInsets = {
 };
 
 const TEXT: [number, number, number, number] = [0, 0, 0, 1];
-const ACCENT: [number, number, number, number] = [0.478, 0.329, 0.063, 1];
+const ACCENT: [number, number, number, number] = [
+	0.478, 0.329, 0.063, 1,
+];
 const MORE_ALPHA = 0.5;
 
 const PLAYER_FONT = new FontSettings(fsPixelSansUrl);

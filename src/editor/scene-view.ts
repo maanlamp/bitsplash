@@ -14,6 +14,7 @@ import Viewport from "../engine/viewport";
 import { EditorLayer } from "./constants";
 import type { EditorState } from "./editor-state";
 import { History } from "./history";
+import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
 import { EntityEditorSystem } from "./systems/entity-editor";
 import { EntityHighlightSystem } from "./systems/entity-highlight";
@@ -25,6 +26,7 @@ export class SceneView {
 	readonly renderer = new Renderer2D(this.viewport);
 	readonly input = new Input(this.viewport.element);
 	readonly history = new History();
+	readonly document: SceneDocument;
 
 	frameTime = 0;
 	fps = 0;
@@ -32,6 +34,7 @@ export class SceneView {
 	private readonly camera: EditorCamera2DSystem;
 	private readonly updateSystems: ReadonlyArray<UpdateSystem>;
 	private readonly renderSystems: ReadonlyArray<RenderSystem>;
+	private readonly historyUnsub: () => void;
 
 	private detachSurface: (() => void) | null = null;
 	private suspended = false;
@@ -69,6 +72,11 @@ export class SceneView {
 
 		this.addSystems();
 		this.camera.ensure(scene.world.ecs);
+
+		this.document = new SceneDocument(scene);
+		this.historyUnsub = this.history.subscribe(() =>
+			this.document.markDirty(),
+		);
 	}
 
 	private addSystems(): void {
@@ -167,7 +175,9 @@ export class SceneView {
 		if (!this.suspended) {
 			this.removeSystems();
 		}
+		this.historyUnsub();
 		this.input.dispose();
 		this.detach();
+		this.renderer.dispose();
 	}
 }

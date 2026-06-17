@@ -1,5 +1,6 @@
 import { hashCell } from "../hash";
 import { loadImage } from "../load";
+import type Renderer2D from "../renderer-2d";
 import type { StaticBatch, TileSource } from "../renderer-2d";
 import { type RenderContext, RenderSystem } from "../system";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../tile";
@@ -20,6 +21,7 @@ export class TilemapRenderSystem implements RenderSystem {
 	private layer: number;
 	private tileset: TileSource | null = null;
 	private batch: StaticBatch | null = null;
+	private batchRenderer: Renderer2D | null = null;
 	private dirty = true;
 
 	constructor(
@@ -60,6 +62,11 @@ export class TilemapRenderSystem implements RenderSystem {
 			SHEET_COLUMNS,
 			srcSize,
 		);
+		if (this.batchRenderer !== renderer) {
+			this.batch = null;
+			this.batchRenderer = renderer;
+			this.dirty = true;
+		}
 		if (!this.batch) {
 			this.batch = renderer.createStaticBatch();
 		}

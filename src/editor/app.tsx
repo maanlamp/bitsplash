@@ -13,7 +13,6 @@ import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
 import { createGame, createScene } from "../engine/scene/registry";
 import type { Scene } from "../engine/scene/scene";
-import { serializeWorld } from "../engine/serialization/serialize";
 import styles from "./app.module.scss";
 import { type AssetCreateActions } from "./asset-context-menu";
 import { AssetManagerProvider } from "./asset-manager-context";
@@ -34,7 +33,6 @@ import {
 import ProjectTree from "./project-tree";
 import FontPreview from "./font/font-preview";
 import Inspector from "./inspector";
-import { exportSceneJson } from "./level-export";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
 import { Project } from "./project";
@@ -105,7 +103,7 @@ const App = ({ startScene }: { startScene: string }) => {
 	const projectRef = useRef<Project | null>(null);
 	const sceneViewsRef = useRef(new Map<ViewId, SceneView>());
 	const historyUnsubsRef = useRef(new Map<ViewId, () => void>());
-	const saveTimersRef = useRef(new Map<string, number>());
+	const closedStackRef = useRef<ViewId[]>([]);
 	const playingRef = useRef(false);
 	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const playSessionRef = useRef<PlaySession | null>(null);
@@ -118,19 +116,16 @@ const App = ({ startScene }: { startScene: string }) => {
 		focusedViewRef.current = focusedView;
 	}, [focusedView]);
 
-	const scheduleSave = (sceneId: string, scene: Scene): void => {
-		const timers = saveTimersRef.current;
-		window.clearTimeout(timers.get(sceneId));
-		timers.set(
-			sceneId,
-			window.setTimeout(() => {
-				void fetch("/__save-level", {
-					method: "POST",
-					headers: { "x-scene-id": sceneId },
-					body: exportSceneJson(scene, serializeWorld(scene.ecs)),
-				});
-			}, 300),
-		);
+	const saveScene = async (
+		sceneId: string,
+		view: SceneView,
+	): Promise<void> => {
+		await fetch("/__save-level", {
+			method: "POST",
+			headers: { "x-scene-id": sceneId },
+			body: view.document.toBlob(),
+		});
+		view.document.markSaved();
 	};
 
 	const ensureSceneView = (id: ViewId): SceneView | null => {
@@ -154,8 +149,8 @@ const App = ({ startScene }: { startScene: string }) => {
 			project.store(param),
 			instance.services,
 		);
-		const unsub = view.history.subscribe(() =>
-			scheduleSave(param, scene),
+		const unsub = view.document.subscribe(() =>
+			setViewDirty(id, view.document.dirty),
 		);
 		historyUnsubsRef.current.set(id, unsub);
 		sceneViewsRef.current.set(id, view);
@@ -296,11 +291,38 @@ const App = ({ startScene }: { startScene: string }) => {
 		updateWorkspace({ ...ws, root, focused: nextFocus });
 	};
 
+	const recordClosed = (id: ViewId): void => {
+		if (id === NEW_SPRITE_VIEW || id === NEW_AUDIO_VIEW) {
+			return;
+		}
+		closedStackRef.current.push(id);
+	};
+
+	const discardView = (id: ViewId): void => {
+		if (isSceneView(id)) {
+			sceneViewsRef.current.get(id)?.document.revert();
+		}
+		recordClosed(id);
+		removeViewNow(id);
+	};
+
 	const closeView = (id: ViewId): void => {
 		if (isViewDirty(id)) {
-			setPendingDiscard(() => () => removeViewNow(id));
+			setPendingDiscard(() => () => discardView(id));
 		} else {
+			recordClosed(id);
 			removeViewNow(id);
+		}
+	};
+
+	const reopenClosed = (): void => {
+		const stack = closedStackRef.current;
+		while (stack.length > 0) {
+			const id = stack.pop()!;
+			if (!findView(workspaceRef.current.root, id)) {
+				openView(id);
+				return;
+			}
 		}
 	};
 
@@ -634,6 +656,43 @@ const App = ({ startScene }: { startScene: string }) => {
 				);
 				if (id) {
 					view.store.setSelected(id);
+				}
+			}
+		},
+		{ preventDefault: true, enabled: !playing },
+	);
+	useHotkeys(
+		"alt+w",
+		(event) => {
+			event.preventDefault();
+			const id = focusedViewRef.current;
+			if (id) {
+				closeView(id);
+			}
+		},
+		{ preventDefault: true, enabled: !playing },
+	);
+	useHotkeys(
+		"alt+shift+t",
+		(event) => {
+			event.preventDefault();
+			reopenClosed();
+		},
+		{ preventDefault: true, enabled: !playing },
+	);
+	useHotkeys(
+		"mod+s",
+		(event) => {
+			event.preventDefault();
+			if (assetFocused()) {
+				return;
+			}
+			const id = focusedViewRef.current;
+			const view = focusedSceneViewRef.current;
+			if (id && isSceneView(id) && view) {
+				const { param } = parseViewId(id);
+				if (param) {
+					void saveScene(param, view);
 				}
 			}
 		},

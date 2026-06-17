@@ -17,6 +17,16 @@ export abstract class Decorations {
 	protected cols = 0;
 	protected count = 0;
 	protected dirty = true;
+	private batchRenderer: Renderer2D | null = null;
+
+	protected rendererChanged(renderer: Renderer2D): boolean {
+		if (this.batchRenderer === renderer) {
+			return false;
+		}
+		this.batchRenderer = renderer;
+		this.dirty = true;
+		return true;
+	}
 
 	constructor(grid: TileGrid, atlasUrl: string, density: number) {
 		this.grid = grid;
@@ -78,6 +88,10 @@ export class SurfaceDecorations extends Decorations {
 			this.cols,
 			TILE_SIZE,
 		);
+		if (this.rendererChanged(renderer)) {
+			this.backBatch = null;
+			this.frontBatch = null;
+		}
 		if (!this.backBatch) {
 			this.backBatch = renderer.createStaticBatch();
 		}
@@ -147,6 +161,9 @@ export class TileDecorations extends Decorations {
 			this.cols,
 			TILE_SIZE,
 		);
+		if (this.rendererChanged(renderer)) {
+			this.batch = null;
+		}
 		if (!this.batch) {
 			this.batch = renderer.createStaticBatch();
 		}
