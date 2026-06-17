@@ -1,4 +1,128 @@
-# Project Progress
+<div align="center">
+
+# Bitsplash
+
+<img src="screenshot.png" alt="The Bitsplash editor" width="820" />
+
+_A hand-rolled 2D game engine, its editor, and a browser platformer built on top — all in one repo._
+
+</div>
+
+## Running locally
+
+Bitsplash uses **[Bun](https://bun.sh)** (not npm/node). The editor runs in an **Electron** desktop shell and is developed on Windows.
+
+```sh
+bun install
+bun run dev      # launches the editor in a desktop window
+```
+
+The game itself is a standalone web build — `bun run build`, then `bun run preview` to serve it in a browser.
+
+## Philosophy
+
+Bitsplash is **code-first and hand-rolled**: no game-engine framework, a custom entity-component-system, and the [planck](https://github.com/piqnt/planck.js) (Box2D) physics engine, drawn to an HTML canvas via WebGL2. The codebase is split into three strict layers — a reusable **engine**, an **editor** that authors content on top of it, and the **game** itself — and dependencies only ever point inward; the editor and game must never leak into the engine.
+
+The bias throughout is toward small, composable, **data-driven** systems (JSON scenes, data-file prefabs, metadata-in-assets), behaviour living in **systems rather than object hierarchies** (there is deliberately no scene graph — entities relate by id), and **footgun-free APIs** whose safe, fast path is the default. Everything is meant to be observable and editable from the tooling. The game ships to any modern browser; the editor is a desktop app so it can own the filesystem and reclaim browser-reserved shortcuts.
+
+---
+
+## Table of Contents
+
+<details>
+<summary>Click to toggle</summary>
+
+- [Bitsplash](#bitsplash)
+  - [Running locally](#running-locally)
+  - [Philosophy](#philosophy)
+  - [Table of Contents](#table-of-contents)
+  - [Project Progress](#project-progress)
+  - [Architectural Principles](#architectural-principles)
+    - [Dependency Rules](#dependency-rules)
+      - [Engine](#engine)
+      - [Editor](#editor)
+      - [Game](#game)
+    - [Design Goals](#design-goals)
+    - [Status Legend](#status-legend)
+  - [Roadmap: Major Systems](#roadmap-major-systems)
+    - [Build order](#build-order)
+    - [Cross-cutting seams (touched by multiple systems — design once)](#cross-cutting-seams-touched-by-multiple-systems--design-once)
+    - [Parked / research (deliberately not designed yet)](#parked--research-deliberately-not-designed-yet)
+  - [Engine](#engine-1)
+    - [Core Architecture](#core-architecture)
+      - [ECS](#ecs)
+      - [Data Model](#data-model)
+    - [Prefabs \& Composition](#prefabs--composition)
+    - [Scene System](#scene-system)
+      - [Model](#model)
+      - [Transitions \& lifecycle](#transitions--lifecycle)
+      - [Persistence](#persistence)
+      - [In-game UI as scenes](#in-game-ui-as-scenes)
+      - [Editor integration](#editor-integration)
+    - [Save System](#save-system)
+    - [Input System](#input-system)
+    - [Physics](#physics)
+    - [Events](#events)
+    - [State Machines](#state-machines)
+    - [Time System](#time-system)
+    - [Asset \& Loading](#asset--loading)
+    - [Rendering](#rendering)
+      - [Cameras](#cameras)
+      - [Screen-space UI](#screen-space-ui)
+      - [Camera Composition](#camera-composition)
+    - [Local Multiplayer](#local-multiplayer)
+    - [Animation](#animation)
+    - [Audio System](#audio-system)
+      - [Design Goals](#design-goals-1)
+    - [Environmental Simulation System](#environmental-simulation-system)
+      - [Weather \& Wind](#weather--wind)
+        - [Wind Integration (reactive system)](#wind-integration-reactive-system)
+    - [Particles](#particles)
+    - [Lighting](#lighting)
+    - [Procedural Generation](#procedural-generation)
+      - [Trees](#trees)
+        - [Simulation](#simulation)
+        - [Editor Support](#editor-support)
+    - [Narrative Presentation System](#narrative-presentation-system)
+      - [Cutscenes](#cutscenes)
+      - [Rich Text System](#rich-text-system)
+      - [Integration Targets](#integration-targets)
+    - [AI \& Navigation](#ai--navigation)
+    - [Social Simulation System](#social-simulation-system)
+    - [Item System](#item-system)
+    - [Tile \& Sprite Atlas System (PNG Metadata Driven)](#tile--sprite-atlas-system-png-metadata-driven)
+      - [Core Concept](#core-concept)
+      - [Supported Metadata (examples)](#supported-metadata-examples)
+      - [Features](#features)
+      - [Sprite Editor Extensions](#sprite-editor-extensions)
+      - [Design Notes](#design-notes)
+    - [Debugging \& Tools (Engine Support)](#debugging--tools-engine-support)
+    - [Profiling](#profiling)
+    - [Fonts](#fonts)
+    - [Networking \& Modding](#networking--modding)
+      - [Networking](#networking)
+  - [Editor](#editor-1)
+    - [Desktop shell (Electron)](#desktop-shell-electron)
+    - [Workspace: Docking \& Panels](#workspace-docking--panels)
+  - [Editor Style Guide](#editor-style-guide)
+    - [Regions \& depth](#regions--depth)
+    - [Overlays \& dialogs](#overlays--dialogs)
+    - [Shape](#shape)
+    - [Color](#color)
+    - [Spacing \& type tokens](#spacing--type-tokens)
+    - [Interactivity (mandatory for every interactive element)](#interactivity-mandatory-for-every-interactive-element)
+    - [Accessibility](#accessibility)
+    - [Copywriting](#copywriting)
+    - [Motion](#motion)
+    - [Styling mechanics](#styling-mechanics)
+    - [Components](#components)
+    - [Exemplars already in the tree (copy these)](#exemplars-already-in-the-tree-copy-these)
+
+</details>
+
+---
+
+## Project Progress
 
 This is a living document. Mark anything you've worked on as done/not planned (strikethrough)/in-progress when you touch it.
 
@@ -15,14 +139,14 @@ This is a living document. Mark anything you've worked on as done/not planned (s
 
 ---
 
-# Architectural Principles
+## Architectural Principles
 
-## Dependency Rules
+### Dependency Rules
 
 Engine ← Editor
 Engine ← Game
 
-### Engine
+#### Engine
 
 The engine must remain completely independent of project-specific code.
 
@@ -37,7 +161,7 @@ Forbidden:
 - Editor code
 - Game code
 
-### Editor
+#### Editor
 
 Allowed:
 
@@ -49,7 +173,7 @@ Forbidden:
 
 - Game code
 
-### Game
+#### Game
 
 Allowed:
 
@@ -63,7 +187,7 @@ Forbidden:
 
 ---
 
-## Design Goals
+### Design Goals
 
 - Maintain low coupling between layers
 - Keep engine reusable outside this project
@@ -77,7 +201,7 @@ Forbidden:
 
 ---
 
-## Status Legend
+### Status Legend
 
 - [x] Completed
 - 🚧 In Progress
@@ -87,7 +211,7 @@ Forbidden:
 
 ---
 
-# Roadmap: Major Systems
+## Roadmap: Major Systems
 
 Nine large systems are designed but not yet built. Each has a roadmap section
 below and a detailed architectural plan under `docs/plans/`.
@@ -105,7 +229,7 @@ below and a detailed architectural plan under `docs/plans/`.
 | Sprite Editor Ext.    | `docs/plans/sprite-editor.md`   | Animation (authoring only)     |
 | Profiling             | `docs/plans/profiling.md`       | Asset budget (memory only)     |
 
-## Build order
+### Build order
 
 **Foundations first** (unblock the rest):
 
@@ -125,7 +249,7 @@ State Machine).
 steps 1–4 (the layout/tabs/drag, before multi-viewport); Profiling; the Sprite
 Editor selection → toolset → palettes (animation authoring waits on Animation).
 
-## Cross-cutting seams (touched by multiple systems — design once)
+### Cross-cutting seams (touched by multiple systems — design once)
 
 - ~~**Kill the `Game.world` singleton** (Scene) — the first big refactor; the
   context split (global services vs per-scene ecs/world/events) underlies the
@@ -147,7 +271,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - **Fullscreen wrapper + debug-overlay portal** (Profiling) — also the enabler for
   the AI debugger and any other in-playtest debug chrome.
 
-## Parked / research (deliberately not designed yet)
+### Parked / research (deliberately not designed yet)
 
 - **Animation blending** — for pixel-art frames, cross-fade + parametric clip
   _selection_ (not interpolation); true interpolation belongs to skeletal.
@@ -158,15 +282,15 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-# Engine
+## Engine
 
 > The engine provides reusable systems for 2D games. It is designed around ECS-driven simulation, deterministic data flow, and deep editor integration. While generic, it is intentionally optimized for platformer-style gameplay.
 
 ---
 
-## Core Architecture
+### Core Architecture
 
-### ECS
+#### ECS
 
 - [x] Entity Component System
 - [x] Component registration via decorators
@@ -176,7 +300,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - [x] Data-driven component definitions
 - [x] Entity lifecycle: blessed `World.despawn` (tears down the physics body, no leak), data-file prefabs (`src/game/prefabs/*.json`) + spawn points, and death → delayed respawn
 
-### Data Model
+#### Data Model
 
 - [x] Serializable component framework
 - [x] Field decorators for extended types
@@ -195,7 +319,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Prefabs & Composition
+### Prefabs & Composition
 
 > Authored, reusable entity templates. A prefab is a single-entity, serialized
 > component template; scenes instance prefabs by reference + overrides. Promoted
@@ -226,7 +350,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Scene System
+### Scene System
 
 > Scenes partition the game into independently-simulated worlds (levels, house
 > interiors, the main menu). Each scene owns its own `World`; a `SceneManager`
@@ -235,7 +359,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 >
 > Full architectural plan: `docs/plans/scenes.md`.
 
-### Model
+#### Model
 
 - [x] **Scene = own World** — each scene owns its own ECS + physics world + event
       bus (+ optional tilemap). Full isolation; killed the single `Game.world`
@@ -269,7 +393,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
       spawn-runtime-on-play flow moved out of `FantasyPlatformer` onto `Scene`
       (engine), driven for the editor's focused scene.
 
-### Transitions & lifecycle
+#### Transitions & lifecycle
 
 - 💡 Event-driven transitions (`LoadScene` / `PushScene` / `PopScene` /
   `ReplaceScene` on a global bus), with async asset preload and an optional
@@ -277,7 +401,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 Scene unload tears down the scene's physics bodies + ECS (reuses
   `World.clear`) and releases its asset references (→ Asset & Loading).
 
-### Persistence
+#### Persistence
 
 - 💡 **Persistent scene** — a special always-active scene (never unloaded on
   transition) holding **non-physical, cross-scene state** (save / inventory /
@@ -285,7 +409,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
   spawned into each gameplay scene and restored from persistent state — no
   physics-body migration.
 
-### In-game UI as scenes
+#### In-game UI as scenes
 
 - 💡 Menus / HUD render as **canvas (screen-space WebGL) entities within a
   scene's world** — React DOM is editor-only. A main-menu scene is a World of UI
@@ -302,7 +426,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
   reference / relaxed cross-scene queries) before splitting the HUD out. Pure menus
   (main/pause) are uncoupled and can become scenes first.
 
-### Editor integration
+#### Editor integration
 
 - [x] **Editor operates on the focused scene view** — the project is a set of
       lazily-instantiated scenes (`editor/project.ts`, backed by `sceneSummaries()` +
@@ -329,7 +453,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Save System
+### Save System
 
 > Runtime progress persistence, layered **on top of** serialization (it consumes
 > it, doesn't replace it). Distinct from the editor's authored scene-content save:
@@ -364,7 +488,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Input System
+### Input System
 
 > Platform-agnostic input abstraction supporting keyboard, mouse, and gamepads.
 
@@ -376,7 +500,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Physics
+### Physics
 
 > 2D physics world designed for platformer-style gameplay.
 
@@ -387,7 +511,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Events
+### Events
 
 > Core engine-level event bus used by all systems.
 
@@ -398,7 +522,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## State Machines
+### State Machines
 
 > A **generic** engine FSM primitive, reused across AI decision policy, sprite
 > **animation** state machines, player movement states, and narrative. Data-only:
@@ -427,7 +551,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Time System
+### Time System
 
 > Global simulation clock used by all systems.
 
@@ -438,7 +562,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Asset & Loading
+### Asset & Loading
 
 > Asset lifecycle is an **in-game / runtime concern**. The editor is React-land
 > and gets **no lifecycle** — it loads sprites/sounds to display & edit via plain
@@ -474,19 +598,19 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Rendering
+### Rendering
 
-### Cameras
+#### Cameras
 
 - [x] Camera2D system
 - [x] Multi-camera support (local multiplayer ready)
 - [x] Camera shake (trauma-based transient render offset; decoupled from the follow system, driven by `CameraShakeComponent`)
 
-### Screen-space UI
+#### Screen-space UI
 
 - 🚧 Screen-space WebGL UI pass (fixed "global" UI zoom independent of camera zoom; renders UI layers over the world). Quick-and-dirty seam — a proper solution (dedicated UI camera, responsive scale, settings) is still needed.
 
-### Camera Composition
+#### Camera Composition
 
 - 💡 Split-screen compositor
 - 💡 Dynamic camera merging
@@ -494,7 +618,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Local Multiplayer
+### Local Multiplayer
 
 - [x] Multiple input sources supported
 - [] Split-screen rendering
@@ -503,7 +627,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Animation
+### Animation
 
 > Frame-based sprite animation driven by the generic **State Machine**. v1 is
 > **clips only** (hard-cut transitions); blending is parked as a concept (see
@@ -535,7 +659,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Audio System
+### Audio System
 
 > Fully data-driven audio system supporting SFX, music, and layered reactive music.
 
@@ -549,7 +673,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 🚧 Event-driven audio triggers (via engine event bus) (dialogue emits per-glyph CharacterRevealedEvent → VoiceSystem plays a pitched blip)
 - 💡 Audio parameter system (threat level, intensity, distance, etc.)
 
-### Design Goals
+#### Design Goals
 
 - Fully data-driven audio definitions
 - Music reacts to game state rather than explicit scripting
@@ -558,18 +682,18 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Environmental Simulation System
+### Environmental Simulation System
 
 > Global systems influencing physics, rendering, AI, and gameplay.
 
-### Weather & Wind
+#### Weather & Wind
 
 - 💡 Global weather states and transitions
 - 💡 Wind simulation (direction + strength fields)
 - 💡 Spatial wind maps
 - 💡 Wind debug visualization
 
-#### Wind Integration (reactive system)
+##### Wind Integration (reactive system)
 
 - 💡 Particle interaction
 - 💡 Vegetation interaction
@@ -581,7 +705,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Particles
+### Particles
 
 - 💡 Particle system
 - 💡 Emitters
@@ -590,7 +714,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Lighting
+### Lighting
 
 > Independent rendering system (not tied to weather directly).
 
@@ -601,22 +725,22 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Procedural Generation
+### Procedural Generation
 
-### Trees
+#### Trees
 
 - 💡 Algorithm-driven generation
 - 💡 Sprite-driven generation
 - 💡 Palette-driven generation
 - 💡 Pixel-art focused output
 
-#### Simulation
+##### Simulation
 
 - 💡 Wind-reactive branches
 - 💡 Wind-reactive leaves
 - 💡 Seasonal variation support
 
-#### Editor Support
+##### Editor Support
 
 - 💡 Live preview generation
 - 💡 Parameter tweaking tools
@@ -625,25 +749,25 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Narrative Presentation System
+### Narrative Presentation System
 
 > Unified system for cutscenes, dialogue, and rich text rendering.
 
-### Cutscenes
+#### Cutscenes
 
 - 💡 Timeline-based cutscenes
 - 💡 Camera tracks
 - 💡 Animation tracks
 - 💡 Event tracks
 
-### Rich Text System
+#### Rich Text System
 
 - [x] Markdown-inspired custom rich text format (HTML-style tags: `<b>`, `<i>`, `<color=#hex>`, `<wave force= speed=>`; `<a>` link tag parsed but not yet wired to game systems; `<b>`/`<i>` select a native weight/italic face when the family provides one — see Fonts below — and fall back to synthesized dilate/shear otherwise)
 - 🚧 Animated text effects (typewriter reveal with comma/full-stop pacing scaled to chars-per-second)
 - 🚧 Embedded event triggers (link `<a>` tag parsed/carried; activation pending. Generic interaction events wired: `InteractEvent` → dialogue / `DamageEvent`, e.g. the damage trap that strikes on dialogue dismissal)
 - [x] Per-character animation support (one-char-at-a-time reveal with pre-computed reflow so lines don't jump; per-span jiggle with configurable force + speed)
 
-### Integration Targets
+#### Integration Targets
 
 - 🚧 Dialogue (proximity interaction → camera framing → revealing text panel. Interaction is generic: `InteractionSystem` emits `InteractEvent`; a `DialogueSourceComponent` (referencing an Ink **knot**) + trigger system opens the dialogue — no signpost coupling. **Branching narrative runs on [inkjs](https://github.com/y-lohse/inkjs)** (the Ink runtime): one global `Story` compiled in-browser at runtime via inkjs's `Compiler` from `game/ink/*.ink` (a master file `INCLUDE`s per-conversation scene files), held on a runtime `InkStoryComponent` (live `Story` not serialized + `state.ToJson()` serialized, mirroring the FSM component). The dialogue system steps `Continue()`/`currentChoices`/`ChooseChoiceIndex`; Ink **variables** + auto **visit-counts** replace the old hand-rolled blackboard/conditions/effects. Game actions are Ink `EXTERNAL` functions bound to bus events (`start_quest`/`advance_quest`/`decline_quest`/`give_item`); side-effects fire at the authored beat (e.g. on the confirm choice). Reused presentation layer: rich-text (`<b>`/`<color=hex>`/`<wave>`, passed through Ink untouched — color drops the `#` since Ink reserves it for tags), sentence-aware interact-advanced pagination, keyboard option nav (nav + confirm). Per-conversation speaker font via Ink knot **tags** (`# font: doublehomicide`); options always render in the player font. **9-slice parchment panel** behind the box (replaces the black placeholder) via the generic `drawNineSlice` engine helper + insets read from the PNG's embedded metadata; the panel image is selectable **per dialogue target** via an Ink knot tag (`# panel: parchment`, mirroring `# font:`) → `game/ink/panels.ts`. The box **slides up from the bottom with an overshoot** on open (eased `Tween`) and **slides back down before closing** on dismiss; typewriter reveal waits until the box settles)
 - 🚧 Signposts / world objects (generalized to a generic `Interactable` + `DialogueSource` archetype with a per-interactable `prompt`; the "Press <key> to <prompt>" hint works for any interactable)
@@ -654,7 +778,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## AI & Navigation
+### AI & Navigation
 
 > Generic AI infrastructure for a 2D platformer. Built on the principle that **AI
 > produces the same _intent_ the player does** (perception → blackboard →
@@ -683,7 +807,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Social Simulation System
+### Social Simulation System
 
 > Unified system for NPC memory, reputation, and interaction-driven state.
 > Likely consumes **utility AI** as a decision policy on the AI substrate above.
@@ -696,7 +820,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Item System
+### Item System
 
 > Unified system for inventory, equipment, toolbar, and world items.
 
@@ -710,17 +834,17 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Tile & Sprite Atlas System (PNG Metadata Driven)
+### Tile & Sprite Atlas System (PNG Metadata Driven)
 
 > Single-atlas system where tiles, decorations, caps, and multi-cell assets are defined inside PNGs using embedded metadata.
 
-### Core Concept
+#### Core Concept
 
 - PNG files contain both pixel data and structured metadata
 - Metadata is stored using PNG text chunks (`iTXt` preferred)
 - Sprite editor reads and writes metadata directly
 
-### Supported Metadata (examples)
+#### Supported Metadata (examples)
 
 ```json
 {
@@ -734,7 +858,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 }
 ```
 
-### Features
+#### Features
 
 - 🚧 Sprite/tile editor (live 1:1 texture editing + baked autotiled game-view preview, pixel-perfect brush/erase strokes, OKLCH colour picker with alpha + eyedropper, pan/zoom, undo/redo, explicit save; PNG only)
 - [x] Sprite vs tileset distinction (`*.tileset.png` → autotile editing + game-view preview; any other image → plain sprite, no game view)
@@ -754,7 +878,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 🚧 Editor-driven metadata editing
 - 💡 Runtime metadata consumption for world generation
 
-### Sprite Editor Extensions
+#### Sprite Editor Extensions
 
 > Major expansion of the sprite editor. **All in scope** except skeletal (parked);
 > build order is **selection foundation → drawing toolset → palettes → animation
@@ -790,7 +914,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 Editor docking: sprite canvas, palette editor, clip timeline, and animation
   graph become co-openable dockable **views**.
 
-### Design Notes
+#### Design Notes
 
 - Avoid external JSON duplication where possible
 - Treat PNG as both asset and data container
@@ -799,7 +923,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Debugging & Tools (Engine Support)
+### Debugging & Tools (Engine Support)
 
 - 💡 ECS state inspector
 - 💡 Event stream viewer
@@ -812,7 +936,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Profiling
+### Profiling
 
 > Per-system CPU + memory profiling, building on the existing whole-frame
 > fps/frametime widget. Chrome-only APIs are acceptable. **Engine collects,
@@ -841,7 +965,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Fonts
+### Fonts
 
 > Fonts are a **family of faces**. Variants are grouped by each font's embedded OpenType metadata (typographic family/subfamily, OS/2 weight + italic) — never filenames.
 
@@ -853,9 +977,9 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-## Networking & Modding
+### Networking & Modding
 
-### Networking
+#### Networking
 
 - 💡 Multiplayer framework
 - 💡 State replication system
@@ -864,12 +988,12 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-# Editor
+## Editor
 
 > Tooling built on the engine. UI conventions live in **Editor Style Guide**
 > below; this section tracks editor _capabilities_.
 
-## Desktop shell (Electron)
+### Desktop shell (Electron)
 
 > The **game** stays a pure browser build (`bun run build`/`preview`). The
 > **editor** runs in a desktop shell so it gets real filesystem access and no
@@ -898,7 +1022,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 **Packaging** — producing a distributable editor (electron-builder/Forge) is
   deferred; dev runs unpackaged via `electron src/desktop/main.cjs`.
 
-## Workspace: Docking & Panels
+### Workspace: Docking & Panels
 
 > A hand-rolled docking workspace built on **motion/react**, replacing
 > `react-resizable-panels` (to be **removed** — its persistence was broken and it
@@ -977,12 +1101,12 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 
 ---
 
-# Editor Style Guide
+## Editor Style Guide
 
 The canonical rules for the editor's UI. Obey them when building or changing editor
 UI; when a new unique element doesn't fit, **ask before guessing**.
 
-## Regions & depth
+### Regions & depth
 
 - **Communicate regions by surface, not by lines.** Distinguish UI areas with
   surface _tone_ (Material 3 tonal surfaces — see
@@ -1037,7 +1161,7 @@ UI; when a new unique element doesn't fit, **ask before guessing**.
   mixin args. **The toolbar, context menu, and dialogs are the canonical examples —
   copy one of them.**
 
-## Overlays & dialogs
+### Overlays & dialogs
 
 - **Modal dialogs centre on the viewport** — both axes. Reuse the shared
   `surface.dialogPopup` (already glassy, centred, animated); don't reinvent
@@ -1061,7 +1185,7 @@ UI; when a new unique element doesn't fit, **ask before guessing**.
   it out before the exit can play.
 - See **Copywriting** for what dialogs actually say.
 
-## Shape
+### Shape
 
 - **Almost everything is at least slightly rounded** — friendly, but not so round it
   stops feeling "serious". Use the `--radius-*` tokens; don't hand-pick px.
@@ -1078,7 +1202,7 @@ UI; when a new unique element doesn't fit, **ask before guessing**.
   A container radius _smaller_ than its child's leaves the child's corner poking past
   a tighter outer corner, which reads as inconsistent padding.
 
-## Color
+### Color
 
 - **Prefer fewer surface colors, not more.** Encapsulate combinations in **design
   tokens** so reuse is forced and new features can't mint one-off color combos.
@@ -1089,7 +1213,7 @@ UI; when a new unique element doesn't fit, **ask before guessing**.
   reach (canvas/WebGL fills, a `<canvas>`-drawn waveform). Everywhere CSS can express
   it, use tokens.
 
-## Spacing & type tokens
+### Spacing & type tokens
 
 - **Spacing is the linear `--unit-N` scale** (`tokens.scss` generates `--unit-0…48`,
   where `--unit-N` = N px). Reference `var(--unit-N)`. Don't hardcode px/rem and don't
@@ -1107,7 +1231,7 @@ UI; when a new unique element doesn't fit, **ask before guessing**.
   `--font-body-strong`, `--font-heading`, `--font-caption`, `--font-kbd`, `--font-hud`
   — not ad-hoc `font-size`/`font-weight`.
 
-## Interactivity (mandatory for every interactive element)
+### Interactivity (mandatory for every interactive element)
 
 - **Hover** styles (where applicable).
 - **Focus** styles — prefer `:focus-visible` to avoid clutter. The focus ring needs
@@ -1118,14 +1242,14 @@ var(--focus-ring-offset)` (the shared button/field/control mixins already do).
 - **Cursor** signals affordance: `pointer` = clickable, `text` = selectable/text
   input, `not-allowed` = disabled, `grab`/`grabbing`, `ew-resize`, etc.
 
-## Accessibility
+### Accessibility
 
 - **Every icon-only button must have a tooltip.** Any button whose content is just an
   icon (no visible text) must be wrapped in the shared `Tooltip`
   (`src/editor/tooltip.tsx`) naming its action, so it's labelled and discoverable.
   Buttons with visible text don't need one.
 
-## Copywriting
+### Copywriting
 
 Words get the same care as pixels. The voice is **clear and direct, with a touch of
 casual** — never stiff, never corporate, never verbose.
@@ -1154,7 +1278,7 @@ casual** — never stiff, never corporate, never verbose.
   Name the real outcome instead — "Keep", "Stay", "Don't delete". (It's fine as a
   literal "abort this in-progress operation", just not as a generic "no".)
 
-## Motion
+### Motion
 
 - **Animate every visual state change** to give context — but **snappy**.
 - Use React Motion for layout animations.
@@ -1163,7 +1287,7 @@ casual** — never stiff, never corporate, never verbose.
   (scale from `var(--transform-origin)`), as `surface.surface` / `controls.tooltip` do.
 - Native elements: use **`@starting-style`** or CSS transitions.
 
-## Styling mechanics
+### Styling mechanics
 
 - **Inline `style={{}}` is almost never allowed.** If a CSS solution is possible, use
   a class. Reach for inline / CSS-in-JS **only** when expressing it in CSS would be
@@ -1178,7 +1302,7 @@ casual** — never stiff, never corporate, never verbose.
   Shared editor primitives live in `src/editor/styles/`. Only true globals (reset,
   tokens, body defs) stay in `src/style/`.
 
-## Components
+### Components
 
 - **Always prefer base-ui (`@base-ui/react`) primitives** over hand-rolled ones.
   - `title=""` tooltips → base-ui `Tooltip`.
@@ -1190,7 +1314,7 @@ casual** — never stiff, never corporate, never verbose.
   `text`/`icon`/`primary`/`secondary`/`tertiary`, over base-ui `Button`) instead of
   styling raw `<button>`. Build similar shared wrappers for other repeated patterns.
 
-## Exemplars already in the tree (copy these)
+### Exemplars already in the tree (copy these)
 
 - **Glassy surfaces — the toolbar, context menu, and dialogs.** These three are the
   canonical glass treatments (via the `glass-surface` mixin); copy one rather than
