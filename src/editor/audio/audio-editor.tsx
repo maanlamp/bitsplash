@@ -20,6 +20,7 @@ import Tooltip, { TooltipProvider } from "../tooltip";
 import controls from "../styles/controls.module.scss";
 import styles from "./audio-editor.module.scss";
 import { assetFilename } from "../assets";
+import { uploadAsset } from "../project-io";
 import Timeline from "../timeline/timeline";
 import type {
 	ClipChange,
@@ -226,27 +227,15 @@ const AudioEditor = ({
 				return;
 			}
 			const name = ensureWavExt(input);
-			const response = await fetch("/__upload-asset", {
-				method: "POST",
-				headers: { "x-filename": name, "x-overwrite": "false" },
-				body: blob,
-			});
-			if (response.status === 304) {
+			const result = await uploadAsset(name, blob, false);
+			if (result.existed) {
 				window.alert(`"${name}" already exists.`);
 				return;
 			}
-			const data = (await response.json()) as { url: string };
 			doc.markSaved();
-			onCreated(data.url);
+			onCreated(result.url);
 		} else {
-			await fetch("/__upload-asset", {
-				method: "POST",
-				headers: {
-					"x-filename": assetFilename(assetUrl),
-					"x-overwrite": "true",
-				},
-				body: blob,
-			});
+			await uploadAsset(assetFilename(assetUrl), blob, true);
 			doc.markSaved();
 		}
 	};

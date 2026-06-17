@@ -1,4 +1,13 @@
-# Plan: Move the editor shell from browser-only to Electrobun
+# Plan: Move the editor shell from browser-only to a desktop shell
+
+> **PIVOT (2026-06-17): the shell is Electron, not Electrobun.** Electrobun ships
+> no Windows **arm64** build (only `win-x64`); on this arm64 machine its x64
+> runtime hangs at native init and no window appears (verified against the v1.18.1
+> release assets + by running the built main directly). Electron ships native
+> win32-arm64, so it runs without emulation. The migration architecture below is
+> shell-agnostic, so the pivot reused everything except the Electrobun-specific
+> glue. Electrobun-specific text below is kept for the post-mortem; the
+> **Implementation status** section reflects the actual Electron implementation.
 
 ## Why we're doing this
 
@@ -19,11 +28,12 @@ binary-diff updates, RPC between a Bun "main" process and the webview.
 These are flagged honestly rather than buried (matches the "industry pushback"
 preference):
 
-- **Electrobun is beta.** ~2k commits, active, but pre-1.0. API churn is likely.
-  We're betting on a young project. Electron is the boring-but-safe alternative
-  if Electrobun bites us; the architecture in this plan (thin Bun main + existing
-  Vite app in a webview + an FS RPC bridge) is shell-agnostic, so a fallback to
-  Electron later is not a rewrite.
+- **Electrobun maturity — corrected.** The plan originally assumed pre-1.0 beta;
+  the published package is in fact **`electrobun@1.18.1`** (stable, May 2026), with
+  a `1.18.x-beta` channel. More mature than feared. API churn is still possible on a
+  young project, so Electron stays the documented fallback; the architecture here
+  (thin Bun main + existing Vite app in a webview + an FS RPC bridge) is
+  shell-agnostic, so a fallback to Electron later is not a rewrite.
 - **System webview ≠ "all browsers".** Electrobun renders in WebKit (macOS),
   WebView2/Chromium (Windows), WebKit2GTK (Linux). That is _fine for the editor_
   (we explicitly stopped caring about browser-universality there). It does mean
@@ -159,20 +169,60 @@ want). Everything else (engine, game, rendering, editor UI) is untouched.
   `bun run preview`), since the editor is no longer that canary.
 - Update `README.md` progress markers as we land each piece (per project habit).
 
-## Open questions for you (UX / scope — not mine to decide)
+## Open questions — RESOLVED (2026-06-17)
 
-1. **Editor: desktop-only or dual-target?** Keep the `fetch("/__…")` Vite
-   middleware path as a browser fallback, or commit to desktop-only and delete
-   the middlewares? (Affects whether `project-io.ts` needs two backends.)
-2. **Failure surfacing for FS ops.** When a save/upload fails on disk now (real
-   FS, real permission/space errors), how should the editor surface it — toast,
-   blocking dialog, inline? Today it's a bare `fetch` with minimal handling.
-3. **Where does the project live?** Do we always edit the repo's
-   `src/game/levels` + `src/game/assets` in-place (current behaviour), or should
-   the desktop app open an arbitrary project folder (open-folder flow)? The
-   latter is a bigger feature; the former is the drop-in.
-4. **Risk appetite on Electrobun beta** — comfortable betting on pre-1.0, given
-   the Electron fallback path stays open?
+1. **Editor: desktop-only or dual-target?** → **Desktop-only.** The two Vite
+   middlewares are deleted; `project-io.ts` has a single Electrobun RPC backend.
+   (The `*.scene.json` HMR-suppression plugin was kept in `vite.config.ts` so
+   saving a level under the watched dir doesn't full-reload the editor.)
+2. **Failure surfacing for FS ops.** → **Don't handle it.** Not a concern; the
+   bridge stays as bare as the old `fetch` path (the "already exists" `alert` is
+   preserved via the `existed` flag).
+3. **Where does the project live?** → **In-place repo dirs** (`src/game/levels` +
+   `src/game/assets`), exactly as before. Open-folder flow is deferred; the main
+   process resolves the project root by walking up from `cwd`, so swapping it later
+   is contained. (Note: under `electrobun dev` the Bun process `cwd` is the built
+   `…/bin` dir, hence the upward walk to find `src/game/levels`.)
+4. **Risk appetite.** → **Proceed with Electrobun** (and it's 1.18.1 stable, not
+   pre-1.0 — see Reality check), Electron documented as the fallback.
+
+## Implementation status (2026-06-17) — Electron
+
+- Files: `src/desktop/main.cjs` (Electron main — window, waits for the dev server
+  then loads it / else `dist/index.html`, `ipcMain.handle` for `saveLevel` +
+  `uploadAsset`, project root resolved relative to the file), `src/desktop/preload.cjs`
+  (`contextBridge` exposing the two calls; context isolation on, no node
+  integration), `src/project-rpc.ts` (shared payload types), `src/editor/project-io.ts`
+  (calls `window.bitsplashDesktop`). All four call sites migrated; the two Vite FS
+  middlewares removed (editor is desktop-only); `*.scene.json` HMR suppression kept.
+- `bun run dev` is the single command: starts Vite + `electron src/desktop/main.cjs`
+  together (via `concurrently`) and opens the editor in the Electron window instead
+  of a browser tab (`server.open` removed; main process waits for Vite).
+  `build`/`preview` unchanged (web game).
+- The `.cjs` main/preload are plain CommonJS (not TS) — they run in Electron's Node
+  and aren't part of the `tsc -b` program, which avoided the Bun/electrobun type
+  gymnastics the Electrobun attempt needed. The renderer side stays typed via
+  `project-rpc.ts`.
+- **Dependencies (user installs — Bun install is broken on this machine):** removed
+  `electrobun` (+ the unused `@types/bun`); needs `electron` added as a dev dep.
+  `concurrently` stays.
+- Not yet verified (needs a manual GUI pass once `electron` is installed): window
+  opens, save-a-level changes the file on disk, sprite/wav upload lands in `assets`,
+  Tab shortcut.
+- Local env note: `bun install`/`bun add`/`bun remove` corrupt installs on this
+  machine (empty package dirs — Windows arm64 + Bun). The user manages deps;
+  don't re-run installs here.
+
+### Electrobun post-mortem (what was tried and why it was dropped)
+
+- Built fully against Electrobun 1.18.1: `electrobun.config.ts`, a Bun
+  `src/desktop/main.ts` with `BrowserView.defineRPC`, an `Electroview` bridge,
+  `tsconfig.desktop.json` (+ a `declare module "three"` shim and Bun/Node libs to
+  get Electrobun's shipped `.ts` to typecheck). `bun check`, `vite build`, and
+  `electrobun build` all passed; `electrobun dev` _bundled_ fine.
+- It never opened a window on this arm64 machine. Root cause: no `win-arm64`
+  Electrobun release; the x64 runtime hangs at `Loading app code from flat files`.
+  Not fixable in our code. → pivoted to Electron (above).
 
 ## What stays exactly the same
 

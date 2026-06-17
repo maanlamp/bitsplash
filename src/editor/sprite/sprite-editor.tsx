@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { assetFilename } from "../assets";
 import Button from "../button";
+import { uploadAsset } from "../project-io";
 import FloatingToolbar from "../floating-toolbar";
 import controls from "../styles/controls.module.scss";
 import Tooltip, { TooltipProvider } from "../tooltip";
@@ -77,31 +78,24 @@ const SpriteEditor = ({
 			if (!create) {
 				return;
 			}
-			const response = await fetch("/__upload-asset", {
-				method: "POST",
-				headers: {
-					"x-filename": create.filename,
-					"x-overwrite": "false",
-				},
-				body: await doc.toBlob(),
-			});
-			if (response.status === 304) {
+			const result = await uploadAsset(
+				create.filename,
+				await doc.toBlob(),
+				false,
+			);
+			if (result.existed) {
 				window.alert(`"${create.filename}" already exists.`);
 				return;
 			}
-			const data = (await response.json()) as { url: string };
 			doc.markSaved();
-			onCreated(data.url);
+			onCreated(result.url);
 			return;
 		}
-		await fetch("/__upload-asset", {
-			method: "POST",
-			headers: {
-				"x-filename": assetFilename(assetUrl),
-				"x-overwrite": "true",
-			},
-			body: await doc.toBlob(),
-		});
+		await uploadAsset(
+			assetFilename(assetUrl),
+			await doc.toBlob(),
+			true,
+		);
 		doc.markSaved();
 	};
 

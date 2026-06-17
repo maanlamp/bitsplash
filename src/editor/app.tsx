@@ -36,6 +36,8 @@ import Inspector from "./inspector";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
 import { Project } from "./project";
+import { isDesktop, saveLevel } from "./project-io";
+import TitleBar from "./title-bar";
 import "./register-renderers";
 import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
@@ -120,11 +122,7 @@ const App = ({ startScene }: { startScene: string }) => {
 		sceneId: string,
 		view: SceneView,
 	): Promise<void> => {
-		await fetch("/__save-level", {
-			method: "POST",
-			headers: { "x-scene-id": sceneId },
-			body: view.document.toBlob(),
-		});
+		await saveLevel(sceneId, await view.document.toBlob().text());
 		view.document.markSaved();
 	};
 
@@ -662,7 +660,7 @@ const App = ({ startScene }: { startScene: string }) => {
 		{ preventDefault: true, enabled: !playing },
 	);
 	useHotkeys(
-		"alt+w",
+		"mod+w",
 		(event) => {
 			event.preventDefault();
 			const id = focusedViewRef.current;
@@ -673,7 +671,7 @@ const App = ({ startScene }: { startScene: string }) => {
 		{ preventDefault: true, enabled: !playing },
 	);
 	useHotkeys(
-		"alt+shift+t",
+		"mod+shift+t",
 		(event) => {
 			event.preventDefault();
 			reopenClosed();
@@ -840,19 +838,24 @@ const App = ({ startScene }: { startScene: string }) => {
 			value={{ color: "currentColor", size: "1em", weight: "bold" }}
 		>
 			<AssetManagerProvider value={game?.assetManager ?? null}>
-				{playing ? (
-					<div className={styles.playSurface} ref={attachPlay}>
-						{playView && <PerfMonitor stats={playView} />}
+				<div className={styles.shell}>
+					{isDesktop() && <TitleBar />}
+					<div className={styles.appBody}>
+						{playing ? (
+							<div className={styles.playSurface} ref={attachPlay}>
+								{playView && <PerfMonitor stats={playView} />}
+							</div>
+						) : (
+							<Workspace
+								workspace={workspace}
+								onChange={updateWorkspace}
+								renderView={renderView}
+								onCloseView={closeView}
+								dirtyViews={dirtyViews}
+							/>
+						)}
 					</div>
-				) : (
-					<Workspace
-						workspace={workspace}
-						onChange={updateWorkspace}
-						renderView={renderView}
-						onCloseView={closeView}
-						dirtyViews={dirtyViews}
-					/>
-				)}
+				</div>
 				{addTarget && deps && (
 					<AddComponentPicker
 						entity={addTarget}

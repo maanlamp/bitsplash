@@ -55,8 +55,14 @@ export class Mouse {
 
 	private onMouseMove = (e: MouseEvent): void => {
 		const rect = this.target.getBoundingClientRect();
-		this.position.x = e.clientX - rect.left;
-		this.position.y = e.clientY - rect.top;
+		const canvas =
+			this.target instanceof HTMLCanvasElement ? this.target : null;
+		const scaleX =
+			canvas && rect.width > 0 ? canvas.width / rect.width : 1;
+		const scaleY =
+			canvas && rect.height > 0 ? canvas.height / rect.height : 1;
+		this.position.x = (e.clientX - rect.left) * scaleX;
+		this.position.y = (e.clientY - rect.top) * scaleY;
 		this.inside = true;
 	};
 

@@ -869,6 +869,35 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 > Tooling built on the engine. UI conventions live in **Editor Style Guide**
 > below; this section tracks editor _capabilities_.
 
+## Desktop shell (Electron)
+
+> The **game** stays a pure browser build (`bun run build`/`preview`). The
+> **editor** runs in a desktop shell so it gets real filesystem access and no
+> browser-reserved shortcut conflicts. Shell: **Electron** (chosen after
+> Electrobun was found to have no Windows arm64 build — it hangs on this machine).
+> Full plan + the Electrobun post-mortem: `docs/plans/electrobun-migration.md`.
+
+- [x] **`bun run dev` opens the editor in the Electron window** (not a browser
+      tab) — one command starts Vite and Electron together (via `concurrently`).
+      The Electron main process (`src/desktop/main.cjs`) waits for the Vite dev
+      server (`http://localhost:5173`) then loads it; otherwise it loads the built
+      `dist/index.html`. `build`/`preview` are unchanged (web game).
+- [x] **Filesystem IPC bridge** — `saveLevel`/`uploadAsset` are `ipcMain.handle`
+      handlers in the main process; `src/desktop/preload.cjs` exposes them to the
+      renderer via `contextBridge` (context isolation on, no node integration).
+      `src/editor/project-io.ts` calls that bridge (shared payload types in
+      `src/project-rpc.ts`). Replaces the old Vite dev-server middlewares
+      (`__save-level` / `__upload-asset`), which are removed — the editor is now
+      **desktop-only**.
+- 🚧 **Live verification** — needs a manual GUI pass on this arm64 machine: window
+  opens, save-a-level changes the file on disk, sprite/wav upload lands in
+  `assets`, and the previously-blocked Tab shortcut works.
+- 💡 **Open-folder flow** — editing an arbitrary project folder (vs. the in-repo
+  `src/game/levels` + `assets`) is deferred; the main process resolves the root
+  relative to itself, so swapping it later is contained.
+- 💡 **Packaging** — producing a distributable editor (electron-builder/Forge) is
+  deferred; dev runs unpackaged via `electron src/desktop/main.cjs`.
+
 ## Workspace: Docking & Panels
 
 > A hand-rolled docking workspace built on **motion/react**, replacing

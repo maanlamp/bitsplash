@@ -16,6 +16,18 @@
 	outline: none;
 }
 
+.shell {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.appBody {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+
 .playSurface {
 	position: fixed;
 	inset: 0;
