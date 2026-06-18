@@ -1,5 +1,5 @@
 import { Game } from "../../engine/game";
-import { Scene } from "../../engine/scene/scene";
+import { Scene, toSceneConfig } from "../../engine/scene/scene";
 import { World } from "../../engine/world";
 
 export const createPreviewGame = (): Readonly<{
@@ -11,7 +11,7 @@ export const createPreviewGame = (): Readonly<{
 	const scene = new Scene({
 		kind: "preview",
 		name: "preview",
-		config: { gravity: { x: 0, y: 0 } },
+		config: toSceneConfig({ gravity: { x: 0, y: 0 } }),
 		world,
 		gameplaySystems: [],
 	});

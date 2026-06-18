@@ -1,13 +1,14 @@
 import { Subscribable } from "./subscribable";
 
 export type Command = Readonly<{
-	undo: () => void;
-	redo: () => void;
+	undo: () => void | Promise<void>;
+	redo: () => void | Promise<void>;
 }>;
 
 export class History extends Subscribable {
 	private undoStack: Command[] = [];
 	private redoStack: Command[] = [];
+	private running: Promise<void> = Promise.resolve();
 
 	get canUndo(): boolean {
 		return this.undoStack.length > 0;
@@ -28,9 +29,10 @@ export class History extends Subscribable {
 		if (!command) {
 			return;
 		}
-		command.undo();
 		this.redoStack.push(command);
-		this.notify();
+		this.enqueue(command.undo, () => {
+			drop(this.redoStack, command);
+		});
 	}
 
 	redo(): void {
@@ -38,9 +40,10 @@ export class History extends Subscribable {
 		if (!command) {
 			return;
 		}
-		command.redo();
 		this.undoStack.push(command);
-		this.notify();
+		this.enqueue(command.redo, () => {
+			drop(this.undoStack, command);
+		});
 	}
 
 	clear(): void {
@@ -51,4 +54,25 @@ export class History extends Subscribable {
 		this.redoStack = [];
 		this.notify();
 	}
+
+	private enqueue(
+		task: () => void | Promise<void>,
+		onError: () => void,
+	): void {
+		this.running = this.running.then(async () => {
+			try {
+				await task();
+			} catch {
+				onError();
+			}
+			this.notify();
+		});
+	}
 }
+
+const drop = (stack: Command[], command: Command): void => {
+	const index = stack.indexOf(command);
+	if (index >= 0) {
+		stack.splice(index, 1);
+	}
+};

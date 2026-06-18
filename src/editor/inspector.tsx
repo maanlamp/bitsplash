@@ -18,6 +18,7 @@ import {
 	isMultilineField,
 	isRequiredField,
 } from "../engine/serialization/field-enums";
+import type { Scene } from "../engine/scene/scene";
 import { componentTypeName } from "../engine/serialization/registry";
 import { getValueTypeName } from "../engine/serialization/value-type-registry";
 import Vector2 from "../engine/vector2";
@@ -25,7 +26,9 @@ import { setField } from "./commands";
 import { componentLabel } from "./component-label";
 import type { EditorState } from "./editor-state";
 import type { History } from "./history";
+import { ImageField } from "./image-field";
 import styles from "./inspector.module.scss";
+import type { SceneDocument } from "./scene-document";
 import controls from "./styles/controls.module.scss";
 import surface from "./styles/surface.module.scss";
 import { toSentenceCase } from "./text-case";
@@ -380,6 +383,17 @@ export const FieldControl = ({
 		? isFileField(typeName, fieldKey)
 		: undefined;
 	if (accept !== undefined) {
+		if (/image/i.test(accept)) {
+			return (
+				<ImageField
+					value={value as string}
+					invalid={requiredMissing}
+					component={component}
+					fieldKey={fieldKey}
+					onCommit={(s) => commit(history, component, fieldKey, s)}
+				/>
+			);
+		}
 		return (
 			<div className={styles.fieldCell}>
 				<FileField
@@ -537,6 +551,55 @@ const Inspector = ({
 			selected={selected}
 			history={history}
 		/>
+	);
+};
+
+export const SceneConfigInspector = ({
+	scene,
+	doc,
+	history,
+}: Readonly<{
+	scene: Scene;
+	doc: SceneDocument;
+	history: History;
+}>) => {
+	const [revision, force] = useReducer((n: number) => n + 1, 0);
+	useEffect(
+		() =>
+			history.subscribe(() => {
+				scene.applyConfig();
+				doc.markDirty();
+				force();
+			}),
+		[scene, doc, history],
+	);
+	const config = scene.config;
+	return (
+		<div className={styles.inspector}>
+			<section className={styles.section}>
+				<div className={styles.sectionTitle}>World</div>
+				<div className={styles.fields} key={revision}>
+					{Object.entries(config).map(([key, value]) => (
+						<Fragment key={key}>
+							<span
+								className={classNames(
+									styles.fieldLabel,
+									isValueObject(value) && styles.fieldLabelTop,
+								)}
+							>
+								{toSentenceCase(key)}
+							</span>
+							<FieldControl
+								component={config}
+								fieldKey={key}
+								value={value}
+								history={history}
+							/>
+						</Fragment>
+					))}
+				</div>
+			</section>
+		</div>
 	);
 };
 

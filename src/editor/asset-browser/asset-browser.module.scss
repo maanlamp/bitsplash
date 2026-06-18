@@ -1,0 +1,139 @@
+.browser {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+.locationBar {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-8);
+	border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.navButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--unit-4);
+	border: none;
+	background: transparent;
+	color: var(--on-surface);
+	cursor: pointer;
+	border-radius: var(--radius-sm);
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&:hover:not(:disabled) {
+		background: var(--surface-overlay);
+	}
+
+	&:disabled {
+		color: var(--on-surface-faint);
+		cursor: default;
+	}
+}
+
+.breadcrumbs {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	min-width: 0;
+	margin-left: var(--unit-4);
+}
+
+.crumb {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-2) var(--unit-4);
+	border: none;
+	background: transparent;
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+	cursor: pointer;
+	transition: color var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		color: var(--on-surface);
+	}
+}
+
+.crumbSep {
+	color: var(--on-surface-faint);
+}
+
+.gridWrap {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+	gap: var(--unit-8);
+	padding: var(--unit-12);
+}
+
+.cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-8);
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&:hover {
+		background: var(--surface-overlay);
+	}
+}
+
+.editing {
+	background: var(--surface-overlay);
+}
+
+.thumb {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 1;
+	color: var(--on-surface-muted);
+}
+
+.thumbImage {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+	image-rendering: pixelated;
+}
+
+.icon {
+	width: 40%;
+	height: 40%;
+}
+
+.label {
+	width: 100%;
+	text-align: center;
+	font: var(--font-caption);
+	color: var(--on-surface);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.nameInput {
+	width: 100%;
+	text-align: center;
+	font: var(--font-caption);
+	color: var(--on-surface-strong);
+	background: var(--surface-overlay-raised);
+	border: var(--border-width) solid var(--border-subtle);
+	border-radius: var(--radius-sm);
+	padding: var(--unit-2);
+}

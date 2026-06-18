@@ -13,6 +13,7 @@ export class EditorState extends Subscribable {
 	private _mode: EditorMode = "select";
 	private _selected: EntityId | null = null;
 	private _hovered: EntityId | null = null;
+	private _inspectingWorld = false;
 
 	get mode(): EditorMode {
 		return this._mode;
@@ -26,6 +27,10 @@ export class EditorState extends Subscribable {
 		return this._hovered;
 	}
 
+	get inspectingWorld(): boolean {
+		return this._inspectingWorld;
+	}
+
 	setMode(mode: EditorMode): void {
 		if (mode !== this._mode) {
 			this._mode = mode;
@@ -34,8 +39,17 @@ export class EditorState extends Subscribable {
 	}
 
 	setSelected(entity: EntityId | null): void {
-		if (entity !== this._selected) {
+		if (entity !== this._selected || this._inspectingWorld) {
 			this._selected = entity;
+			this._inspectingWorld = false;
+			this.notify();
+		}
+	}
+
+	inspectWorld(): void {
+		if (!this._inspectingWorld || this._selected !== null) {
+			this._inspectingWorld = true;
+			this._selected = null;
 			this.notify();
 		}
 	}

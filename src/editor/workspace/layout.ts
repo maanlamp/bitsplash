@@ -25,7 +25,7 @@ export type Workspace = Readonly<{
 	focused: ViewId | null;
 }>;
 
-export const WORKSPACE_VERSION = 1;
+export const WORKSPACE_VERSION = 2;
 
 const MIN_SIZE = 0.08;
 
@@ -308,7 +308,19 @@ export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 		sizes: [0.22, 0.78],
 		children: [
 			{ type: "tabs", views: ["tree"], active: "tree" },
-			{ type: "tabs", views: [sceneView], active: sceneView },
+			{
+				type: "split",
+				direction: "column",
+				sizes: [0.7, 0.3],
+				children: [
+					{ type: "tabs", views: [sceneView], active: sceneView },
+					{
+						type: "tabs",
+						views: ["asset-browser"],
+						active: "asset-browser",
+					},
+				],
+			},
 		],
 	},
 	focused: sceneView,

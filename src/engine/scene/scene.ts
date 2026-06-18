@@ -4,15 +4,37 @@ import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
 import type { GlobalServices } from "../services";
 import type { UpdateSystem } from "../system";
+import { file } from "../serialization/field-enums";
+import { valueType } from "../serialization/value-type";
 import type { TileGrid } from "../tilemap/grid";
-import type Vector2 from "../vector2";
+import Vector2 from "../vector2";
 import type { World } from "../world";
 
-export type SceneConfig = Readonly<{
+export type SceneConfigData = Readonly<{
 	gravity: Readonly<{ x: number; y: number }>;
 	uiScale?: number;
 	tileset?: string;
 }>;
+
+@valueType()
+export class SceneConfig {
+	gravity: Vector2 = new Vector2(0, 20);
+	uiScale = 1;
+	@file("image/*")
+	tileset = "";
+}
+
+export const toSceneConfig = (data: SceneConfigData): SceneConfig => {
+	const config = new SceneConfig();
+	config.gravity = new Vector2(data.gravity.x, data.gravity.y);
+	if (data.uiScale !== undefined) {
+		config.uiScale = data.uiScale;
+	}
+	if (data.tileset !== undefined) {
+		config.tileset = data.tileset;
+	}
+	return config;
+};
 
 export type SceneTileRect = Readonly<{
 	x: number;
@@ -25,7 +47,7 @@ export type SceneFile = Readonly<{
 	version: number;
 	kind: string;
 	name?: string;
-	config: SceneConfig;
+	config: SceneConfigData;
 	tiles: ReadonlyArray<SceneTileRect>;
 	entities: SerializedWorld;
 }>;
@@ -78,6 +100,10 @@ export class Scene {
 
 	get ecs(): ECS {
 		return this.world.ecs;
+	}
+
+	applyConfig(): void {
+		this.world.setGravity(this.config.gravity);
 	}
 
 	get isSimulating(): boolean {

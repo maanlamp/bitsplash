@@ -3,20 +3,14 @@ import {
 	AtomIcon,
 	CaretRightIcon,
 	CubeIcon,
-	FileAudioIcon,
-	FileIcon,
-	FileImageIcon,
 	FilmSlateIcon,
-	FolderIcon,
 	GameControllerIcon,
 	GlobeIcon,
 	HeartIcon,
 	type Icon,
 	PaletteIcon,
 	PuzzlePieceIcon,
-	SquaresFourIcon,
 	StackIcon,
-	TextAaIcon,
 } from "@phosphor-icons/react";
 import classNames from "classnames";
 import {
@@ -37,11 +31,6 @@ import {
 import type { EntityId } from "../engine/ecs";
 import type { SceneSummary } from "../engine/scene/registry";
 import type { Scene } from "../engine/scene/scene";
-import {
-	AssetContextMenu,
-	type AssetCreateActions,
-} from "./asset-context-menu";
-import type { AssetEntry } from "./assets";
 import { componentLabel } from "./component-label";
 import { EditorState } from "./editor-state";
 import {
@@ -60,7 +49,6 @@ const COMPONENT_ICONS: Readonly<Record<string, Icon>> = {
 };
 
 const GAME_KEY = "game";
-const ASSETS_KEY = "assets";
 
 const RowSurface = ({
 	store,
@@ -214,13 +202,9 @@ const ProjectTree = ({
 	storeFor,
 	focusedStore,
 	deps,
-	assets,
-	selectedAsset,
-	assetActions,
 	onOpenScene,
 	onSelectEntity,
 	onSelectWorld,
-	onOpenAsset,
 }: Readonly<{
 	summaries: ReadonlyArray<SceneSummary>;
 	focusedSceneId: string | null;
@@ -229,13 +213,9 @@ const ProjectTree = ({
 	storeFor: (id: string) => EditorState | null;
 	focusedStore: EditorState | null;
 	deps: MenuDeps | null;
-	assets: ReadonlyArray<AssetEntry>;
-	selectedAsset: string | null;
-	assetActions: AssetCreateActions;
 	onOpenScene: (id: string) => void;
 	onSelectEntity: (sceneId: string, id: EntityId) => void;
 	onSelectWorld: (sceneId: string) => void;
-	onOpenAsset: (url: string) => void;
 }>) => {
 	const [fallbackStore] = useState(() => new EditorState());
 	const [, force] = useReducer((n: number) => n + 1, 0);
@@ -254,9 +234,10 @@ const ProjectTree = ({
 	}, [focusedStore]);
 
 	const selected = focusedStore?.selected ?? null;
+	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
 
 	const [expanded, setExpanded] = useState<Set<Key>>(() => {
-		const initial: Key[] = [GAME_KEY, ASSETS_KEY];
+		const initial: Key[] = [GAME_KEY];
 		if (focusedSceneId) {
 			initial.push(
 				`scene:${focusedSceneId}`,
@@ -275,13 +256,14 @@ const ProjectTree = ({
 		setExpanded(new Set(keys));
 	};
 
-	const selectedKeys = selectedAsset
-		? new Set([`asset:${selectedAsset}`])
-		: selected && focusedSceneId
-			? new Set([`entity:${focusedSceneId}:${selected}`])
-			: focusedSceneId
-				? new Set([`scene:${focusedSceneId}`])
-				: new Set<string>();
+	const selectedKeys =
+		inspectingWorld && focusedSceneId
+			? new Set([`world:${focusedSceneId}`])
+			: selected && focusedSceneId
+				? new Set([`entity:${focusedSceneId}:${selected}`])
+				: focusedSceneId
+					? new Set([`scene:${focusedSceneId}`])
+					: new Set<string>();
 
 	const handleSelection = (keys: Selection): void => {
 		if (keys === "all") {
@@ -291,16 +273,7 @@ const ProjectTree = ({
 		if (typeof key !== "string") {
 			return;
 		}
-		if (key.startsWith("asset:")) {
-			const url = key.slice("asset:".length);
-			if (
-				assets.some(
-					(a) => a.url === url && (a.isPng || a.isAudio || a.isFont),
-				)
-			) {
-				onOpenAsset(url);
-			}
-		} else if (key.startsWith("scene:")) {
+		if (key.startsWith("scene:")) {
 			onOpenScene(key.slice("scene:".length));
 		} else if (key.startsWith("world:")) {
 			onSelectWorld(key.slice("world:".length));
@@ -373,47 +346,6 @@ const ProjectTree = ({
 						</TreeItem>
 					);
 				})}
-			</TreeItem>
-			<TreeItem id={ASSETS_KEY} textValue="Assets">
-				<Row
-					icon={FolderIcon}
-					label="Assets"
-					store={fallbackStore}
-					wrap={(content) => (
-						<AssetContextMenu actions={assetActions}>
-							{content}
-						</AssetContextMenu>
-					)}
-				/>
-				{assets.map((asset) => (
-					<TreeItem
-						key={`asset:${asset.url}`}
-						id={`asset:${asset.url}`}
-						textValue={asset.name}
-					>
-						<Row
-							icon={
-								asset.isTileset
-									? SquaresFourIcon
-									: asset.isPng
-										? FileImageIcon
-										: asset.isAudio
-											? FileAudioIcon
-											: asset.isFont
-												? TextAaIcon
-												: FileIcon
-							}
-							label={asset.name}
-							store={fallbackStore}
-							muted={!asset.isPng && !asset.isAudio && !asset.isFont}
-							wrap={(content) => (
-								<AssetContextMenu actions={assetActions}>
-									{content}
-								</AssetContextMenu>
-							)}
-						/>
-					</TreeItem>
-				))}
 			</TreeItem>
 		</Tree>
 	);

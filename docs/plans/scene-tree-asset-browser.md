@@ -1,8 +1,44 @@
 # Plan: Asset Browser
 
-> Status: Draft  
-> Depends on: nothing upstream (self-contained editor work)  
-> Unlocks: prefab drag-spawn, @image inspector fields, scene system cleanup
+> Status: Agreed (interviewed)
+> Depends on: nothing upstream (self-contained editor work)
+> Unlocks: prefab drag-spawn, image inspector fields, scene properties editing
+
+---
+
+## 0. Filesystem layer (foundational — everything depends on this)
+
+All filesystem access goes through the existing Electron IPC bridge
+(`src/desktop/main.cjs`, `src/desktop/preload.cjs`, typed in `src/project-rpc.ts`,
+wrapped in `src/editor/project-io.ts`). There is **no** HTTP `/_fs` server — that
+would only work in dev, not in a packaged build.
+
+New IPC operations alongside the existing `saveLevel` / `uploadAsset`:
+
+- `getAssetsRoot()` — absolute path of `src/game/assets`.
+- `listDir(path)` — entries for a directory (name, absolute path, isDirectory).
+- `listAssetsDeep()` — recursive walk of the assets root, returns the existing
+  `AssetEntry[]` shape (used to seed view-validation; see §2).
+- `rename(path, newName)`.
+- `del(path)` — moves the target into the app-owned `.trash` (see §1.5), returns
+  a token allowing restore.
+- `restore(token)` — moves a trashed item back to its original path.
+- `mkdir(parentPath, name)`.
+- `openImageDialog()` — native `dialog.showOpenDialog`, image filter, returns an
+  absolute path or null.
+
+Navigation is **unconstrained** — the browser can read/list/mutate anywhere on
+disk. This is the point of the feature (filesystem access through the tool);
+sandbox bounds are deferred. No path-traversal guard for now.
+
+### 0.1 Image protocol
+
+Image bytes reach `<img>` tags through a custom Electron protocol registered in
+the main process: `bitsplash-fs://<absolute-path>`. This gives native Chromium
+image decoding and caching for free and works with `<img loading="lazy">`.
+
+The protocol is an **editor-browse mechanism only**. It is never serialized and
+never used by the shipped browser game (which has no such protocol).
 
 ---
 
@@ -10,7 +46,18 @@
 
 ### 1.1 Asset Browser View
 
-Registered as a workspace view: `asset-browser`. Singleton (one instance, like `canvas`).
+Registered as a workspace view: `asset-browser`. Singleton, non-closable (like
+`tree` / `inspector`). Added to the `ViewKind` union, `renderView`, `viewTitle`,
+`isClosable`.
+
+**Default layout:**
+
+```
+row[ tree (0.22) | column( scene (0.7) / asset-browser (0.3) ) ]
+```
+
+The right pane in `defaultWorkspace` becomes a column split with the scene on top
+and the asset browser beneath.
 
 **Layout:**
 
@@ -19,136 +66,210 @@ Registered as a workspace view: `asset-browser`. Singleton (one instance, like `
 [ file grid: thumbnails or icons, name labels ]
 ```
 
-Navigation is back/forward/up plus clickable path segment breadcrumbs. State is local to the view (current path, history stack). No router involvement.
+Navigation is back/forward/up plus clickable breadcrumbs. State (current path,
+history stack) is local to the view; it resets per session (persistence
+deferred). Opens at `getAssetsRoot()` by default.
 
 **Thumbnails:**
 
-| Asset type                 | Thumbnail                                                      |
-| -------------------------- | -------------------------------------------------------------- |
-| `*.png`, `*.jpg`, `*.webp` | Rendered `<img>` via `/_fs/read`, capped at the grid cell size |
-| `*.tileset.png`            | Same as above                                                  |
-| `*.font.zip`               | Generic font icon                                              |
-| `*.wav`, `*.mp3`, `*.ogg`  | Generic audio icon                                             |
-| `*.json`                   | Generic JSON icon                                              |
-| Directory                  | Folder icon                                                    |
-| Unknown                    | Generic file icon                                              |
+| Asset type                 | Thumbnail                                     |
+| -------------------------- | --------------------------------------------- |
+| `*.png`, `*.jpg`, `*.webp` | `<img src="bitsplash-fs://…" loading="lazy">` |
+| `*.tileset.png`            | Same as above                                 |
+| `*.font.zip`               | Generic font icon                             |
+| `*.wav`, `*.mp3`, `*.ogg`  | Generic audio icon                            |
+| `*.json`                   | Generic JSON / file icon                      |
+| Directory                  | Folder icon                                   |
+| Unknown                    | Generic file icon                             |
 
-Thumbnails are loaded lazily (only when the cell enters the viewport). Use an `IntersectionObserver`. No caching layer needed at this stage.
+Lazy loading is the native `loading="lazy"` attribute — no `IntersectionObserver`,
+no app-level cache (the protocol + browser cache cover it).
 
-**Context menu (right-click on empty space):**
+### 1.2 Asset type classification
 
-- New Sprite...
-- New Tileset...
-- New Audio...
-- New Folder...
+One canonical `classifyAsset(path): AssetType` in the editor, keyed on
+extension/suffix:
 
-**Context menu (right-click on a file):**
+- `*.tileset.png` → `tileset`
+- other `*.png` / `*.jpg` / `*.webp` → `sprite`
+- `*.wav` / `*.mp3` / `*.ogg` → `audio`
+- font extensions / `*.font.zip` → `font`
+- `*.prefab.json` → `prefab`
+- plain `*.json` and everything else → `unknown`
 
-- Open (opens the appropriate editor view)
-- Rename
-- Delete
-- _(separator)_
-- _(type-specific items, e.g. "Edit Sprite" for images)_
+`AssetType = "sprite" | "tileset" | "audio" | "font" | "prefab" | "unknown"`.
 
-**Context menu (right-click on a directory):**
+### 1.3 Context menus
 
-- Open
-- Rename
-- Delete
-- _(separator)_
-- New Sprite...
-- New Tileset...
-- New Audio...
-- New Folder...
+Reuse the `AssetContextMenu` pattern + glass surface. Extend it with:
 
-Context menus reuse the existing `AssetContextMenu` pattern and glass surface treatment.
+- **Empty space:** New Sprite… / New Tileset… / New Audio… / New Folder…
+- **File:** Open / Rename / Delete / _(sep)_ / type-specific (e.g. Edit Sprite)
+- **Directory:** Open / Rename / Delete / _(sep)_ / New Sprite… / New Tileset… /
+  New Audio… / New Folder…
 
-### 1.2 Drag and Drop
+### 1.4 Create / rename / folder UX
 
-Files are draggable from the asset browser. The drag payload is a typed object:
+- **Rename** and **New Folder** use **inline** cell editing (text input in the
+  grid cell; Enter/blur commits, Escape cancels). New Folder creates `untitled`
+  already in edit mode.
+- **New Sprite / Tileset / Audio** keep their existing modal dialogs (they need
+  width/height).
+- **Collisions:** New Folder and copy-in (see §3.2) **auto-suffix** to keep both
+  (`untitled 2`, `foo 2.png`). Explicit rename to a taken name **refuses** and
+  raises a toast; the cell stays in edit mode.
+
+### 1.5 Undoable filesystem operations
+
+FS mutations (rename, delete, mkdir, copy-in) are **undoable commands** on the
+asset-browser view's own per-view history (the existing per-view pattern;
+focus-routed Ctrl+Z).
+
+Because FS is async, the history system is made async-aware:
+
+- `Command.undo` / `Command.redo` widen to `() => void | Promise<void>`. Existing
+  synchronous ECS commands satisfy the wider type unchanged.
+- `History` serializes execution through an internal promise chain (a mutex) so
+  rapid undo/redo can never interleave or reorder two async operations.
+- A forward op performs its IPC and only pushes the command **on success** — a
+  failed op never enters history.
+- If an `undo`/`redo` rejects mid-flight (file locked / changed externally), the
+  command is **dropped from the timeline** and a toast is shown.
+
+**Delete** moves the target into an app-owned `.trash` directory at the project
+root (gitignored). Undo moves it back (an atomic rename — no in-memory byte copy,
+handles directories). This is _not_ the OS Recycle Bin.
+
+**Toasts** use the base-ui `Toast` component (new, small editor infra).
+
+### 1.6 Drag and Drop
+
+Native HTML5 drag-and-drop (coexists with Framer Motion, which stays for tab
+docking / layer reorder). Browser cells set a typed payload:
 
 ```ts
-interface AssetDragPayload {
+type AssetDragPayload = Readonly<{
 	type: "asset-drag";
-	path: string;
-	assetType: AssetType; // "sprite" | "tileset" | "audio" | "font" | "prefab" | "unknown"
-}
+	path: string; // stored web path or absolute (resolved on drop)
+	assetType: AssetType;
+}>;
 ```
 
-The payload is set on the `DragEvent` as JSON in `dataTransfer` under the key `application/x-bitsplash-asset`.
+Set on `dataTransfer` as JSON under `application/x-bitsplash-asset`.
 
-**Drop registry** (`src/editor/asset-drop-registry.ts`):
+**Minimal drop registry** (`src/editor/asset-drop-registry.ts`) — built now, but
+only one handler registered:
 
 ```ts
 type DropHandler = (payload: AssetDragPayload, context: DropContext) => void;
 
-interface DropContext {
-  // what the user dropped onto
+type DropContext = Readonly<{
   target: "scene-view" | "inspector-field";
-  // for inspector-field drops: which entity + component + field
   field?: { entityId: EntityId; componentType: ComponentConstructor; fieldKey: string };
-}
+}>;
 
 export const AssetDropRegistry = {
-  register(assetType: AssetType, targets: DropContext["target"][], handler: DropHandler): void,
-  resolve(payload: AssetDragPayload, context: DropContext): DropHandler | null,
+  register(assetType, targets, handler): void,
+  resolve(payload, context): DropHandler | null,
 };
 ```
 
-Handlers are registered by editor-layer code. Examples:
-
-- `sprite` dropped on `inspector-field` where the field is a `@image` → updates the field value.
-- `prefab` dropped on `scene-view` → spawns an entity (deferred; note the hook, don't couple to prefab internals yet).
+- Registered now: `sprite` / `tileset` on `inspector-field` → updates the field.
+- Deferred (seam only): `prefab` on `scene-view` → spawn entity.
 
 The registry lives in the editor. The engine has no involvement.
 
-### 1.3 Inspector @image Fields
+### 1.7 Inspector image fields
 
-When the inspector renders a component field decorated with `@image`, it renders a compact field group:
+No new decorator — the **existing `@file`** drives this. When a `@file` field's
+accept is image-like, the inspector renders a rich image renderer instead of the
+plain `FileField`:
 
-- A **clickable image preview** that doubles as the file picker trigger. If a path is set, it renders the image; if not, it renders a placeholder with a "Choose image..." label. Clicking either opens a file picker scoped to the asset browser root.
-- The resolved path as text beneath the preview.
-- Width × height of the loaded image, shown as a small caption.
+- A clickable image preview that is also the picker trigger. With a path set it
+  renders the image (via the protocol); empty, it shows a "Choose image…"
+  placeholder. Clicking opens the **native OS file dialog** (`openImageDialog`).
+- The resolved path as text beneath.
+- Width × height caption.
 
-There is no separate "Choose file..." button. The preview is the button.
-
-When a drag interaction is detected anywhere over the field group (`dragenter`), the preview area switches to a dropzone state (highlighted border, "Drop image here" overlay). On `drop`, it validates the payload type is `sprite` or `tileset`, then calls the drop registry handler which updates the field.
-
-This is self-contained to the inspector field renderer. No changes to the engine component decorators are needed beyond adding `@image` as a recognised decorator type.
-
----
-
-## 2. Scene Tree Cleanup
-
-### 2.1 What Gets Removed
-
-The asset glob import (`src/game/assets/*`) and any representation of those files in the scene tree is removed entirely. Assets live in the asset browser.
-
-### 2.2 What Remains
-
-The scene tree shows strictly scene content: entities and their component summary. This is what it already does, minus the asset cruft.
-
-### 2.3 World-level Properties
-
-The tree gains a small header section above the entity list showing world-level properties. Exactly what appears here is deferred until the Scene system rewrite (the world-to-scene transition). At that point, the scene system should expose a declared list of inspectable properties; the tree renders them.
-
-For now, note the seam: the tree header is a reserved slot for world/scene metadata. It renders nothing (or a placeholder) until the scene system lands.
+On `dragenter` over the field group, the preview switches to a dropzone state; on
+`drop` it validates `assetType` is `sprite`/`tileset` and calls the drop registry
+handler. `SpriteComponent.url`'s existing `@file("image/*")` upgrades
+automatically.
 
 ---
 
-## 4. Build Order
+## 2. Scene tree cleanup + enumeration cutover (full)
 
-1. **Asset Browser view** — the panel, navigation, thumbnails, context menus. No drag-and-drop yet.
-2. **Scene tree cleanup** — remove asset glob + asset items from the tree. No regressions; asset browser covers the gap.
-3. **Asset drop registry + inspector @image fields** — drag-and-drop from the asset browser into the inspector.
-4. **World-level property header** — stub slot now, filled in during the scene system rewrite.
+The Vite glob (`import.meta.glob("../game/assets/*")` in `src/editor/assets.ts`)
+is **deleted**. The asset glob is currently load-bearing beyond the tree: it seeds
+`app.tsx`'s `assets` state, which `isValidViewId` uses to validate restored
+asset-backed view IDs (`sprite:foo.png` etc.), and url→entry lookups.
+
+Replacement:
+
+- `app.tsx`'s `assets` state is seeded asynchronously from the `listAssetsDeep`
+  IPC call (same `AssetEntry` shape). View validation / url lookups keep working.
+- The scene tree drops its **Assets section** (display only).
+- The asset browser uses per-directory `listDir` for navigation.
+- All asset byte-loading in the editor (sprite/audio/font editors) resolves via
+  the `bitsplash-fs://` protocol instead of glob `?url` strings.
+
+### 2.1 Serialized identity
+
+What is stored in scene/prefab JSON stays a **portable, Vite-servable web path**
+(e.g. `/src/game/assets/foo.png`) so the shipped browser game keeps loading
+assets unchanged. The protocol is editor-only.
+
+When the user picks or drops an asset into a field:
+
+- In-tree files (under the served project) are referenced in place by web path.
+- Out-of-tree files (anywhere on disk, since nav is unconstrained) are **copied
+  into `src/game/assets`** first (reusing `uploadAsset`), then the resulting
+  in-tree web path is stored.
 
 ---
 
-## 5. Open Questions / Deferred
+## 3. Scene / world properties
 
-- **Project root decoupling** — `src/game/assets` is hardcoded. Revisit when the game layer is extracted into its own project.
-- **Prefab drop handler** — hook is registered in the drop registry, implementation deferred until prefab system matures.
-- **`@image` vs `@file`** — decide whether `@image` is a separate decorator or a parameter on `@file` (e.g. `@file({ kind: "image" })`). Either works; decide before implementing the inspector field.
-- **Asset browser multi-select** — useful for bulk delete/move but not needed for the initial cut.
-- **ConstrainedWorkspace persistence** — save/restore internal layout sizes to localStorage. Not blocking for launch.
+`SceneConfig` (`src/engine/scene/scene.ts`, currently a plain type:
+`{ gravity, uiScale?, tileset? }`) is promoted to a `@valueType()` decorated
+class with field decorators:
+
+- `gravity: Vector2` (existing `Vector2Field`)
+- `uiScale: number`
+- `tileset: @file(<tileset accept>)`
+
+It is rendered and edited through the **existing inspector field machinery**
+(`FieldControl` / `getValueRenderer`), edits flow through `commit(history, …)`,
+and it serializes into `SceneFile.config` as today. This touches the scene
+constructor and the game scenes that build config (`platformer.ts`, `pause.ts`).
+
+The existing **"World" tree node** (`world:${sceneId}`) becomes **selectable**;
+selecting it populates the **Inspector** panel with the `SceneConfig` fields,
+exactly like selecting an entity shows its components. No tree-header slot is
+added.
+
+---
+
+## 4. Build order
+
+1. **Foundational layer** — IPC FS ops + `bitsplash-fs://` protocol + async
+   `History` + base-ui `Toast`.
+2. **Asset Browser view** — panel, navigation, thumbnails, context menus,
+   inline rename/new-folder, undoable FS ops. No drag-and-drop yet.
+3. **Scene tree cleanup / enumeration cutover** — delete glob, seed from IPC,
+   remove Assets section, editors load via protocol.
+4. **Drop registry + inspector image fields** — native DnD from browser into the
+   `@image` field; copy-in for out-of-tree.
+5. **Scene properties** — promote `SceneConfig`, World node → Inspector.
+
+---
+
+## 5. Deferred
+
+- **Multi-select** in the browser (bulk delete/move).
+- **Prefab → scene-view drop handler** — registry seam only.
+- **Asset-browser nav-history persistence** to localStorage (workspace layout
+  still persists via existing `saveWorkspace`).
+- **Project-root decoupling** — `ASSETS_DIR` stays the single hardcoded constant.
+- **Navigation sandbox bounds** — unconstrained for now.

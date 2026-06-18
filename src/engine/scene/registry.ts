@@ -4,7 +4,12 @@ import type { GlobalServices } from "../services";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
 import { TILE_SIZE } from "../tile";
-import { Scene, type SceneFactory, type SceneFile } from "./scene";
+import {
+	Scene,
+	type SceneFactory,
+	type SceneFile,
+	toSceneConfig,
+} from "./scene";
 
 export type SceneSummary = Readonly<{
 	id: string;
@@ -49,7 +54,7 @@ export const createScene = (
 		throw new Error(`Unknown scene kind: ${file.kind}`);
 	}
 	const scene = factory({
-		config: file.config,
+		config: toSceneConfig(file.config),
 		name: file.name ?? id,
 		services,
 	});

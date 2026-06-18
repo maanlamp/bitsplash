@@ -13,32 +13,42 @@ import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
 import { createGame, createScene } from "../engine/scene/registry";
 import type { Scene } from "../engine/scene/scene";
+import type { DirEntry } from "../project-rpc";
 import styles from "./app.module.scss";
 import { type AssetCreateActions } from "./asset-context-menu";
 import { AssetManagerProvider } from "./asset-manager-context";
 import {
+	type AssetEntry,
 	assetFilename,
 	isFontName,
 	isTilesetName,
-	listAssets,
 } from "./assets";
 import AudioEditor from "./audio/audio-editor";
 import { deleteEntity, duplicateEntity } from "./commands";
+import { AssetBrowser } from "./asset-browser/asset-browser";
 import ConfirmDialog from "./confirm-dialog";
 import { setCursorMode } from "./cursor";
+import { History } from "./history";
+import { Toaster } from "./toaster";
 import {
 	AddComponentPicker,
 	type MenuDeps,
 } from "./entity-context-menu";
 import ProjectTree from "./project-tree";
 import FontPreview from "./font/font-preview";
-import Inspector from "./inspector";
+import Inspector, { SceneConfigInspector } from "./inspector";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
 import { Project } from "./project";
-import { isDesktop, saveLevel } from "./project-io";
+import {
+	getAssetsRoot,
+	isDesktop,
+	listAssetsDeep,
+	saveLevel,
+} from "./project-io";
 import TitleBar from "./title-bar";
 import "./register-renderers";
+import "./register-drops";
 import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
@@ -87,7 +97,11 @@ const App = ({ startScene }: { startScene: string }) => {
 	const [playing, setPlaying] = useState(false);
 	const [playView, setPlayView] = useState<SceneView | null>(null);
 	const [, forceStore] = useReducer((n: number) => n + 1, 0);
-	const [assets, setAssets] = useState(() => listAssets());
+	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
+	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
+	const assetBrowserHistoryRef = useRef(new History());
+	const [activeSceneViewId, setActiveSceneViewId] =
+		useState<ViewId | null>(null);
 	const [workspace, setWorkspace] = useState<WorkspaceState>(() =>
 		loadWorkspace(
 			(id) => isValidViewId(id, assets),
@@ -108,6 +122,7 @@ const App = ({ startScene }: { startScene: string }) => {
 	const closedStackRef = useRef<ViewId[]>([]);
 	const playingRef = useRef(false);
 	const focusedSceneViewRef = useRef<SceneView | null>(null);
+	const activeSceneIdRef = useRef<ViewId | null>(null);
 	const playSessionRef = useRef<PlaySession | null>(null);
 	const playDetachRef = useRef<(() => void) | null>(null);
 	const playContainerRef = useRef<HTMLDivElement | null>(null);
@@ -116,7 +131,17 @@ const App = ({ startScene }: { startScene: string }) => {
 	const focusedViewRef = useRef<ViewId | null>(focusedView);
 	useEffect(() => {
 		focusedViewRef.current = focusedView;
+		if (focusedView && isSceneView(focusedView)) {
+			setActiveSceneViewId(focusedView);
+		}
 	}, [focusedView]);
+
+	useEffect(() => {
+		if (isDesktop()) {
+			void getAssetsRoot().then(setAssetsRoot);
+			void listAssetsDeep().then(setAssets);
+		}
+	}, []);
 
 	const saveScene = async (
 		sceneId: string,
@@ -174,22 +199,28 @@ const App = ({ startScene }: { startScene: string }) => {
 		}
 	}
 
-	const focusedSceneView =
-		focusedView && isSceneView(focusedView)
-			? (sceneViewsRef.current.get(focusedView) ?? null)
-			: null;
+	const activeSceneId =
+		activeSceneViewId && findView(workspace.root, activeSceneViewId)
+			? activeSceneViewId
+			: focusedView && isSceneView(focusedView)
+				? focusedView
+				: null;
+	const focusedSceneView = activeSceneId
+		? (sceneViewsRef.current.get(activeSceneId) ?? null)
+		: null;
 	const focusedScene = focusedSceneView?.scene ?? null;
-	const focusedSceneId =
-		focusedView && isSceneView(focusedView)
-			? parseViewId(focusedView).param
-			: null;
+	const focusedSceneId = activeSceneId
+		? parseViewId(activeSceneId).param
+		: null;
 	const focusedStore = focusedSceneView?.store ?? null;
 	const selectedEntity = focusedStore?.selected ?? null;
+	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
 	const mode = focusedStore?.mode ?? "select";
 
 	useEffect(() => {
 		focusedSceneViewRef.current = focusedSceneView;
-	}, [focusedSceneView]);
+		activeSceneIdRef.current = activeSceneId;
+	}, [focusedSceneView, activeSceneId]);
 
 	useEffect(() => {
 		if (!focusedStore) {
@@ -209,12 +240,6 @@ const App = ({ startScene }: { startScene: string }) => {
 		}
 	}, [workspace]);
 
-	const focusedAsset =
-		focusedView && isAssetView(focusedView)
-			? parseViewId(focusedView).param
-			: null;
-	const focusedAssetUrl =
-		focusedAsset === NEW_PARAM ? null : focusedAsset;
 	const assetFocused = (): boolean => {
 		const id = focusedViewRef.current;
 		return !!id && isAssetView(id);
@@ -331,6 +356,20 @@ const App = ({ startScene }: { startScene: string }) => {
 		}
 	};
 
+	const openAssetFile = (entry: DirEntry): void => {
+		if (entry.isDirectory || !assetsRoot) {
+			return;
+		}
+		const norm = (value: string) => value.replace(/\\/g, "/");
+		const rootNorm = norm(assetsRoot);
+		const pathNorm = norm(entry.path);
+		if (pathNorm.startsWith(`${rootNorm}/`)) {
+			openAsset(
+				`/src/game/assets/${pathNorm.slice(rootNorm.length + 1)}`,
+			);
+		}
+	};
+
 	const newAudio = (): void => {
 		openView(NEW_AUDIO_VIEW);
 	};
@@ -390,11 +429,11 @@ const App = ({ startScene }: { startScene: string }) => {
 
 	const selectWorld = (sceneId: string): void => {
 		openScene(sceneId);
-		ensureSceneView(`scene:${sceneId}`)?.store.setSelected(null);
+		ensureSceneView(`scene:${sceneId}`)?.store.inspectWorld();
 	};
 
 	useEffect(() => {
-		if (!selectedEntity) {
+		if (!selectedEntity && !inspectingWorld) {
 			return;
 		}
 		const ws = workspaceRef.current;
@@ -407,7 +446,7 @@ const App = ({ startScene }: { startScene: string }) => {
 			? insertView(ws.root, "inspector", anchorPath, "right")
 			: ws.root;
 		updateWorkspace({ ...ws, root });
-	}, [selectedEntity]);
+	}, [selectedEntity, inspectingWorld]);
 
 	const exitPlay = useCallback((): void => {
 		const session = playSessionRef.current;
@@ -685,38 +724,62 @@ const App = ({ startScene }: { startScene: string }) => {
 			if (assetFocused()) {
 				return;
 			}
-			const id = focusedViewRef.current;
+			const id = activeSceneIdRef.current;
 			const view = focusedSceneViewRef.current;
-			if (id && isSceneView(id) && view) {
+			if (id && view) {
 				const { param } = parseViewId(id);
 				if (param) {
 					void saveScene(param, view);
 				}
 			}
 		},
-		{ preventDefault: true, enabled: !playing },
+		{
+			preventDefault: true,
+			enabled: !playing,
+			enableOnFormTags: true,
+		},
 	);
 	useHotkeys(
 		"mod+z",
 		(event) => {
+			const id = focusedViewRef.current;
+			if (id && parseViewId(id).kind === "asset-browser") {
+				event.preventDefault();
+				assetBrowserHistoryRef.current.undo();
+				return;
+			}
 			if (assetFocused()) {
 				return;
 			}
 			event.preventDefault();
 			focusedSceneViewRef.current?.history.undo();
 		},
-		{ preventDefault: true, enabled: !playing },
+		{
+			preventDefault: true,
+			enabled: !playing,
+			enableOnFormTags: true,
+		},
 	);
 	useHotkeys(
 		"mod+y",
 		(event) => {
+			const id = focusedViewRef.current;
+			if (id && parseViewId(id).kind === "asset-browser") {
+				event.preventDefault();
+				assetBrowserHistoryRef.current.redo();
+				return;
+			}
 			if (assetFocused()) {
 				return;
 			}
 			event.preventDefault();
 			focusedSceneViewRef.current?.history.redo();
 		},
-		{ preventDefault: true, enabled: !playing },
+		{
+			preventDefault: true,
+			enabled: !playing,
+			enableOnFormTags: true,
+		},
 	);
 
 	const deps: MenuDeps | null = focusedSceneView
@@ -742,26 +805,43 @@ const App = ({ startScene }: { startScene: string }) => {
 				storeFor={(id) => projectRef.current?.store(id) ?? null}
 				focusedStore={focusedStore}
 				deps={deps}
-				assets={assets}
-				selectedAsset={focusedAssetUrl}
-				assetActions={assetActions}
 				onOpenScene={openScene}
 				onSelectEntity={selectEntity}
 				onSelectWorld={selectWorld}
-				onOpenAsset={openAsset}
 			/>
 		) : null;
 
-	const renderInspector = () =>
-		focusedScene && focusedSceneView && selectedEntity ? (
-			<Inspector
-				ecs={focusedScene.ecs}
-				store={focusedSceneView.store}
-				history={focusedSceneView.history}
+	const renderInspector = () => {
+		if (focusedScene && focusedSceneView && inspectingWorld) {
+			return (
+				<SceneConfigInspector
+					scene={focusedScene}
+					doc={focusedSceneView.document}
+					history={focusedSceneView.history}
+				/>
+			);
+		}
+		if (focusedScene && focusedSceneView && selectedEntity) {
+			return (
+				<Inspector
+					ecs={focusedScene.ecs}
+					store={focusedSceneView.store}
+					history={focusedSceneView.history}
+				/>
+			);
+		}
+		return <div className={styles.placeholder}>Nothing selected</div>;
+	};
+
+	const renderAssetBrowser = () =>
+		assetsRoot ? (
+			<AssetBrowser
+				root={assetsRoot}
+				history={assetBrowserHistoryRef.current}
+				assetActions={assetActions}
+				onOpenFile={openAssetFile}
 			/>
-		) : (
-			<div className={styles.placeholder}>Nothing selected</div>
-		);
+		) : null;
 
 	const renderSprite = (id: ViewId, param: string) =>
 		param === NEW_PARAM ? (
@@ -807,6 +887,8 @@ const App = ({ startScene }: { startScene: string }) => {
 				return renderTree();
 			case "inspector":
 				return renderInspector();
+			case "asset-browser":
+				return renderAssetBrowser();
 			case "scene":
 				return renderScene(id);
 			case "font":
@@ -882,6 +964,7 @@ const App = ({ startScene }: { startScene: string }) => {
 					}}
 					onCancel={() => setPendingDiscard(null)}
 				/>
+				<Toaster />
 			</AssetManagerProvider>
 		</IconContext>
 	);

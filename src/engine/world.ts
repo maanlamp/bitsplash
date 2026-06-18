@@ -1,4 +1,4 @@
-import { Box, World as PhysicsWorld } from "planck";
+import { Box, Vec2, World as PhysicsWorld } from "planck";
 import { RigidbodyComponent } from "./components/rigidbody";
 import { ECS, type EntityId } from "./ecs";
 import EventBus from "./events";
@@ -43,6 +43,10 @@ export class World {
 
 	constructor(gravity: Readonly<{ x: number; y: number }>) {
 		this.physics = new PhysicsWorld({ gravity });
+	}
+
+	setGravity(gravity: Readonly<{ x: number; y: number }>): void {
+		this.physics.setGravity(new Vec2(gravity.x, gravity.y));
 	}
 
 	createRigidbody(def: RigidbodyDef): RigidbodyComponent {

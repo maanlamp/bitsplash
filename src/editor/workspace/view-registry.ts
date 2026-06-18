@@ -2,6 +2,7 @@ import {
 	FileAudioIcon,
 	FileImageIcon,
 	FilmSlateIcon,
+	FolderIcon,
 	GlobeIcon,
 	type Icon,
 	PuzzlePieceIcon,
@@ -20,6 +21,7 @@ export type ViewKind =
 	| "scene"
 	| "tree"
 	| "inspector"
+	| "asset-browser"
 	| "sprite"
 	| "audio"
 	| "font";
@@ -78,6 +80,8 @@ export const viewTitle = (id: ViewId): string => {
 			return "Project";
 		case "inspector":
 			return "Inspector";
+		case "asset-browser":
+			return "Assets";
 		default:
 			if (param === NEW_PARAM) {
 				return kind === "audio" ? "New audio" : "New sprite";
@@ -95,6 +99,8 @@ export const viewIcon = (id: ViewId): Icon => {
 			return FilmSlateIcon;
 		case "inspector":
 			return PuzzlePieceIcon;
+		case "asset-browser":
+			return FolderIcon;
 		case "audio":
 			return FileAudioIcon;
 		case "font":
@@ -111,7 +117,11 @@ export const isValidViewId = (
 	assets: ReadonlyArray<AssetEntry>,
 ): boolean => {
 	const { kind, param } = parseViewId(id);
-	if (kind === "tree" || kind === "inspector") {
+	if (
+		kind === "tree" ||
+		kind === "inspector" ||
+		kind === "asset-browser"
+	) {
 		return true;
 	}
 	if (kind === "scene") {

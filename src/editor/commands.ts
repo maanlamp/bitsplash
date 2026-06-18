@@ -17,7 +17,9 @@ export const createEntity = (
 	const id = world.ecs.createEntity(components);
 	history.push({
 		undo: () => world.ecs.destroyEntity(id),
-		redo: () => world.ecs.createEntity(components, id),
+		redo: () => {
+			world.ecs.createEntity(components, id);
+		},
 	});
 	return id;
 };
@@ -30,7 +32,9 @@ export const deleteEntity = (
 	const components = [...world.ecs.componentsOf(id)];
 	world.ecs.destroyEntity(id);
 	history.push({
-		undo: () => world.ecs.createEntity(components, id),
+		undo: () => {
+			world.ecs.createEntity(components, id);
+		},
 		redo: () => world.ecs.destroyEntity(id),
 	});
 };
@@ -56,7 +60,9 @@ export const duplicateEntity = (
 	deserializeEntity(world, entity);
 	history.push({
 		undo: () => world.ecs.destroyEntity(newId),
-		redo: () => deserializeEntity(world, entity),
+		redo: () => {
+			deserializeEntity(world, entity);
+		},
 	});
 	return newId;
 };

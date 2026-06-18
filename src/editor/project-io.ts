@@ -2,13 +2,15 @@ import type { ProjectRpcSchema } from "../project-rpc";
 
 type Requests = ProjectRpcSchema["bun"]["requests"];
 
+type Call<K extends keyof Requests> =
+	Requests[K]["params"] extends void
+		? () => Promise<Requests[K]["response"]>
+		: (
+				params: Requests[K]["params"],
+			) => Promise<Requests[K]["response"]>;
+
 type DesktopBridge = {
-	saveLevel: (
-		params: Requests["saveLevel"]["params"],
-	) => Promise<Requests["saveLevel"]["response"]>;
-	uploadAsset: (
-		params: Requests["uploadAsset"]["params"],
-	) => Promise<Requests["uploadAsset"]["response"]>;
+	[K in keyof Requests]: Call<K>;
 };
 
 const getBridge = (): DesktopBridge => {
@@ -33,6 +35,9 @@ const blobToBase64 = async (blob: Blob): Promise<string> => {
 	return btoa(binary);
 };
 
+export const fsProtocolUrl = (absolutePath: string): string =>
+	`bitsplash-fs://local/${encodeURIComponent(absolutePath)}`;
+
 export const saveLevel = async (
 	sceneId: string,
 	json: string,
@@ -50,4 +55,46 @@ export const uploadAsset = async (
 		dataBase64: await blobToBase64(data),
 		overwrite,
 	});
+};
+
+export const getAssetsRoot = async (): Promise<string> =>
+	(await getBridge().getAssetsRoot()).path;
+
+export const listDir = (path: string) =>
+	getBridge().listDir({ path });
+
+export const listAssetsDeep = async () =>
+	(await getBridge().listAssetsDeep()).entries;
+
+export const renameEntry = (path: string, newName: string) =>
+	getBridge().rename({ path, newName });
+
+export const makeDir = (parent: string, name: string) =>
+	getBridge().mkdir({ parent, name });
+
+export const deleteEntry = async (path: string): Promise<string> =>
+	(await getBridge().del({ path })).token;
+
+export const restoreEntry = async (token: string): Promise<void> => {
+	await getBridge().restore({ token });
+};
+
+export const openImageDialog = async (): Promise<string | null> =>
+	(await getBridge().openImageDialog()).path;
+
+export const resolveToWebPath = async (
+	absolutePath: string,
+): Promise<string> => {
+	const norm = (value: string) => value.replace(/\\/g, "/");
+	const root = norm(await getAssetsRoot());
+	const path = norm(absolutePath);
+	if (path.startsWith(`${root}/`)) {
+		return `/src/game/assets/${path.slice(root.length + 1)}`;
+	}
+	const name = path.split("/").pop() ?? "asset";
+	const blob = await fetch(fsProtocolUrl(absolutePath)).then(
+		(response) => response.blob(),
+	);
+	const { url } = await uploadAsset(name, blob, false);
+	return url;
 };

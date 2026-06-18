@@ -7,7 +7,8 @@
 			"x": 0,
 			"y": 640
 		},
-		"uiScale": 3
+		"uiScale": 3,
+		"tileset": ""
 	},
 	"tiles": [
 		{
