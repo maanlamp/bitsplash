@@ -19,6 +19,7 @@ import { DebugTagSystem } from "../../engine/systems/debug-tag";
 import { DecorationsRenderSystem } from "../../engine/systems/decorations-render";
 import { PhysicsSystem } from "../../engine/systems/physics";
 import { PhysicsBodySystem } from "../../engine/systems/physics-body";
+import { SpriteAnimationSystem } from "../../engine/systems/sprite-animation";
 import { SpriteRenderSystem } from "../../engine/systems/sprite-render";
 import { TilemapRenderSystem } from "../../engine/systems/tilemap-render";
 import { TimerSystem } from "../../engine/systems/timer";
@@ -50,6 +51,7 @@ import { InteractionSystem } from "../systems/interaction";
 import { ObjectiveRenderSystem } from "../systems/objective-render";
 import { PatrolSystem } from "../systems/patrol";
 import { PickupSystem } from "../systems/pickup";
+import { PlayerAnimationSystem } from "../systems/player-animation";
 import { PlayerInputSystem } from "../systems/player-input";
 import { PlayerMovementStateSystem } from "../systems/player-movement-state";
 import { QuestSystem } from "../systems/quest";
@@ -95,6 +97,8 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new PlayerMovementStateSystem(),
 		new PlayerInputSystem(),
 		new StateMachineSystem(),
+		new PlayerAnimationSystem(),
+		new SpriteAnimationSystem(),
 		new PatrolSystem(),
 		new GroundDetectionSystem(),
 		new PhysicsSystem(),

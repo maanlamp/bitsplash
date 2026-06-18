@@ -1,4 +1,8 @@
-import { SpriteComponent } from "../components/sprite";
+import {
+	SpriteComponent,
+	spriteImageUrl,
+	spriteSource,
+} from "../components/sprite";
 import { TransformComponent } from "../components/transform";
 import { RenderSystem, type RenderContext } from "../system";
 
@@ -14,18 +18,23 @@ export class SpriteRenderSystem implements RenderSystem {
 			SpriteComponent,
 			TransformComponent,
 		)) {
-			const image = assetManager.getImage(sprite.url);
+			const image = assetManager.getImage(spriteImageUrl(sprite));
 			if (!image) {
 				continue;
 			}
+			const source = spriteSource(sprite, image);
 			renderer.drawImage(this.layer, image, {
 				x: transform.position.x,
 				y: transform.position.y,
-				width: sprite.width,
-				height: sprite.height,
+				width: source.width * transform.scale.x,
+				height: source.height * transform.scale.y,
 				rotation: transform.rotation.radians,
 				flipX: sprite.flipX,
 				alpha: sprite.opacity,
+				srcX: source.x,
+				srcY: source.y,
+				srcW: source.width,
+				srcH: source.height,
 			});
 		}
 	}

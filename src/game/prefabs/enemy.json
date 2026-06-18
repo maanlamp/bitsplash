@@ -18,8 +18,8 @@
 		},
 		"PhysicsBody": {
 			"type": "dynamic",
-			"halfWidth": 8,
-			"halfHeight": 8,
+			"halfWidth": 16,
+			"halfHeight": 16,
 			"density": 1,
 			"friction": 0.2,
 			"restitution": 0,
@@ -31,8 +31,6 @@
 		},
 		"Sprite": {
 			"url": "/src/engine/assets/unknown.png",
-			"width": 16,
-			"height": 16,
 			"opacity": 1,
 			"flipX": false
 		},

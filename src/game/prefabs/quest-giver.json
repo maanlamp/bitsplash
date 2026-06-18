@@ -6,9 +6,9 @@
 			"scale": { "$type": "Vector2", "x": 1, "y": 1 }
 		},
 		"PhysicsBody": {
-			"type": "static",
-			"halfWidth": 8,
-			"halfHeight": 8,
+			"type": "dynamic",
+			"halfWidth": 16,
+			"halfHeight": 16,
 			"density": 1,
 			"friction": 0.2,
 			"restitution": 0,
@@ -20,8 +20,6 @@
 		},
 		"Sprite": {
 			"url": "/src/engine/assets/unknown.png",
-			"width": 16,
-			"height": 16,
 			"opacity": 1,
 			"flipX": false
 		},

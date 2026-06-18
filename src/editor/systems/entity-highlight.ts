@@ -20,19 +20,27 @@ export class EntityHighlightSystem implements RenderSystem {
 		this.layer = layer;
 	}
 
-	render({ renderer, ecs }: RenderContext): void {
+	render({ renderer, ecs, assetManager }: RenderContext): void {
 		const zoom = pickActiveCamera2D(ecs)?.zoom ?? 1;
 		const lineWidth = 2 / zoom;
 		const hovered = this.store.hovered;
 		const selected = this.store.selected;
 
 		if (hovered && hovered !== selected) {
-			this.outline(renderer, ecs, hovered, HOVER_STROKE, lineWidth);
+			this.outline(
+				renderer,
+				ecs,
+				assetManager,
+				hovered,
+				HOVER_STROKE,
+				lineWidth,
+			);
 		}
 		if (selected) {
 			this.outline(
 				renderer,
 				ecs,
+				assetManager,
 				selected,
 				SELECTED_STROKE,
 				lineWidth,
@@ -43,11 +51,12 @@ export class EntityHighlightSystem implements RenderSystem {
 	private outline(
 		renderer: Renderer2D,
 		ecs: ReadonlyECS,
+		assetManager: RenderContext["assetManager"],
 		id: EntityId,
 		stroke: string,
 		lineWidth: number,
 	): void {
-		const bounds = entityBounds(ecs, id);
+		const bounds = entityBounds(ecs, id, assetManager);
 		if (!bounds) {
 			return;
 		}

@@ -29,14 +29,14 @@ export class EntityEditorSystem implements UpdateSystem {
 		this.history = history;
 	}
 
-	update({ ecs, input }: UpdateContext): void {
+	update({ ecs, input, assetManager }: UpdateContext): void {
 		const camera = pickActiveCamera2D(ecs);
 		if (!camera) {
 			return;
 		}
 		const world = camera.screenToWorld(input.mouse.position);
 		if (input.mouse.inside) {
-			this.store.setHovered(pickEntityAt(ecs, world));
+			this.store.setHovered(pickEntityAt(ecs, world, assetManager));
 		}
 
 		if (this.store.mode !== "select") {
@@ -50,7 +50,7 @@ export class EntityEditorSystem implements UpdateSystem {
 		const released = !left && this.prevLeft;
 
 		if (pressed) {
-			const hit = pickEntityAt(ecs, world);
+			const hit = pickEntityAt(ecs, world, assetManager);
 			this.store.setSelected(hit);
 			if (hit) {
 				const transform = ecs.getComponent(hit, TransformComponent);

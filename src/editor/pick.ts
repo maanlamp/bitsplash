@@ -1,5 +1,10 @@
+import type AssetManager from "../engine/assets";
 import { PhysicsBodyComponent } from "../engine/components/physics-body";
-import { SpriteComponent } from "../engine/components/sprite";
+import {
+	SpriteComponent,
+	spriteImageUrl,
+	spriteSource,
+} from "../engine/components/sprite";
 import { TransformComponent } from "../engine/components/transform";
 import type { EntityId, ReadonlyECS } from "../engine/ecs";
 import { TILE_SIZE } from "../engine/tile";
@@ -13,6 +18,7 @@ export type EntityBounds = Readonly<{
 export const entityBounds = (
 	ecs: ReadonlyECS,
 	id: EntityId,
+	assetManager?: AssetManager,
 ): EntityBounds | null => {
 	const transform = ecs.getComponent(id, TransformComponent);
 	if (!transform) {
@@ -26,8 +32,12 @@ export const entityBounds = (
 		halfWidth = body.halfWidth;
 		halfHeight = body.halfHeight;
 	} else if (sprite) {
-		halfWidth = sprite.width / 2;
-		halfHeight = sprite.height / 2;
+		const image = assetManager?.getImage(spriteImageUrl(sprite));
+		if (image) {
+			const source = spriteSource(sprite, image);
+			halfWidth = (source.width * transform.scale.x) / 2;
+			halfHeight = (source.height * transform.scale.y) / 2;
+		}
 	}
 	return {
 		center: transform.position.clone(),
@@ -38,11 +48,12 @@ export const entityBounds = (
 export const pickEntityAt = (
 	ecs: ReadonlyECS,
 	world: Vector2,
+	assetManager?: AssetManager,
 ): EntityId | null => {
 	let best: EntityId | null = null;
 	let bestArea = Number.POSITIVE_INFINITY;
 	for (const id of ecs.entities()) {
-		const bounds = entityBounds(ecs, id);
+		const bounds = entityBounds(ecs, id, assetManager);
 		if (!bounds) {
 			continue;
 		}

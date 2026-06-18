@@ -1,5 +1,9 @@
 import { RigidbodyComponent } from "../components/rigidbody";
-import { SpriteComponent } from "../components/sprite";
+import {
+	SpriteComponent,
+	spriteImageUrl,
+	spriteSource,
+} from "../components/sprite";
 import { TransformComponent } from "../components/transform";
 import { resolveFont } from "../resolve-font";
 import { type RenderContext, RenderSystem } from "../system";
@@ -23,9 +27,17 @@ export class DebugTagSystem implements RenderSystem {
 			}
 			const body = ecs.getComponent(id, RigidbodyComponent);
 			const sprite = ecs.getComponent(id, SpriteComponent);
+			let spriteHeight = 0;
+			if (sprite) {
+				const image = assetManager.getImage(spriteImageUrl(sprite));
+				if (image) {
+					spriteHeight =
+						spriteSource(sprite, image).height * transform.scale.y;
+				}
+			}
 			const top =
 				transform.position.y -
-				(sprite?.height ?? body?.halfExtents.y ?? 0) -
+				(spriteHeight || body?.halfExtents.y || 0) -
 				4;
 
 			renderer.drawText(

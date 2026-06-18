@@ -1,4 +1,8 @@
-import { SpriteComponent } from "../../engine/components/sprite";
+import {
+	SpriteComponent,
+	spriteImageUrl,
+	spriteSource,
+} from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
 import { resolveFont } from "../../engine/resolve-font";
 import {
@@ -40,24 +44,27 @@ export class InteractHintRenderSystem implements RenderSystem {
 			return;
 		}
 		const sprite = ecs.getComponent(inRange, SpriteComponent);
+		let spriteHalfHeight = 0;
 		if (sprite) {
-			const image = assetManager.getImage(sprite.url);
+			const image = assetManager.getImage(spriteImageUrl(sprite));
 			if (image) {
+				const source = spriteSource(sprite, image);
+				const height = source.height * transform.scale.y;
 				renderer.drawImageOutline(this.outlineLayer, image, {
 					x: transform.position.x,
 					y: transform.position.y,
-					width: sprite.width,
-					height: sprite.height,
+					width: source.width * transform.scale.x,
+					height,
 					rotation: transform.rotation.radians,
 				});
+				spriteHalfHeight = height / 2;
 			}
 		}
 		const font = resolveFont(interactable.font, assetManager);
 		if (!font) {
 			return;
 		}
-		const top =
-			transform.position.y - (sprite ? sprite.height / 2 : 0) - 4;
+		const top = transform.position.y - spriteHalfHeight - 4;
 
 		renderer.drawText(
 			this.layer,
