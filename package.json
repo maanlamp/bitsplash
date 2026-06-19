@@ -15,7 +15,7 @@
 		"@phosphor-icons/react": "2.1.10",
 		"classnames": "2.5.1",
 		"colorjs.io": "0.6.1",
-		"electron": "^42.4.1",
+		"electron": "42.4.1",
 		"fflate": "0.8.3",
 		"inkjs": "2.4.0",
 		"motion": "12.40.0",

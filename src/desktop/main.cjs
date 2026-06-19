@@ -181,18 +181,6 @@ ipcMain.handle("openImageDialog", async () => {
 	return { path: result.filePaths[0] };
 });
 
-const waitForDevServer = async () => {
-	for (let attempt = 0; attempt < 200; attempt++) {
-		try {
-			await fetch(DEV_URL, { method: "HEAD" });
-			return true;
-		} catch {
-			await new Promise((done) => setTimeout(done, 150));
-		}
-	}
-	return false;
-};
-
 const createWindow = async () => {
 	Menu.setApplicationMenu(null);
 	protocol.handle(FS_SCHEME, (request) => {
@@ -203,8 +191,8 @@ const createWindow = async () => {
 		return net.fetch(pathToFileURL(filePath).toString());
 	});
 	const window = new BrowserWindow({
-		width: 1400,
-		height: 900,
+		width: 1280,
+		height: 720,
 		backgroundColor: "#030303",
 		titleBarStyle: "hidden",
 		titleBarOverlay: {
@@ -219,13 +207,8 @@ const createWindow = async () => {
 			zoomFactor: 2 / 3,
 		},
 	});
-	if (await waitForDevServer()) {
-		await window.loadURL(DEV_URL);
-	} else {
-		await window.loadFile(
-			path.join(PROJECT_ROOT, "dist", "index.html"),
-		);
-	}
+
+	void window.loadURL(DEV_URL);
 };
 
 void app.whenReady().then(createWindow);
