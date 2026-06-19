@@ -13,6 +13,7 @@ export class SpriteAnimationSystem implements UpdateSystem {
 				sprite.playing = sprite.current;
 				sprite.frame = 0;
 				sprite.elapsed = 0;
+				sprite.finished = false;
 			}
 
 			if (clip.fps <= 0 || clip.frameCount <= 1) {
@@ -23,9 +24,17 @@ export class SpriteAnimationSystem implements UpdateSystem {
 			const frameDuration = 1 / clip.fps;
 			while (sprite.elapsed >= frameDuration) {
 				sprite.elapsed -= frameDuration;
-				sprite.frame = clip.loop
-					? (sprite.frame + 1) % clip.frameCount
-					: Math.min(sprite.frame + 1, clip.frameCount - 1);
+				if (clip.loop) {
+					sprite.frame = (sprite.frame + 1) % clip.frameCount;
+				} else {
+					sprite.frame = Math.min(
+						sprite.frame + 1,
+						clip.frameCount - 1,
+					);
+					if (sprite.frame === clip.frameCount - 1) {
+						sprite.finished = true;
+					}
+				}
 			}
 		}
 	}

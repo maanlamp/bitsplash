@@ -54,6 +54,10 @@ export class PlayerInputSystem implements UpdateSystem {
 
 			const onWall =
 				!state.grounded && dir !== 0 && this.touchingWall(rb, dir);
+			state.onWall = onWall && player.canWallSlide;
+			if (state.grounded || onWall) {
+				state.wallJumping = false;
+			}
 
 			this.handleJump(input, player, state, rb, newVx, onWall, dir);
 			this.handleWallSlide(player, rb, onWall);
@@ -137,7 +141,9 @@ export class PlayerInputSystem implements UpdateSystem {
 				: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
 			rb.body.setLinearVelocity({ x: launchVx, y: -speed });
-			if (!wallJump) {
+			if (wallJump) {
+				state.wallJumping = true;
+			} else {
 				state.jumpsRemaining -= 1;
 			}
 			state.jumping = state.grounded;

@@ -198,12 +198,6 @@
 			"h": 1
 		},
 		{
-			"x": 39,
-			"y": 7,
-			"w": 1,
-			"h": 1
-		},
-		{
 			"x": 46,
 			"y": 7,
 			"w": 4,
@@ -240,12 +234,6 @@
 			"h": 1
 		},
 		{
-			"x": 38,
-			"y": 8,
-			"w": 2,
-			"h": 1
-		},
-		{
 			"x": 46,
 			"y": 8,
 			"w": 2,
@@ -267,12 +255,6 @@
 			"x": 24,
 			"y": 9,
 			"w": 3,
-			"h": 1
-		},
-		{
-			"x": 38,
-			"y": 9,
-			"w": 2,
 			"h": 1
 		},
 		{
@@ -307,18 +289,6 @@
 		},
 		{
 			"x": 25,
-			"y": 10,
-			"w": 2,
-			"h": 1
-		},
-		{
-			"x": 31,
-			"y": 10,
-			"w": 2,
-			"h": 1
-		},
-		{
-			"x": 38,
 			"y": 10,
 			"w": 2,
 			"h": 1
@@ -366,12 +336,6 @@
 			"h": 1
 		},
 		{
-			"x": 30,
-			"y": 11,
-			"w": 11,
-			"h": 1
-		},
-		{
 			"x": 46,
 			"y": 11,
 			"w": 3,
@@ -414,9 +378,9 @@
 			"h": 1
 		},
 		{
-			"x": 31,
+			"x": 36,
 			"y": 12,
-			"w": 9,
+			"w": 8,
 			"h": 1
 		},
 		{
@@ -446,19 +410,7 @@
 		{
 			"x": 33,
 			"y": 13,
-			"w": 1,
-			"h": 1
-		},
-		{
-			"x": 35,
-			"y": 13,
-			"w": 4,
-			"h": 1
-		},
-		{
-			"x": 44,
-			"y": 13,
-			"w": 11,
+			"w": 22,
 			"h": 1
 		},
 		{
@@ -481,12 +433,6 @@
 		},
 		{
 			"x": 22,
-			"y": 14,
-			"w": 1,
-			"h": 1
-		},
-		{
-			"x": 37,
 			"y": 14,
 			"w": 1,
 			"h": 1
@@ -531,12 +477,6 @@
 			"x": 28,
 			"y": 15,
 			"w": 2,
-			"h": 1
-		},
-		{
-			"x": 38,
-			"y": 15,
-			"w": 1,
 			"h": 1
 		},
 		{
@@ -1972,7 +1912,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall jump",
@@ -2028,7 +1969,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2084,7 +2026,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2140,7 +2083,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -2196,7 +2140,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2252,7 +2197,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2308,7 +2254,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -2364,7 +2311,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2420,7 +2368,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2476,7 +2425,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -2532,7 +2482,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2588,7 +2539,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2608,8 +2560,8 @@
 				"Transform": {
 					"position": {
 						"$type": "Vector2",
-						"x": 1120,
-						"y": 320
+						"x": 1040,
+						"y": 112
 					},
 					"rotation": {
 						"$type": "Angle",
@@ -2644,7 +2596,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -2700,7 +2653,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2756,7 +2710,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2812,7 +2767,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -2868,7 +2824,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra jump",
@@ -2924,7 +2881,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Wall slide",
@@ -2980,7 +2938,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"DebugTag": {
 					"label": "Extra speed",
@@ -3030,7 +2989,8 @@
 				"Sprite": {
 					"url": "/src/game/assets/signpost.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				}
 			}
 		},
@@ -3073,7 +3033,8 @@
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				}
 			}
 		},
@@ -3116,7 +3077,8 @@
 				"Sprite": {
 					"url": "/src/game/assets/target-dummy.png",
 					"opacity": 1,
-					"flipX": false
+					"flipX": false,
+					"clips": {}
 				},
 				"Health": {
 					"hp": 100,

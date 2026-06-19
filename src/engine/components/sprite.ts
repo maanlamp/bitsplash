@@ -38,6 +38,7 @@ export class SpriteComponent {
 	@skip() playing: string = "";
 	@skip() elapsed: number = 0;
 	@skip() frame: number = 0;
+	@skip() finished: boolean = false;
 
 	constructor(
 		url: string = unknownSrc,
