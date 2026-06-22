@@ -6,7 +6,6 @@ import {
 	Fragment,
 	useEffect,
 	useReducer,
-	useRef,
 	useState,
 	type ReactNode,
 } from "react";
@@ -28,6 +27,7 @@ import type { EditorState } from "./editor-state";
 import type { History } from "./history";
 import { ImageField } from "./image-field";
 import styles from "./inspector.module.scss";
+import { openFileDialog, resolveToWebPath } from "./project-io";
 import type { SceneDocument } from "./scene-document";
 import controls from "./styles/controls.module.scss";
 import surface from "./styles/surface.module.scss";
@@ -220,12 +220,15 @@ const FileField = ({
 	invalid?: boolean;
 	onCommit: (s: string) => void;
 }>) => {
-	const ref = useRef<HTMLInputElement>(null);
 	return (
 		<button
 			type="button"
 			onClick={() => {
-				ref.current?.click();
+				void openFileDialog(accept).then((path) => {
+					if (path) {
+						void resolveToWebPath(path).then(onCommit);
+					}
+				});
 			}}
 			aria-label="Select file"
 			className={classNames(
@@ -236,27 +239,6 @@ const FileField = ({
 			<span className={value ? undefined : styles.filePlaceholder}>
 				{value || "Choose a file…"}
 			</span>
-			<input
-				ref={ref}
-				type="file"
-				className={styles.fileInput}
-				accept={accept}
-				onChange={async (e) => {
-					const file = e.target.files?.[0];
-					if (!file) {
-						return;
-					}
-					// TODO: This violates our import polarity policy.
-					// TODO: This also should not hardcode ../game/assets at all.
-					// I want this to be able to import ANY file. We can POST
-					// the file to the vite dev server to get arbitrary FS access,
-					// but idk what the next step would be.
-					const BAD_URL_THAT_VIOLATES_IMPORT_POLICY = await import(
-						`../game/assets/${file.name}?url`
-					).then((mod) => mod["default"]);
-					onCommit(BAD_URL_THAT_VIOLATES_IMPORT_POLICY);
-				}}
-			/>
 		</button>
 	);
 };

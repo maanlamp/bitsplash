@@ -82,6 +82,11 @@ export const restoreEntry = async (token: string): Promise<void> => {
 export const openImageDialog = async (): Promise<string | null> =>
 	(await getBridge().openImageDialog()).path;
 
+export const openFileDialog = async (
+	accept: string,
+): Promise<string | null> =>
+	(await getBridge().openFileDialog({ accept })).path;
+
 export const resolveToWebPath = async (
 	absolutePath: string,
 ): Promise<string> => {

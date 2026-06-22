@@ -112,17 +112,6 @@
 	@include f.field-input;
 }
 
-.fileInput {
-	position: absolute;
-	left: -1px;
-	top: -1px;
-	width: 1px;
-	height: 1px;
-	opacity: 0;
-	pointer-events: none;
-	user-select: none;
-}
-
 .vec2 {
 	display: flex;
 	flex: 1;

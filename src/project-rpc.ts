@@ -66,6 +66,10 @@ export type ProjectRpcSchema = {
 				params: void;
 				response: { path: string | null };
 			};
+			openFileDialog: {
+				params: { accept: string };
+				response: { path: string | null };
+			};
 		};
 		messages: Record<string, never>;
 	};

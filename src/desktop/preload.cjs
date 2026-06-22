@@ -12,4 +12,6 @@ contextBridge.exposeInMainWorld("bitsplashDesktop", {
 	del: (payload) => ipcRenderer.invoke("del", payload),
 	restore: (payload) => ipcRenderer.invoke("restore", payload),
 	openImageDialog: () => ipcRenderer.invoke("openImageDialog"),
+	openFileDialog: (payload) =>
+		ipcRenderer.invoke("openFileDialog", payload),
 });

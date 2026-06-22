@@ -181,6 +181,23 @@ ipcMain.handle("openImageDialog", async () => {
 	return { path: result.filePaths[0] };
 });
 
+ipcMain.handle("openFileDialog", async (_event, { accept }) => {
+	const extensions = String(accept ?? "")
+		.split(",")
+		.map((part) => part.trim().replace(/^\./, ""))
+		.map((part) => part.split(".").pop())
+		.filter(Boolean);
+	const result = await dialog.showOpenDialog({
+		properties: ["openFile"],
+		defaultPath: ASSETS_DIR,
+		filters: extensions.length ? [{ name: "Files", extensions }] : [],
+	});
+	if (result.canceled || result.filePaths.length === 0) {
+		return { path: null };
+	}
+	return { path: result.filePaths[0] };
+});
+
 const createWindow = async () => {
 	Menu.setApplicationMenu(null);
 	protocol.handle(FS_SCHEME, (request) => {
