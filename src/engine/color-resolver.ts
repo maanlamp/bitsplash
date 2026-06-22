@@ -1,21 +1,14 @@
+import Color from "colorjs.io";
+
 export type RGBA = readonly [number, number, number, number];
 
 export type ColorInput = string | RGBA;
 
-export class ColorResolver {
-	private ctx: CanvasRenderingContext2D;
-	private cache = new Map<string, RGBA>();
+const clamp01 = (value: number | null): number =>
+	Math.max(0, Math.min(1, value ?? 0));
 
-	constructor() {
-		const canvas = document.createElement("canvas");
-		canvas.width = 1;
-		canvas.height = 1;
-		const ctx = canvas.getContext("2d", { willReadFrequently: true });
-		if (!ctx) {
-			throw new Error("Failed to get color-resolver context.");
-		}
-		this.ctx = ctx;
-	}
+export class ColorResolver {
+	private cache = new Map<string, RGBA>();
 
 	resolve(input: ColorInput): RGBA {
 		if (typeof input !== "string") {
@@ -25,12 +18,19 @@ export class ColorResolver {
 		if (cached) {
 			return cached;
 		}
-		const ctx = this.ctx;
-		ctx.clearRect(0, 0, 1, 1);
-		ctx.fillStyle = input;
-		ctx.fillRect(0, 0, 1, 1);
-		const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
-		const rgba: RGBA = [r! / 255, g! / 255, b! / 255, a! / 255];
+		let rgba: RGBA;
+		try {
+			const color = new Color(input).to("srgb");
+			const [r, g, b] = color.coords;
+			rgba = [
+				clamp01(r),
+				clamp01(g),
+				clamp01(b),
+				clamp01(color.alpha),
+			];
+		} catch {
+			rgba = [0, 0, 0, 1];
+		}
 		this.cache.set(input, rgba);
 		return rgba;
 	}

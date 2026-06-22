@@ -41,17 +41,12 @@ export const chromaInGamut = (
 	if (oklchInGamut(l, c, h)) {
 		return c;
 	}
-	let lo = 0;
-	let hi = c;
-	for (let i = 0; i < 20; i++) {
-		const mid = (lo + hi) / 2;
-		if (oklchInGamut(l, mid, h)) {
-			lo = mid;
-		} else {
-			hi = mid;
-		}
-	}
-	return lo;
+	const mapped = new Color("oklch", [l, c, h]).toGamut({
+		space: "srgb",
+		method: "oklch.c",
+		jnd: 0,
+	});
+	return num(mapped.coords[1]);
 };
 
 export const rgbToOklch = (
