@@ -53,7 +53,6 @@ import { PatrolSystem } from "../systems/patrol";
 import { PickupSystem } from "../systems/pickup";
 import { PlayerAnimationSystem } from "../systems/player-animation";
 import { PlayerInputSystem } from "../systems/player-input";
-import { PlayerMovementStateSystem } from "../systems/player-movement-state";
 import { QuestSystem } from "../systems/quest";
 import { QuestNoticeSystem } from "../systems/quest-notice";
 import { QuestNoticeRenderSystem } from "../systems/quest-notice-render";
@@ -94,7 +93,6 @@ registerScene("platformer", ({ config, name }): Scene => {
 
 	const gameplaySystems = [
 		new PhysicsBodySystem(),
-		new PlayerMovementStateSystem(),
 		new PlayerInputSystem(),
 		new StateMachineSystem(),
 		new PlayerAnimationSystem(),

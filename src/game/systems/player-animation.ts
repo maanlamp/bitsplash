@@ -8,7 +8,6 @@ import {
 } from "../../engine/system";
 import type { World } from "../../engine/world";
 import { PlayerInputComponent } from "../components/player-input";
-import { PlayerMovementStateComponent } from "../components/player-movement-state";
 import { InputBindings } from "../input-bindings";
 
 const AIRBORNE = new Set(["fall", "jump", "walljump", "wallslide"]);
@@ -16,9 +15,8 @@ const LANDING_LOOKAHEAD = 0.15;
 
 export class PlayerAnimationSystem implements UpdateSystem {
 	update({ ecs, input, world }: UpdateContext): void {
-		for (const [, , state, rb, sm, sprite] of ecs.query(
+		for (const [, player, rb, sm, sprite] of ecs.query(
 			PlayerInputComponent,
-			PlayerMovementStateComponent,
 			RigidbodyComponent,
 			StateMachineComponent,
 			SpriteComponent,
@@ -35,7 +33,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			const pos = rb.body.getPosition();
 			const nearGround =
 				vy > 0 &&
-				!state.grounded &&
+				!player.grounded &&
 				this.groundBelow(
 					world,
 					rb.body,
@@ -44,33 +42,33 @@ export class PlayerAnimationSystem implements UpdateSystem {
 					rb.halfExtents.y + vy * LANDING_LOOKAHEAD,
 				);
 
-			if (state.grounded) {
-				state.canLand = true;
+			if (player.grounded) {
+				player.canLand = true;
 			}
 			if (
-				(state.canLand && nearGround) ||
-				(state.grounded && AIRBORNE.has(sm.current))
+				(player.canLand && nearGround) ||
+				(player.grounded && AIRBORNE.has(sm.current))
 			) {
-				state.landing = true;
-				state.canLand = false;
+				player.landing = true;
+				player.canLand = false;
 			}
 			if (vy < 0) {
-				state.landing = false;
+				player.landing = false;
 			} else if (
-				state.landing &&
+				player.landing &&
 				sm.current === "land" &&
 				sprite.finished &&
-				(state.grounded || !nearGround)
+				(player.grounded || !nearGround)
 			) {
-				state.landing = false;
+				player.landing = false;
 			}
 
-			sm.params.grounded = state.grounded;
+			sm.params.grounded = player.grounded;
 			sm.params.vy = vy;
 			sm.params.dir = dir;
-			sm.params.onWall = state.onWall;
-			sm.params.wallJumping = state.wallJumping;
-			sm.params.landing = state.landing;
+			sm.params.onWall = player.onWall;
+			sm.params.wallJumping = player.wallJumping;
+			sm.params.landing = player.landing;
 
 			sprite.current = sm.current || sm.def?.initial || "idle";
 

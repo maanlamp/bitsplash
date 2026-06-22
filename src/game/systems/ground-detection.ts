@@ -3,12 +3,12 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { PlayerMovementStateComponent } from "../components/player-movement-state";
+import { PlayerInputComponent } from "../components/player-input";
 
 export class GroundDetectionSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
-		for (const [, state, rb] of ecs.query(
-			PlayerMovementStateComponent,
+		for (const [, player, rb] of ecs.query(
+			PlayerInputComponent,
 			RigidbodyComponent,
 		)) {
 			let grounded = false;
@@ -32,7 +32,7 @@ export class GroundDetectionSystem implements UpdateSystem {
 					break;
 				}
 			}
-			state.grounded = grounded;
+			player.grounded = grounded;
 		}
 	}
 }

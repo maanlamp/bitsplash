@@ -18,6 +18,15 @@ export class PlayerInputComponent {
 	@serialize() canWallSlide: boolean = false;
 	@serialize() canWallJump: boolean = false;
 
+	grounded: boolean = false;
+	jumping: boolean = false;
+	jumpWasHeld: boolean = false;
+	onWall: boolean = false;
+	wallJumping: boolean = false;
+	landing: boolean = false;
+	canLand: boolean = true;
+	jumpsRemaining: number = 0;
+
 	constructor(
 		maxSpeed: number = 3 * TILE_SIZE,
 		acceleration: number = 80 * TILE_SIZE,
@@ -36,5 +45,6 @@ export class PlayerInputComponent {
 		this.minJumpSpeed = minJumpSpeed;
 		this.airJumpSpeed = airJumpSpeed;
 		this.maxJumps = maxJumps;
+		this.jumpsRemaining = maxJumps;
 	}
 }

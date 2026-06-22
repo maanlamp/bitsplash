@@ -6,7 +6,6 @@ import {
 } from "../../engine/system";
 import Vector2 from "../../engine/vector2";
 import { PlayerInputComponent } from "../components/player-input";
-import { PlayerMovementStateComponent } from "../components/player-movement-state";
 import { InputBindings } from "../input-bindings";
 
 const approach = (
@@ -28,9 +27,8 @@ export class PlayerInputSystem implements UpdateSystem {
 			return;
 		}
 		const s = dt / 1000;
-		for (const [, player, state, rb] of ecs.query(
+		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
-			PlayerMovementStateComponent,
 			RigidbodyComponent,
 		)) {
 			let dir = 0;
@@ -42,7 +40,7 @@ export class PlayerInputSystem implements UpdateSystem {
 			}
 
 			const vel = rb.linearVelocity;
-			const control = state.grounded ? 1 : player.airControl;
+			const control = player.grounded ? 1 : player.airControl;
 			const targetVx = dir * player.maxSpeed;
 			const rate =
 				(dir !== 0 ? player.acceleration : player.deceleration) *
@@ -53,13 +51,13 @@ export class PlayerInputSystem implements UpdateSystem {
 			);
 
 			const onWall =
-				!state.grounded && dir !== 0 && this.touchingWall(rb, dir);
-			state.onWall = onWall && player.canWallSlide;
-			if (state.grounded || onWall) {
-				state.wallJumping = false;
+				!player.grounded && dir !== 0 && this.touchingWall(rb, dir);
+			player.onWall = onWall && player.canWallSlide;
+			if (player.grounded || onWall) {
+				player.wallJumping = false;
 			}
 
-			this.handleJump(input, player, state, rb, newVx, onWall, dir);
+			this.handleJump(input, player, rb, newVx, onWall, dir);
 			this.handleWallSlide(player, rb, onWall);
 		}
 	}
@@ -109,57 +107,56 @@ export class PlayerInputSystem implements UpdateSystem {
 	private handleJump(
 		input: Input,
 		player: PlayerInputComponent,
-		state: PlayerMovementStateComponent,
 		rb: RigidbodyComponent,
 		vx: number,
 		onWall: boolean,
 		dir: number,
 	): void {
 		if (
-			state.grounded &&
-			!state.jumping &&
+			player.grounded &&
+			!player.jumping &&
 			rb.linearVelocity.y >= 0
 		) {
-			state.jumpsRemaining = player.maxJumps;
+			player.jumpsRemaining = player.maxJumps;
 		} else if (
-			!state.grounded &&
-			state.jumpsRemaining === player.maxJumps
+			!player.grounded &&
+			player.jumpsRemaining === player.maxJumps
 		) {
-			state.jumpsRemaining = player.maxJumps - 1;
+			player.jumpsRemaining = player.maxJumps - 1;
 		}
 
 		const jumpHeld = !!input.keyboard.keys[InputBindings.jump];
-		const jumpPressed = jumpHeld && !state.jumpWasHeld;
-		state.jumpWasHeld = jumpHeld;
+		const jumpPressed = jumpHeld && !player.jumpWasHeld;
+		player.jumpWasHeld = jumpHeld;
 
 		const wallJump =
 			onWall && player.canWallSlide && player.canWallJump;
 
-		if (jumpPressed && (state.jumpsRemaining > 0 || wallJump)) {
-			const speed = state.grounded
+		if (jumpPressed && (player.jumpsRemaining > 0 || wallJump)) {
+			const speed = player.grounded
 				? player.maxJumpSpeed
 				: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
 			rb.body.setLinearVelocity({ x: launchVx, y: -speed });
 			if (wallJump) {
-				state.wallJumping = true;
+				player.wallJumping = true;
 			} else {
-				state.jumpsRemaining -= 1;
+				player.jumpsRemaining -= 1;
 			}
-			state.jumping = state.grounded;
+			player.jumping = player.grounded;
 			return;
 		}
 
-		if (!state.jumping) {
+		if (!player.jumping) {
 			return;
 		}
 
 		const vy = rb.linearVelocity.y;
 		if (vy >= 0) {
-			state.jumping = false;
+			player.jumping = false;
 		} else if (!jumpHeld && vy < -player.minJumpSpeed) {
 			rb.body.setLinearVelocity({ x: vx, y: -player.minJumpSpeed });
-			state.jumping = false;
+			player.jumping = false;
 		}
 	}
 }
