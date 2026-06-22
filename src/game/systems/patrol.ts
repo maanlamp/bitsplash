@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
 	type UpdateContext,
@@ -11,9 +11,12 @@ export class PatrolSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
 		for (const [, patrol, rb, sm] of ecs.query(
 			PatrolComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 			StateMachineComponent,
 		)) {
+			if (!rb.body) {
+				continue;
+			}
 			sm.params.elapsed = sm.elapsed;
 			sm.params.interval = patrol.interval;
 

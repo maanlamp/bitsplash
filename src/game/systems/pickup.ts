@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import { TransformComponent } from "../../engine/components/transform";
 import { CollisionEvent } from "../../engine/events";
 import {
@@ -51,7 +51,7 @@ export class PickupSystem implements UpdateSystem {
 		for (const [id, pickup, transform, rigidBody] of ecs.query(
 			PickupComponent,
 			TransformComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 		)) {
 			const dist = transform.position.distanceTo(target);
 
@@ -62,7 +62,7 @@ export class PickupSystem implements UpdateSystem {
 				continue;
 			}
 
-			if (dist <= PICKUP_MAGNET_RADIUS) {
+			if (dist <= PICKUP_MAGNET_RADIUS && rigidBody.body) {
 				const t = 1 - dist / PICKUP_MAGNET_RADIUS;
 				const speed =
 					PICKUP_MAGNET_MIN_SPEED +

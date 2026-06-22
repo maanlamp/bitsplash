@@ -18,7 +18,6 @@ import { CameraShakeSystem } from "../../engine/systems/camera-shake";
 import { DebugTagSystem } from "../../engine/systems/debug-tag";
 import { DecorationsRenderSystem } from "../../engine/systems/decorations-render";
 import { PhysicsSystem } from "../../engine/systems/physics";
-import { PhysicsBodySystem } from "../../engine/systems/physics-body";
 import { SpriteAnimationSystem } from "../../engine/systems/sprite-animation";
 import { SpriteRenderSystem } from "../../engine/systems/sprite-render";
 import { TilemapRenderSystem } from "../../engine/systems/tilemap-render";
@@ -92,7 +91,6 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 
 	const gameplaySystems = [
-		new PhysicsBodySystem(),
 		new PlayerInputSystem(),
 		new StateMachineSystem(),
 		new PlayerAnimationSystem(),

@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -9,8 +9,11 @@ export class GroundDetectionSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
 		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 		)) {
+			if (!rb.body) {
+				continue;
+			}
 			let grounded = false;
 			for (
 				let edge = rb.body.getContactList();

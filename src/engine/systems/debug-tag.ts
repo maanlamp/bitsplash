@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../components/rigidbody";
+import { PhysicsBodyComponent } from "../components/physics-body";
 import {
 	SpriteComponent,
 	spriteImageUrl,
@@ -25,7 +25,7 @@ export class DebugTagSystem implements RenderSystem {
 			if (!font) {
 				return;
 			}
-			const body = ecs.getComponent(id, RigidbodyComponent);
+			const phys = ecs.getComponent(id, PhysicsBodyComponent);
 			const sprite = ecs.getComponent(id, SpriteComponent);
 			let spriteHeight = 0;
 			if (sprite) {
@@ -37,7 +37,7 @@ export class DebugTagSystem implements RenderSystem {
 			}
 			const top =
 				transform.position.y -
-				(spriteHeight || body?.halfExtents.y || 0) -
+				(spriteHeight || (phys?.body ? phys.halfExtents.y : 0)) -
 				4;
 
 			renderer.drawText(

@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -15,8 +15,8 @@ export class TileUnstuckSystem implements UpdateSystem {
 	}
 
 	update({ ecs }: UpdateContext): void {
-		for (const [, rb] of ecs.query(RigidbodyComponent)) {
-			if (rb.body.isStatic()) {
+		for (const [, rb] of ecs.query(PhysicsBodyComponent)) {
+			if (!rb.body || rb.body.isStatic()) {
 				continue;
 			}
 			const pos = rb.body.getPosition();
@@ -44,8 +44,8 @@ export class TileUnstuckSystem implements UpdateSystem {
 		}
 	}
 
-	private setSensor(rb: RigidbodyComponent, sensor: boolean): void {
-		for (let f = rb.body.getFixtureList(); f; f = f.getNext()) {
+	private setSensor(rb: PhysicsBodyComponent, sensor: boolean): void {
+		for (let f = rb.body!.getFixtureList(); f; f = f.getNext()) {
 			if (f.isSensor() !== sensor) {
 				f.setSensor(sensor);
 			}

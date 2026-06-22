@@ -1,7 +1,7 @@
 import type { Camera2D } from "../camera-2d";
 import { Camera2DComponent } from "../components/camera-2d";
 import { Camera2DFollowComponent } from "../components/camera-2d-follow";
-import { RigidbodyComponent } from "../components/rigidbody";
+import { PhysicsBodyComponent } from "../components/physics-body";
 import { TransformComponent } from "../components/transform";
 import type { ECS, EntityId } from "../ecs";
 import { type UpdateContext, UpdateSystem } from "../system";
@@ -144,8 +144,8 @@ export class Camera2DFollowSystem implements UpdateSystem {
 		const sum = Vector2.zero();
 		let count = 0;
 		for (const id of targets) {
-			const rb = ecs.getComponent(id, RigidbodyComponent);
-			if (rb) {
+			const rb = ecs.getComponent(id, PhysicsBodyComponent);
+			if (rb?.body) {
 				sum.add(rb.linearVelocity);
 				count += 1;
 			}

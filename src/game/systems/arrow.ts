@@ -1,5 +1,5 @@
 import type { Body } from "planck";
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
 import type { EntityId } from "../../engine/ecs";
@@ -33,9 +33,12 @@ export class ArrowSystem implements UpdateSystem {
 		for (const [id, arrow, transform, rb, sprite] of ecs.query(
 			ArrowComponent,
 			TransformComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 			SpriteComponent,
 		)) {
+			if (!rb.body) {
+				continue;
+			}
 			if (!arrow.launched) {
 				rb.linearVelocity = Vector2.fromAngle(arrow.aimAngle).mul(
 					arrow.speed,
@@ -112,36 +115,37 @@ export class ArrowSystem implements UpdateSystem {
 
 	private stick(
 		arrow: ArrowComponent,
-		rb: RigidbodyComponent,
+		rb: PhysicsBodyComponent,
 		point: Vector2,
 		direction: Vector2,
 		attachedTo: EntityId | null,
 	): void {
+		const body = rb.body!;
 		arrow.stuck = true;
 		arrow.attachedTo = attachedTo;
 		arrow.stuckRemaining = arrow.stuckLifetime;
 		const center = point
 			.clone()
 			.sub(direction.clone().mul(ARROW_REACH - EMBED_DEPTH));
-		rb.body.setTransform(
+		body.setTransform(
 			{ x: center.x, y: center.y },
 			direction.angle(),
 		);
-		rb.body.setLinearVelocity({ x: 0, y: 0 });
-		rb.body.setAngularVelocity(0);
-		rb.body.setStatic();
+		body.setLinearVelocity({ x: 0, y: 0 });
+		body.setAngularVelocity(0);
+		body.setStatic();
 	}
 
 	private resume(
 		arrow: ArrowComponent,
-		rb: RigidbodyComponent,
+		rb: PhysicsBodyComponent,
 		sprite: SpriteComponent,
 	): void {
 		arrow.stuck = false;
 		arrow.attachedTo = null;
 		sprite.opacity = 1;
-		rb.body.setDynamic();
-		rb.body.setAwake(true);
+		rb.body!.setDynamic();
+		rb.body!.setAwake(true);
 	}
 
 	private raycast(

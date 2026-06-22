@@ -1,8 +1,17 @@
+import { AABB, type Body, Transform } from "planck";
 import {
 	serializable,
 	serialize,
 } from "../serialization/serializable";
-import { RIGID_BODY_TYPES, type RigidBodyType } from "../world";
+import Vector2 from "../vector2";
+
+export const RIGID_BODY_TYPES = [
+	"static",
+	"dynamic",
+	"kinematic",
+] as const;
+
+export type RigidBodyType = (typeof RIGID_BODY_TYPES)[number];
 
 @serializable("PhysicsBody")
 export class PhysicsBodyComponent {
@@ -22,6 +31,9 @@ export class PhysicsBodyComponent {
 	@serialize() sensor: boolean;
 	@serialize() offsetX: number;
 	@serialize() offsetY: number;
+
+	body: Body | null = null;
+	private cachedHalfExtents: Vector2 | null = null;
 
 	constructor(
 		type: RigidBodyType = "dynamic",
@@ -55,5 +67,47 @@ export class PhysicsBodyComponent {
 		this.sensor = sensor;
 		this.offsetX = offsetX;
 		this.offsetY = offsetY;
+	}
+
+	get linearVelocity(): Vector2 {
+		const v = this.body!.getLinearVelocity();
+		return new Vector2(v.x, v.y);
+	}
+
+	set linearVelocity(v: Vector2) {
+		this.body!.setLinearVelocity({ x: v.x, y: v.y });
+	}
+
+	get halfExtents(): Vector2 {
+		if (this.cachedHalfExtents) {
+			return this.cachedHalfExtents;
+		}
+		const local = new AABB();
+		const fixtureBounds = new AABB();
+		const identity = Transform.identity();
+		let first = true;
+		for (let f = this.body!.getFixtureList(); f; f = f.getNext()) {
+			f.getShape().computeAABB(fixtureBounds, identity, 0);
+			if (first) {
+				local.set(fixtureBounds);
+				first = false;
+			} else {
+				local.combine(local, fixtureBounds);
+			}
+		}
+		const e = local.getExtents();
+		this.cachedHalfExtents = new Vector2(e.x, e.y);
+		return this.cachedHalfExtents;
+	}
+
+	applyForce(v: Vector2): void {
+		this.body!.applyForceToCenter({ x: v.x, y: v.y });
+	}
+
+	applyImpulse(v: Vector2): void {
+		this.body!.applyLinearImpulse(
+			{ x: v.x, y: v.y },
+			this.body!.getWorldCenter(),
+		);
 	}
 }

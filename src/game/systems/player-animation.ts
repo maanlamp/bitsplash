@@ -1,5 +1,5 @@
 import type { Body } from "planck";
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
@@ -17,10 +17,13 @@ export class PlayerAnimationSystem implements UpdateSystem {
 	update({ ecs, input, world }: UpdateContext): void {
 		for (const [, player, rb, sm, sprite] of ecs.query(
 			PlayerInputComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 			StateMachineComponent,
 			SpriteComponent,
 		)) {
+			if (!rb.body) {
+				continue;
+			}
 			let dir = 0;
 			if (input.keyboard.keys[InputBindings.left]) {
 				dir -= 1;

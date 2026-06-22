@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import type { Input } from "../../engine/input/input";
 import {
 	type UpdateContext,
@@ -29,8 +29,11 @@ export class PlayerInputSystem implements UpdateSystem {
 		const s = dt / 1000;
 		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 		)) {
+			if (!rb.body) {
+				continue;
+			}
 			let dir = 0;
 			if (input.keyboard.keys[InputBindings.left]) {
 				dir -= 1;
@@ -64,7 +67,7 @@ export class PlayerInputSystem implements UpdateSystem {
 
 	private handleWallSlide(
 		player: PlayerInputComponent,
-		rb: RigidbodyComponent,
+		rb: PhysicsBodyComponent,
 		onWall: boolean,
 	): void {
 		if (!player.canWallSlide || !onWall) {
@@ -74,15 +77,19 @@ export class PlayerInputSystem implements UpdateSystem {
 		if (vy <= player.wallSlideSpeed) {
 			return;
 		}
-		rb.body.setLinearVelocity({
+		rb.body!.setLinearVelocity({
 			x: rb.linearVelocity.x,
 			y: player.wallSlideSpeed,
 		});
 	}
 
-	private touchingWall(rb: RigidbodyComponent, dir: number): boolean {
+	private touchingWall(
+		rb: PhysicsBodyComponent,
+		dir: number,
+	): boolean {
+		const body = rb.body!;
 		for (
-			let edge = rb.body.getContactList();
+			let edge = body.getContactList();
 			edge;
 			edge = edge.next ?? null
 		) {
@@ -95,7 +102,7 @@ export class PlayerInputSystem implements UpdateSystem {
 				continue;
 			}
 			const normal = worldManifold.normal;
-			const isA = rb.body === contact.getFixtureA().getBody();
+			const isA = body === contact.getFixtureA().getBody();
 			const nx = isA ? normal.x : -normal.x;
 			if (dir > 0 ? nx > 0.5 : nx < -0.5) {
 				return true;
@@ -107,7 +114,7 @@ export class PlayerInputSystem implements UpdateSystem {
 	private handleJump(
 		input: Input,
 		player: PlayerInputComponent,
-		rb: RigidbodyComponent,
+		rb: PhysicsBodyComponent,
 		vx: number,
 		onWall: boolean,
 		dir: number,
@@ -137,7 +144,7 @@ export class PlayerInputSystem implements UpdateSystem {
 				? player.maxJumpSpeed
 				: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
-			rb.body.setLinearVelocity({ x: launchVx, y: -speed });
+			rb.body!.setLinearVelocity({ x: launchVx, y: -speed });
 			if (wallJump) {
 				player.wallJumping = true;
 			} else {
@@ -155,7 +162,7 @@ export class PlayerInputSystem implements UpdateSystem {
 		if (vy >= 0) {
 			player.jumping = false;
 		} else if (!jumpHeld && vy < -player.minJumpSpeed) {
-			rb.body.setLinearVelocity({ x: vx, y: -player.minJumpSpeed });
+			rb.body!.setLinearVelocity({ x: vx, y: -player.minJumpSpeed });
 			player.jumping = false;
 		}
 	}

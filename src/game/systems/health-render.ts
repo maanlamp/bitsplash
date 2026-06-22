@@ -1,4 +1,4 @@
-import { RigidbodyComponent } from "../../engine/components/rigidbody";
+import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import { TransformComponent } from "../../engine/components/transform";
 import {
 	type RenderContext,
@@ -17,10 +17,10 @@ export default class HealthRenderSystem implements RenderSystem {
 		for (const [id, health, transform, rb] of ecs.query(
 			HealthComponent,
 			TransformComponent,
-			RigidbodyComponent,
+			PhysicsBodyComponent,
 		)) {
 			const bar = ecs.getComponent(id, HealthBarStateComponent);
-			if (!bar || bar.visible <= 0) {
+			if (!bar || bar.visible <= 0 || !rb.body) {
 				continue;
 			}
 			const alpha = fadeAlpha(bar.visible, FADE);

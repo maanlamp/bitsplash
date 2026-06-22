@@ -41,7 +41,6 @@ import styles from "./project-tree.module.scss";
 
 const COMPONENT_ICONS: Readonly<Record<string, Icon>> = {
 	TransformComponent: ArrowsOutCardinalIcon,
-	RigidbodyComponent: AtomIcon,
 	PhysicsBodyComponent: AtomIcon,
 	SpriteComponent: PaletteIcon,
 	PlayerInputComponent: GameControllerIcon,

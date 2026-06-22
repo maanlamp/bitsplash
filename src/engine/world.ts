@@ -1,15 +1,10 @@
-import { Box, Vec2, World as PhysicsWorld } from "planck";
-import { RigidbodyComponent } from "./components/rigidbody";
+import { type Body, Box, Vec2, World as PhysicsWorld } from "planck";
+import {
+	PhysicsBodyComponent,
+	type RigidBodyType,
+} from "./components/physics-body";
 import { ECS, type EntityId } from "./ecs";
 import EventBus from "./events";
-
-export const RIGID_BODY_TYPES = [
-	"static",
-	"dynamic",
-	"kinematic",
-] as const;
-
-export type RigidBodyType = (typeof RIGID_BODY_TYPES)[number];
 
 const FIXED_DT = 1 / 60;
 const MAX_FRAME = 0.25;
@@ -49,7 +44,7 @@ export class World {
 		this.physics.setGravity(new Vec2(gravity.x, gravity.y));
 	}
 
-	createRigidbody(def: RigidbodyDef): RigidbodyComponent {
+	createBody(def: RigidbodyDef): Body {
 		const body = this.physics.createBody({
 			type: def.type,
 			position: { x: def.position.x, y: def.position.y },
@@ -70,24 +65,22 @@ export class World {
 			filterMaskBits: def.filterMaskBits ?? 0xffff,
 			isSensor: def.sensor ?? false,
 		});
-		return new RigidbodyComponent(body);
+		return body;
 	}
 
 	despawn(id: EntityId): void {
-		const rigidbody = this.ecs.getComponent(id, RigidbodyComponent);
-		if (rigidbody) {
-			this.physics.destroyBody(rigidbody.body);
+		const phys = this.ecs.getComponent(id, PhysicsBodyComponent);
+		if (phys?.body) {
+			this.physics.destroyBody(phys.body);
 		}
 		this.ecs.destroyEntity(id);
 	}
 
-	/**
-	 * Destroys every physics body, then nukes the ECS. Bodies must be torn down
-	 * here first — `ecs.reset()` alone would leak them in the planck world.
-	 */
 	clear(): void {
-		for (const [, rigidbody] of this.ecs.query(RigidbodyComponent)) {
-			this.physics.destroyBody(rigidbody.body);
+		for (const [, phys] of this.ecs.query(PhysicsBodyComponent)) {
+			if (phys.body) {
+				this.physics.destroyBody(phys.body);
+			}
 		}
 		this.ecs.reset();
 	}
