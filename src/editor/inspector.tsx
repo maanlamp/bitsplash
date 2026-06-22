@@ -13,6 +13,7 @@ import Angle from "../engine/angle";
 import type { ECS, EntityId } from "../engine/ecs";
 import {
 	fieldOptions,
+	serializableType,
 	serializableTypeName,
 } from "../engine/serialization/registry";
 import type { Scene } from "../engine/scene/scene";
@@ -422,12 +423,15 @@ const ComponentSection = ({
 	component,
 	history,
 }: Readonly<{ component: object; history: History }>) => {
-	const entries = Object.entries(component);
-	if (entries.length === 0) {
+	const renderer = getValueRenderer(component);
+	const typeName = serializableTypeName(component);
+	const fieldKeys = typeName
+		? [...(serializableType(typeName)?.fields.keys() ?? [])]
+		: [];
+	if (!renderer && fieldKeys.length === 0) {
 		return null;
 	}
 	const incomplete = missingRequired(component);
-	const renderer = getValueRenderer(component);
 	return (
 		<section className={styles.section}>
 			<div
@@ -455,24 +459,27 @@ const ComponentSection = ({
 				})
 			) : (
 				<div className={styles.fields}>
-					{entries.map(([key, value]) => (
-						<Fragment key={key}>
-							<span
-								className={classNames(
-									styles.fieldLabel,
-									isValueObject(value) && styles.fieldLabelTop,
-								)}
-							>
-								{toSentenceCase(key)}
-							</span>
-							<FieldControl
-								component={component}
-								fieldKey={key}
-								value={value}
-								history={history}
-							/>
-						</Fragment>
-					))}
+					{fieldKeys.map((key) => {
+						const value = (component as Record<string, unknown>)[key];
+						return (
+							<Fragment key={key}>
+								<span
+									className={classNames(
+										styles.fieldLabel,
+										isValueObject(value) && styles.fieldLabelTop,
+									)}
+								>
+									{toSentenceCase(key)}
+								</span>
+								<FieldControl
+									component={component}
+									fieldKey={key}
+									value={value}
+									history={history}
+								/>
+							</Fragment>
+						);
+					})}
 				</div>
 			)}
 		</section>
