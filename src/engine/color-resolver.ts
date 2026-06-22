@@ -9,6 +9,7 @@ const clamp01 = (value: number | null): number =>
 
 export class ColorResolver {
 	private cache = new Map<string, RGBA>();
+	private ctx: CanvasRenderingContext2D | null = null;
 
 	resolve(input: ColorInput): RGBA {
 		if (typeof input !== "string") {
@@ -18,20 +19,48 @@ export class ColorResolver {
 		if (cached) {
 			return cached;
 		}
-		let rgba: RGBA;
+		const rgba = this.parse(input);
+		this.cache.set(input, rgba);
+		return rgba;
+	}
+
+	private parse(input: string): RGBA {
 		try {
 			const color = new Color(input).to("srgb");
 			const [r, g, b] = color.coords;
-			rgba = [
+			return [
 				clamp01(r),
 				clamp01(g),
 				clamp01(b),
 				clamp01(color.alpha),
 			];
 		} catch {
-			rgba = [0, 0, 0, 1];
+			return this.parseViaCanvas(input);
 		}
-		this.cache.set(input, rgba);
-		return rgba;
+	}
+
+	private parseViaCanvas(input: string): RGBA {
+		const ctx = (this.ctx ??= this.createContext());
+		if (!ctx) {
+			return [0, 0, 0, 1];
+		}
+		ctx.fillStyle = "#000";
+		ctx.fillStyle = input;
+		ctx.fillRect(0, 0, 1, 1);
+		const data = ctx.getImageData(0, 0, 1, 1).data;
+		return [
+			(data[0] ?? 0) / 255,
+			(data[1] ?? 0) / 255,
+			(data[2] ?? 0) / 255,
+			(data[3] ?? 255) / 255,
+		];
+	}
+
+	private createContext(): CanvasRenderingContext2D | null {
+		const ctx = document.createElement("canvas").getContext("2d");
+		if (ctx) {
+			ctx.globalCompositeOperation = "copy";
+		}
+		return ctx;
 	}
 }
