@@ -1,10 +1,18 @@
-import { valueType } from "./serialization/value-type";
+import {
+	serializable,
+	serialize,
+} from "./serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "./serialization/serializable-value";
 
-@valueType({
-	encode: (v) => ({ x: v.x, y: v.y }),
-	decode: (raw) => new Vector2(raw.x as number, raw.y as number),
-})
-export default class Vector2 {
+@serializable("Vector2")
+export default class Vector2 implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
 	static zero(): Vector2 {
 		return new Vector2(0, 0);
 	}
@@ -41,8 +49,8 @@ export default class Vector2 {
 		return new Vector2(n, n);
 	}
 
-	public x: number;
-	public y: number;
+	@serialize() x: number;
+	@serialize() y: number;
 
 	constructor(x: number = 0, y: number = 0) {
 		this.x = x;

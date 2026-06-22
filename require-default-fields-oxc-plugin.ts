@@ -8,7 +8,7 @@ const rule = {
 		},
 	},
 	create(context: { report: Function }) {
-		const DECORATORS = new Set(["serializable", "valueType"]);
+		const DECORATORS = new Set(["serializable"]);
 
 		const getDecoratorNames = (node: any): string[] => {
 			return (node.decorators ?? [])

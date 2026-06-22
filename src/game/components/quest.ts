@@ -1,10 +1,13 @@
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 
 @serializable("Quest")
 export class QuestComponent {
-	questId: string;
-	stage: string;
-	counters: Record<string, number>;
+	@serialize() questId: string;
+	@serialize() stage: string;
+	@serialize() counters: Record<string, number>;
 
 	constructor(
 		questId = "",

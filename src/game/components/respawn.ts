@@ -1,11 +1,14 @@
 import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 
 @serializable("Respawn")
 export class RespawnComponent {
-	delay: Seconds;
-	spawnPoint: EntityId | null;
+	@serialize() delay: Seconds;
+	@serialize() spawnPoint: EntityId | null;
 
 	constructor(
 		delay: Seconds = 6 as Seconds,

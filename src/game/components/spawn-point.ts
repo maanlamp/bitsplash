@@ -1,9 +1,12 @@
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 
 @serializable("SpawnPoint")
 export class SpawnPointComponent {
-	prefab: string;
-	spawnOnLoad: boolean;
+	@serialize() prefab: string;
+	@serialize() spawnOnLoad: boolean;
 
 	constructor(prefab: string = "", spawnOnLoad: boolean = true) {
 		this.prefab = prefab;

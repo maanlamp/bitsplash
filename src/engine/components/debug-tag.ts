@@ -1,10 +1,13 @@
 import { FontSettings } from "../font-settings";
-import { serializable } from "../serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 
 @serializable("DebugTag")
 export class DebugTagComponent {
-	label: string;
-	font: FontSettings;
+	@serialize() label: string;
+	@serialize() font: FontSettings;
 
 	constructor(
 		label: string = "entity",

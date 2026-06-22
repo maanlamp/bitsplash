@@ -4,8 +4,14 @@ import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
 import type { GlobalServices } from "../services";
 import type { UpdateSystem } from "../system";
-import { file } from "../serialization/field-enums";
-import { valueType } from "../serialization/value-type";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../serialization/serializable-value";
 import type { TileGrid } from "../tilemap/grid";
 import Vector2 from "../vector2";
 import type { World } from "../world";
@@ -16,11 +22,15 @@ export type SceneConfigData = Readonly<{
 	tileset?: string;
 }>;
 
-@valueType()
-export class SceneConfig {
-	gravity: Vector2 = new Vector2(0, 20);
-	uiScale = 1;
-	@file("image/*")
+@serializable("SceneConfig")
+export class SceneConfig implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() gravity: Vector2 = new Vector2(0, 20);
+	@serialize() uiScale = 1;
+	@serialize({ file: "image/*" })
 	tileset = "";
 }
 

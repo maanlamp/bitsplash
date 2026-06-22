@@ -1,8 +1,11 @@
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 
 @serializable("DialogueSource")
 export class DialogueSourceComponent {
-	knot: string;
+	@serialize() knot: string;
 
 	constructor(knot = "") {
 		this.knot = knot;

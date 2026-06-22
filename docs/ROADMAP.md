@@ -114,11 +114,13 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - [x] Field decorators for extended types
 - [x] Strongly typed component fields (custom primitives)
 - [x] Generic `TagsComponent` (engine; semantic entity roles as a JSON-safe `string[]` + `has(tag)`) — systems filter on roles ("enemy", "patrol") rather than on behaviour/AI components, mirroring Unity GameplayTags / Bevy marker components / Godot groups
-- [x] Custom value-type (de)serialization registry (`serialization/value-type-registry.ts`)
-      — value types opt in with the `@valueType()` class decorator and are encoded/decoded
-      by `$type` through the registry (no inline `instanceof` special-casing). `Vector2`,
-      `Angle`, `FontSettings`, and `FadeTimeline` are registered this way. Engine-internal,
-      so import polarity is unaffected.
+- [x] Unified opt-in (de)serialization registry (`serialization/registry.ts`)
+      — components and value types share one `@serializable("Name")` class decorator;
+      fields persist only when marked with `@serialize(options?)`, and an un-encodable
+      marked field is a compile error (`SerializableValue` constraint). Value types carry a
+      `ValueType` brand and are encoded/decoded by `$type` through the registry (no inline
+      `instanceof` special-casing). `Vector2`, `Angle`, `FontSettings`, and `FadeTimeline`
+      are registered this way. Engine-internal, so import polarity is unaffected.
 - [x] Transient runtime components are deliberately **not** `@serializable` — overlay/notice
       state spawned by systems during play (`DeathNoticeComponent`, `QuestNoticeComponent`,
       the runtime `DialogueComponent`) is never authored content, so it stays out of level/save

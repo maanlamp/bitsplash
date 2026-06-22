@@ -92,7 +92,7 @@ Violating these boundaries is never acceptable, regardless of convenience.
 
 - Behavior lives in **systems**, not in component classes or object hierarchies.
 - **No entity hierarchy, ever.** No parent/child relationships, no scene graph trees. Entities relate by id-references stored in components; multi-entity constructs are spawned and wired by id from a system.
-- Use the established decorator/registry patterns (`@serializable`, `@valueType`, `@fsm`). No inline `instanceof` special-casing.
+- Use the established decorator/registry patterns: `@serializable("Name")` on the class (components _and_ value types) + `@serialize(options?)` to opt a field into persistence; `@fsm` for state machines. No inline `instanceof` special-casing.
 - Prefer **data-driven** content (JSON scenes, prefab files, metadata-in-assets) over imperative code for anything that is authored content.
 
 ## Conventions

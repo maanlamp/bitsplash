@@ -1,17 +1,19 @@
 import type { Seconds } from "../duration";
-import { skip } from "../serialization/field-enums";
-import { serializable } from "../serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 import type { Params } from "./conditions";
 import type { StateMachineDef } from "./state-machine";
 
 @serializable("StateMachine")
 export class StateMachineComponent {
-	@skip() def: StateMachineDef | null;
+	def: StateMachineDef | null;
 
-	defId: string;
-	@skip() current: string;
-	@skip() elapsed: Seconds;
-	@skip() params: Params;
+	@serialize() defId: string;
+	current: string;
+	elapsed: Seconds;
+	params: Params;
 
 	constructor(
 		def: StateMachineDef | null = null,

@@ -1,19 +1,34 @@
 import {
-	collectFieldEnums,
-	collectFileFields,
-	collectMultilineFields,
-	collectRequiredFields,
-	collectSkipFields,
-} from "./field-enums";
-import { type ComponentClass, registerComponent } from "./registry";
+	type ComponentClass,
+	registerSerializable,
+} from "./registry";
+import type {
+	SerializableValue,
+	SerializeOptions,
+} from "./serializable-value";
+
+type FieldMeta = {
+	serializedFields?: Map<string, SerializeOptions>;
+};
+
+const fieldsOf = (
+	metadata: DecoratorMetadata,
+): Map<string, SerializeOptions> => {
+	const meta = metadata as FieldMeta;
+	return (meta.serializedFields ??= new Map());
+};
 
 export const serializable =
-	(typeName: string) =>
+	(name: string) =>
 	(ctor: ComponentClass, context: ClassDecoratorContext): void => {
-		registerComponent(typeName, ctor);
-		collectFieldEnums(typeName, context.metadata);
-		collectFileFields(typeName, context.metadata);
-		collectMultilineFields(typeName, context.metadata);
-		collectRequiredFields(typeName, context.metadata);
-		collectSkipFields(typeName, context.metadata);
+		registerSerializable(name, ctor, fieldsOf(context.metadata));
+	};
+
+export const serialize =
+	(options: SerializeOptions = {}) =>
+	<V extends SerializableValue>(
+		_value: undefined,
+		context: ClassFieldDecoratorContext<unknown, V>,
+	): void => {
+		fieldsOf(context.metadata).set(String(context.name), options);
 	};

@@ -1,6 +1,8 @@
 import unknownSrc from "../assets/unknown.png";
-import { file, skip } from "../serialization/field-enums";
-import { serializable } from "../serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 
 export type SpriteClip = Readonly<{
 	url: string;
@@ -25,20 +27,20 @@ export type SpriteSource = Readonly<{
 
 @serializable("Sprite")
 export class SpriteComponent {
-	@file("image/*")
+	@serialize({ file: "image/*" })
 	url: string;
-	opacity: number;
-	flipX: boolean;
-	contentX: number | undefined = undefined;
-	contentY: number | undefined = undefined;
-	contentWidth: number | undefined = undefined;
-	contentHeight: number | undefined = undefined;
-	clips: Record<string, SpriteClip> = {};
-	@skip() current: string = "";
-	@skip() playing: string = "";
-	@skip() elapsed: number = 0;
-	@skip() frame: number = 0;
-	@skip() finished: boolean = false;
+	@serialize() opacity: number;
+	@serialize() flipX: boolean;
+	@serialize() contentX: number | undefined = undefined;
+	@serialize() contentY: number | undefined = undefined;
+	@serialize() contentWidth: number | undefined = undefined;
+	@serialize() contentHeight: number | undefined = undefined;
+	@serialize() clips: Record<string, SpriteClip> = {};
+	current: string = "";
+	playing: string = "";
+	elapsed: number = 0;
+	frame: number = 0;
+	finished: boolean = false;
 
 	constructor(
 		url: string = unknownSrc,

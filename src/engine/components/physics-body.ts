@@ -1,25 +1,27 @@
-import { options } from "../serialization/field-enums";
-import { serializable } from "../serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 import { RIGID_BODY_TYPES, type RigidBodyType } from "../world";
 
 @serializable("PhysicsBody")
 export class PhysicsBodyComponent {
-	@options(RIGID_BODY_TYPES)
+	@serialize({ options: RIGID_BODY_TYPES })
 	type: RigidBodyType;
-	halfWidth: number;
-	halfHeight: number;
-	density: number;
-	friction: number;
-	restitution: number;
-	fixedRotation: boolean;
-	bullet: boolean;
-	linearDamping: number;
-	filterGroupIndex: number;
-	filterCategoryBits: number;
-	filterMaskBits: number;
-	sensor: boolean;
-	offsetX: number;
-	offsetY: number;
+	@serialize() halfWidth: number;
+	@serialize() halfHeight: number;
+	@serialize() density: number;
+	@serialize() friction: number;
+	@serialize() restitution: number;
+	@serialize() fixedRotation: boolean;
+	@serialize() bullet: boolean;
+	@serialize() linearDamping: number;
+	@serialize() filterGroupIndex: number;
+	@serialize() filterCategoryBits: number;
+	@serialize() filterMaskBits: number;
+	@serialize() sensor: boolean;
+	@serialize() offsetX: number;
+	@serialize() offsetY: number;
 
 	constructor(
 		type: RigidBodyType = "dynamic",

@@ -12,14 +12,10 @@ import {
 import Angle from "../engine/angle";
 import type { ECS, EntityId } from "../engine/ecs";
 import {
-	fieldEnum,
-	isFileField,
-	isMultilineField,
-	isRequiredField,
-} from "../engine/serialization/field-enums";
+	fieldOptions,
+	serializableTypeName,
+} from "../engine/serialization/registry";
 import type { Scene } from "../engine/scene/scene";
-import { componentTypeName } from "../engine/serialization/registry";
-import { getValueTypeName } from "../engine/serialization/value-type-registry";
 import Vector2 from "../engine/vector2";
 import { setField } from "./commands";
 import { componentLabel } from "./component-label";
@@ -290,19 +286,18 @@ const isValueObject = (value: unknown): value is object =>
 	!Array.isArray(value);
 
 const missingRequired = (value: object): boolean => {
-	const typeName =
-		componentTypeName(value) ?? getValueTypeName(value);
+	const typeName = serializableTypeName(value);
 	for (const [key, field] of Object.entries(value)) {
 		if (
 			typeName &&
-			isRequiredField(typeName, key) &&
+			fieldOptions(typeName, key)?.required &&
 			isEmptyValue(field)
 		) {
 			return true;
 		}
 		if (
 			isValueObject(field) &&
-			getValueTypeName(field) &&
+			serializableTypeName(field) &&
 			missingRequired(field)
 		) {
 			return true;
@@ -353,17 +348,14 @@ export const FieldControl = ({
 		);
 	}
 
-	const typeName =
-		componentTypeName(component) ?? getValueTypeName(component);
-
-	const requiredMissing =
-		!!typeName &&
-		isRequiredField(typeName, fieldKey) &&
-		isEmptyValue(value);
-
-	const accept = typeName
-		? isFileField(typeName, fieldKey)
+	const typeName = serializableTypeName(component);
+	const options = typeName
+		? fieldOptions(typeName, fieldKey)
 		: undefined;
+
+	const requiredMissing = !!options?.required && isEmptyValue(value);
+
+	const accept = options?.file;
 	if (accept !== undefined) {
 		if (/image/i.test(accept)) {
 			return (
@@ -393,20 +385,17 @@ export const FieldControl = ({
 		);
 	}
 
-	const options = typeName
-		? fieldEnum(typeName, fieldKey)
-		: undefined;
-	if (options) {
+	if (options?.options) {
 		return (
 			<EnumField
 				value={value as string}
-				options={options}
+				options={options.options}
 				onCommit={(v) => commit(history, component, fieldKey, v)}
 			/>
 		);
 	}
 
-	if (typeName && isMultilineField(typeName, fieldKey)) {
+	if (options?.multiline) {
 		return (
 			<MultilineField
 				value={value as string}

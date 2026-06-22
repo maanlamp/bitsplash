@@ -1,19 +1,22 @@
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 import { TILE_SIZE } from "../../engine/tile";
 
 @serializable("PlayerInput")
 export class PlayerInputComponent {
-	maxSpeed: number;
-	acceleration: number;
-	deceleration: number;
-	airControl: number;
-	maxJumpSpeed: number;
-	minJumpSpeed: number;
-	airJumpSpeed: number;
-	maxJumps: number;
-	wallSlideSpeed: number = 2 * TILE_SIZE;
-	canWallSlide: boolean = false;
-	canWallJump: boolean = false;
+	@serialize() maxSpeed: number;
+	@serialize() acceleration: number;
+	@serialize() deceleration: number;
+	@serialize() airControl: number;
+	@serialize() maxJumpSpeed: number;
+	@serialize() minJumpSpeed: number;
+	@serialize() airJumpSpeed: number;
+	@serialize() maxJumps: number;
+	@serialize() wallSlideSpeed: number = 2 * TILE_SIZE;
+	@serialize() canWallSlide: boolean = false;
+	@serialize() canWallJump: boolean = false;
 
 	constructor(
 		maxSpeed: number = 3 * TILE_SIZE,

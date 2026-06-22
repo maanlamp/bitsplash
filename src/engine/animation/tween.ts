@@ -1,13 +1,24 @@
 import type { Milliseconds, Seconds } from "../duration";
-import { valueType } from "../serialization/value-type";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../serialization/serializable-value";
 import { ease } from "./easing";
 
-@valueType()
-export class Tween {
-	from: number;
-	to: number;
-	duration: Seconds;
-	easing: string;
+@serializable("Tween")
+export class Tween implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() from: number;
+	@serialize() to: number;
+	@serialize() duration: Seconds;
+	@serialize() easing: string;
 	elapsed = 0 as Seconds;
 
 	constructor(

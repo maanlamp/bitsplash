@@ -1,29 +1,12 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
-import { isSkipField } from "./field-enums";
 import {
-	componentTypeName,
+	serializableType,
+	serializableTypeName,
 	type SerializedComponent,
 	type SerializedEntity,
 	type SerializedWorld,
 } from "./registry";
-import { encodeValue } from "./value";
-
-const serializeComponent = (
-	typeName: string,
-	component: object,
-): SerializedComponent => {
-	const out: SerializedComponent = {};
-	for (const [key, value] of Object.entries(component)) {
-		if (isSkipField(typeName, key)) {
-			continue;
-		}
-		const encoded = encodeValue(value);
-		if (encoded !== undefined) {
-			out[key] = encoded;
-		}
-	}
-	return out;
-};
+import { walkFields } from "./value";
 
 export const serializeEntity = (
 	ecs: ReadonlyECS,
@@ -32,11 +15,11 @@ export const serializeEntity = (
 	const components: Record<string, SerializedComponent> = {};
 	let any = false;
 	for (const component of ecs.componentsOf(id)) {
-		const typeName = componentTypeName(component);
-		if (!typeName) {
+		const name = serializableTypeName(component);
+		if (!name) {
 			continue;
 		}
-		components[typeName] = serializeComponent(typeName, component);
+		components[name] = walkFields(serializableType(name)!, component);
 		any = true;
 	}
 	return any ? { id, components } : null;

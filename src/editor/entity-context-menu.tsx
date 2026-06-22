@@ -12,8 +12,8 @@ import type { ReactNode } from "react";
 import type { ECS, EntityId } from "../engine/ecs";
 import {
 	componentClass,
-	componentTypeName,
 	registeredComponents,
+	serializableTypeName,
 } from "../engine/serialization/registry";
 import type { World } from "../engine/world";
 import surface from "./styles/surface.module.scss";
@@ -53,7 +53,7 @@ const EntityItems = ({
 	const { ecs, world, history, requestAddComponent, select } = deps;
 	const attached = ecs
 		.componentsOf(entity)
-		.map((c) => ({ component: c, name: componentTypeName(c) }))
+		.map((c) => ({ component: c, name: serializableTypeName(c) }))
 		.filter(
 			(c): c is { component: object; name: string } =>
 				c.name !== undefined,
@@ -168,7 +168,7 @@ export const AddComponentPicker = ({
 	const attached = new Set(
 		ecs
 			.componentsOf(entity)
-			.map((c) => componentTypeName(c))
+			.map((c) => serializableTypeName(c))
 			.filter((n): n is string => n !== undefined),
 	);
 	const names = registeredComponents()

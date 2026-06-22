@@ -1,11 +1,14 @@
 import type { Seconds } from "../../engine/duration";
-import { serializable } from "../../engine/serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
 
 @serializable("Patrol")
 export class PatrolComponent {
-	speed: number;
-	interval: Seconds;
-	direction: number;
+	@serialize() speed: number;
+	@serialize() interval: Seconds;
+	@serialize() direction: number;
 
 	constructor(
 		speed: number = 48,

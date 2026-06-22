@@ -1,8 +1,11 @@
-import { serializable } from "../serialization/serializable";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 
 @serializable("Tags")
 export class TagsComponent {
-	tags: string[];
+	@serialize() tags: string[];
 
 	constructor(tags: string[] = []) {
 		this.tags = tags;

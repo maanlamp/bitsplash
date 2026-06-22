@@ -1,7 +1,24 @@
 import {
-	getValueTypeAdapter,
-	getValueTypeName,
-} from "./value-type-registry";
+	type SerializableType,
+	serializableType,
+	serializableTypeName,
+} from "./registry";
+
+export const walkFields = (
+	type: SerializableType,
+	value: object,
+): Record<string, unknown> => {
+	const out: Record<string, unknown> = {};
+	for (const field of type.fields.keys()) {
+		const encoded = encodeValue(
+			(value as Record<string, unknown>)[field],
+		);
+		if (encoded !== undefined) {
+			out[field] = encoded;
+		}
+	}
+	return out;
+};
 
 export const encodeValue = (value: unknown): unknown => {
 	if (value === null || typeof value !== "object") {
@@ -10,14 +27,10 @@ export const encodeValue = (value: unknown): unknown => {
 	if (Array.isArray(value)) {
 		return value.map(encodeValue);
 	}
-	const typeName = getValueTypeName(value);
-	if (typeName) {
-		const adapter = getValueTypeAdapter(typeName)!;
-		const encoded: Record<string, unknown> = { $type: typeName };
-		for (const [k, v] of Object.entries(adapter.encode(value))) {
-			encoded[k] = encodeValue(v);
-		}
-		return encoded;
+	const name = serializableTypeName(value);
+	if (name) {
+		const type = serializableType(name)!;
+		return { $type: name, ...walkFields(type, value) };
 	}
 	const proto = Object.getPrototypeOf(value);
 	if (proto !== Object.prototype && proto !== null) {
@@ -33,6 +46,19 @@ export const encodeValue = (value: unknown): unknown => {
 	return out;
 };
 
+export const reconstruct = (
+	type: SerializableType,
+	data: Record<string, unknown>,
+): object => {
+	const instance = new type.ctor() as Record<string, unknown>;
+	for (const field of type.fields.keys()) {
+		if (field in data) {
+			instance[field] = decodeValue(data[field]);
+		}
+	}
+	return instance;
+};
+
 export const decodeValue = (value: unknown): unknown => {
 	if (value === null || typeof value !== "object") {
 		return value;
@@ -42,15 +68,9 @@ export const decodeValue = (value: unknown): unknown => {
 	}
 	const record = value as Record<string, unknown>;
 	if (typeof record.$type === "string") {
-		const adapter = getValueTypeAdapter(record.$type);
-		if (adapter) {
-			const raw: Record<string, unknown> = {};
-			for (const [k, v] of Object.entries(record)) {
-				if (k !== "$type") {
-					raw[k] = decodeValue(v);
-				}
-			}
-			return adapter.decode(raw);
+		const type = serializableType(record.$type);
+		if (type) {
+			return reconstruct(type, record);
 		}
 	}
 	const out: Record<string, unknown> = {};

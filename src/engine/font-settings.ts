@@ -1,5 +1,11 @@
-import { file, options, required } from "./serialization/field-enums";
-import { valueType } from "./serialization/value-type";
+import {
+	serializable,
+	serialize,
+} from "./serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "./serialization/serializable-value";
 
 export const fontStyleLabels = [
 	"Regular",
@@ -10,15 +16,20 @@ export const fontStyleLabels = [
 
 export type FontStyleLabel = (typeof fontStyleLabels)[number];
 
-@valueType()
-export class FontSettings {
-	@required()
-	@file(".ttf,.otf,.woff,.woff2,.font.zip")
+@serializable("FontSettings")
+export class FontSettings implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize({
+		required: true,
+		file: ".ttf,.otf,.woff,.woff2,.font.zip",
+	})
 	font: string;
-	family: string;
-	size: number;
-	@options(fontStyleLabels)
-	variant: FontStyleLabel;
+	@serialize() family: string;
+	@serialize() size: number;
+	@serialize({ options: fontStyleLabels }) variant: FontStyleLabel;
 
 	constructor(
 		font: string = "",

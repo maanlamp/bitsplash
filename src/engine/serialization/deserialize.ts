@@ -1,41 +1,23 @@
 import type { EntityId } from "../ecs";
 import type { World } from "../world";
-import { isSkipField } from "./field-enums";
 import {
-	type ComponentClass,
-	componentClass,
-	type SerializedComponent,
+	serializableType,
 	type SerializedEntity,
 	type SerializedWorld,
 } from "./registry";
-import { decodeValue } from "./value";
-
-const reviveDefault = (
-	typeName: string,
-	ctor: ComponentClass,
-	data: SerializedComponent,
-): object => {
-	const instance = new (ctor as new () => Record<string, unknown>)();
-	for (const [key, value] of Object.entries(data)) {
-		if (isSkipField(typeName, key)) {
-			continue;
-		}
-		instance[key] = decodeValue(value);
-	}
-	return instance;
-};
+import { reconstruct } from "./value";
 
 export const deserializeEntity = (
 	world: World,
 	entity: SerializedEntity,
 ): EntityId => {
 	const components: object[] = [];
-	for (const [typeName, data] of Object.entries(entity.components)) {
-		const ctor = componentClass(typeName);
-		if (!ctor) {
+	for (const [name, data] of Object.entries(entity.components)) {
+		const type = serializableType(name);
+		if (!type) {
 			continue;
 		}
-		components.push(reviveDefault(typeName, ctor, data));
+		components.push(reconstruct(type, data));
 	}
 	return world.ecs.createEntity(components, entity.id as EntityId);
 };

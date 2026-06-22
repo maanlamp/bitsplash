@@ -1,12 +1,23 @@
 import type { Milliseconds, Seconds } from "../duration";
-import { valueType } from "../serialization/value-type";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../serialization/serializable-value";
 import { ease } from "./easing";
 
-@valueType()
-export class FadeTimeline {
-	fadeIn: Seconds;
-	hold: Seconds;
-	fadeOut: Seconds;
+@serializable("FadeTimeline")
+export class FadeTimeline implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() fadeIn: Seconds;
+	@serialize() hold: Seconds;
+	@serialize() fadeOut: Seconds;
 	elapsed = 0 as Seconds;
 
 	constructor(
