@@ -1,14 +1,5 @@
-import { hashCell } from "../../engine/hash";
 import { tileUV } from "../../engine/renderer-2d";
-import {
-	CAP_ROW,
-	CAP_SPRITES,
-	Cap,
-	classifyCap,
-	classifyCorner,
-	VARIANT_SPRITES,
-	Variant,
-} from "../../engine/tilemap/autotile";
+import { cornerSlots } from "../../engine/tilemap/autotile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 
 export type SourcePixel = Readonly<{ x: number; y: number }>;
@@ -58,43 +49,31 @@ export const resolveSourcePixel = (
 	v: number,
 	alphaAt: (x: number, y: number) => number,
 ): SourcePixel | null => {
-	const tl = grid.hasTile(cx - 1, cy - 1);
-	const tr = grid.hasTile(cx, cy - 1);
-	const br = grid.hasTile(cx, cy);
-	const bl = grid.hasTile(cx - 1, cy);
+	const { cap, fill } = cornerSlots(grid, cx, cy, rows);
 
-	if (rows > CAP_ROW) {
-		const cap = classifyCap(tl, tr, br, bl);
-		if (cap) {
-			const flip =
-				cap.cap === Cap.STRAIGHT
-					? (hashCell(cx, cy, 1) & 1) === 1
-					: cap.flip;
-			const pixel = tilePixel(
-				CAP_SPRITES[cap.cap]!,
-				CAP_ROW,
-				0,
-				flip,
-				u,
-				v,
-				srcSize,
-			);
-			if (alphaAt(pixel.x, pixel.y) > 0) {
-				return pixel;
-			}
+	if (cap) {
+		const pixel = tilePixel(
+			cap.col,
+			cap.row,
+			cap.rot,
+			cap.flip,
+			u,
+			v,
+			srcSize,
+		);
+		if (alphaAt(pixel.x, pixel.y) > 0) {
+			return pixel;
 		}
 	}
 
-	const { variant, rot } = classifyCorner(tl, tr, br, bl);
-	if (variant === Variant.EMPTY) {
+	if (!fill) {
 		return null;
 	}
-	const slot = VARIANT_SPRITES[variant]!;
 	return tilePixel(
-		slot.col,
-		slot.row,
-		slot.baseRot + rot,
-		false,
+		fill.col,
+		fill.row,
+		fill.rot,
+		fill.flip,
 		u,
 		v,
 		srcSize,

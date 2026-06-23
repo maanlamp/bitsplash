@@ -1,19 +1,9 @@
-import { hashCell } from "../hash";
 import { loadImage } from "../load";
 import type Renderer2D from "../renderer-2d";
 import type { StaticBatch, TileSource } from "../renderer-2d";
 import { type RenderContext, RenderSystem } from "../system";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../tile";
-import {
-	CAP_ROW,
-	CAP_SPRITES,
-	Cap,
-	SHEET_COLUMNS,
-	VARIANT_SPRITES,
-	Variant,
-	classifyCap,
-	classifyCorner,
-} from "../tilemap/autotile";
+import { SHEET_COLUMNS, cornerSlots } from "../tilemap/autotile";
 import type { TileGrid } from "../tilemap/grid";
 
 export class TilemapRenderSystem implements RenderSystem {
@@ -84,58 +74,38 @@ export class TilemapRenderSystem implements RenderSystem {
 			const { minX, minY, maxX, maxY } = bounds;
 			for (let cy = minY; cy <= maxY + 1; cy++) {
 				for (let cx = minX; cx <= maxX + 1; cx++) {
-					const [tl, tr, br, bl] = this.sampleCorner(cx, cy);
-					const { variant, rot } = classifyCorner(tl, tr, br, bl);
-					if (variant === Variant.EMPTY) {
+					const { fill } = cornerSlots(this.grid, cx, cy, rows);
+					if (!fill) {
 						continue;
 					}
-					const slot = VARIANT_SPRITES[variant]!;
 					batch.tile(
 						cx * TILE_SIZE - HALF_TILE_SIZE,
 						cy * TILE_SIZE - HALF_TILE_SIZE,
 						TILE_SIZE,
-						slot.row * SHEET_COLUMNS + slot.col,
-						slot.baseRot + rot,
+						fill.row * SHEET_COLUMNS + fill.col,
+						fill.rot,
+						fill.flip,
 					);
 				}
 			}
 
-			if (rows > CAP_ROW) {
-				for (let cy = minY; cy <= maxY + 1; cy++) {
-					for (let cx = minX; cx <= maxX + 1; cx++) {
-						const [tl, tr, br, bl] = this.sampleCorner(cx, cy);
-						const cap = classifyCap(tl, tr, br, bl);
-						if (!cap) {
-							continue;
-						}
-						const flip =
-							cap.cap === Cap.STRAIGHT
-								? (hashCell(cx, cy, 1) & 1) === 1
-								: cap.flip;
-						batch.tile(
-							cx * TILE_SIZE - HALF_TILE_SIZE,
-							cy * TILE_SIZE - HALF_TILE_SIZE,
-							TILE_SIZE,
-							CAP_ROW * SHEET_COLUMNS + CAP_SPRITES[cap.cap]!,
-							0,
-							flip,
-						);
+			for (let cy = minY; cy <= maxY + 1; cy++) {
+				for (let cx = minX; cx <= maxX + 1; cx++) {
+					const { cap } = cornerSlots(this.grid, cx, cy, rows);
+					if (!cap) {
+						continue;
 					}
+					batch.tile(
+						cx * TILE_SIZE - HALF_TILE_SIZE,
+						cy * TILE_SIZE - HALF_TILE_SIZE,
+						TILE_SIZE,
+						cap.row * SHEET_COLUMNS + cap.col,
+						cap.rot,
+						cap.flip,
+					);
 				}
 			}
 		}
 		batch.commit();
-	}
-
-	private sampleCorner(
-		cx: number,
-		cy: number,
-	): readonly [boolean, boolean, boolean, boolean] {
-		return [
-			this.grid.hasTile(cx - 1, cy - 1),
-			this.grid.hasTile(cx, cy - 1),
-			this.grid.hasTile(cx, cy),
-			this.grid.hasTile(cx - 1, cy),
-		];
 	}
 }
