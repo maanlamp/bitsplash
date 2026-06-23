@@ -13,7 +13,7 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { pathToFileURL } = require("node:url");
 
-const DEV_URL = "http://localhost:5173";
+const DEV_URL = "https://localhost:5173";
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 const LEVELS_DIR = path.join(PROJECT_ROOT, "src", "game", "levels");
 const ASSETS_DIR = path.join(PROJECT_ROOT, "src", "game", "assets");
@@ -227,6 +227,18 @@ const createWindow = async () => {
 
 	void window.loadURL(DEV_URL);
 };
+
+app.on(
+	"certificate-error",
+	(event, _webContents, url, _error, _certificate, callback) => {
+		if (new URL(url).hostname === "localhost") {
+			event.preventDefault();
+			callback(true);
+		} else {
+			callback(false);
+		}
+	},
+);
 
 void app.whenReady().then(createWindow);
 

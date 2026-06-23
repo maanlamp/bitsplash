@@ -1,0 +1,25 @@
+.root {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--unit-12);
+	height: 100%;
+	color: var(--on-surface-faint);
+}
+
+.spinner {
+	color: var(--accent);
+	animation: spin var(--duration-slow) linear infinite;
+}
+
+.label {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(1turn);
+	}
+}

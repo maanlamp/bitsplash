@@ -1,6 +1,7 @@
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
+import mkcert from "vite-plugin-mkcert";
 import wasm from "vite-plugin-wasm";
 
 const suppressSceneHmr = (): Plugin => ({
@@ -14,6 +15,7 @@ const suppressSceneHmr = (): Plugin => ({
 
 export default defineConfig({
 	plugins: [
+		mkcert(),
 		wasm(),
 		suppressSceneHmr(),
 		react(),

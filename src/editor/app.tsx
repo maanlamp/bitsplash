@@ -15,6 +15,7 @@ import { createGame, createScene } from "../engine/scene/registry";
 import type { Scene } from "../engine/scene/scene";
 import type { DirEntry } from "../project-rpc";
 import styles from "./app.module.scss";
+import { AssetBrowser } from "./asset-browser/asset-browser";
 import { type AssetCreateActions } from "./asset-context-menu";
 import { AssetManagerProvider } from "./asset-manager-context";
 import {
@@ -25,18 +26,16 @@ import {
 } from "./assets";
 import AudioEditor from "./audio/audio-editor";
 import { deleteEntity, duplicateEntity } from "./commands";
-import { AssetBrowser } from "./asset-browser/asset-browser";
 import ConfirmDialog from "./confirm-dialog";
 import { setCursorMode } from "./cursor";
-import { History } from "./history";
-import { Toaster } from "./toaster";
 import {
 	AddComponentPicker,
 	type MenuDeps,
 } from "./entity-context-menu";
-import ProjectTree from "./project-tree";
 import FontPreview from "./font/font-preview";
+import { History } from "./history";
 import Inspector, { SceneConfigInspector } from "./inspector";
+import Loading from "./loading";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
 import { Project } from "./project";
@@ -46,15 +45,17 @@ import {
 	listAssetsDeep,
 	saveLevel,
 } from "./project-io";
-import TitleBar from "./title-bar";
-import "./register-renderers";
+import ProjectTree from "./project-tree";
 import "./register-drops";
+import "./register-renderers";
 import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
 import SpriteEditor, {
 	type NewSpriteConfig,
 } from "./sprite/sprite-editor";
+import TitleBar from "./title-bar";
+import { Toaster } from "./toaster";
 import {
 	allViewIds,
 	findView,
@@ -91,7 +92,10 @@ type PlaySession = Readonly<{
 	paused: { value: boolean };
 }>;
 
-const App = ({ startScene }: { startScene: string }) => {
+const App = ({
+	startScene,
+	runtimeReady,
+}: Readonly<{ startScene: string; runtimeReady: Promise<void> }>) => {
 	const [game, setGame] = useState<Game | null>(null);
 	const [addTarget, setAddTarget] = useState<EntityId | null>(null);
 	const [playing, setPlaying] = useState(false);
@@ -104,7 +108,7 @@ const App = ({ startScene }: { startScene: string }) => {
 		useState<ViewId | null>(null);
 	const [workspace, setWorkspace] = useState<WorkspaceState>(() =>
 		loadWorkspace(
-			(id) => isValidViewId(id, assets),
+			(id) => isSceneView(id) || isValidViewId(id, assets),
 			`scene:${startScene}`,
 		),
 	);
@@ -162,7 +166,7 @@ const App = ({ startScene }: { startScene: string }) => {
 			return existing;
 		}
 		const { param } = parseViewId(id);
-		if (!param) {
+		if (!param || !isValidViewId(id, [])) {
 			return null;
 		}
 		const scene = project.scene(param);
@@ -485,73 +489,109 @@ const App = ({ startScene }: { startScene: string }) => {
 	};
 
 	useEffect(() => {
-		gameRef.current = null;
-		const instance = createGame(startScene);
-		gameRef.current = instance;
-		projectRef.current = new Project(instance.services, {
-			[startScene]: instance.scene!,
+		let cancelled = false;
+		let raf = 0;
+		let stop: (() => void) | null = null;
+
+		void runtimeReady.then(() => {
+			if (cancelled) {
+				return;
+			}
+			gameRef.current = null;
+			const instance = createGame(startScene);
+			gameRef.current = instance;
+			projectRef.current = new Project(instance.services, {
+				[startScene]: instance.scene!,
+			});
+
+			const clock = new Clock();
+			let last = 0;
+			const frame = (time = last): void => {
+				const before = performance.now();
+				const dt = (time - last) as Milliseconds;
+				clock.advance(dt);
+				const now = clock.snapshot(dt);
+				const fps = dt > 0 ? 1000 / dt : 0;
+				const g = gameRef.current;
+				if (g) {
+					const session = playSessionRef.current;
+					if (playingRef.current && session) {
+						const { view } = session;
+						view.input.update();
+						g.sceneManager.update({ dt, time: now }, view.input);
+						g.sceneManager.render(
+							view.renderer,
+							{ time: now },
+							view.input,
+						);
+						view.renderer.endFrame();
+						g.sceneManager.clearEvents();
+						view.fps = fps;
+						view.frameTime = performance.now() - before;
+						view.physicsTime = view.scene.world.physicsTime;
+					} else {
+						const focused = focusedSceneViewRef.current;
+						for (const view of sceneViewsRef.current.values()) {
+							if (view === focused) {
+								view.update(dt, now);
+							} else {
+								view.rollInput();
+							}
+							const viewBefore = performance.now();
+							view.render(now);
+							view.frameTime = performance.now() - viewBefore;
+							view.fps = fps;
+						}
+						focused?.scene.world.events.clear();
+					}
+					g.events.clear();
+				}
+				last = time;
+				raf = requestAnimationFrame(frame);
+			};
+			raf = requestAnimationFrame(frame);
+			setGame(instance);
+
+			stop = () => {
+				cancelAnimationFrame(raf);
+				for (const id of sceneViewsRef.current.keys()) {
+					disposeSceneView(id);
+				}
+				instance.stop();
+				gameRef.current = null;
+				projectRef.current = null;
+				setGame(null);
+			};
 		});
 
-		const clock = new Clock();
-		let last = 0;
-		let raf = 0;
-		const frame = (time = last): void => {
-			const before = performance.now();
-			const dt = (time - last) as Milliseconds;
-			clock.advance(dt);
-			const now = clock.snapshot(dt);
-			const fps = dt > 0 ? 1000 / dt : 0;
-			const g = gameRef.current;
-			if (g) {
-				const session = playSessionRef.current;
-				if (playingRef.current && session) {
-					const { view } = session;
-					view.input.update();
-					g.sceneManager.update({ dt, time: now }, view.input);
-					g.sceneManager.render(
-						view.renderer,
-						{ time: now },
-						view.input,
-					);
-					view.renderer.endFrame();
-					g.sceneManager.clearEvents();
-					view.fps = fps;
-					view.frameTime = performance.now() - before;
-					view.physicsTime = view.scene.world.physicsTime;
-				} else {
-					const focused = focusedSceneViewRef.current;
-					for (const view of sceneViewsRef.current.values()) {
-						if (view === focused) {
-							view.update(dt, now);
-						} else {
-							view.rollInput();
-						}
-						const viewBefore = performance.now();
-						view.render(now);
-						view.frameTime = performance.now() - viewBefore;
-						view.fps = fps;
-					}
-					focused?.scene.world.events.clear();
-				}
-				g.events.clear();
-			}
-			last = time;
-			raf = requestAnimationFrame(frame);
-		};
-		raf = requestAnimationFrame(frame);
-		setGame(instance);
-
 		return () => {
-			cancelAnimationFrame(raf);
-			for (const id of sceneViewsRef.current.keys()) {
-				disposeSceneView(id);
-			}
-			instance.stop();
-			gameRef.current = null;
-			projectRef.current = null;
-			setGame(null);
+			cancelled = true;
+			stop?.();
 		};
-	}, [startScene]);
+	}, [startScene, runtimeReady]);
+
+	useEffect(() => {
+		if (!game) {
+			return;
+		}
+		const ws = workspaceRef.current;
+		let root = ws.root;
+		for (const id of allViewIds(root)) {
+			if (isSceneView(id) && !isValidViewId(id, [])) {
+				root = removeView(root, id);
+			}
+		}
+		if (root === ws.root) {
+			return;
+		}
+		const focused =
+			ws.focused && findView(root, ws.focused)
+				? ws.focused
+				: (firstSceneView({ ...ws, root }) ??
+					allViewIds(root)[0] ??
+					null);
+		updateWorkspace({ ...ws, root, focused });
+	}, [game]);
 
 	useEffect(() => {
 		if (!playing) {
@@ -868,7 +908,7 @@ const App = ({ startScene }: { startScene: string }) => {
 	const renderScene = (id: ViewId) => {
 		const view = ensureSceneView(id);
 		if (!view || !game) {
-			return null;
+			return <Loading label="Loading runtime..." />;
 		}
 		return (
 			<SceneViewPanel

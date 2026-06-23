@@ -45,6 +45,7 @@
 		"oxlint-tsgolint": "0.23.0",
 		"typescript": "6.0.2",
 		"vite": "8.0.16",
+		"vite-plugin-mkcert": "2.1.0",
 		"vite-plugin-wasm": "3.6.0"
 	}
 }

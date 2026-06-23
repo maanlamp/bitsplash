@@ -1,14 +1,18 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./editor/app";
-import { loadRapier } from "./engine/physics/rapier-physics";
-import "./game/scenes/platformer";
 import "./style/main.scss";
 
-await loadRapier();
+const runtimeReady = (async (): Promise<void> => {
+	const [, rapier] = await Promise.all([
+		import("./game/scenes/platformer"),
+		import("./engine/physics/rapier-physics"),
+	]);
+	await rapier.loadRapier();
+})();
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		<App startScene="demo" />
+		<App startScene="demo" runtimeReady={runtimeReady} />
 	</StrictMode>,
 );
