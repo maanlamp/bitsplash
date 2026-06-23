@@ -24,7 +24,6 @@
 			"friction": 0.2,
 			"restitution": 0,
 			"fixedRotation": true,
-			"bullet": false,
 			"linearDamping": 0,
 			"collisionLayer": "enemy",
 			"sensor": false

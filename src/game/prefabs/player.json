@@ -24,7 +24,6 @@
 			"friction": 0,
 			"restitution": 0,
 			"fixedRotation": true,
-			"bullet": false,
 			"linearDamping": 0,
 			"collisionLayer": "player",
 			"cornerRadius": 3
@@ -67,7 +66,7 @@
 					"frameWidth": 55,
 					"frameHeight": 55,
 					"frameCount": 8,
-					"fps": 14,
+					"fps": 13,
 					"loop": true,
 					"contentX": 15,
 					"contentY": 18,

@@ -84,7 +84,7 @@ export class RapierPhysics extends Physics {
 		const desc = this.bodyDesc(def.type)
 			.setTranslation(def.position.x, def.position.y)
 			.setLinearDamping(def.linearDamping ?? 0)
-			.setCcdEnabled(def.bullet ?? false);
+			.setCcdEnabled(def.type === "dynamic");
 		if (def.fixedRotation ?? false) {
 			desc.lockRotations();
 		}

@@ -23,7 +23,6 @@ export class PhysicsBodyComponent {
 	@serialize() friction: number;
 	@serialize() restitution: number;
 	@serialize() fixedRotation: boolean;
-	@serialize() bullet: boolean;
 	@serialize() linearDamping: number;
 	@serialize() collisionLayer: string;
 	@serialize() sensor: boolean;
@@ -41,7 +40,6 @@ export class PhysicsBodyComponent {
 		friction: number = 0,
 		restitution: number = 0,
 		fixedRotation: boolean = true,
-		bullet: boolean = false,
 		linearDamping: number = 0,
 		collisionLayer: string = "default",
 		sensor: boolean = false,
@@ -56,7 +54,6 @@ export class PhysicsBodyComponent {
 		this.friction = friction;
 		this.restitution = restitution;
 		this.fixedRotation = fixedRotation;
-		this.bullet = bullet;
 		this.linearDamping = linearDamping;
 		this.collisionLayer = collisionLayer;
 		this.sensor = sensor;

@@ -6,5 +6,3 @@ export const PICKUP_MAGNET_MIN_SPEED = 5 * TILE_SIZE;
 export const PICKUP_MAGNET_MAX_SPEED = 14 * TILE_SIZE;
 export const PICKUP_MAGNET_RADIUS = 1 * TILE_SIZE;
 export const PICKUP_RADIUS = 0.25 * TILE_SIZE;
-
-export const UNSTUCK_SPEED = 8 * TILE_SIZE;

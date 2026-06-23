@@ -24,7 +24,6 @@
 			"friction": 0,
 			"restitution": 0,
 			"fixedRotation": true,
-			"bullet": true,
 			"linearDamping": 0,
 			"collisionLayer": "projectile"
 		},

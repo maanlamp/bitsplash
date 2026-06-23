@@ -15,7 +15,6 @@ export class PhysicsSystem implements UpdateSystem {
 				type: phys.type,
 				position: transform.position,
 				fixedRotation: phys.fixedRotation,
-				bullet: phys.bullet,
 				linearDamping: phys.linearDamping,
 				box: {
 					halfWidth: phys.halfWidth,

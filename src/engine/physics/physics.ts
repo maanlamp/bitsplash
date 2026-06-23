@@ -8,7 +8,6 @@ export type BodyDef = Readonly<{
 	type: RigidBodyType;
 	position: Vec;
 	fixedRotation?: boolean;
-	bullet?: boolean;
 	linearDamping?: number;
 	box: Readonly<{
 		halfWidth: number;

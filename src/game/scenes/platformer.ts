@@ -60,7 +60,6 @@ import { QuestSystem } from "../systems/quest";
 import { QuestNoticeSystem } from "../systems/quest-notice";
 import { QuestNoticeRenderSystem } from "../systems/quest-notice-render";
 import { SpawnSystem } from "../systems/spawn";
-import { TileUnstuckSystem } from "../systems/tile-unstuck";
 import { VoiceSystem } from "../systems/voice";
 
 import "./pause";
@@ -102,7 +101,6 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new PatrolSystem(),
 		new GroundDetectionSystem(),
 		new PhysicsSystem(),
-		new TileUnstuckSystem(tileGrid),
 		new BowSystem(),
 		new ArrowSystem(tileGrid),
 		new PickupSystem(),
