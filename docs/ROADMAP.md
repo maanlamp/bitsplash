@@ -604,7 +604,7 @@ Editor selection → toolset → palettes (animation authoring waits on Animatio
 - 💡 **Unified intent actuation** — AI writes the same move/jump/aim/fire intent
   components the player input writes; movement/bow/etc. actuate both identically.
   Requires factoring `PlayerInputSystem` into intent + actuation.
-- 💡 **Perception** — vision (planck raycast / cones), proximity queries, sound
+- 💡 **Perception** — vision (physics raycast / cones), proximity queries, sound
   events → blackboard facts (target id, distance, line-of-sight, last-known pos).
 - 💡 **Platformer nav-graph** (full commit) — walkable surface spans from the tile
   grid; **walk / fall / jump** links computed from a parametric jump arc, edges

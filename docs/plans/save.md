@@ -14,7 +14,7 @@ best-effort migration, checkpoint + auto-save built on top.
 
 - `serialization/serialize.ts` — `serializeWorld(ecs)` walks every entity, every
   component, every plain/`Vector2` field → `SerializedWorld`. Non-plain objects
-  (e.g. the planck `Body` on `RigidbodyComponent`) encode to `undefined`, so
+  (e.g. the live physics `RigidBody` handle on `PhysicsBodyComponent`) encode to `undefined`, so
   derived runtime state is naturally excluded.
 - `serialization/value.ts` — `encode/decodeValue`, `$type: "Vector2"` marker.
 - `game/levels/demo.ts` — `loadDemoLevel` loads `demo.json` (`tiles` + `entities`)

@@ -1,71 +1,67 @@
-import { type Body, Box, Vec2, World as PhysicsWorld } from "planck";
-import {
-	PhysicsBodyComponent,
-	type RigidBodyType,
-} from "./components/physics-body";
+import { PhysicsBodyComponent } from "./components/physics-body";
 import { ECS, type EntityId } from "./ecs";
-import EventBus from "./events";
+import EventBus, { CollisionEvent } from "./events";
+import type { CollisionMatrix } from "./physics/collision";
+import type {
+	BodyDef,
+	RaycastFilter,
+	RaycastHit,
+	Vec,
+} from "./physics/physics";
+import { RapierPhysics } from "./physics/rapier-physics";
+import type { RigidBody } from "./physics/rigid-body";
 
 const FIXED_DT = 1 / 60;
 const MAX_FRAME = 0.25;
 
-export type RigidbodyDef = Readonly<{
-	type: RigidBodyType;
-	position: Readonly<{ x: number; y: number }>;
-	fixedRotation?: boolean;
-	bullet?: boolean;
-	linearDamping?: number;
-	box: Readonly<{
-		halfWidth: number;
-		halfHeight: number;
-		offsetX?: number;
-		offsetY?: number;
-	}>;
-	density?: number;
-	friction?: number;
-	restitution?: number;
-	filterGroupIndex?: number;
-	filterCategoryBits?: number;
-	filterMaskBits?: number;
-	sensor?: boolean;
-}>;
+export type RigidbodyDef = BodyDef;
 
 export class World {
 	readonly ecs = new ECS();
 	readonly events = new EventBus();
-	readonly physics: PhysicsWorld;
+	private readonly physics: RapierPhysics;
 	private accumulator = 0;
+	private lastPhysicsTime = 0;
+	private alpha = 0;
 
-	constructor(gravity: Readonly<{ x: number; y: number }>) {
-		this.physics = new PhysicsWorld({ gravity });
+	get physicsTime(): number {
+		return this.lastPhysicsTime;
 	}
 
-	setGravity(gravity: Readonly<{ x: number; y: number }>): void {
-		this.physics.setGravity(new Vec2(gravity.x, gravity.y));
+	get interpolationAlpha(): number {
+		return this.alpha;
 	}
 
-	createBody(def: RigidbodyDef): Body {
-		const body = this.physics.createBody({
-			type: def.type,
-			position: { x: def.position.x, y: def.position.y },
-			fixedRotation: def.fixedRotation ?? false,
-			bullet: def.bullet ?? false,
-			linearDamping: def.linearDamping ?? 0,
-		});
-		body.createFixture({
-			shape: new Box(def.box.halfWidth, def.box.halfHeight, {
-				x: def.box.offsetX ?? 0,
-				y: def.box.offsetY ?? 0,
-			}),
-			density: def.density ?? 1,
-			friction: def.friction ?? 0,
-			restitution: def.restitution ?? 0,
-			filterGroupIndex: def.filterGroupIndex ?? 0,
-			filterCategoryBits: def.filterCategoryBits ?? 1,
-			filterMaskBits: def.filterMaskBits ?? 0xffff,
-			isSensor: def.sensor ?? false,
-		});
-		return body;
+	constructor(gravity: Vec, collisionMatrix?: CollisionMatrix) {
+		this.physics = new RapierPhysics(gravity, collisionMatrix);
+	}
+
+	setGravity(gravity: Vec): void {
+		this.physics.setGravity(gravity);
+	}
+
+	createBody(def: BodyDef): RigidBody {
+		return this.physics.createBody(def);
+	}
+
+	createStaticChain(
+		points: ReadonlyArray<Vec>,
+		friction: number,
+		layer?: string,
+	): RigidBody {
+		return this.physics.createStaticChain(points, friction, layer);
+	}
+
+	destroyBody(body: RigidBody): void {
+		this.physics.destroyBody(body);
+	}
+
+	raycast(
+		from: Vec,
+		to: Vec,
+		filter: RaycastFilter,
+	): RaycastHit | null {
+		return this.physics.raycast(from, to, filter);
 	}
 
 	despawn(id: EntityId): void {
@@ -87,9 +83,26 @@ export class World {
 
 	step(dt: number): void {
 		this.accumulator += Math.min(dt, MAX_FRAME);
+		let stepTime = 0;
 		while (this.accumulator >= FIXED_DT) {
+			for (const [, phys] of this.ecs.query(PhysicsBodyComponent)) {
+				phys.body?.saveSnapshot();
+			}
+			const before = performance.now();
 			this.physics.step(FIXED_DT);
+			stepTime += performance.now() - before;
 			this.accumulator -= FIXED_DT;
+			this.emitCollisions();
+		}
+		this.lastPhysicsTime = stepTime;
+		this.alpha = this.accumulator / FIXED_DT;
+	}
+
+	private emitCollisions(): void {
+		for (const [a, b] of this.physics.consumeCollisions()) {
+			if (a.userData !== null && b.userData !== null) {
+				this.events.emit(new CollisionEvent(a.userData, b.userData));
+			}
 		}
 	}
 }

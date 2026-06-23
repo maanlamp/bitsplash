@@ -15,7 +15,7 @@
 			"fixedRotation": true,
 			"bullet": false,
 			"linearDamping": 0,
-			"filterGroupIndex": 0,
+			"collisionLayer": "npc",
 			"sensor": true
 		},
 		"Sprite": {

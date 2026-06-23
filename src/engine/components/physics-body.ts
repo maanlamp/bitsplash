@@ -1,9 +1,9 @@
-import { AABB, type Body, Transform } from "planck";
+import type { RigidBody } from "../physics/rigid-body";
 import {
 	serializable,
 	serialize,
 } from "../serialization/serializable";
-import Vector2 from "../vector2";
+import type Vector2 from "../vector2";
 
 export const RIGID_BODY_TYPES = [
 	"static",
@@ -25,15 +25,13 @@ export class PhysicsBodyComponent {
 	@serialize() fixedRotation: boolean;
 	@serialize() bullet: boolean;
 	@serialize() linearDamping: number;
-	@serialize() filterGroupIndex: number;
-	@serialize() filterCategoryBits: number;
-	@serialize() filterMaskBits: number;
+	@serialize() collisionLayer: string;
 	@serialize() sensor: boolean;
 	@serialize() offsetX: number;
 	@serialize() offsetY: number;
+	@serialize() cornerRadius: number;
 
-	body: Body | null = null;
-	private cachedHalfExtents: Vector2 | null = null;
+	body: RigidBody | null = null;
 
 	constructor(
 		type: RigidBodyType = "dynamic",
@@ -45,12 +43,11 @@ export class PhysicsBodyComponent {
 		fixedRotation: boolean = true,
 		bullet: boolean = false,
 		linearDamping: number = 0,
-		filterGroupIndex: number = 0,
-		filterCategoryBits: number = 1,
-		filterMaskBits: number = 0xffff,
+		collisionLayer: string = "default",
 		sensor: boolean = false,
 		offsetX: number = 0,
 		offsetY: number = 0,
+		cornerRadius: number = 0,
 	) {
 		this.type = type;
 		this.halfWidth = halfWidth;
@@ -61,53 +58,30 @@ export class PhysicsBodyComponent {
 		this.fixedRotation = fixedRotation;
 		this.bullet = bullet;
 		this.linearDamping = linearDamping;
-		this.filterGroupIndex = filterGroupIndex;
-		this.filterCategoryBits = filterCategoryBits;
-		this.filterMaskBits = filterMaskBits;
+		this.collisionLayer = collisionLayer;
 		this.sensor = sensor;
 		this.offsetX = offsetX;
 		this.offsetY = offsetY;
+		this.cornerRadius = cornerRadius;
 	}
 
 	get linearVelocity(): Vector2 {
-		const v = this.body!.getLinearVelocity();
-		return new Vector2(v.x, v.y);
+		return this.body!.linearVelocity;
 	}
 
 	set linearVelocity(v: Vector2) {
-		this.body!.setLinearVelocity({ x: v.x, y: v.y });
+		this.body!.linearVelocity = v;
 	}
 
 	get halfExtents(): Vector2 {
-		if (this.cachedHalfExtents) {
-			return this.cachedHalfExtents;
-		}
-		const local = new AABB();
-		const fixtureBounds = new AABB();
-		const identity = Transform.identity();
-		let first = true;
-		for (let f = this.body!.getFixtureList(); f; f = f.getNext()) {
-			f.getShape().computeAABB(fixtureBounds, identity, 0);
-			if (first) {
-				local.set(fixtureBounds);
-				first = false;
-			} else {
-				local.combine(local, fixtureBounds);
-			}
-		}
-		const e = local.getExtents();
-		this.cachedHalfExtents = new Vector2(e.x, e.y);
-		return this.cachedHalfExtents;
+		return this.body!.halfExtents;
 	}
 
 	applyForce(v: Vector2): void {
-		this.body!.applyForceToCenter({ x: v.x, y: v.y });
+		this.body!.applyForce(v);
 	}
 
 	applyImpulse(v: Vector2): void {
-		this.body!.applyLinearImpulse(
-			{ x: v.x, y: v.y },
-			this.body!.getWorldCenter(),
-		);
+		this.body!.applyImpulse(v);
 	}
 }

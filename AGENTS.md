@@ -1,8 +1,9 @@
 # Bitsplash
 
 A 2D platformer game running in the browser on an HTML `<canvas>`, built with a
-hand-rolled Entity-Component-System (ECS) and the **planck** physics engine
-(JavaScript port of Box2D).
+hand-rolled Entity-Component-System (ECS) and a **physics** layer behind an
+engine-owned abstraction (`src/engine/physics/`), backed by **Rapier**. Game and
+editor code never reference the physics backend directly.
 
 ## Tooling
 

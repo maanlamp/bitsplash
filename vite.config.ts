@@ -1,6 +1,7 @@
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
+import wasm from "vite-plugin-wasm";
 
 const suppressSceneHmr = (): Plugin => ({
 	name: "suppress-scene-hmr",
@@ -13,6 +14,7 @@ const suppressSceneHmr = (): Plugin => ({
 
 export default defineConfig({
 	plugins: [
+		wasm(),
 		suppressSceneHmr(),
 		react(),
 		babel({
@@ -23,4 +25,5 @@ export default defineConfig({
 		}),
 	],
 	assetsInclude: ["**/*.zip"],
+	build: { target: "esnext" },
 });

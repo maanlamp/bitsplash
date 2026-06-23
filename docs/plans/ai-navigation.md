@@ -41,7 +41,7 @@ actuation shared with the player, and a platformer nav-graph (walk/fall/jump).
 
 - `PerceptionComponent` (data): target entity id, distance, has-line-of-sight,
   last-known-position, threat level, grounded, etc. Entity refs by id.
-- Perception systems populate it: vision (planck raycast within a cone),
+- Perception systems populate it: vision (physics raycast within a cone),
   proximity (distance query), hearing (consume sound events). Tunable per agent.
 - The blackboard doubles as the FSM's `params` source for code conditions.
 

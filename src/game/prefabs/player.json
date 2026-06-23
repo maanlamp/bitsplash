@@ -24,9 +24,10 @@
 			"friction": 0,
 			"restitution": 0,
 			"fixedRotation": true,
-			"bullet": true,
+			"bullet": false,
 			"linearDamping": 0,
-			"filterGroupIndex": -1
+			"collisionLayer": "player",
+			"cornerRadius": 3
 		},
 		"PlayerInput": {
 			"maxSpeed": 96,

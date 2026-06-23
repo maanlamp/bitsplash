@@ -16,7 +16,6 @@ import {
 	PICKUP_MAGNET_MAX_SPEED,
 	PICKUP_MAGNET_MIN_SPEED,
 	PICKUP_MAGNET_RADIUS,
-	PICKUP_RADIUS,
 } from "../constants";
 
 export class PickupSystem implements UpdateSystem {
@@ -46,36 +45,50 @@ export class PickupSystem implements UpdateSystem {
 			return;
 		}
 		const [playerId, playerInput, playerTransform] = player;
-		const target = playerTransform.position;
 
-		for (const [id, pickup, transform, rigidBody] of ecs.query(
+		for (const event of events.read(CollisionEvent)) {
+			const other =
+				event.a === playerId
+					? event.b
+					: event.b === playerId
+						? event.a
+						: null;
+			if (other === null) {
+				continue;
+			}
+			const pickup = ecs.getComponent(other, PickupComponent);
+			if (pickup) {
+				this.applyPickup(pickup.type, playerInput);
+				world.despawn(other);
+			}
+		}
+
+		const target = playerTransform.position;
+		for (const [, , transform, rigidBody] of ecs.query(
 			PickupComponent,
 			TransformComponent,
 			PhysicsBodyComponent,
 		)) {
-			const dist = transform.position.distanceTo(target);
-
-			if (dist <= PICKUP_RADIUS) {
-				this.applyPickup(pickup.type, playerInput);
-				world.despawn(id);
-				events.emit(new CollisionEvent(playerId, id));
+			if (!rigidBody.body) {
 				continue;
 			}
-
-			if (dist <= PICKUP_MAGNET_RADIUS && rigidBody.body) {
-				const t = 1 - dist / PICKUP_MAGNET_RADIUS;
-				const speed =
-					PICKUP_MAGNET_MIN_SPEED +
-					t * (PICKUP_MAGNET_MAX_SPEED - PICKUP_MAGNET_MIN_SPEED);
-				const dir = target
-					.clone()
-					.sub(transform.position)
-					.normalize();
-				rigidBody.linearVelocity = new Vector2(
-					dir.x * speed,
-					dir.y * speed,
-				);
+			const dist = transform.position.distanceTo(target);
+			if (dist <= 0 || dist > PICKUP_MAGNET_RADIUS) {
+				continue;
 			}
+			const t = 1 - dist / PICKUP_MAGNET_RADIUS;
+			const speed =
+				PICKUP_MAGNET_MIN_SPEED +
+				t * (PICKUP_MAGNET_MAX_SPEED - PICKUP_MAGNET_MIN_SPEED);
+			const dir = target.clone().sub(transform.position).normalize();
+			const vel = rigidBody.linearVelocity;
+			const mass = rigidBody.body.mass;
+			rigidBody.applyImpulse(
+				new Vector2(
+					mass * (dir.x * speed - vel.x),
+					mass * (dir.y * speed - vel.y),
+				),
+			);
 		}
 	}
 }

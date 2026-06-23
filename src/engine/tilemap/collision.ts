@@ -1,4 +1,4 @@
-import { type Body, Chain } from "planck";
+import type { RigidBody } from "../physics/rigid-body";
 import { TILE_SIZE } from "../tile";
 import type { World } from "../world";
 import type { TileGrid } from "./grid";
@@ -11,17 +11,19 @@ type Point = Readonly<{
 export class TileCollisionBaker {
 	private grid: TileGrid;
 	private world: World;
-	private bodies: Body[] = [];
+	private layer: string | undefined;
+	private bodies: RigidBody[] = [];
 
-	constructor(grid: TileGrid, world: World) {
+	constructor(grid: TileGrid, world: World, layer?: string) {
 		this.grid = grid;
 		this.world = world;
+		this.layer = layer;
 		grid.onChange(() => this.rebuild());
 	}
 
 	private rebuild(): void {
 		for (const body of this.bodies) {
-			this.world.physics.destroyBody(body);
+			this.world.destroyBody(body);
 		}
 		this.bodies = [];
 
@@ -29,17 +31,14 @@ export class TileCollisionBaker {
 			if (loop.length < 3) {
 				continue;
 			}
-			const body = this.world.physics.createBody({ type: "static" });
-			body.createFixture({
-				shape: new Chain(
-					loop.map((p) => ({
-						x: p.x * TILE_SIZE,
-						y: p.y * TILE_SIZE,
-					})),
-					true,
-				),
-				friction: 0.5,
-			});
+			const body = this.world.createStaticChain(
+				loop.map((p) => ({
+					x: p.x * TILE_SIZE,
+					y: p.y * TILE_SIZE,
+				})),
+				0.5,
+				this.layer,
+			);
 			this.bodies.push(body);
 		}
 	}

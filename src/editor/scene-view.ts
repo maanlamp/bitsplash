@@ -30,6 +30,7 @@ export class SceneView {
 
 	frameTime = 0;
 	fps = 0;
+	physicsTime = 0;
 
 	private readonly camera: EditorCamera2DSystem;
 	private readonly updateSystems: ReadonlyArray<UpdateSystem>;

@@ -22,16 +22,15 @@ export class PhysicsSystem implements UpdateSystem {
 					halfHeight: phys.halfHeight,
 					offsetX: phys.offsetX,
 					offsetY: phys.offsetY,
+					cornerRadius: phys.cornerRadius,
 				},
 				density: phys.density,
 				friction: phys.friction,
 				restitution: phys.restitution,
-				filterGroupIndex: phys.filterGroupIndex,
-				filterCategoryBits: phys.filterCategoryBits,
-				filterMaskBits: phys.filterMaskBits,
+				collisionLayer: phys.collisionLayer,
 				sensor: phys.sensor,
 			});
-			phys.body.setUserData(id);
+			phys.body.userData = id;
 		}
 
 		world.step(dt / 1000);
@@ -43,10 +42,11 @@ export class PhysicsSystem implements UpdateSystem {
 			if (!phys.body) {
 				continue;
 			}
-			const pos = phys.body.getPosition();
+			const alpha = world.interpolationAlpha;
+			const pos = phys.body.interpolatedPosition(alpha);
 			transform.position.x = pos.x;
 			transform.position.y = pos.y;
-			transform.rotation.radians = phys.body.getAngle();
+			transform.rotation.radians = phys.body.interpolatedAngle(alpha);
 		}
 	}
 }

@@ -16,10 +16,10 @@ export class TileUnstuckSystem implements UpdateSystem {
 
 	update({ ecs }: UpdateContext): void {
 		for (const [, rb] of ecs.query(PhysicsBodyComponent)) {
-			if (!rb.body || rb.body.isStatic()) {
+			if (!rb.body || rb.body.isStatic) {
 				continue;
 			}
-			const pos = rb.body.getPosition();
+			const pos = rb.body.position;
 			const gx = Math.floor(pos.x / TILE_SIZE);
 			const gy = Math.floor(pos.y / TILE_SIZE);
 			const stuck = this.grid.hasTile(gx, gy);
@@ -37,19 +37,15 @@ export class TileUnstuckSystem implements UpdateSystem {
 			const dx = (opening.gx + 0.5) * TILE_SIZE - pos.x;
 			const dy = (opening.gy + 0.5) * TILE_SIZE - pos.y;
 			const len = Math.hypot(dx, dy) || 1;
-			rb.body.setLinearVelocity({
+			rb.body.linearVelocity = {
 				x: (dx / len) * UNSTUCK_SPEED,
 				y: (dy / len) * UNSTUCK_SPEED,
-			});
+			};
 		}
 	}
 
 	private setSensor(rb: PhysicsBodyComponent, sensor: boolean): void {
-		for (let f = rb.body!.getFixtureList(); f; f = f.getNext()) {
-			if (f.isSensor() !== sensor) {
-				f.setSensor(sensor);
-			}
-		}
+		rb.body!.setSensor(sensor);
 	}
 
 	private nearestOpening(

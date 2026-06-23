@@ -49,9 +49,7 @@ export class PlayerInputSystem implements UpdateSystem {
 				(dir !== 0 ? player.acceleration : player.deceleration) *
 				control;
 			const newVx = approach(vel.x, targetVx, rate * s);
-			rb.applyImpulse(
-				new Vector2(rb.body.getMass() * (newVx - vel.x), 0),
-			);
+			rb.applyImpulse(new Vector2(rb.body.mass * (newVx - vel.x), 0));
 
 			const onWall =
 				!player.grounded && dir !== 0 && this.touchingWall(rb, dir);
@@ -77,34 +75,18 @@ export class PlayerInputSystem implements UpdateSystem {
 		if (vy <= player.wallSlideSpeed) {
 			return;
 		}
-		rb.body!.setLinearVelocity({
+		rb.body!.linearVelocity = {
 			x: rb.linearVelocity.x,
 			y: player.wallSlideSpeed,
-		});
+		};
 	}
 
 	private touchingWall(
 		rb: PhysicsBodyComponent,
 		dir: number,
 	): boolean {
-		const body = rb.body!;
-		for (
-			let edge = body.getContactList();
-			edge;
-			edge = edge.next ?? null
-		) {
-			const contact = edge.contact;
-			if (!contact.isTouching()) {
-				continue;
-			}
-			const worldManifold = contact.getWorldManifold(null);
-			if (!worldManifold) {
-				continue;
-			}
-			const normal = worldManifold.normal;
-			const isA = body === contact.getFixtureA().getBody();
-			const nx = isA ? normal.x : -normal.x;
-			if (dir > 0 ? nx > 0.5 : nx < -0.5) {
+		for (const { normal } of rb.body!.touchingContacts()) {
+			if (dir > 0 ? normal.x > 0.5 : normal.x < -0.5) {
 				return true;
 			}
 		}
@@ -144,7 +126,7 @@ export class PlayerInputSystem implements UpdateSystem {
 				? player.maxJumpSpeed
 				: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
-			rb.body!.setLinearVelocity({ x: launchVx, y: -speed });
+			rb.body!.linearVelocity = { x: launchVx, y: -speed };
 			if (wallJump) {
 				player.wallJumping = true;
 			} else {
@@ -162,7 +144,7 @@ export class PlayerInputSystem implements UpdateSystem {
 		if (vy >= 0) {
 			player.jumping = false;
 		} else if (!jumpHeld && vy < -player.minJumpSpeed) {
-			rb.body!.setLinearVelocity({ x: vx, y: -player.minJumpSpeed });
+			rb.body!.linearVelocity = { x: vx, y: -player.minJumpSpeed };
 			player.jumping = false;
 		}
 	}

@@ -2,6 +2,10 @@ import { DebugTagComponent } from "../../engine/components/debug-tag";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
 import {
+	Layer as CollisionLayer,
+	collisionMatrix,
+} from "../collision";
+import {
 	SurfaceDecorations,
 	TileDecorations,
 } from "../../engine/decorations";
@@ -73,11 +77,11 @@ export const Layer = {
 } as const;
 
 registerScene("platformer", ({ config, name }): Scene => {
-	const world = new World(config.gravity);
+	const world = new World(config.gravity, collisionMatrix);
 	const ecs = world.ecs;
 
 	const tileGrid = new TileGrid();
-	new TileCollisionBaker(tileGrid, world);
+	new TileCollisionBaker(tileGrid, world, CollisionLayer.Terrain);
 	const surfaceDecorations = new SurfaceDecorations(
 		tileGrid,
 		knickKnacksUrl,

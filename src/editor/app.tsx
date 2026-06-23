@@ -517,6 +517,7 @@ const App = ({ startScene }: { startScene: string }) => {
 					g.sceneManager.clearEvents();
 					view.fps = fps;
 					view.frameTime = performance.now() - before;
+					view.physicsTime = view.scene.world.physicsTime;
 				} else {
 					const focused = focusedSceneViewRef.current;
 					for (const view of sceneViewsRef.current.values()) {

@@ -1,5 +1,7 @@
-import type { Body } from "planck";
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import type { RaycastHit } from "../../engine/physics/physics";
+import type { RigidBody } from "../../engine/physics/rigid-body";
+import { Layer } from "../collision";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
 import type { EntityId } from "../../engine/ecs";
@@ -43,7 +45,7 @@ export class ArrowSystem implements UpdateSystem {
 				rb.linearVelocity = Vector2.fromAngle(arrow.aimAngle).mul(
 					arrow.speed,
 				);
-				rb.body.setAngle(arrow.aimAngle);
+				rb.body.angle = arrow.aimAngle;
 				arrow.launched = true;
 				continue;
 			}
@@ -61,7 +63,7 @@ export class ArrowSystem implements UpdateSystem {
 					const x = host.position.x + arrow.attachOffsetX;
 					const y = host.position.y + arrow.attachOffsetY;
 					transform.position.set(x, y);
-					rb.body.setTransform({ x, y }, rb.body.getAngle());
+					rb.body.setTransform({ x, y }, rb.body.angle);
 				}
 				arrow.stuckRemaining = (arrow.stuckRemaining -
 					dtSeconds) as Seconds;
@@ -83,7 +85,7 @@ export class ArrowSystem implements UpdateSystem {
 				continue;
 			}
 			const direction = velocity.clone().div(speed);
-			rb.body.setAngle(direction.angle());
+			rb.body.angle = direction.angle();
 
 			const reach = speed * dtSeconds + ARROW_REACH;
 			const target = transform.position
@@ -96,12 +98,12 @@ export class ArrowSystem implements UpdateSystem {
 				target,
 			);
 			if (hit) {
-				const victim = hit.body.getUserData() as EntityId | null;
+				const victim = hit.body.userData;
 				this.stick(arrow, rb, hit.point, direction, victim);
 				if (victim) {
 					const host = ecs.getComponent(victim, TransformComponent);
 					if (host) {
-						const stuckPos = rb.body.getPosition();
+						const stuckPos = rb.body.position;
 						arrow.attachOffsetX = stuckPos.x - host.position.x;
 						arrow.attachOffsetY = stuckPos.y - host.position.y;
 					}
@@ -131,9 +133,9 @@ export class ArrowSystem implements UpdateSystem {
 			{ x: center.x, y: center.y },
 			direction.angle(),
 		);
-		body.setLinearVelocity({ x: 0, y: 0 });
+		body.linearVelocity = { x: 0, y: 0 };
 		body.setAngularVelocity(0);
-		body.setStatic();
+		body.setBodyType("static");
 	}
 
 	private resume(
@@ -144,30 +146,25 @@ export class ArrowSystem implements UpdateSystem {
 		arrow.stuck = false;
 		arrow.attachedTo = null;
 		sprite.opacity = 1;
-		rb.body!.setDynamic();
+		rb.body!.setBodyType("dynamic");
 		rb.body!.setAwake(true);
 	}
 
 	private raycast(
 		world: World,
-		self: Body,
+		self: RigidBody,
 		from: Vector2,
 		to: Vector2,
-	): { point: Vector2; body: Body } | null {
-		let result: { point: Vector2; body: Body } | null = null;
-		world.physics.rayCast(
+	): RaycastHit | null {
+		return world.raycast(
 			{ x: from.x, y: from.y },
 			{ x: to.x, y: to.y },
-			(fixture, point, _normal, fraction) => {
-				const body = fixture.getBody();
-				if (body === self || fixture.getFilterGroupIndex() < 0) {
-					return -1;
-				}
-				result = { point: new Vector2(point.x, point.y), body };
-				return fraction;
-			},
+			(body) =>
+				body !== self &&
+				(body.collisionLayer === Layer.Terrain ||
+					body.collisionLayer === Layer.Enemy ||
+					body.collisionLayer === Layer.Crate),
 		);
-		return result;
 	}
 
 	private outOfBounds(position: Vector2): boolean {

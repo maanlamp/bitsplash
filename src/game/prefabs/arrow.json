@@ -26,8 +26,7 @@
 			"fixedRotation": true,
 			"bullet": true,
 			"linearDamping": 0,
-			"filterGroupIndex": -1,
-			"filterMaskBits": 0
+			"collisionLayer": "projectile"
 		},
 		"Sprite": {
 			"url": "/src/game/assets/arrow.png",

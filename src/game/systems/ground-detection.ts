@@ -15,22 +15,8 @@ export class GroundDetectionSystem implements UpdateSystem {
 				continue;
 			}
 			let grounded = false;
-			for (
-				let edge = rb.body.getContactList();
-				edge;
-				edge = edge.next ?? null
-			) {
-				const contact = edge.contact;
-				if (!contact.isTouching()) {
-					continue;
-				}
-				const worldManifold = contact.getWorldManifold(null);
-				if (!worldManifold) {
-					continue;
-				}
-				const normal = worldManifold.normal;
-				const isA = rb.body === contact.getFixtureA().getBody();
-				if (isA ? normal.y > 0.5 : normal.y < -0.5) {
+			for (const { normal } of rb.body.touchingContacts()) {
+				if (normal.y > 0.5) {
 					grounded = true;
 					break;
 				}

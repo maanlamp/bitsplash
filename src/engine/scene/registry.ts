@@ -1,9 +1,7 @@
-import { Settings } from "planck";
 import { Game, type FrameInfo } from "../game";
 import type { GlobalServices } from "../services";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
-import { TILE_SIZE } from "../tile";
 import {
 	Scene,
 	type SceneFactory,
@@ -75,7 +73,6 @@ export const createGame = (
 	startScene: string,
 	onFrame?: (info: FrameInfo) => void,
 ): Game => {
-	Settings.lengthUnitsPerMeter = TILE_SIZE;
 	const game = new Game({ onFrame });
 	game.sceneManager.setBase(createScene(startScene, game.services));
 	return game;

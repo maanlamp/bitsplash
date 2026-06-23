@@ -1,5 +1,6 @@
-import type { Body } from "planck";
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import type { RigidBody } from "../../engine/physics/rigid-body";
+import { Layer } from "../collision";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
@@ -33,7 +34,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			}
 
 			const vy = rb.linearVelocity.y;
-			const pos = rb.body.getPosition();
+			const pos = rb.body.position;
 			const nearGround =
 				vy > 0 &&
 				!player.grounded &&
@@ -83,28 +84,21 @@ export class PlayerAnimationSystem implements UpdateSystem {
 
 	private groundBelow(
 		world: World,
-		body: Body,
+		body: RigidBody,
 		x: number,
 		y: number,
 		reach: number,
 	): boolean {
-		let hit = false;
-		world.physics.rayCast(
-			{ x, y },
-			{ x, y: y + reach },
-			(fixture) => {
-				const other = fixture.getBody();
-				if (
-					other === body ||
-					fixture.isSensor() ||
-					fixture.getFilterGroupIndex() < 0
-				) {
-					return -1;
-				}
-				hit = true;
-				return 0;
-			},
+		return (
+			world.raycast(
+				{ x, y },
+				{ x, y: y + reach },
+				(other) =>
+					other !== body &&
+					!other.isSensor &&
+					(other.collisionLayer === Layer.Terrain ||
+						other.collisionLayer === Layer.Crate),
+			) !== null
 		);
-		return hit;
 	}
 }
