@@ -15,7 +15,7 @@
 			"fixedRotation": true,
 			"linearDamping": 0,
 			"collisionLayer": "npc",
-			"sensor": true
+			"sensor": false
 		},
 		"Sprite": {
 			"url": "/src/engine/assets/unknown.png",

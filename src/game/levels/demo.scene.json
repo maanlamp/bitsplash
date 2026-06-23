@@ -3009,7 +3009,7 @@
 					"restitution": 0,
 					"fixedRotation": true,
 					"linearDamping": 0,
-					"collisionLayer": "npc",
+					"collisionLayer": "enemy",
 					"sensor": true,
 					"offsetX": 0,
 					"offsetY": 4
