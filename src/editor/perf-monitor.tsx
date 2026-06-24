@@ -93,7 +93,7 @@ const PerfMonitor = ({ stats }: { stats: FrameStats }) => {
 
 			ctx.fillStyle = TEXT_COLOR;
 			ctx.fillText(
-				`${fps.toFixed(0)} FPS  ${frameTime.toFixed(1)}ms`,
+				`${fps.toFixed(0)} FPS  ${(frameTime + stats.physicsTime).toFixed(1)}ms`,
 				PAD,
 				12,
 			);
@@ -144,7 +144,7 @@ const PerfMonitor = ({ stats }: { stats: FrameStats }) => {
 				ctx.stroke();
 			}
 
-			ctx.fillStyle = TEXT_COLOR;
+			ctx.fillStyle = ACCENT_COLOR;
 			ctx.fillText(
 				`frm ${min.toFixed(1)}/${avg.toFixed(1)}/${max.toFixed(1)}`,
 				PAD,
