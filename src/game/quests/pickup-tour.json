@@ -1,0 +1,30 @@
+{
+	"id": "pickup_tour",
+	"name": "Learn the Gear",
+	"fsm": "pickup-tour-quest",
+	"objectives": [
+		{
+			"activeInStage": "active",
+			"type": "collectTagged",
+			"tag": "quest:pickup_tour",
+			"count": 0,
+			"objectiveText": "Collect the gear ($collected/$count)",
+			"onComplete": { "type": "advanceStage", "to": "return" }
+		}
+	],
+	"rewards": [
+		{
+			"onStage": "complete",
+			"type": "ability",
+			"ability": "extra-jump"
+		}
+	],
+	"stageObjectives": {
+		"return": "Return to the Quartermaster"
+	},
+	"stageNotices": {
+		"active": "New Quest: Learn the Gear",
+		"return": "Gear collected",
+		"complete": "Quest complete: Learn the Gear"
+	}
+}

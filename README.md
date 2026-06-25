@@ -27,7 +27,6 @@ The bias throughout is toward small, composable, **data-driven** systems (JSON s
 
 ## Further reading
 
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — system-by-system progress and build order
 - [`docs/EDITOR_STYLING.md`](docs/EDITOR_STYLING.md) — editor UI style guide
 - [`docs/plans/`](docs/plans/) — detailed architectural plans per system
 - [`agents.md`](agents.md) — codebase orientation for AI agents

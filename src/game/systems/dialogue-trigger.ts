@@ -1,6 +1,5 @@
 import { DialogueComponent } from "../../engine/components/dialogue";
 import { InkStoryComponent } from "../../engine/components/ink-story";
-import { resolveFont } from "../../engine/resolve-font";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -14,7 +13,7 @@ import { panelForTag } from "../ink/panels";
 import { tagValue } from "../ink/tags";
 
 export class DialogueTriggerSystem implements UpdateSystem {
-	update({ ecs, events, assetManager }: UpdateContext): void {
+	update({ ecs, events }: UpdateContext): void {
 		if (ecs.query(DialogueComponent)[0]) {
 			return;
 		}
@@ -30,12 +29,9 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			if (!inkEntry) {
 				return;
 			}
-			const story = ensureStory(inkEntry[1], events);
+			const story = ensureStory(inkEntry[1], events, ecs);
 			const tags = story.TagsForContentAtPath(source.knot);
 			const font = fontForTag(tagValue(tags, "font"));
-			if (!resolveFont(font, assetManager)) {
-				return;
-			}
 			const panel = panelForTag(tagValue(tags, "panel"));
 			story.ChoosePathString(source.knot);
 			ecs.createEntity([

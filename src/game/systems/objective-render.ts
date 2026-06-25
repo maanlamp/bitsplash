@@ -11,6 +11,7 @@ import { getQuest } from "../quest/loader";
 import { UI_SCALE } from "../settings";
 
 const MARGIN = 8;
+const MAX_VISIBLE_QUESTS = 3;
 
 const substitute = (
 	text: string,
@@ -29,8 +30,8 @@ export class ObjectiveRenderSystem implements RenderSystem {
 	private font = new FontSettings(fsPixelSansUrl, 16);
 
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		const text = this.activeObjective(ecs);
-		if (!text) {
+		const lines = this.activeLines(ecs);
+		if (lines.length === 0) {
 			return;
 		}
 		const font = resolveFont(this.font, assetManager);
@@ -38,22 +39,30 @@ export class ObjectiveRenderSystem implements RenderSystem {
 			return;
 		}
 		const screenW = renderer.width / UI_SCALE;
-		renderer.drawText(
-			UI_LAYER_MIN + 1,
-			font,
-			text,
-			screenW - MARGIN,
-			MARGIN + font.ascent,
-			{
-				align: "right",
-				color: [1, 1, 1, 1],
-				outline: [0, 0, 0, 1],
-			},
-		);
+		let y = MARGIN + font.ascent;
+		for (const line of lines) {
+			renderer.drawText(
+				UI_LAYER_MIN + 1,
+				font,
+				line,
+				screenW - MARGIN,
+				y,
+				{
+					align: "right",
+					color: [1, 1, 1, 1],
+					outline: [0, 0, 0, 1],
+				},
+			);
+			y += font.lineHeight;
+		}
 	}
 
-	private activeObjective(ecs: RenderContext["ecs"]): string | null {
+	private activeLines(ecs: RenderContext["ecs"]): string[] {
+		const lines: string[] = [];
 		for (const [, quest] of ecs.query(QuestComponent)) {
+			if (lines.length >= MAX_VISIBLE_QUESTS) {
+				break;
+			}
 			const def = getQuest(quest.questId);
 			if (!def) {
 				continue;
@@ -62,17 +71,23 @@ export class ObjectiveRenderSystem implements RenderSystem {
 				(o) => o.activeInStage === quest.stage,
 			);
 			if (objective) {
-				return substitute(objective.objectiveText, {
-					count: objective.count,
-					kills: quest.counters[objective.tag] ?? 0,
-					target: objective.tag,
-				});
+				const goal = quest.goals[objective.tag] ?? objective.count;
+				const counter = quest.counters[objective.tag] ?? 0;
+				lines.push(
+					substitute(objective.objectiveText, {
+						count: goal,
+						kills: counter,
+						collected: counter,
+						target: objective.tag,
+					}),
+				);
+				continue;
 			}
 			const stageText = def.stageObjectives?.[quest.stage];
 			if (stageText) {
-				return stageText;
+				lines.push(stageText);
 			}
 		}
-		return null;
+		return lines;
 	}
 }

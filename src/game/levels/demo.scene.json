@@ -2937,6 +2937,29 @@
 				}
 			}
 		},
+			{"id":"bbefabc1-4f65-4f3a-92f3-095cc4ae708c","components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 1264,
+						"y": 336
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"SpawnPoint": {
+					"prefab": "pickup-tutor",
+					"spawnOnLoad": true
+				}
+			}
+		},
 		{
 			"id": "b3a1f7c2-9e44-4d2a-8f1b-6c5d0e2a7f10",
 			"components": {

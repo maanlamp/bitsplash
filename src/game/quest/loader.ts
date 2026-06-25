@@ -1,6 +1,6 @@
 export type QuestObjective = Readonly<{
 	activeInStage: string;
-	type: "killTagged";
+	type: "killTagged" | "collectTagged";
 	tag: string;
 	count: number;
 	objectiveText: string;
@@ -12,6 +12,7 @@ export type QuestReward = Readonly<{
 	type: string;
 	itemId?: string;
 	count?: number;
+	ability?: string;
 }>;
 
 export type QuestDef = Readonly<{

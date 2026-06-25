@@ -12,6 +12,8 @@ export class DialogueComponent {
 	panel: string;
 	charactersPerSecond = 24;
 
+	text = "";
+	paginated = false;
 	pages: RichLine[][] = [];
 	pageIndex = 0;
 	revealed = 0;
@@ -22,6 +24,7 @@ export class DialogueComponent {
 	selectedOption = 0;
 
 	opened = false;
+	hold = false;
 	navUpHeld = false;
 	navDownHeld = false;
 	escHeld = false;

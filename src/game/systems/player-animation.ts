@@ -9,13 +9,12 @@ import {
 } from "../../engine/system";
 import type { World } from "../../engine/world";
 import { PlayerInputComponent } from "../components/player-input";
-import { InputBindings } from "../input-bindings";
 
 const AIRBORNE = new Set(["fall", "jump", "walljump", "wallslide"]);
 const LANDING_LOOKAHEAD = 0.15;
 
 export class PlayerAnimationSystem implements UpdateSystem {
-	update({ ecs, input, world }: UpdateContext): void {
+	update({ ecs, world }: UpdateContext): void {
 		for (const [, player, rb, sm, sprite] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,
@@ -25,13 +24,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			if (!rb.body) {
 				continue;
 			}
-			let dir = 0;
-			if (input.keyboard.keys[InputBindings.left]) {
-				dir -= 1;
-			}
-			if (input.keyboard.keys[InputBindings.right]) {
-				dir += 1;
-			}
+			const dir = player.moveDir;
 
 			const vy = rb.linearVelocity.y;
 			const pos = rb.body.position;

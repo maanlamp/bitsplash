@@ -1,5 +1,6 @@
 import type { Story } from "inkjs/full";
 import type { InkStoryComponent } from "../../engine/components/ink-story";
+import type { ECS } from "../../engine/ecs";
 import { ensureStory as ensureStoryWith } from "../../engine/ink/story";
 import type EventBus from "../../engine/events";
 import {
@@ -7,9 +8,18 @@ import {
 	QuestDeclinedEvent,
 	StartQuestEvent,
 } from "../events";
+import {
+	beginPickupTour,
+	endPickupTour,
+	nextPickup,
+} from "../systems/pickup-tour";
 import { createStory } from "./loader";
 
-const bindExternals = (story: Story, events: EventBus): void => {
+const bindExternals = (
+	story: Story,
+	events: EventBus,
+	ecs: ECS,
+): void => {
 	story.BindExternalFunction(
 		"start_quest",
 		(quest: string, stage: string) => {
@@ -36,12 +46,32 @@ const bindExternals = (story: Story, events: EventBus): void => {
 		(_item: string, _count: number) => 0,
 		false,
 	);
+	story.BindExternalFunction(
+		"begin_pickup_tour",
+		() => {
+			beginPickupTour(ecs);
+		},
+		false,
+	);
+	story.BindExternalFunction(
+		"next_pickup",
+		() => nextPickup(ecs),
+		false,
+	);
+	story.BindExternalFunction(
+		"end_pickup_tour",
+		() => {
+			endPickupTour(ecs);
+		},
+		false,
+	);
 };
 
 export const ensureStory = (
 	component: InkStoryComponent,
 	events: EventBus,
+	ecs: ECS,
 ): Story =>
 	ensureStoryWith(component, createStory, (story) =>
-		bindExternals(story, events),
+		bindExternals(story, events, ecs),
 	);

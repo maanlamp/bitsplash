@@ -18,6 +18,7 @@ export class PlayerInputComponent {
 	@serialize() canWallSlide: boolean = false;
 	@serialize() canWallJump: boolean = false;
 
+	moveDir: number = 0;
 	grounded: boolean = false;
 	jumping: boolean = false;
 	jumpWasHeld: boolean = false;

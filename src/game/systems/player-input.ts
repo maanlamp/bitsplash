@@ -1,3 +1,4 @@
+import { DialogueComponent } from "../../engine/components/dialogue";
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
 import type { Input } from "../../engine/input/input";
 import {
@@ -27,6 +28,7 @@ export class PlayerInputSystem implements UpdateSystem {
 			return;
 		}
 		const s = dt / 1000;
+		const frozen = !!ecs.query(DialogueComponent)[0];
 		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,
@@ -35,12 +37,13 @@ export class PlayerInputSystem implements UpdateSystem {
 				continue;
 			}
 			let dir = 0;
-			if (input.keyboard.keys[InputBindings.left]) {
+			if (!frozen && input.keyboard.keys[InputBindings.left]) {
 				dir -= 1;
 			}
-			if (input.keyboard.keys[InputBindings.right]) {
+			if (!frozen && input.keyboard.keys[InputBindings.right]) {
 				dir += 1;
 			}
+			player.moveDir = dir;
 
 			const vel = rb.linearVelocity;
 			const control = player.grounded ? 1 : player.airControl;
@@ -58,7 +61,12 @@ export class PlayerInputSystem implements UpdateSystem {
 				player.wallJumping = false;
 			}
 
-			this.handleJump(input, player, rb, newVx, onWall, dir);
+			if (frozen) {
+				player.jumpWasHeld =
+					!!input.keyboard.keys[InputBindings.jump];
+			} else {
+				this.handleJump(input, player, rb, newVx, onWall, dir);
+			}
 			this.handleWallSlide(player, rb, onWall);
 		}
 	}

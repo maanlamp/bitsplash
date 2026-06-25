@@ -19,6 +19,7 @@ import {
 import { Scene, type SceneFile } from "../../engine/scene/scene";
 import { Camera2DFollowSystem } from "../../engine/systems/camera-2d-follow";
 import { CameraShakeSystem } from "../../engine/systems/camera-shake";
+import { ScreenFadeRenderSystem } from "../../engine/systems/screen-fade-render";
 import { DebugTagSystem } from "../../engine/systems/debug-tag";
 import { DecorationsRenderSystem } from "../../engine/systems/decorations-render";
 import { PhysicsSystem } from "../../engine/systems/physics";
@@ -54,11 +55,13 @@ import { InteractionSystem } from "../systems/interaction";
 import { ObjectiveRenderSystem } from "../systems/objective-render";
 import { PatrolSystem } from "../systems/patrol";
 import { PickupSystem } from "../systems/pickup";
+import { PickupTourSystem } from "../systems/pickup-tour";
 import { PlayerAnimationSystem } from "../systems/player-animation";
 import { PlayerInputSystem } from "../systems/player-input";
 import { QuestSystem } from "../systems/quest";
 import { QuestNoticeSystem } from "../systems/quest-notice";
 import { QuestNoticeRenderSystem } from "../systems/quest-notice-render";
+import { QuestMarkerDrawerSystem } from "../systems/quest-marker-render";
 import { SpawnSystem } from "../systems/spawn";
 import { VoiceSystem } from "../systems/voice";
 
@@ -112,6 +115,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new DamageShakeSystem(),
 		new DeathSystem(),
 		new QuestSystem(),
+		new PickupTourSystem(),
 		new TimerSystem(),
 		new SpawnSystem(),
 		new DeathNoticeSystem(),
@@ -127,6 +131,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem(Layer.DEBUG_TAG));
+	ecs.addRenderSystem(new QuestMarkerDrawerSystem(Layer.DEBUG_TAG));
 	ecs.addRenderSystem(
 		new InteractHintRenderSystem(Layer.DEBUG_TAG, Layer.PLAYER),
 	);
@@ -139,6 +144,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	ecs.addRenderSystem(new DeathOverlayRenderSystem());
 	ecs.addRenderSystem(new QuestNoticeRenderSystem());
 	ecs.addRenderSystem(new ObjectiveRenderSystem());
+	ecs.addRenderSystem(new ScreenFadeRenderSystem());
 
 	return new Scene({
 		kind: "platformer",

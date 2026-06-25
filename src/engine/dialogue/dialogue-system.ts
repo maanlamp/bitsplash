@@ -167,6 +167,21 @@ export class DialogueSystem implements UpdateSystem {
 			state.phase = "open";
 		}
 
+		this.ensurePages(state, assetManager);
+		if (!state.paginated) {
+			if (pressed) {
+				consume();
+			}
+			return;
+		}
+
+		if (state.hold) {
+			if (pressed) {
+				consume();
+			}
+			return;
+		}
+
 		const escHeld = this.bindings.cancelHeld(ctx);
 		const escPressed = escHeld && !state.escHeld;
 		state.escHeld = escHeld;
@@ -261,13 +276,34 @@ export class DialogueSystem implements UpdateSystem {
 			}
 		}
 		state.choices = story.currentChoices.map((choice) => choice.text);
+		state.text = text;
+		state.paginated = false;
+		state.pages = [[]];
+		state.pageIndex = 0;
+		state.revealed = 0;
+		state.pause = 0 as Seconds;
+		state.complete = false;
+		state.selectedOption = 0;
+		this.ensurePages(state, assetManager);
+		return text.length > 0 || state.choices.length > 0;
+	}
 
+	private ensurePages(
+		state: DialogueComponent,
+		assetManager: AssetManager,
+	): void {
+		if (state.paginated) {
+			return;
+		}
 		const font = resolveFont(state.font, assetManager);
+		if (state.text.length > 0 && !font) {
+			return;
+		}
 		state.pages =
-			text.length > 0 && font
+			state.text.length > 0 && font
 				? paginate(
 						font,
-						parseRichText(text),
+						parseRichText(state.text),
 						this.bindings.textWidth,
 						this.bindings.maxLines,
 					)
@@ -275,9 +311,8 @@ export class DialogueSystem implements UpdateSystem {
 		state.pageIndex = 0;
 		state.revealed = 0;
 		state.pause = 0 as Seconds;
-		state.complete = text.length === 0;
-		state.selectedOption = 0;
-		return text.length > 0 || state.choices.length > 0;
+		state.complete = state.text.length === 0;
+		state.paginated = true;
 	}
 
 	private handleNavigation(

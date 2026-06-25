@@ -41,31 +41,29 @@ export class Camera2DFollowSystem implements UpdateSystem {
 				continue;
 			}
 
+			const multi = points.length > 1;
 			const focus = this.focusPoint(points);
-			const velocity = this.averageVelocity(ecs, follow.targets);
-			focus.x += clamp(
-				velocity.x * follow.lookahead.seconds,
-				follow.lookahead.max,
-			);
-			focus.y += clamp(
-				velocity.y * follow.lookahead.seconds,
-				follow.lookahead.max,
-			);
+			if (!multi) {
+				const velocity = this.averageVelocity(ecs, follow.targets);
+				focus.x += clamp(
+					velocity.x * follow.lookahead.seconds,
+					follow.lookahead.max,
+				);
+				focus.y += clamp(
+					velocity.y * follow.lookahead.seconds,
+					follow.lookahead.max,
+				);
+			}
 
-			const targetX = deadzoned(
-				camera.position.x,
-				focus.x,
-				follow.deadzone.x,
-			);
-			const targetY = deadzoned(
-				camera.position.y,
-				focus.y,
-				follow.deadzone.y,
-			);
-			const desiredZoom =
-				points.length > 1
-					? this.fitZoom(camera, points, follow.fitPadding)
-					: follow.zoom;
+			const targetX = multi
+				? focus.x
+				: deadzoned(camera.position.x, focus.x, follow.deadzone.x);
+			const targetY = multi
+				? focus.y
+				: deadzoned(camera.position.y, focus.y, follow.deadzone.y);
+			const desiredZoom = multi
+				? this.fitZoom(camera, points, follow.fitPadding)
+				: follow.zoom;
 
 			camera.position.x +=
 				(targetX - camera.position.x) *

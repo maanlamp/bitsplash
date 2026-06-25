@@ -1,125 +1,182 @@
-# Generic State Machine — Architectural Plan
+# State Machine — Architectural Plan
 
-Status: **in progress**. A **shared engine primitive** consumed by AI (`ai-navigation.md`) and Animation (`animation.md`, TBD). README summary under "State Machines".
+Status: **redesign**. Supersedes the previous generic-`Cond` / pluggable-evaluator
+design, which existed only to keep FSM definitions serializable for hypothetical
+editor authoring. That requirement was dropped (see §2).
 
 ## 1. Goal
 
-One generic FSM primitive, data-only (no callbacks), reused across: AI decision policy, sprite **animation** state machines, player movement states, and narrative / cutscene states.
+A minimal, code-first FSM substrate reused across game-entity behaviour:
+movement, AI, and (later) animation. Every FSM lives on a game entity and is
+driven by one generic system. There is no standalone / non-game / editor-tooling
+use case — all consumers are ECS components.
 
-## 2. Design constraints
+## 2. What changed and why
 
-- **Data-only + events**: the FSM is data; transitions are data; reactions are **systems** reading the current state or handling enter/exit **events**. No `onEnter` callbacks living on the component.
-- **Code-first AND editor-authorable**: AI state machines are defined in code; animation state machines are authored as data in the sprite editor. The core must serve both — solved by a **pluggable condition evaluator**.
-- **No entity hierarchy**: a state machine is one component on one entity; cross-entity refs are by id.
+The old plan carried a condition-type split (`CodeCondition` = predicate fn vs
+`DataCondition` = `{ param, op, value }` descriptor), a generic `Cond` type
+parameter, a pluggable `evaluate`, an `@fsm` decorator, a dedicated def registry,
+and an `import.meta.glob("../fsm/*")` registration. All of that existed for a
+single purpose: make an FSM **definition** serializable so it could be authored
+in an editor and round-tripped through JSON.
+
+Decisions that removed the need:
+
+- **Code-first.** AI/movement state machines are simple enough that the FSM
+  pattern itself is the quality guard; they are written in code, not authored.
+- **Editor authoring is deferred, not designed-for-now.** It only becomes
+  worthwhile _if_ the skeletal-animation workflow lands, and that would get a
+  dedicated data-driven animation graph (Unity-Mecanim style: typed params +
+  comparison conditions) — not a retrofit of the gameplay FSM. It does not
+  constrain this design.
+- **The definition is never serialized.** Only authored _initial_ data is
+  (params/fields). Runtime state (`current`, `elapsed`) is unmarked, matching
+  "level save = authored initial state only".
+
+With serialization of the definition off the table, conditions are just
+`(self) => boolean` predicates in code. The split, the evaluator, the registry,
+the decorator, and the glob all disappear.
 
 ## 3. Model
 
-```
-type Transition<Cond> = {
-  to: StateName
-  cond: Cond
-  priority?: number
-}
-
-type FsmDef<Cond> = {
-  initial: StateName
-  states: Record<StateName, { transitions: Transition<Cond>[] }>
-  anyState?: Transition<Cond>[]
-  evaluate(cond: Cond, params: Params): boolean
-}
-
-class StateMachineComponent {
-  def: FsmDef | null       // not serialized — class instance, skipped by encodeValue
-  defId: string            // serialized — used to re-attach def after load
-  current: StateName       // serialized
-  elapsed: number          // serialized
-  params: Params           // serialized
-}
-```
-
-- `StateMachineSystem` ticks each machine: increment `elapsed`; evaluate `anyState` then `current`'s transitions by priority; on the first satisfied, switch state, reset `elapsed`, emit `StateExitEvent(from)` + `StateEnterEvent(to)` on the bus. Both carry entity id + state names.
-- `elapsed` is injected into params as a reserved key before condition evaluation — conditions can read it without consumers needing to mirror it manually.
-- **Reactions are systems**: an animation system maps `current` → clip; an AI policy maps `current` → intent. They read `current` or handle the events. The FSM never calls them.
-
-## 4. Pluggable condition evaluator
-
-`cond` is generic; an evaluator interprets it against the machine's `params`:
-
-- **Code conditions (AI):** `cond` is a predicate `(params: Params) => boolean`. Maximal flexibility; lives in code; not serialized.
-- **Data conditions (animation):** `cond` is a declarative descriptor — `{ param, op: '>' | '<' | '>=' | '<=' | '==' | '!=', value }` or `{ trigger: name }` (one-shot, consumed on transition). Serializable — authorable in the sprite editor's animation graph. A generic data-evaluator interprets it against `params`.
-
-The same `StateMachineSystem` works for both; only the registered def's `evaluate` implementation differs.
-
-Triggers: a consumed-on-read flag in `params`, cleared after the transition that used them fires.
-
-## 5. Registration
-
-Defs are registered via the `@fsm(id)` class decorator, mirroring the `@serializable` pattern for components. The decorator instantiates the class and calls `registerDef`. Game FSM files live under `game/fsm/` and are loaded via `import.meta.glob("./fsm/*", { eager: true })` in `fantasy-platformer.ts`.
+The FSM "registry" is the **existing `@serializable` component registry** — there
+is no second one. Discovery for ticking is the **existing prototype-chain query**:
+`ECS.addComponent` registers a component under every class in its prototype chain
+(`ecs.ts`), so `query(StateMachineComponent)` returns every entity whose component
+_subclasses_ the base. No string ids, no def lookup.
 
 ```ts
-@fsm("patrol")
-export class PatrolDef implements FsmDef<CodeCondition> {
-  initial = "right";
-  states = { ... };
-  evaluate(cond: CodeCondition, params: Params): boolean {
-    return cond(params);
-  }
+type Transition<C> = {
+	to: string;
+	when: (self: C) => boolean;
+	priority?: number;
+};
+
+type StateDef<C> = {
+	transitions: ReadonlyArray<Transition<C>>;
+};
+
+abstract class StateMachineComponent {
+	abstract readonly initial: string;
+	abstract readonly states: Record<string, StateDef<this>>;
+	anyState: ReadonlyArray<Transition<this>> = [];
+	current = "";
+	elapsed = 0;
 }
 ```
 
-After deserialization, `StateMachineSystem` re-attaches the def from the registry on first tick using `defId`.
+A concrete machine is an ordinary serializable component that extends the base.
+States, transitions, and predicates live on the class (logic on a class is fine —
+it is never serialized); only authored fields opt in via `@serialize`:
 
-## 6. Serialization
+```ts
+@serializable("Patrol")
+class PatrolComponent extends StateMachineComponent {
+	@serialize() interval = 1.5;
 
-The component serializes `defId + current + elapsed + params`. The `def` field is a class instance and is silently skipped by `encodeValue`. Prefab JSON example:
+	initial = "right";
+	states = {
+		right: {
+			transitions: [
+				{ to: "left", when: (s) => s.elapsed >= s.interval },
+			],
+		},
+		left: {
+			transitions: [
+				{ to: "right", when: (s) => s.elapsed >= s.interval },
+			],
+		},
+	};
+}
+```
+
+The prefab JSON carries only authored data, keyed by the serializable name — the
+same bridge every component uses:
 
 ```json
-"StateMachine": {
-  "defId": "patrol",
-  "current": "right",
-  "elapsed": 0,
-  "params": { "interval": 1.5 }
-}
+"Patrol": { "interval": 1.5 }
 ```
 
-## 7. Consumers (handoffs)
+On construct, `current` is empty; `StateMachineSystem` seeds it to `initial` on
+first tick. There is no `def` field and no `defId` to re-link.
 
-- **AI** (`ai-navigation.md`): decision policy = a code-condition machine (Idle/Patrol/Chase/Attack/Flee) whose `current` drives intent. `PatrolDef` is the first example.
-- **Animation** (`animation.md`): the sprite animation state machine = a data-condition machine whose states map to clips; `StateEnterEvent` fires to switch the playing clip.
-- **Player movement**: `PlayerMovementStateSystem` can migrate onto this.
-- **Narrative**: cutscene/dialogue beats as states.
+## 4. StateMachineSystem
 
-## 8. Completed
+One generic system, queries the base class:
 
-- [x] Core types (`Transition`, `FsmDef`) — `engine/fsm/state-machine.ts`
-- [x] Condition types + data evaluator (`CodeCondition`, `DataCondition`, `evaluateDataCondition`) — `engine/fsm/conditions.ts`
-- [x] `StateMachineComponent` — `engine/fsm/state-machine-component.ts`
-- [x] `StateEnterEvent`, `StateExitEvent` — `engine/fsm/events.ts`
-- [x] Registry (`registerDef`, `getDef`) — `engine/fsm/registry.ts`
-- [x] `@fsm` decorator — `engine/fsm/define.ts`
-- [x] `StateMachineSystem` — `engine/fsm/state-machine-system.ts`
-- [x] `PatrolDef` migrated as first code consumer — `game/fsm/patrol.ts`
-- [x] `PatrolSystem` migrated to read direction from FSM state
+- For each `StateMachineComponent`: if `current` is empty, set it to `initial`
+  and emit `StateEnter(initial)`.
+- Increment `elapsed` by dt.
+- Evaluate `anyState` then `current`'s transitions, highest `priority` first;
+  on the first `when(self)` that returns true: emit `StateExit(from)`, set
+  `current`, reset `elapsed = 0`, emit `StateEnter(to)`. Both events carry the
+  entity id and state names and ride the existing event bus.
 
-## 9. Remaining
+Reactions are systems, never callbacks: `PatrolSystem` reads `current` (or
+handles the enter/exit events) to drive direction; an animation system would map
+`current` → clip. The FSM never invokes them.
 
-- [ ] Data-condition evaluator wired into a real consumer (animation)
-- [ ] Player movement state machine migrated onto FSM
-- [ ] AI decision policy (Idle/Chase/Attack/Flee) built on FSM
-- [ ] Editor authoring of data-condition defs (animation graph in sprite editor)
+**Triggers** (one-shot conditions in the old plan) need no special mechanism: a
+trigger is just a boolean field the predicate reads and the consuming system
+clears after acting on the state.
 
-## 10. Open sub-decisions
+## 5. Serialization
 
-- **Hierarchical/nested states** — deferred; flat states first.
-- **Transition interruption / min-time-in-state** — `minElapsed` guard not yet needed.
-- **`import.meta.glob` for def registration** — works but is an outlier pattern. Acceptable for now; revisit if it causes ordering issues.
+- Authored fields (e.g. `interval`) use `@serialize`.
+- `current` and `elapsed` are unmarked → not serialized. On load/restore the
+  machine starts at `initial`, `elapsed = 0`. (Resuming a saved game at exact
+  mid-state runtime is explicitly not a goal; revisit only if save-games need it.)
+- The base class is abstract and not itself `@serializable`; each concrete
+  subclass registers its own name.
 
-## 11. Primary files
+## 6. What this deletes
 
-- `engine/fsm/state-machine.ts`
-- `engine/fsm/state-machine-component.ts`
-- `engine/fsm/state-machine-system.ts`
-- `engine/fsm/conditions.ts`
-- `engine/fsm/registry.ts`
-- `engine/fsm/define.ts`
-- `engine/fsm/events.ts`
+From the current implementation:
+
+- `engine/fsm/conditions.ts` (both `CodeCondition` and `DataCondition`, the data
+  evaluator) — gone.
+- `engine/fsm/registry.ts` and `engine/fsm/define.ts` (`@fsm`) — gone.
+- `import.meta.glob("../fsm/*")` in `game/scenes/platformer.ts` — gone; FSM
+  components are imported wherever components are (via prefab/component wiring).
+- `defId` field and the generic `Cond` type parameter — gone.
+
+Kept: `engine/fsm/events.ts` (`StateEnterEvent`, `StateExitEvent`).
+
+## 7. Migration
+
+- [ ] Replace `state-machine.ts` types with §3 (`Transition`, `StateDef`,
+      abstract `StateMachineComponent`).
+- [ ] Rewrite `StateMachineSystem` to query the base class and seed `current`.
+- [ ] Convert `game/fsm/patrol.ts` `PatrolDef` → `PatrolComponent extends
+StateMachineComponent` (`@serializable("Patrol")`); update the patrol prefab
+      JSON to the `"Patrol": { interval }` shape.
+- [ ] Update `PatrolSystem` to read `current` from the component (unchanged in
+      spirit; it no longer goes through a def/registry).
+- [ ] Delete `conditions.ts`, `registry.ts`, `define.ts`; remove the fsm glob.
+- [ ] `bun check`.
+
+## 8. Consumers
+
+- **Patrol** (first, exists): direction from `current`.
+- **Player movement**: migrate `PlayerMovementStateSystem` onto a
+  `PlayerMovementComponent extends StateMachineComponent`.
+- **AI policy**: Idle/Patrol/Chase/Attack/Flee as one machine; `current` drives
+  intent.
+- **Animation**: a state machine whose states map to clips, switching on
+  `StateEnter`. If/when skeletal authoring lands, the _authoring_ surface is a
+  separate data-driven animation graph, not this code-first substrate.
+
+## 9. Deferred
+
+- Editor authoring of animation state graphs (only with skeletal workflow).
+- Hierarchical / nested states — flat states first.
+- Min-time-in-state / transition interruption guards — add a field + predicate
+  check when first needed.
+- Exact-runtime-state save-game resume.
+
+## 10. Primary files
+
+- `engine/fsm/state-machine.ts` — `Transition`, `StateDef`, `StateMachineComponent`.
+- `engine/fsm/state-machine-system.ts` — the generic ticker.
+- `engine/fsm/events.ts` — enter/exit events.
+- `game/fsm/patrol.ts` — `PatrolComponent` (first consumer).

@@ -1,4 +1,6 @@
+import { DialogueComponent } from "../../engine/components/dialogue";
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import { TagsComponent } from "../../engine/components/tags";
 import { TransformComponent } from "../../engine/components/transform";
 import { CollisionEvent } from "../../engine/events";
 import {
@@ -8,6 +10,7 @@ import {
 import { TILE_SIZE } from "../../engine/tile";
 import Vector2 from "../../engine/vector2";
 import {
+	PICKUP_TYPES,
 	PickupComponent,
 	type PickupType,
 } from "../components/pickup";
@@ -17,6 +20,10 @@ import {
 	PICKUP_MAGNET_MIN_SPEED,
 	PICKUP_MAGNET_RADIUS,
 } from "../constants";
+import { PickupCollectedEvent, QuestRewardEvent } from "../events";
+
+const isPickupType = (value: string): value is PickupType =>
+	(PICKUP_TYPES as readonly string[]).includes(value);
 
 export class PickupSystem implements UpdateSystem {
 	applyPickup(type: PickupType, player: PlayerInputComponent): void {
@@ -46,6 +53,21 @@ export class PickupSystem implements UpdateSystem {
 		}
 		const [playerId, playerInput, playerTransform] = player;
 
+		for (const event of events.read(QuestRewardEvent)) {
+			const ability = event.reward.ability;
+			if (
+				event.reward.type === "ability" &&
+				typeof ability === "string" &&
+				isPickupType(ability)
+			) {
+				this.applyPickup(ability, playerInput);
+			}
+		}
+
+		if (ecs.query(DialogueComponent)[0]) {
+			return;
+		}
+
 		for (const event of events.read(CollisionEvent)) {
 			const other =
 				event.a === playerId
@@ -59,6 +81,14 @@ export class PickupSystem implements UpdateSystem {
 			const pickup = ecs.getComponent(other, PickupComponent);
 			if (pickup) {
 				this.applyPickup(pickup.type, playerInput);
+				const tags = ecs.getComponent(other, TagsComponent);
+				events.emit(
+					new PickupCollectedEvent(
+						other,
+						pickup.type,
+						tags ? [...tags.tags] : [],
+					),
+				);
 				world.despawn(other);
 			}
 		}

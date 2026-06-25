@@ -32,6 +32,14 @@ export class KillEvent {
 	) {}
 }
 
+export class PickupCollectedEvent {
+	constructor(
+		public entity: EntityId,
+		public type: string,
+		public tags: readonly string[],
+	) {}
+}
+
 export class StartQuestEvent {
 	constructor(
 		public quest: string,
