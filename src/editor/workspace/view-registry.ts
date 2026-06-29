@@ -7,6 +7,7 @@ import {
 	type Icon,
 	PuzzlePieceIcon,
 	SquaresFourIcon,
+	TerminalIcon,
 	TextAaIcon,
 } from "@phosphor-icons/react";
 import { sceneSummaries } from "../../engine/scene/registry";
@@ -24,7 +25,8 @@ export type ViewKind =
 	| "asset-browser"
 	| "sprite"
 	| "audio"
-	| "font";
+	| "font"
+	| "console";
 
 const ASSET_KINDS: ReadonlyArray<ViewKind> = [
 	"sprite",
@@ -82,6 +84,8 @@ export const viewTitle = (id: ViewId): string => {
 			return "Inspector";
 		case "asset-browser":
 			return "Assets";
+		case "console":
+			return "Console";
 		default:
 			if (param === NEW_PARAM) {
 				return kind === "audio" ? "New audio" : "New sprite";
@@ -101,6 +105,8 @@ export const viewIcon = (id: ViewId): Icon => {
 			return PuzzlePieceIcon;
 		case "asset-browser":
 			return FolderIcon;
+		case "console":
+			return TerminalIcon;
 		case "audio":
 			return FileAudioIcon;
 		case "font":
@@ -120,7 +126,8 @@ export const isValidViewId = (
 	if (
 		kind === "tree" ||
 		kind === "inspector" ||
-		kind === "asset-browser"
+		kind === "asset-browser" ||
+		kind === "console"
 	) {
 		return true;
 	}

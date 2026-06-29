@@ -311,13 +311,18 @@ export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 			{
 				type: "split",
 				direction: "column",
-				sizes: [0.7, 0.3],
+				sizes: [0.4, 0.4, 0.2],
 				children: [
 					{ type: "tabs", views: [sceneView], active: sceneView },
 					{
 						type: "tabs",
 						views: ["asset-browser"],
 						active: "asset-browser",
+					},
+					{
+						type: "tabs",
+						views: ["console"],
+						active: "console",
 					},
 				],
 			},

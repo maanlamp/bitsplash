@@ -27,6 +27,7 @@ import {
 import AudioEditor from "./audio/audio-editor";
 import { deleteEntity, duplicateEntity } from "./commands";
 import ConfirmDialog from "./confirm-dialog";
+import Console from "./console/console";
 import { setCursorMode } from "./cursor";
 import {
 	AddComponentPicker,
@@ -874,6 +875,8 @@ const App = ({
 		return <div className={styles.placeholder}>Nothing selected</div>;
 	};
 
+	const renderConsole = () => <Console />;
+
 	const renderAssetBrowser = () =>
 		assetsRoot ? (
 			<AssetBrowser
@@ -930,6 +933,8 @@ const App = ({
 				return renderInspector();
 			case "asset-browser":
 				return renderAssetBrowser();
+			case "console":
+				return renderConsole();
 			case "scene":
 				return renderScene(id);
 			case "font":
