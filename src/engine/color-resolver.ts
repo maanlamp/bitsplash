@@ -57,7 +57,9 @@ export class ColorResolver {
 	}
 
 	private createContext(): CanvasRenderingContext2D | null {
-		const ctx = document.createElement("canvas").getContext("2d");
+		const ctx = document
+			.createElement("canvas")
+			.getContext("2d", { willReadFrequently: true });
 		if (ctx) {
 			ctx.globalCompositeOperation = "copy";
 		}
