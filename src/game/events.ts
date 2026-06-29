@@ -25,18 +25,10 @@ export class SpawnEvent {
 	) {}
 }
 
-export class KillEvent {
-	constructor(
-		public entity: EntityId,
-		public tags: readonly string[],
-	) {}
-}
-
 export class PickupCollectedEvent {
 	constructor(
 		public entity: EntityId,
 		public type: string,
-		public tags: readonly string[],
 	) {}
 }
 

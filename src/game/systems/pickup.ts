@@ -1,6 +1,5 @@
 import { DialogueComponent } from "../../engine/components/dialogue";
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
-import { TagsComponent } from "../../engine/components/tags";
 import { TransformComponent } from "../../engine/components/transform";
 import { CollisionEvent } from "../../engine/events";
 import {
@@ -81,15 +80,8 @@ export class PickupSystem implements UpdateSystem {
 			const pickup = ecs.getComponent(other, PickupComponent);
 			if (pickup) {
 				this.applyPickup(pickup.type, playerInput);
-				const tags = ecs.getComponent(other, TagsComponent);
-				events.emit(
-					new PickupCollectedEvent(
-						other,
-						pickup.type,
-						tags ? [...tags.tags] : [],
-					),
-				);
-				world.despawn(other);
+				events.emit(new PickupCollectedEvent(other, pickup.type));
+				world.scheduleDespawn(other);
 			}
 		}
 

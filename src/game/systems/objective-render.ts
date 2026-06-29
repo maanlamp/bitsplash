@@ -63,7 +63,7 @@ export class ObjectiveRenderSystem implements RenderSystem {
 			if (lines.length >= MAX_VISIBLE_QUESTS) {
 				break;
 			}
-			const def = getQuest(quest.questId);
+			const def = getQuest(quest.id);
 			if (!def) {
 				continue;
 			}

@@ -2,7 +2,6 @@ import { Camera2DComponent } from "../../engine/components/camera-2d";
 import { Camera2DFollowComponent } from "../../engine/components/camera-2d-follow";
 import { DialogueComponent } from "../../engine/components/dialogue";
 import { ScreenFadeComponent } from "../../engine/components/screen-fade";
-import { TagsComponent } from "../../engine/components/tags";
 import { TransformComponent } from "../../engine/components/transform";
 import type { ECS, EntityId } from "../../engine/ecs";
 import {
@@ -14,12 +13,12 @@ import {
 	PickupComponent,
 	type PickupType,
 } from "../components/pickup";
-import { PlayerInputComponent } from "../components/player-input";
 import {
 	PickupTourComponent,
 	type TourTarget,
 } from "../components/pickup-tour";
-import { QuestComponent } from "../components/quest";
+import { PlayerInputComponent } from "../components/player-input";
+import QuestMarkerTag, { QuestComponent } from "../components/quest";
 
 export const PICKUP_TOUR_QUEST = "pickup_tour";
 export const PICKUP_TOUR_TAG = "quest:pickup_tour";
@@ -29,17 +28,6 @@ const setDialogueHold = (ecs: ECS, hold: boolean): void => {
 	if (dialogue) {
 		dialogue[1].hold = hold;
 	}
-};
-
-const tagPickup = (ecs: ECS, id: EntityId): void => {
-	const tags = ecs.getComponent(id, TagsComponent);
-	if (tags) {
-		if (!tags.has(PICKUP_TOUR_TAG)) {
-			tags.tags.push(PICKUP_TOUR_TAG);
-		}
-		return;
-	}
-	ecs.addComponent(id, new TagsComponent([PICKUP_TOUR_TAG]));
 };
 
 const selectTour = (ecs: ECS): TourTarget[] => {
@@ -70,10 +58,13 @@ export const beginPickupTour = (ecs: ECS): void => {
 	}
 	const queue = selectTour(ecs);
 	for (const target of queue) {
-		tagPickup(ecs, target.id);
+		ecs.addComponent(
+			target.id,
+			new QuestMarkerTag(PICKUP_TOUR_QUEST, undefined, "collect"),
+		);
 	}
 	for (const [, quest] of ecs.query(QuestComponent)) {
-		if (quest.questId === PICKUP_TOUR_QUEST) {
+		if (quest.id === PICKUP_TOUR_QUEST) {
 			quest.counters[PICKUP_TOUR_TAG] = 0;
 			quest.goals[PICKUP_TOUR_TAG] = queue.length;
 		}

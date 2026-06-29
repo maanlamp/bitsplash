@@ -46,8 +46,12 @@
 			"speed": 48,
 			"interval": 1.5
 		},
-		"Tags": {
-			"tags": ["enemy", "patrol"]
+		"EnemyTag": {},
+		"PatrolTag": {},
+		"QuestMarker": {
+			"questId": "massacre",
+			"stage": "active",
+			"type": "kill"
 		},
 		"StateMachine": {
 			"defId": "patrol",

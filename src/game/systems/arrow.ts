@@ -1,19 +1,19 @@
 import { PhysicsBodyComponent } from "../../engine/components/physics-body";
-import type { RaycastHit } from "../../engine/physics/physics";
-import type { RigidBody } from "../../engine/physics/rigid-body";
-import { Layer } from "../collision";
 import { SpriteComponent } from "../../engine/components/sprite";
 import { TransformComponent } from "../../engine/components/transform";
+import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
+import type { RaycastHit } from "../../engine/physics/physics";
+import type { RigidBody } from "../../engine/physics/rigid-body";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import type { Seconds } from "../../engine/duration";
 import { TILE_SIZE } from "../../engine/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
+import { Layer } from "../collision";
 import { ArrowComponent } from "../components/arrow";
 import { HealthComponent } from "../components/health";
 import { DamageEvent } from "../events";
@@ -69,13 +69,13 @@ export class ArrowSystem implements UpdateSystem {
 					dtSeconds) as Seconds;
 				sprite.opacity = fadeAlpha(arrow.stuckRemaining, arrow.fade);
 				if (arrow.stuckRemaining <= 0) {
-					world.despawn(id);
+					world.scheduleDespawn(id);
 				}
 				continue;
 			}
 
 			if (this.outOfBounds(transform.position)) {
-				world.despawn(id);
+				world.scheduleDespawn(id);
 				continue;
 			}
 

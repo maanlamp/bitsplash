@@ -1,3 +1,4 @@
+import { InkStoryComponent } from "../../engine/components/ink-story";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type EventBus from "../../engine/events";
@@ -8,17 +9,16 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { InkStoryComponent } from "../../engine/components/ink-story";
-import { QuestComponent } from "../components/quest";
+import QuestMarkerTag, { QuestComponent } from "../components/quest";
 import { QuestNoticeComponent } from "../components/quest-notice";
-import { getQuest, type QuestReward } from "../quest/loader";
 import {
 	AdvanceQuestEvent,
-	KillEvent,
+	DeathEvent,
 	PickupCollectedEvent,
 	QuestRewardEvent,
 	StartQuestEvent,
 } from "../events";
+import { getQuest, type QuestReward } from "../quest/loader";
 
 const rewardHandlers: Record<string, (reward: QuestReward) => void> =
 	{};
@@ -31,11 +31,25 @@ export class QuestSystem implements UpdateSystem {
 		for (const event of events.read(AdvanceQuestEvent)) {
 			this.setTrigger(ecs, event.quest, event.to);
 		}
-		for (const event of events.read(KillEvent)) {
-			this.trackTagged(ecs, "killTagged", event.tags);
+		for (const event of events.read(DeathEvent)) {
+			const marker = ecs
+				.componentsOf(event.entity)
+				.find((c) => c instanceof QuestMarkerTag) as
+				| QuestMarkerTag
+				| undefined;
+			if (marker?.type === "kill") {
+				this.trackTagged(ecs, "killTagged");
+			}
 		}
 		for (const event of events.read(PickupCollectedEvent)) {
-			this.trackTagged(ecs, "collectTagged", event.tags);
+			const marker = ecs
+				.componentsOf(event.entity)
+				.find((c) => c instanceof QuestMarkerTag) as
+				| QuestMarkerTag
+				| undefined;
+			if (marker?.type === "collect") {
+				this.trackTagged(ecs, "collectTagged");
+			}
 		}
 		for (const event of events.read(StateEnterEvent)) {
 			this.onStageEnter(ecs, events, event.entity, event.state);
@@ -44,7 +58,7 @@ export class QuestSystem implements UpdateSystem {
 
 	private startQuest(ecs: ECS, questId: string, stage: string): void {
 		for (const [, quest] of ecs.query(QuestComponent)) {
-			if (quest.questId === questId) {
+			if (quest.id === questId) {
 				return;
 			}
 		}
@@ -96,21 +110,19 @@ export class QuestSystem implements UpdateSystem {
 	private trackTagged(
 		ecs: ECS,
 		type: "killTagged" | "collectTagged",
-		tags: readonly string[],
 	): void {
 		for (const [, quest, sm] of ecs.query(
 			QuestComponent,
 			StateMachineComponent,
 		)) {
-			const def = getQuest(quest.questId);
+			const def = getQuest(quest.id);
 			if (!def) {
 				continue;
 			}
 			for (const objective of def.objectives) {
 				if (
 					objective.type !== type ||
-					objective.activeInStage !== quest.stage ||
-					!tags.includes(objective.tag)
+					objective.activeInStage !== quest.stage
 				) {
 					continue;
 				}
@@ -135,8 +147,8 @@ export class QuestSystem implements UpdateSystem {
 			return;
 		}
 		quest.stage = state;
-		this.mirrorStage(ecs, quest.questId, state);
-		const def = getQuest(quest.questId);
+		this.mirrorStage(ecs, quest.id, state);
+		const def = getQuest(quest.id);
 		if (!def) {
 			return;
 		}
@@ -160,7 +172,7 @@ export class QuestSystem implements UpdateSystem {
 			if (reward.onStage !== state) {
 				continue;
 			}
-			events.emit(new QuestRewardEvent(quest.questId, reward));
+			events.emit(new QuestRewardEvent(quest.id, reward));
 			rewardHandlers[reward.type]?.(reward);
 		}
 	}
@@ -173,7 +185,7 @@ export class QuestSystem implements UpdateSystem {
 			QuestComponent,
 			StateMachineComponent,
 		)) {
-			if (quest.questId === questId) {
+			if (quest.id === questId) {
 				return sm;
 			}
 		}

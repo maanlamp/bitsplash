@@ -3,13 +3,12 @@ import {
 	spriteImageUrl,
 	spriteSource,
 } from "../../engine/components/sprite";
-import { TagsComponent } from "../../engine/components/tags";
 import { TransformComponent } from "../../engine/components/transform";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { QuestComponent } from "../components/quest";
+import QuestMarkerTag, { QuestComponent } from "../components/quest";
 import { getQuest } from "../quest/loader";
 
 const HALF_WIDTH = 5;
@@ -33,13 +32,11 @@ export class QuestMarkerDrawerSystem implements RenderSystem {
 			return;
 		}
 		const bob = Math.sin(time.elapsed * BOB_SPEED) * BOB_AMOUNT;
-		for (const [id, tag, transform] of ecs.query(
-			TagsComponent,
+		for (const [id, _, transform] of ecs.query(
+			QuestMarkerTag,
 			TransformComponent,
 		)) {
-			if (!tag.tags.some((t) => tags.has(t))) {
-				continue;
-			}
+			// TODO: Check if marker questid and stage are both active
 			let half = 0;
 			const sprite = ecs.getComponent(id, SpriteComponent);
 			if (sprite) {
@@ -88,7 +85,7 @@ export class QuestMarkerDrawerSystem implements RenderSystem {
 	private activeTags(ecs: RenderContext["ecs"]): Set<string> {
 		const tags = new Set<string>();
 		for (const [, quest] of ecs.query(QuestComponent)) {
-			const def = getQuest(quest.questId);
+			const def = getQuest(quest.id);
 			if (!def) {
 				continue;
 			}

@@ -22,9 +22,8 @@
 			"opacity": 1,
 			"flipX": false
 		},
-		"Tags": {
-			"tags": ["npc", "quest-giver"]
-		},
+		"NpcTag": {},
+		"QuestGiverTag": {},
 		"DialogueSource": {
 			"knot": "pickup_tutor"
 		},

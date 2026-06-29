@@ -64,12 +64,14 @@ export class World {
 		return this.physics.raycast(from, to, filter);
 	}
 
-	despawn(id: EntityId): void {
-		const phys = this.ecs.getComponent(id, PhysicsBodyComponent);
-		if (phys?.body) {
-			this.physics.destroyBody(phys.body);
-		}
-		this.ecs.destroyEntity(id);
+	scheduleDespawn(id: EntityId): void {
+		setTimeout(() => {
+			const phys = this.ecs.getComponent(id, PhysicsBodyComponent);
+			if (phys?.body) {
+				this.physics.destroyBody(phys.body);
+			}
+			this.ecs.destroyEntity(id);
+		});
 	}
 
 	clear(): void {
