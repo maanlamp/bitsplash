@@ -1,6 +1,7 @@
 # Unified Camera + Tag Control
 
 ## Goal
+
 Replace the fragmented tag and camera control with marker component classes and a per-camera transition-based director that ink, quests, and gameplay code all use through one API.
 
 ## Plan
@@ -43,37 +44,37 @@ Default values: no transition, no shake, deadzone 4.
 
 ```ts
 type Transition =
-  | { type: "none" }
-  | {
-      type: "follow";
-      entityId: string;
-      smoothing: { x: number; y: number };
-      deadzone: { x: number; y: number } | null;
-      lookahead: { x: number; y: number };
-    }
-  | {
-      type: "lookAt";
-      entityId: string;
-      smoothing: number;
-    }
-  | {
-      type: "move";
-      from: { x: number; y: number };
-      to: { x: number; y: number };
-      duration: number;
-    }
-  | {
-      type: "zoom";
-      from: number;
-      to: number;
-      duration: number;
-    }
-  | {
-      type: "fade";
-      from: number;
-      to: number;
-      duration: number;
-    }
+	| { type: "none" }
+	| {
+			type: "follow";
+			entityId: string;
+			smoothing: { x: number; y: number };
+			deadzone: { x: number; y: number } | null;
+			lookahead: { x: number; y: number };
+	  }
+	| {
+			type: "lookAt";
+			entityId: string;
+			smoothing: number;
+	  }
+	| {
+			type: "move";
+			from: { x: number; y: number };
+			to: { x: number; y: number };
+			duration: number;
+	  }
+	| {
+			type: "zoom";
+			from: number;
+			to: number;
+			duration: number;
+	  }
+	| {
+			type: "fade";
+			from: number;
+			to: number;
+			duration: number;
+	  };
 ```
 
 - `duration: 0` = instant (teleport).
@@ -121,16 +122,17 @@ Applies shake math to `Camera2DComponent.position` each frame.
 
 ### 6. Refactor existing consumers to emit events
 
-| Consumer | Before | After |
-|---|---|---|
-| `DialogueSystem.setCameraTargets()` | Mutates `Camera2DFollowComponent` | Emits `CameraFollowEvent` or `CameraLookAtEvent` |
-| `DialogueSystem.clearCameraTargets()` | Nulls follow | Emits `CameraResetEvent` |
-| `DamageShakeSystem` | Mutates `CameraShakeComponent` | Emits `CameraShakeEvent` |
-| `DeathSystem` (player death) | Mutates `CameraShakeComponent` | Emits `CameraShakeEvent` |
+| Consumer                              | Before                            | After                                            |
+| ------------------------------------- | --------------------------------- | ------------------------------------------------ |
+| `DialogueSystem.setCameraTargets()`   | Mutates `Camera2DFollowComponent` | Emits `CameraFollowEvent` or `CameraLookAtEvent` |
+| `DialogueSystem.clearCameraTargets()` | Nulls follow                      | Emits `CameraResetEvent`                         |
+| `DamageShakeSystem`                   | Mutates `CameraShakeComponent`    | Emits `CameraShakeEvent`                         |
+| `DeathSystem` (player death)          | Mutates `CameraShakeComponent`    | Emits `CameraShakeEvent`                         |
 
 ### 7. Adapt Camera2DFollowSystem
 
 Read transition from `CameraControllerComponent`. Apply based on `transition.type`:
+
 - `"follow"`: follow entity with smoothing/deadzone/lookahead
 - `"lookAt"`: look at entity with smoothing
 - `"move"`: interpolate position over duration
@@ -147,26 +149,26 @@ Inline `CameraShakeComponent` into `CameraControllerComponent`.
 
 ## File map
 
-| File | Action |
-|---|---|
-| `src/engine/components/tags.ts` | Delete |
-| `src/engine/components/tag-player.ts` | New — marker component |
-| `src/engine/components/tag-enemy.ts` | New — marker component |
-| `src/engine/components/tag-*.ts` | New — one per existing tag |
-| `src/engine/components/camera-2d-follow.ts` | Delete |
-| `src/engine/components/camera-shake.ts` | Delete |
-| `src/engine/components/camera-controller.ts` | New |
-| `src/engine/systems/camera-2d-follow.ts` | Modify |
-| `src/engine/systems/camera-controller.ts` | New |
-| `src/engine/events.ts` | Add 7 event classes |
-| `src/game/events.ts` | Update `KillEvent` shape |
-| `src/game/systems/death.ts` | Use marker components, emit CameraShakeEvent |
-| `src/game/systems/quest.ts` | Use marker components |
-| `src/engine/dialogue/dialogue-system.ts` | Emit events |
-| `src/game/systems/dialogue-trigger.ts` | Minor |
-| `src/game/ink/bindings.ts` | Add camera externals |
-| `src/game/prefabs/*.json` | `tags` → marker component class names |
-| `docs/plans/` | Add this plan |
+| File                                         | Action                                       |
+| -------------------------------------------- | -------------------------------------------- |
+| `src/engine/components/tags.ts`              | Delete                                       |
+| `src/engine/components/tag-player.ts`        | New — marker component                       |
+| `src/engine/components/tag-enemy.ts`         | New — marker component                       |
+| `src/engine/components/tag-*.ts`             | New — one per existing tag                   |
+| `src/engine/components/camera-2d-follow.ts`  | Delete                                       |
+| `src/engine/components/camera-shake.ts`      | Delete                                       |
+| `src/engine/components/camera-controller.ts` | New                                          |
+| `src/engine/systems/camera-2d-follow.ts`     | Modify                                       |
+| `src/engine/systems/camera-controller.ts`    | New                                          |
+| `src/engine/events.ts`                       | Add 7 event classes                          |
+| `src/game/events.ts`                         | Update `KillEvent` shape                     |
+| `src/game/systems/death.ts`                  | Use marker components, emit CameraShakeEvent |
+| `src/game/systems/quest.ts`                  | Use marker components                        |
+| `src/engine/dialogue/dialogue-system.ts`     | Emit events                                  |
+| `src/game/systems/dialogue-trigger.ts`       | Minor                                        |
+| `src/game/ink/bindings.ts`                   | Add camera externals                         |
+| `src/game/prefabs/*.json`                    | `tags` → marker component class names        |
+| `docs/plans/`                                | Add this plan                                |
 
 ## Execution order
 
