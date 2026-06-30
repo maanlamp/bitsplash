@@ -140,4 +140,14 @@
 	--duration-fast: 100ms;
 	--duration-slow: 800ms;
 	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+	--debug-collider: oklch(0.72 0.18 145 / 0.3);
+	--debug-sensor: oklch(0.78 0.16 85 / 0.3);
+	--debug-axis-x: rgb(230 115 115);
+	--debug-axis-y: rgb(115 217 115);
+	--debug-transform: linear-gradient(
+		135deg,
+		var(--debug-axis-x) 0 50%,
+		var(--debug-axis-y) 50% 100%
+	);
 }

@@ -1,0 +1,70 @@
+.popup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-2);
+	min-width: var(--unit-48);
+	padding: var(--unit-4);
+	--glass-tint: var(--surface-overlay-raised);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-md);
+	border: none;
+	background: transparent;
+	color: var(--on-surface);
+	cursor: pointer;
+	white-space: nowrap;
+	user-select: none;
+	outline: none;
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	&:hover,
+	&:focus-visible {
+		background: var(--state-hover);
+	}
+}
+
+.swatch {
+	width: var(--unit-12);
+	height: var(--unit-12);
+	flex: none;
+	border-radius: var(--radius-sm);
+	background: var(--swatch);
+}
+
+.label {
+	flex: 1;
+	text-align: start;
+}
+
+.check {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--unit-20);
+	height: var(--unit-20);
+	flex: none;
+	border-radius: var(--radius-sm);
+	background: var(--surface-control);
+	color: var(--on-accent);
+	transition: background var(--duration-fast) var(--ease-standard);
+
+	.row[data-checked] & {
+		background: var(--accent);
+	}
+}
+
+.checkIcon {
+	display: flex;
+	font-size: 0.8em;
+	transition: all var(--duration-fast) var(--ease-standard);
+
+	&[data-starting-style] {
+		opacity: 0;
+		scale: 0;
+	}
+}

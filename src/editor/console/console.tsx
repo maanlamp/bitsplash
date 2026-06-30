@@ -6,9 +6,8 @@ import {
 } from "../console";
 
 const Console = () => {
-	const [logs, setLogs] = useState<ReadonlyArray<ConsoleEntry>>(
-		consoleHistory,
-	);
+	const [logs, setLogs] =
+		useState<ReadonlyArray<ConsoleEntry>>(consoleHistory);
 	useEffect(() => {
 		setLogs(consoleHistory());
 		return subscribeConsole((entry) => {

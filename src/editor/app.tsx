@@ -29,6 +29,7 @@ import { deleteEntity, duplicateEntity } from "./commands";
 import ConfirmDialog from "./confirm-dialog";
 import Console from "./console/console";
 import { setCursorMode } from "./cursor";
+import { DebugFlags } from "./debug-flags";
 import {
 	AddComponentPicker,
 	type MenuDeps,
@@ -115,9 +116,7 @@ const App = ({
 	);
 	const workspaceRef = useRef(workspace);
 	const updateWorkspace = (
-		next:
-			| WorkspaceState
-			| ((prev: WorkspaceState) => WorkspaceState),
+		next: WorkspaceState | ((prev: WorkspaceState) => WorkspaceState),
 	): void => {
 		const value =
 			typeof next === "function" ? next(workspaceRef.current) : next;
@@ -129,6 +128,7 @@ const App = ({
 	const gameRef = useRef<Game | null>(null);
 	const projectRef = useRef<Project | null>(null);
 	const sceneViewsRef = useRef(new Map<ViewId, SceneView>());
+	const debugFlagsRef = useRef(new DebugFlags());
 	const historyUnsubsRef = useRef(new Map<ViewId, () => void>());
 	const closedStackRef = useRef<ViewId[]>([]);
 	const playingRef = useRef(false);
@@ -181,6 +181,7 @@ const App = ({
 			id,
 			scene,
 			project.store(param),
+			debugFlagsRef.current,
 			instance.services,
 		);
 		const unsub = view.document.subscribe(() =>

@@ -6,6 +6,8 @@ import {
 	PlayIcon,
 } from "@phosphor-icons/react";
 import Button from "./button";
+import type { DebugFlags } from "./debug-flags";
+import DebugOverlaysPopover from "./debug-overlays-popover";
 import type { EditorMode } from "./editor-state";
 import FloatingToolbar from "./floating-toolbar";
 import { MODES } from "./modes";
@@ -22,6 +24,7 @@ type ToolbarProps = Readonly<{
 	canRedo: boolean;
 	undoShortcut: string;
 	redoShortcut: string;
+	debugFlags: DebugFlags;
 }>;
 
 const Toolbar = ({
@@ -34,6 +37,7 @@ const Toolbar = ({
 	canRedo,
 	undoShortcut,
 	redoShortcut,
+	debugFlags,
 }: ToolbarProps) => (
 	<FloatingToolbar>
 		<Tooltip label="Undo" shortcut={undoShortcut}>
@@ -78,6 +82,10 @@ const Toolbar = ({
 				</Tooltip>
 			))}
 		</ToggleGroup>
+
+		<div className={controls.toolbarSeparator} />
+
+		<DebugOverlaysPopover flags={debugFlags} />
 	</FloatingToolbar>
 );
 

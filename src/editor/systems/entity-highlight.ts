@@ -6,7 +6,7 @@ import {
 } from "../../engine/system";
 import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
 import type { EditorState } from "../editor-state";
-import { entityBounds } from "../pick";
+import { entityGeometry, unionBounds } from "../pick";
 
 const HOVER_STROKE = "rgba(255, 255, 255, 0.5)";
 const SELECTED_STROKE = "rgba(80, 180, 255, 0.95)";
@@ -56,7 +56,7 @@ export class EntityHighlightSystem implements RenderSystem {
 		stroke: string,
 		lineWidth: number,
 	): void {
-		const bounds = entityBounds(ecs, id, assetManager);
+		const bounds = unionBounds(entityGeometry(ecs, id, assetManager));
 		if (!bounds) {
 			return;
 		}

@@ -125,6 +125,7 @@ const SceneViewPanel = ({
 				canRedo={canRedo}
 				undoShortcut={undoShortcut}
 				redoShortcut={redoShortcut}
+				debugFlags={view.debugFlags}
 			/>
 		</div>
 	);

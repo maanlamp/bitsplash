@@ -12,14 +12,17 @@ import { renderSceneToTexture } from "../engine/systems/camera-2d";
 import { DebugGridSystem } from "../engine/systems/debug-grid";
 import Viewport from "../engine/viewport";
 import { EditorLayer } from "./constants";
+import { DEBUG_OVERLAY, type DebugFlags } from "./debug-flags";
 import type { EditorState } from "./editor-state";
 import { History } from "./history";
 import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
 import { EntityEditorSystem } from "./systems/entity-editor";
 import { EntityHighlightSystem } from "./systems/entity-highlight";
+import { PhysicsShapeDebugSystem } from "./systems/physics-shape-debug";
 import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
+import { TransformGizmoDebugSystem } from "./systems/transform-gizmo-debug";
 
 export class SceneView {
 	readonly viewport = new Viewport();
@@ -44,6 +47,7 @@ export class SceneView {
 		readonly id: string,
 		readonly scene: Scene,
 		readonly store: EditorState,
+		readonly debugFlags: DebugFlags,
 		private readonly services: GlobalServices,
 	) {
 		const grid = scene.tileGrid ?? null;
@@ -53,6 +57,23 @@ export class SceneView {
 			new EntityEditorSystem(store, this.history),
 		];
 		const renderSystems: RenderSystem[] = [
+			new PhysicsShapeDebugSystem(
+				debugFlags,
+				DEBUG_OVERLAY.colliders,
+				"collider",
+				EditorLayer.DEBUG_OVERLAY,
+			),
+			new PhysicsShapeDebugSystem(
+				debugFlags,
+				DEBUG_OVERLAY.sensors,
+				"sensor",
+				EditorLayer.DEBUG_OVERLAY,
+			),
+			new TransformGizmoDebugSystem(
+				debugFlags,
+				DEBUG_OVERLAY.transforms,
+				EditorLayer.DEBUG_OVERLAY,
+			),
 			new EntityHighlightSystem(store, EditorLayer.EDITOR_PREVIEW),
 		];
 		if (grid) {
