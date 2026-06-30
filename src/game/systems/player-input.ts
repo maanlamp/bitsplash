@@ -44,6 +44,13 @@ export class PlayerInputSystem implements UpdateSystem {
 				dir += 1;
 			}
 			player.moveDir = dir;
+			if (dir !== 0) {
+				player.facing = dir;
+			}
+
+			if (this.handleDash(input, player, rb, dir, frozen, s)) {
+				continue;
+			}
 
 			const vel = rb.linearVelocity;
 			const control = player.grounded ? 1 : player.airControl;
@@ -69,6 +76,52 @@ export class PlayerInputSystem implements UpdateSystem {
 			}
 			this.handleWallSlide(player, rb, onWall);
 		}
+	}
+
+	private handleDash(
+		input: Input,
+		player: PlayerInputComponent,
+		rb: PhysicsBodyComponent,
+		dir: number,
+		frozen: boolean,
+		s: number,
+	): boolean {
+		if (player.dashCooldownRemaining > 0) {
+			player.dashCooldownRemaining = Math.max(
+				0,
+				player.dashCooldownRemaining - s * 1000,
+			);
+		}
+
+		const dashHeld =
+			!frozen && !!input.keyboard.keys[InputBindings.dash];
+		const dashPressed = dashHeld && !player.dashWasHeld;
+		player.dashWasHeld = dashHeld;
+
+		if (
+			dashPressed &&
+			!player.dashing &&
+			player.dashCooldownRemaining <= 0
+		) {
+			player.dashing = true;
+			player.dashTimeRemaining = player.dashDuration;
+			player.dashDir = dir !== 0 ? dir : player.facing;
+			rb.body!.linearVelocity = {
+				x: player.dashDir * player.dashSpeed,
+				y: 0,
+			};
+		}
+
+		if (!player.dashing) {
+			return false;
+		}
+
+		player.dashTimeRemaining -= s * 1000;
+		if (player.dashTimeRemaining <= 0) {
+			player.dashing = false;
+			player.dashCooldownRemaining = player.dashCooldown;
+		}
+		return true;
 	}
 
 	private handleWallSlide(

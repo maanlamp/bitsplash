@@ -39,7 +39,10 @@
 			"maxJumps": 1,
 			"wallSlideSpeed": 64,
 			"canWallSlide": false,
-			"canWallJump": false
+			"canWallJump": false,
+			"dashSpeed": 288,
+			"dashDuration": 150,
+			"dashCooldown": 500
 		},
 		"Health": {
 			"hp": 100,
@@ -98,6 +101,18 @@
 					"contentHeight": 36
 				},
 				"wallslide": {
+					"url": "/src/game/assets/run.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 0,
+					"loop": false,
+					"contentX": 15,
+					"contentY": 18,
+					"contentWidth": 33,
+					"contentHeight": 30
+				},
+				"dash": {
 					"url": "/src/game/assets/run.png",
 					"frameWidth": 55,
 					"frameHeight": 55,

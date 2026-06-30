@@ -66,10 +66,13 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			sm.params.onWall = player.onWall;
 			sm.params.wallJumping = player.wallJumping;
 			sm.params.landing = player.landing;
+			sm.params.dashing = player.dashing;
 
 			sprite.current = sm.current || sm.def?.initial || "idle";
 
-			if (dir !== 0) {
+			if (player.dashing) {
+				sprite.flipX = player.dashDir < 0;
+			} else if (dir !== 0) {
 				sprite.flipX = dir < 0;
 			}
 		}

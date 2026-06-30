@@ -9,12 +9,14 @@ const grounded = (p: Params): boolean => p.grounded as boolean;
 const onWall = (p: Params): boolean => p.onWall as boolean;
 const wallJumping = (p: Params): boolean => p.wallJumping as boolean;
 const landing = (p: Params): boolean => p.landing as boolean;
+const dashing = (p: Params): boolean => p.dashing as boolean;
 const moving = (p: Params): boolean => (p.dir as number) !== 0;
 const FALL_VELOCITY = 150;
 const falling = (p: Params): boolean =>
 	(p.vy as number) >= FALL_VELOCITY;
 
 const predicates: Record<string, CodeCondition> = {
+	dash: (p) => dashing(p),
 	idle: (p) => grounded(p) && !landing(p) && !moving(p),
 	run: (p) => grounded(p) && !landing(p) && moving(p),
 	land: (p) => landing(p),

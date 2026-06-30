@@ -5,4 +5,5 @@ export const InputBindings = {
 	interact: "E",
 	up: "W",
 	down: "S",
+	dash: "SHIFT",
 };
