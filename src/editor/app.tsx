@@ -114,10 +114,16 @@ const App = ({
 		),
 	);
 	const workspaceRef = useRef(workspace);
-	const updateWorkspace = (next: WorkspaceState): void => {
-		workspaceRef.current = next;
-		setWorkspace(next);
-		saveWorkspace(next);
+	const updateWorkspace = (
+		next:
+			| WorkspaceState
+			| ((prev: WorkspaceState) => WorkspaceState),
+	): void => {
+		const value =
+			typeof next === "function" ? next(workspaceRef.current) : next;
+		workspaceRef.current = value;
+		setWorkspace(value);
+		saveWorkspace(value);
 	};
 
 	const gameRef = useRef<Game | null>(null);

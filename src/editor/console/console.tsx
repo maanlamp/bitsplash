@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { subscribeConsole, type ConsoleEntry } from "../console";
+import {
+	consoleHistory,
+	subscribeConsole,
+	type ConsoleEntry,
+} from "../console";
 
 const Console = () => {
-	const [logs, setLogs] = useState<ReadonlyArray<ConsoleEntry>>([]);
+	const [logs, setLogs] = useState<ReadonlyArray<ConsoleEntry>>(
+		consoleHistory,
+	);
 	useEffect(() => {
+		setLogs(consoleHistory());
 		return subscribeConsole((entry) => {
 			setLogs((prev) => prev.concat(entry));
 		});

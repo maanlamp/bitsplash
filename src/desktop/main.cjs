@@ -225,6 +225,8 @@ const createWindow = async () => {
 		},
 	});
 
+	window.webContents.openDevTools();
+
 	void window.loadURL(DEV_URL);
 };
 

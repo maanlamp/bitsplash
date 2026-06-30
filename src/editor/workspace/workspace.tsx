@@ -61,7 +61,11 @@ const Workspace = ({
 	dirtyViews,
 }: Readonly<{
 	workspace: WorkspaceState;
-	onChange: (workspace: WorkspaceState) => void;
+	onChange: (
+		workspace:
+			| WorkspaceState
+			| ((prev: WorkspaceState) => WorkspaceState),
+	) => void;
 	renderView: (id: ViewId) => ReactNode;
 	onCloseView: (id: ViewId) => void;
 	dirtyViews: ReadonlySet<ViewId>;
@@ -72,10 +76,10 @@ const Workspace = ({
 	);
 
 	const onResize: ResizeHandler = (path, dividerIndex, delta) =>
-		onChange({
-			...workspace,
-			root: resizeSplit(workspace.root, path, dividerIndex, delta),
-		});
+		onChange((prev) => ({
+			...prev,
+			root: resizeSplit(prev.root, path, dividerIndex, delta),
+		}));
 
 	const api: TabApi = {
 		activate,

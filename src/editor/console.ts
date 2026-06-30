@@ -14,6 +14,12 @@ export type ConsoleEntry = Readonly<{
 	timestamp: Date;
 }>;
 
+const MAX_HISTORY = 1000;
+const history: ConsoleEntry[] = [];
+
+export const consoleHistory = (): ReadonlyArray<ConsoleEntry> =>
+	history;
+
 export const subscribeConsole = (
 	listener: (entry: ConsoleEntry) => any,
 ) => {
@@ -29,6 +35,11 @@ const emit = (level: keyof Console, args: any[]) => {
 		args,
 		timestamp: new Date(),
 	};
+
+	history.push(entry);
+	if (history.length > MAX_HISTORY) {
+		history.shift();
+	}
 
 	listeners.forEach((listener) => listener(entry));
 };

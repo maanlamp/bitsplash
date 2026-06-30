@@ -75,11 +75,7 @@
 	--surface: var(--color-neutral-100);
 	--surface-raised: var(--color-neutral-200);
 	--surface-control: var(--color-neutral-300);
-	--surface-overlay: color-mix(
-		in oklch,
-		var(--color-neutral-100),
-		transparent 88%
-	);
+	--surface-overlay: color-mix(in oklch, white, transparent 90%);
 	--surface-overlay-raised: color-mix(
 		in oklch,
 		var(--color-neutral-550),

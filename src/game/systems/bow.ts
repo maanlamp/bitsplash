@@ -61,6 +61,7 @@ export class BowSystem implements UpdateSystem {
 			.clone()
 			.add(direction.clone().mul(bow.spawnDistance));
 		const arrowId = spawnPrefab(world, "arrow", spawnPosition);
+		console.log(arrowId);
 		if (arrowId === null) {
 			return;
 		}
