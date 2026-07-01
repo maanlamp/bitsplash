@@ -1,8 +1,8 @@
-import { Camera2DComponent } from "../../engine/components/camera-2d";
-import { Camera2DFollowComponent } from "../../engine/components/camera-2d-follow";
-import { DialogueComponent } from "../../engine/components/dialogue";
-import { ScreenFadeComponent } from "../../engine/components/screen-fade";
-import { TransformComponent } from "../../engine/components/transform";
+import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
+import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-component";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
+import { ScreenFadeComponent } from "../../engine/fade/screen-fade-component";
+import { TransformComponent } from "../../engine/transform-component";
 import type { ECS, EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,

@@ -1,6 +1,6 @@
 import type * as RAPIER_NS from "@dimforge/rapier2d";
-import type { RigidBodyType } from "../components/physics-body";
-import { TILE_SIZE } from "../tile";
+import type { RigidBodyType } from "../physics/physics-body-component";
+import { TILE_SIZE } from "../tilemap/tile";
 import Vector2 from "../vector2";
 import type { CollisionMatrix } from "./collision";
 import type {

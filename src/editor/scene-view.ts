@@ -1,16 +1,16 @@
 import type { Time } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import { Input } from "../engine/input/input";
-import Renderer2D from "../engine/renderer-2d";
+import Renderer2D from "../engine/render/renderer-2d";
 import type { Scene } from "../engine/scene/scene";
 import type { GlobalServices } from "../engine/services";
 import {
 	type RenderSystem,
 	type UpdateSystem,
 } from "../engine/system";
-import { renderSceneToTexture } from "../engine/systems/camera-2d";
-import { DebugGridSystem } from "../engine/systems/debug-grid";
-import Viewport from "../engine/viewport";
+import { renderSceneToTexture } from "../engine/camera/camera-2d-render";
+import { DebugGridSystem } from "../engine/debug/debug-grid-system";
+import Viewport from "../engine/camera/viewport";
 import { EditorLayer } from "./constants";
 import { DEBUG_OVERLAY, type DebugFlags } from "./debug-flags";
 import type { EditorState } from "./editor-state";

@@ -1,4 +1,4 @@
-import { CameraShakeComponent } from "../../engine/components/camera-shake";
+import { CameraShakeComponent } from "../../engine/camera/camera-shake-component";
 import {
 	type UpdateContext,
 	UpdateSystem,

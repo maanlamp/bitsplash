@@ -1,19 +1,19 @@
 import type { Story } from "inkjs/full";
 import type AssetManager from "../assets";
-import { Camera2DFollowComponent } from "../components/camera-2d-follow";
-import { DialogueComponent } from "../components/dialogue";
-import { InkStoryComponent } from "../components/ink-story";
+import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
+import { DialogueComponent } from "../dialogue/dialogue-component";
+import { InkStoryComponent } from "../ink/ink-story-component";
 import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type EventBus from "../events";
 import type { LoadedFont } from "../load";
-import { resolveFont } from "../resolve-font";
+import { resolveFont } from "../text/resolve-font";
 import {
 	parseRichText,
 	type RichLine,
 	type StyledChar,
 	wrapRichText,
-} from "../rich-text";
+} from "../text/rich-text";
 import { type UpdateContext, UpdateSystem } from "../system";
 import {
 	CharacterRevealedEvent,

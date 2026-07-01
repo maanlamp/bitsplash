@@ -5,7 +5,7 @@ import type { Milliseconds } from "./duration";
 import type { ECS, ReadonlyECS } from "./ecs";
 import type EventBus from "./events";
 import type { Input } from "./input/input";
-import type Renderer2D from "./renderer-2d";
+import type Renderer2D from "./render/renderer-2d";
 import type { World } from "./world";
 
 export type UpdateContext = Readonly<{

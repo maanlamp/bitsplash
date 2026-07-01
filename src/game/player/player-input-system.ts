@@ -1,5 +1,5 @@
-import { DialogueComponent } from "../../engine/components/dialogue";
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { Input } from "../../engine/input/input";
 import {
 	type UpdateContext,

@@ -1,12 +1,12 @@
-import { Camera2D } from "../../engine/camera-2d";
-import { Camera2DComponent } from "../../engine/components/camera-2d";
+import { Camera2D } from "../../engine/camera/camera-2d";
+import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
 import { registerScene } from "../../engine/scene/registry";
 import { Scene } from "../../engine/scene/scene";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { DebugTagSystem } from "../../engine/systems/debug-tag";
+import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import { World } from "../../engine/world";
 

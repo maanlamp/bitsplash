@@ -1,9 +1,9 @@
-import { CameraShakeComponent } from "../../engine/components/camera-shake";
+import { CameraShakeComponent } from "../../engine/camera/camera-shake-component";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { scheduleEvent } from "../../engine/systems/timer";
+import { scheduleEvent } from "../../engine/timer/timer-system";
 import { DeathNoticeComponent } from "../respawn/death-notice-component";
 import PlayerTagComponent from "../player/player-tag-component";
 import { RespawnComponent } from "../respawn/respawn-component";

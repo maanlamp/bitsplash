@@ -1,5 +1,5 @@
 import type { TileGrid } from "../../engine/tilemap/grid";
-import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tile";
+import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 
 export const SAMPLE_CELLS: ReadonlyArray<readonly [number, number]> =

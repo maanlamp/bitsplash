@@ -1,7 +1,7 @@
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { RigidBody } from "../../engine/physics/rigid-body";
 import { Layer } from "../collision";
-import { SpriteComponent } from "../../engine/components/sprite";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
 	type UpdateContext,

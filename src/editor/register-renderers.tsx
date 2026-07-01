@@ -1,6 +1,6 @@
 import Angle from "../engine/angle";
-import { SpriteComponent } from "../engine/components/sprite";
-import { FontSettings } from "../engine/font-settings";
+import { SpriteComponent } from "../engine/sprite/sprite-component";
+import { FontSettings } from "../engine/text/font-settings";
 import Vector2 from "../engine/vector2";
 import FontSettingsField from "./font/font-settings-field";
 import { AngleField, Vector2Field } from "./inspector";

@@ -1,6 +1,6 @@
-import { DebugTagComponent } from "../../engine/components/debug-tag";
-import { SpriteComponent } from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
+import { DebugTagComponent } from "../../engine/debug/debug-tag-component";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	Layer as CollisionLayer,
 	collisionMatrix,
@@ -8,25 +8,25 @@ import {
 import {
 	SurfaceDecorations,
 	TileDecorations,
-} from "../../engine/decorations";
+} from "../../engine/decorations/decorations";
 import { DialogueSystem } from "../../engine/dialogue/dialogue-system";
-import { FontSettings } from "../../engine/font-settings";
+import { FontSettings } from "../../engine/text/font-settings";
 import { StateMachineSystem } from "../../engine/fsm/state-machine-system";
 import {
 	registerScene,
 	registerSceneFile,
 } from "../../engine/scene/registry";
 import { Scene, type SceneFile } from "../../engine/scene/scene";
-import { Camera2DFollowSystem } from "../../engine/systems/camera-2d-follow";
-import { CameraShakeSystem } from "../../engine/systems/camera-shake";
-import { ScreenFadeRenderSystem } from "../../engine/systems/screen-fade-render";
-import { DebugTagSystem } from "../../engine/systems/debug-tag";
-import { DecorationsRenderSystem } from "../../engine/systems/decorations-render";
-import { PhysicsSystem } from "../../engine/systems/physics";
-import { SpriteAnimationSystem } from "../../engine/systems/sprite-animation";
-import { SpriteRenderSystem } from "../../engine/systems/sprite-render";
-import { TilemapRenderSystem } from "../../engine/systems/tilemap-render";
-import { TimerSystem } from "../../engine/systems/timer";
+import { Camera2DFollowSystem } from "../../engine/camera/camera-2d-follow-system";
+import { CameraShakeSystem } from "../../engine/camera/camera-shake-system";
+import { ScreenFadeRenderSystem } from "../../engine/fade/screen-fade-render-system";
+import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
+import { DecorationsRenderSystem } from "../../engine/decorations/decorations-render-system";
+import { PhysicsSystem } from "../../engine/physics/physics-system";
+import { SpriteAnimationSystem } from "../../engine/sprite/sprite-animation-system";
+import { SpriteRenderSystem } from "../../engine/sprite/sprite-render-system";
+import { TilemapRenderSystem } from "../../engine/tilemap/tilemap-render-system";
+import { TimerSystem } from "../../engine/timer/timer-system";
 import { TileCollisionBaker } from "../../engine/tilemap/collision";
 import { TileGrid } from "../../engine/tilemap/grid";
 import type Vector2 from "../../engine/vector2";

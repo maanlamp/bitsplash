@@ -1,4 +1,4 @@
-import { FontSettings } from "../../engine/font-settings";
+import { FontSettings } from "../../engine/text/font-settings";
 import doubleHomicideUrl from "../content/assets/doublehomicide.font.zip?url";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 

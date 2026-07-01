@@ -4,11 +4,11 @@ import { Clock } from "./clock";
 import type { Milliseconds } from "./duration";
 import EventBus from "./events";
 import { Input } from "./input/input";
-import Renderer2D from "./renderer-2d";
+import Renderer2D from "./render/renderer-2d";
 import type { Scene } from "./scene/scene";
 import { SceneManager } from "./scene/scene-manager";
 import type { GlobalServices } from "./services";
-import Viewport from "./viewport";
+import Viewport from "./camera/viewport";
 
 export type FrameInfo = Readonly<{ delta: number; fps: number }>;
 

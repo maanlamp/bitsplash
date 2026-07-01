@@ -1,4 +1,4 @@
-import { loadFontsFromUrl } from "./font-source";
+import { loadFontsFromUrl } from "./text/font-source";
 import { loadFont, loadImage, type LoadedFont } from "./load";
 import { readPngMetadata } from "./png-metadata";
 

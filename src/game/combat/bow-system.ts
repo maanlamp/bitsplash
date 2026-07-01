@@ -1,10 +1,10 @@
-import { SpriteComponent } from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import Vector2 from "../../engine/vector2";
 import { ArrowComponent } from "../combat/arrow-component";
 import { BowComponent } from "../combat/bow-component";

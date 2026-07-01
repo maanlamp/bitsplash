@@ -2,8 +2,8 @@ import {
 	SpriteComponent,
 	spriteImageUrl,
 	spriteSource,
-} from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
+} from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	type RenderContext,
 	RenderSystem,

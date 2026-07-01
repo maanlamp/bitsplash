@@ -2,8 +2,8 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
-import { TILE_SIZE } from "../../engine/tile";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { TileGrid } from "../../engine/tilemap/grid";
 import { FLOOD_FILL_CELL_CAP } from "../constants";
 import type { EditorState } from "../editor-state";

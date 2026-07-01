@@ -1,10 +1,10 @@
-import { Camera2D, type Bounds } from "../engine/camera-2d";
-import { Camera2DComponent } from "../engine/components/camera-2d";
-import { Camera2DFollowComponent } from "../engine/components/camera-2d-follow";
-import { CameraShakeComponent } from "../engine/components/camera-shake";
-import { TransformComponent } from "../engine/components/transform";
+import { Camera2D, type Bounds } from "../engine/camera/camera-2d";
+import { Camera2DComponent } from "../engine/camera/camera-2d-component";
+import { Camera2DFollowComponent } from "../engine/camera/camera-2d-follow-component";
+import { CameraShakeComponent } from "../engine/camera/camera-shake-component";
+import { TransformComponent } from "../engine/transform-component";
 import type { EntityId } from "../engine/ecs";
-import { TILE_SIZE } from "../engine/tile";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
 import type { World } from "../engine/world";
 

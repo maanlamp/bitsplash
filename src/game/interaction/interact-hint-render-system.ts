@@ -2,14 +2,14 @@ import {
 	SpriteComponent,
 	spriteImageUrl,
 	spriteSource,
-} from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
-import { resolveFont } from "../../engine/resolve-font";
+} from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
+import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { DialogueComponent } from "../../engine/components/dialogue";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { InteractableComponent } from "../interaction/interactable-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { InputBindings } from "../input-bindings";

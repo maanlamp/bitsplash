@@ -1,4 +1,4 @@
-import { resolveFont } from "../../engine/resolve-font";
+import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,

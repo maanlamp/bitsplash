@@ -1,6 +1,6 @@
-import type { ColorInput } from "../color-resolver";
-import type Renderer2D from "../renderer-2d";
-import type { TileSource } from "../renderer-2d";
+import type { ColorInput } from "../render/color-resolver";
+import type Renderer2D from "../render/renderer-2d";
+import type { TileSource } from "../render/renderer-2d";
 
 export type NineSliceInsets = Readonly<{
 	left: number;

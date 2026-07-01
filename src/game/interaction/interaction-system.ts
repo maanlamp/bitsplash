@@ -1,4 +1,4 @@
-import { TransformComponent } from "../../engine/components/transform";
+import { TransformComponent } from "../../engine/transform-component";
 import type { EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,

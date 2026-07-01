@@ -1,4 +1,4 @@
-import { TILE_SIZE } from "../engine/tile";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 
 export const GRAVITY = { x: 0, y: 20 * TILE_SIZE } as const;
 

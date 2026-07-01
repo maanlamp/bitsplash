@@ -7,8 +7,8 @@ import {
 import classNames from "classnames";
 import { useEffect, useRef, useState } from "react";
 import type AssetManager from "../../engine/assets";
-import { blitText, supportsChar } from "../../engine/font-blit";
-import type { FontStyleLabel } from "../../engine/font-settings";
+import { blitText, supportsChar } from "../../engine/text/font-blit";
+import type { FontStyleLabel } from "../../engine/text/font-settings";
 import {
 	type FontStyle,
 	type LoadedFont,

@@ -1,9 +1,9 @@
-import { FontSettings } from "../../engine/font-settings";
+import { FontSettings } from "../../engine/text/font-settings";
 import {
 	serializable,
 	serialize,
 } from "../../engine/serialization/serializable";
-import { TILE_SIZE } from "../../engine/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 
 @serializable("Interactable")

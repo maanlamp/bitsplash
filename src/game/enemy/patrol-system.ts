@@ -1,4 +1,4 @@
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
 	type UpdateContext,

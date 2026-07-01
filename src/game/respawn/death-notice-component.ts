@@ -1,6 +1,6 @@
 import { FadeTimeline } from "../../engine/animation/fade-timeline";
 import type { Seconds } from "../../engine/duration";
-import { FontSettings } from "../../engine/font-settings";
+import { FontSettings } from "../../engine/text/font-settings";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 
 export class DeathNoticeComponent {

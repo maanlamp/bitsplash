@@ -1,12 +1,12 @@
-import { DialogueComponent } from "../../engine/components/dialogue";
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
-import { TransformComponent } from "../../engine/components/transform";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { TransformComponent } from "../../engine/transform-component";
 import { CollisionEvent } from "../../engine/events";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { TILE_SIZE } from "../../engine/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 import {
 	PICKUP_TYPES,

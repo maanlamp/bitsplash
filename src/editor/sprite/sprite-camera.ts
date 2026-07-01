@@ -1,5 +1,5 @@
-import { Camera2D } from "../../engine/camera-2d";
-import { Camera2DComponent } from "../../engine/components/camera-2d";
+import { Camera2D } from "../../engine/camera/camera-2d";
+import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type { Input } from "../../engine/input/input";
 import {

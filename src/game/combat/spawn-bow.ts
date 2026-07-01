@@ -1,5 +1,5 @@
-import { SpriteComponent } from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
 import type { EntityId } from "../../engine/ecs";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";

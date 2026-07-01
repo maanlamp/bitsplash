@@ -1,9 +1,9 @@
-import { compileProgram } from "../../engine/gl/programs";
+import { compileProgram } from "../../engine/render/programs";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import type { CheckerRect } from "./sprite-checker";
 
 const VS = `#version 300 es

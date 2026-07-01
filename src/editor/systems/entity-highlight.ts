@@ -1,10 +1,10 @@
 import type { EntityId, ReadonlyECS } from "../../engine/ecs";
-import type Renderer2D from "../../engine/renderer-2d";
+import type Renderer2D from "../../engine/render/renderer-2d";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import type { EditorState } from "../editor-state";
 import { entityGeometry, unionBounds } from "../pick";
 

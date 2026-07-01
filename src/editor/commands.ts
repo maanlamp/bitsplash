@@ -2,7 +2,7 @@ import type { EntityId } from "../engine/ecs";
 import { deserializeEntity } from "../engine/serialization/deserialize";
 import type { ComponentClass } from "../engine/serialization/registry";
 import { serializeEntity } from "../engine/serialization/serialize";
-import { TILE_SIZE } from "../engine/tile";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 import type { World } from "../engine/world";
 import type { History } from "./history";
 

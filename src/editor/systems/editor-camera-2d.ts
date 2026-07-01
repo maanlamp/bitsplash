@@ -1,12 +1,12 @@
-import { Camera2D } from "../../engine/camera-2d";
-import { Camera2DComponent } from "../../engine/components/camera-2d";
+import { Camera2D } from "../../engine/camera/camera-2d";
+import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type { Input } from "../../engine/input/input";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { TILE_SIZE } from "../../engine/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import {

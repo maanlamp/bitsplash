@@ -1,4 +1,4 @@
-import { TransformComponent } from "../../engine/components/transform";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	type UpdateContext,
 	UpdateSystem,

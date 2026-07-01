@@ -1,4 +1,4 @@
-import { compileProgram } from "../../engine/gl/programs";
+import { compileProgram } from "../../engine/render/programs";
 import {
 	type RenderContext,
 	RenderSystem,

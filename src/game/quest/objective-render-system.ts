@@ -1,5 +1,5 @@
-import { FontSettings } from "../../engine/font-settings";
-import { resolveFont } from "../../engine/resolve-font";
+import { FontSettings } from "../../engine/text/font-settings";
+import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,

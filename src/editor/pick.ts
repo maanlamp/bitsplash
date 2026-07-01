@@ -1,13 +1,13 @@
 import type AssetManager from "../engine/assets";
-import { PhysicsBodyComponent } from "../engine/components/physics-body";
+import { PhysicsBodyComponent } from "../engine/physics/physics-body-component";
 import {
 	SpriteComponent,
 	spriteImageUrl,
 	spriteSource,
-} from "../engine/components/sprite";
-import { TransformComponent } from "../engine/components/transform";
+} from "../engine/sprite/sprite-component";
+import { TransformComponent } from "../engine/transform-component";
 import type { EntityId, ReadonlyECS } from "../engine/ecs";
-import { TILE_SIZE } from "../engine/tile";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
 
 export type GeometryRole =

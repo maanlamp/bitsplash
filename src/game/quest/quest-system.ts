@@ -1,4 +1,4 @@
-import { InkStoryComponent } from "../../engine/components/ink-story";
+import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type EventBus from "../../engine/events";

@@ -1,6 +1,6 @@
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
-import { SpriteComponent } from "../../engine/components/sprite";
-import { TransformComponent } from "../../engine/components/transform";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
+import { TransformComponent } from "../../engine/transform-component";
 import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
 import type { RaycastHit } from "../../engine/physics/physics";
@@ -9,7 +9,7 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { TILE_SIZE } from "../../engine/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";

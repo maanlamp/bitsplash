@@ -1,12 +1,12 @@
-import { DialogueComponent } from "../../engine/components/dialogue";
-import { FontSettings } from "../../engine/font-settings";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
+import { FontSettings } from "../../engine/text/font-settings";
 import { type LoadedFont, STYLE_REGULAR } from "../../engine/load";
 import { nineSliceInsets } from "../../engine/png-metadata";
 import {
 	drawNineSlice,
 	type NineSliceInsets,
 } from "../../engine/render/nine-slice";
-import { resolveFont } from "../../engine/resolve-font";
+import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,

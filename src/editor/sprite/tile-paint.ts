@@ -1,4 +1,4 @@
-import { tileUV } from "../../engine/renderer-2d";
+import { tileUV } from "../../engine/render/renderer-2d";
 import { cornerSlots } from "../../engine/tilemap/autotile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 

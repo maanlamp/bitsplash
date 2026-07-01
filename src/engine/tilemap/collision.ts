@@ -1,5 +1,5 @@
 import type { RigidBody } from "../physics/rigid-body";
-import { TILE_SIZE } from "../tile";
+import { TILE_SIZE } from "../tilemap/tile";
 import type { World } from "../world";
 import type { TileGrid } from "./grid";
 

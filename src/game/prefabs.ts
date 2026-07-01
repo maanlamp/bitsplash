@@ -1,4 +1,4 @@
-import { TransformComponent } from "../engine/components/transform";
+import { TransformComponent } from "../engine/transform-component";
 import type { EntityId } from "../engine/ecs";
 import { deserializeEntity } from "../engine/serialization/deserialize";
 import type { SerializedComponent } from "../engine/serialization/registry";

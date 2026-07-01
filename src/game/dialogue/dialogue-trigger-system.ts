@@ -1,5 +1,5 @@
-import { DialogueComponent } from "../../engine/components/dialogue";
-import { InkStoryComponent } from "../../engine/components/ink-story";
+import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
+import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import {
 	type UpdateContext,
 	UpdateSystem,

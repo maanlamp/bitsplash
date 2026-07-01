@@ -1,10 +1,10 @@
 import type { Time } from "../clock";
 import type { Milliseconds } from "../duration";
 import type { Input } from "../input/input";
-import type Renderer2D from "../renderer-2d";
+import type Renderer2D from "../render/renderer-2d";
 import type { GlobalServices } from "../services";
 import type { UpdateContext } from "../system";
-import { renderSceneToTexture } from "../systems/camera-2d";
+import { renderSceneToTexture } from "../camera/camera-2d-render";
 import type { Scene } from "./scene";
 
 export type SceneFlags = Readonly<{

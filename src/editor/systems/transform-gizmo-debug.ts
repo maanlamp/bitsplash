@@ -1,9 +1,9 @@
-import { TransformComponent } from "../../engine/components/transform";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { cssVar } from "../css-var";
 import type { DebugFlags, DebugOverlay } from "../debug-flags";
 

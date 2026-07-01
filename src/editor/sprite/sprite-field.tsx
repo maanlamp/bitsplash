@@ -1,4 +1,4 @@
-import type { SpriteComponent } from "../../engine/components/sprite";
+import type { SpriteComponent } from "../../engine/sprite/sprite-component";
 import type { History } from "../history";
 import { FieldControl } from "../inspector";
 import styles from "../preview-field.module.scss";

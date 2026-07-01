@@ -2,7 +2,7 @@ import {
 	serializable,
 	serialize,
 } from "../../engine/serialization/serializable";
-import { TILE_SIZE } from "../../engine/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 
 @serializable("PlayerInput")
 export class PlayerInputComponent {

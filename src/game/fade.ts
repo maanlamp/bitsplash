@@ -1,4 +1,4 @@
-import type { ColorInput } from "../engine/color-resolver";
+import type { ColorInput } from "../engine/render/color-resolver";
 
 export const fadeAlpha = (remaining: number, fade: number): number =>
 	Math.max(0, Math.min(1, remaining / fade));

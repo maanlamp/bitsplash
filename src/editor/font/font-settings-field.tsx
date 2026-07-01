@@ -1,4 +1,4 @@
-import type { FontSettings } from "../../engine/font-settings";
+import type { FontSettings } from "../../engine/text/font-settings";
 import { STYLE_REGULAR } from "../../engine/load";
 import { useAssetManager } from "../asset-manager-context";
 import type { History } from "../history";

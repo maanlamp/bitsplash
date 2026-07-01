@@ -1,4 +1,4 @@
-import type { RigidBodyType } from "../components/physics-body";
+import type { RigidBodyType } from "../physics/physics-body-component";
 import type Vector2 from "../vector2";
 import type { RigidBody } from "./rigid-body";
 

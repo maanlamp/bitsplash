@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
-import { TilemapRenderSystem } from "../../engine/systems/tilemap-render";
-import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tile";
+import { TilemapRenderSystem } from "../../engine/tilemap/tilemap-render-system";
+import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 import { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import styles from "./sprite-editor.module.scss";

@@ -1,5 +1,5 @@
-import { PhysicsBodyComponent } from "../../engine/components/physics-body";
-import { TransformComponent } from "../../engine/components/transform";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { TransformComponent } from "../../engine/transform-component";
 import {
 	type RenderContext,
 	RenderSystem,

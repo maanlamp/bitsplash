@@ -1,4 +1,4 @@
-import { PhysicsBodyComponent } from "./components/physics-body";
+import { PhysicsBodyComponent } from "./physics/physics-body-component";
 import { ECS, type EntityId } from "./ecs";
 import EventBus, { CollisionEvent } from "./events";
 import type { CollisionMatrix } from "./physics/collision";

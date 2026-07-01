@@ -5,8 +5,8 @@ import {
 	useSyncExternalStore,
 } from "react";
 import type { EntityId } from "../engine/ecs";
-import { pickActiveCamera2D } from "../engine/systems/camera-2d";
-import { TILE_SIZE } from "../engine/tile";
+import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
 import styles from "./app.module.scss";
 import { createEntity } from "./commands";

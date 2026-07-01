@@ -4,7 +4,7 @@ import {
 	JsonFileHandler,
 	type Story,
 } from "inkjs/full";
-import type { InkStoryComponent } from "../components/ink-story";
+import type { InkStoryComponent } from "../ink/ink-story-component";
 
 export const compileStory = (
 	sources: Record<string, string>,

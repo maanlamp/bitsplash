@@ -1,5 +1,5 @@
 import type { Story } from "inkjs/full";
-import type { InkStoryComponent } from "../../engine/components/ink-story";
+import type { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import type { ECS } from "../../engine/ecs";
 import { ensureStory as ensureStoryWith } from "../../engine/ink/story";
 import type EventBus from "../../engine/events";

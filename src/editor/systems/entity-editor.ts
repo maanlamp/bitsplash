@@ -1,11 +1,11 @@
-import { TransformComponent } from "../../engine/components/transform";
+import { TransformComponent } from "../../engine/transform-component";
 import type { EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/systems/camera-2d";
-import { TILE_SIZE } from "../../engine/tile";
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 import type { EditorState } from "../editor-state";
 import type { History } from "../history";

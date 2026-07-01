@@ -1,7 +1,7 @@
-import type { Bounds } from "../../engine/camera-2d";
-import { InkStoryComponent } from "../../engine/components/ink-story";
-import { TransformComponent } from "../../engine/components/transform";
-import { TILE_SIZE } from "../../engine/tile";
+import type { Bounds } from "../../engine/camera/camera-2d";
+import { InkStoryComponent } from "../../engine/ink/ink-story-component";
+import { TransformComponent } from "../../engine/transform-component";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
@@ -15,7 +15,7 @@ import { spawnPrefab } from "../prefabs";
 
 // Ensure these are bundled, important for loading
 import.meta.glob(
-	["../../engine/components/*.ts", "../*/*-component.ts"],
+	["../../engine/**/*-component.ts", "../*/*-component.ts"],
 	{ eager: true },
 );
 
