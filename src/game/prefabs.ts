@@ -9,7 +9,7 @@ type PrefabDefinition = Readonly<{
 	components: Record<string, SerializedComponent>;
 }>;
 
-const modules = import.meta.glob("./prefabs/*.json", {
+const modules = import.meta.glob("./content/prefabs/*.json", {
 	eager: true,
 }) as Record<string, { default: PrefabDefinition }>;
 

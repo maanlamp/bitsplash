@@ -94,7 +94,7 @@ export const resolveToWebPath = async (
 	const root = norm(await getAssetsRoot());
 	const path = norm(absolutePath);
 	if (path.startsWith(`${root}/`)) {
-		return `/src/game/assets/${path.slice(root.length + 1)}`;
+		return `/src/game/content/assets/${path.slice(root.length + 1)}`;
 	}
 	const name = path.split("/").pop() ?? "asset";
 	const blob = await fetch(fsProtocolUrl(absolutePath)).then(

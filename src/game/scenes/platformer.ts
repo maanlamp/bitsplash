@@ -31,43 +31,43 @@ import { TileCollisionBaker } from "../../engine/tilemap/collision";
 import { TileGrid } from "../../engine/tilemap/grid";
 import type Vector2 from "../../engine/vector2";
 import { World } from "../../engine/world";
-import tilesetUrl from "../assets/dirt.tileset.png";
-import fsPixelSansUrl from "../assets/fs-pixel-sans-unicode.font.zip?url";
-import knickKnacksUrl from "../assets/knick-knacks-grass.png";
-import tileDecorationsUrl from "../assets/tile-decorations.png";
-import { platformerDialogueBindings } from "../dialogue-bindings";
-import { spawnRuntimeEntities } from "../levels/demo";
-import { ArrowSystem } from "../systems/arrow";
-import { BowSystem } from "../systems/bow";
-import { DamageShakeSystem } from "../systems/damage-shake";
-import { DamageTriggerSystem } from "../systems/damage-trigger";
-import { DeathSystem } from "../systems/death";
-import { DeathNoticeSystem } from "../systems/death-notice";
-import { DeathOverlayRenderSystem } from "../systems/death-overlay-render";
-import { DialogueRenderSystem } from "../systems/dialogue-render";
-import { DialogueTriggerSystem } from "../systems/dialogue-trigger";
-import { GroundDetectionSystem } from "../systems/ground-detection";
-import { HealthSystem } from "../systems/health";
-import { HealthBarSystem } from "../systems/health-bar";
-import HealthRenderSystem from "../systems/health-render";
-import { InteractHintRenderSystem } from "../systems/interact-hint-render";
-import { InteractionSystem } from "../systems/interaction";
-import { ObjectiveRenderSystem } from "../systems/objective-render";
-import { PatrolSystem } from "../systems/patrol";
-import { PickupSystem } from "../systems/pickup";
-import { PickupTourSystem } from "../systems/pickup-tour";
-import { PlayerAnimationSystem } from "../systems/player-animation";
-import { PlayerInputSystem } from "../systems/player-input";
-import { QuestSystem } from "../systems/quest";
-import { QuestNoticeSystem } from "../systems/quest-notice";
-import { QuestNoticeRenderSystem } from "../systems/quest-notice-render";
-import { QuestMarkerDrawerSystem } from "../systems/quest-marker-render";
-import { SpawnSystem } from "../systems/spawn";
-import { VoiceSystem } from "../systems/voice";
+import tilesetUrl from "../content/assets/dirt.tileset.png";
+import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
+import knickKnacksUrl from "../content/assets/knick-knacks-grass.png";
+import tileDecorationsUrl from "../content/assets/tile-decorations.png";
+import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
+import { spawnRuntimeEntities } from "./bootstrap";
+import { ArrowSystem } from "../combat/arrow-system";
+import { BowSystem } from "../combat/bow-system";
+import { DamageShakeSystem } from "../combat/damage-shake-system";
+import { DamageTriggerSystem } from "../combat/damage-trigger-system";
+import { DeathSystem } from "../respawn/death-system";
+import { DeathNoticeSystem } from "../respawn/death-notice-system";
+import { DeathOverlayRenderSystem } from "../respawn/death-overlay-render-system";
+import { DialogueRenderSystem } from "../dialogue/dialogue-render-system";
+import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
+import { GroundDetectionSystem } from "../player/ground-detection-system";
+import { HealthSystem } from "../health/health-system";
+import { HealthBarSystem } from "../health/health-bar-system";
+import HealthRenderSystem from "../health/health-render-system";
+import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
+import { InteractionSystem } from "../interaction/interaction-system";
+import { ObjectiveRenderSystem } from "../quest/objective-render-system";
+import { PatrolSystem } from "../enemy/patrol-system";
+import { PickupSystem } from "../pickup/pickup-system";
+import { PickupTourSystem } from "../quest/pickup-tour-system";
+import { PlayerAnimationSystem } from "../player/player-animation-system";
+import { PlayerInputSystem } from "../player/player-input-system";
+import { QuestSystem } from "../quest/quest-system";
+import { QuestNoticeSystem } from "../quest/quest-notice-system";
+import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
+import { QuestMarkerDrawerSystem } from "../quest/quest-marker-drawer-system";
+import { SpawnSystem } from "../respawn/spawn-system";
+import { VoiceSystem } from "../dialogue/voice-system";
 
 import "./pause";
 
-import.meta.glob("../fsm/*", { eager: true });
+import.meta.glob("../*/*-def.ts", { eager: true });
 
 export const Layer = {
 	SURFACE_DECO_BACK: 10,
@@ -166,9 +166,12 @@ registerScene("platformer", ({ config, name }): Scene => {
 	});
 });
 
-const sceneFiles = import.meta.glob("../levels/*.scene.json", {
-	eager: true,
-});
+const sceneFiles = import.meta.glob(
+	"../content/levels/*.scene.json",
+	{
+		eager: true,
+	},
+);
 for (const [path, mod] of Object.entries(sceneFiles)) {
 	const id = path
 		.split("/")

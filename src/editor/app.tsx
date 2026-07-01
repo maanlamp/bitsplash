@@ -377,7 +377,7 @@ const App = ({
 		const pathNorm = norm(entry.path);
 		if (pathNorm.startsWith(`${rootNorm}/`)) {
 			openAsset(
-				`/src/game/assets/${pathNorm.slice(rootNorm.length + 1)}`,
+				`/src/game/content/assets/${pathNorm.slice(rootNorm.length + 1)}`,
 			);
 		}
 	};

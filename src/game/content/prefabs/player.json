@@ -1,0 +1,161 @@
+{
+	"components": {
+		"Transform": {
+			"position": {
+				"$type": "Vector2",
+				"x": 0,
+				"y": 0
+			},
+			"rotation": {
+				"$type": "Angle",
+				"radians": 0
+			},
+			"scale": {
+				"$type": "Vector2",
+				"x": 1,
+				"y": 1
+			}
+		},
+		"PhysicsBody": {
+			"type": "dynamic",
+			"halfWidth": 8,
+			"halfHeight": 16,
+			"density": 1,
+			"friction": 0,
+			"restitution": 0,
+			"fixedRotation": true,
+			"linearDamping": 0,
+			"collisionLayer": "player",
+			"cornerRadius": 3
+		},
+		"PlayerInput": {
+			"maxSpeed": 96,
+			"acceleration": 2560,
+			"deceleration": 3200,
+			"airControl": 0.3,
+			"maxJumpSpeed": 320,
+			"minJumpSpeed": 160,
+			"airJumpSpeed": 224,
+			"maxJumps": 1,
+			"wallSlideSpeed": 64,
+			"canWallSlide": false,
+			"canWallJump": false,
+			"dashSpeed": 288,
+			"dashDuration": 150,
+			"dashCooldown": 500
+		},
+		"Health": {
+			"hp": 100,
+			"maxHp": 100
+		},
+		"HealthBar": {},
+		"Sprite": {
+			"url": "/src/game/content/assets/run.png",
+			"clips": {
+				"idle": {
+					"url": "/src/game/content/assets/idle.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 4,
+					"fps": 6,
+					"loop": true,
+					"contentX": 22,
+					"contentY": 15,
+					"contentWidth": 17,
+					"contentHeight": 33
+				},
+				"run": {
+					"url": "/src/game/content/assets/run.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 13,
+					"loop": true,
+					"contentX": 15,
+					"contentY": 18,
+					"contentWidth": 33,
+					"contentHeight": 30
+				},
+				"jump": {
+					"url": "/src/game/content/assets/jump.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 0,
+					"loop": false,
+					"contentX": 21,
+					"contentY": 12,
+					"contentWidth": 17,
+					"contentHeight": 35
+				},
+				"fall": {
+					"url": "/src/game/content/assets/falling.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 5,
+					"fps": 10,
+					"loop": true,
+					"contentX": 12,
+					"contentY": 12,
+					"contentWidth": 32,
+					"contentHeight": 36
+				},
+				"wallslide": {
+					"url": "/src/game/content/assets/run.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 0,
+					"loop": false,
+					"contentX": 15,
+					"contentY": 18,
+					"contentWidth": 33,
+					"contentHeight": 30
+				},
+				"dash": {
+					"url": "/src/game/content/assets/run.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 0,
+					"loop": false,
+					"contentX": 15,
+					"contentY": 18,
+					"contentWidth": 33,
+					"contentHeight": 30
+				},
+				"walljump": {
+					"url": "/src/game/content/assets/run.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 0,
+					"loop": false,
+					"contentX": 15,
+					"contentY": 18,
+					"contentWidth": 33,
+					"contentHeight": 30
+				},
+				"land": {
+					"url": "/src/game/content/assets/contact.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 6,
+					"fps": 16,
+					"loop": false,
+					"contentX": 16,
+					"contentY": 17,
+					"contentWidth": 30,
+					"contentHeight": 31
+				}
+			}
+		},
+		"StateMachine": {
+			"defId": "player-anim"
+		},
+		"Respawn": {
+			"delay": 6,
+			"spawnPoint": null
+		}
+	}
+}

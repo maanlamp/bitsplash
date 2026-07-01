@@ -1,0 +1,42 @@
+{
+	"components": {
+		"Transform": {
+			"position": { "$type": "Vector2", "x": 0, "y": 0 },
+			"rotation": { "$type": "Angle", "radians": 0 },
+			"scale": { "$type": "Vector2", "x": 1, "y": 1 }
+		},
+		"PhysicsBody": {
+			"type": "dynamic",
+			"halfWidth": 16,
+			"halfHeight": 16,
+			"density": 1,
+			"friction": 0.2,
+			"restitution": 0,
+			"fixedRotation": true,
+			"linearDamping": 0,
+			"collisionLayer": "npc",
+			"sensor": false
+		},
+		"Sprite": {
+			"url": "/src/engine/assets/unknown.png",
+			"opacity": 1,
+			"flipX": false
+		},
+		"NpcTag": {},
+		"QuestGiverTag": {},
+		"DialogueSource": {
+			"knot": "quest_giver"
+		},
+		"Interactable": {
+			"radius": 48,
+			"prompt": "talk",
+			"font": {
+				"$type": "FontSettings",
+				"font": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip",
+				"family": "",
+				"variant": "Regular",
+				"size": 16
+			}
+		}
+	}
+}

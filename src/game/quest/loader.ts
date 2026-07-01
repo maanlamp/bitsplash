@@ -25,7 +25,7 @@ export type QuestDef = Readonly<{
 	stageNotices?: Record<string, string>;
 }>;
 
-const modules = import.meta.glob("../quests/*.json", {
+const modules = import.meta.glob("../content/quests/*.json", {
 	eager: true,
 }) as Record<string, { default: QuestDef }>;
 

@@ -15,8 +15,20 @@ const { pathToFileURL } = require("node:url");
 
 const DEV_URL = "https://localhost:5173";
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
-const LEVELS_DIR = path.join(PROJECT_ROOT, "src", "game", "levels");
-const ASSETS_DIR = path.join(PROJECT_ROOT, "src", "game", "assets");
+const LEVELS_DIR = path.join(
+	PROJECT_ROOT,
+	"src",
+	"game",
+	"content",
+	"levels",
+);
+const ASSETS_DIR = path.join(
+	PROJECT_ROOT,
+	"src",
+	"game",
+	"content",
+	"assets",
+);
 const TRASH_DIR = path.join(PROJECT_ROOT, ".trash");
 
 const FS_SCHEME = "bitsplash-fs";
@@ -55,7 +67,7 @@ const assetEntry = (name, relPath) => {
 	const lower = name.toLowerCase();
 	return {
 		name,
-		url: `/src/game/assets/${relPath.split(path.sep).join("/")}`,
+		url: `/src/game/content/assets/${relPath.split(path.sep).join("/")}`,
 		ext: name.split(".").slice(1).join("."),
 		isPng: lower.endsWith(".png"),
 		isAudio: AUDIO_EXTENSIONS.some((ext) => lower.endsWith(ext)),
@@ -93,7 +105,7 @@ ipcMain.handle(
 	async (_event, { filename, dataBase64, overwrite }) => {
 		const safe = path.basename(filename);
 		const dest = path.join(ASSETS_DIR, safe);
-		const url = `/src/game/assets/${safe}`;
+		const url = `/src/game/content/assets/${safe}`;
 		if (fs.existsSync(dest) && !overwrite) {
 			return { url, existed: true };
 		}

@@ -1,0 +1,45 @@
+{
+	"version": 1,
+	"kind": "pause",
+	"name": "Pause",
+	"config": {
+		"gravity": {
+			"x": 0,
+			"y": 0
+		}
+	},
+	"tiles": [],
+	"entities": [
+		{
+			"id": "778d000d-39c9-4593-a00e-3dee3bf79a6e",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"DebugTag": {
+					"label": "PAUSED",
+					"font": {
+						"$type": "FontSettings",
+						"font": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip",
+						"family": "",
+						"size": 16,
+						"variant": "Regular"
+					}
+				}
+			}
+		}
+	]
+}
