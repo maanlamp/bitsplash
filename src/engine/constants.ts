@@ -1,3 +1,0 @@
-export const SURFACE_DECORATION_DENSITY = 0.4;
-export const TILE_DECORATION_DENSITY = 0.9;
-export const SURFACE_DECORATION_JITTER = 6;

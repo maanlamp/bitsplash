@@ -8,9 +8,8 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import QuestMarkerTag, {
-	QuestComponent,
-} from "../quest/quest-component";
+import { QuestComponent } from "../quest/quest-component";
+import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
 import { getQuest } from "../quest/loader";
 
 const HALF_WIDTH = 5;
@@ -21,7 +20,7 @@ const BOB_AMOUNT = 2;
 const FILL: [number, number, number, number] = [1, 0.85, 0.4, 1];
 const OUTLINE: [number, number, number, number] = [0, 0, 0, 1];
 
-export class QuestMarkerDrawerSystem implements RenderSystem {
+export class QuestMarkerRenderSystem implements RenderSystem {
 	private layer: number;
 
 	constructor(layer: number) {
@@ -35,7 +34,7 @@ export class QuestMarkerDrawerSystem implements RenderSystem {
 		}
 		const bob = Math.sin(time.elapsed * BOB_SPEED) * BOB_AMOUNT;
 		for (const [id, _, transform] of ecs.query(
-			QuestMarkerTag,
+			QuestMarkerTagComponent,
 			TransformComponent,
 		)) {
 			// TODO: Check if marker questid and stage are both active

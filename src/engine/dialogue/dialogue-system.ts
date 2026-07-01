@@ -24,6 +24,11 @@ import {
 export type DialogueBindings = Readonly<{
 	textWidth: number;
 	maxLines: number;
+	charactersPerSecond: number;
+	commaPauseChars: number;
+	stopPauseChars: number;
+	slideIn: Seconds;
+	slideOut: Seconds;
 	advancePressed: (ctx: UpdateContext) => boolean;
 	consumeAdvance: (ctx: UpdateContext) => void;
 	cancelHeld: (ctx: UpdateContext) => boolean;
@@ -32,18 +37,15 @@ export type DialogueBindings = Readonly<{
 	playerId: (ecs: ECS) => EntityId | null;
 }>;
 
-const COMMA_PAUSE = 8;
-const STOP_PAUSE = 20;
-
-const SLIDE_IN = 0.35 as Seconds;
-const SLIDE_OUT = 0.25 as Seconds;
-
-const punctuationPause = (char: string | undefined): number => {
+const punctuationPause = (
+	char: string | undefined,
+	bindings: DialogueBindings,
+): number => {
 	if (char === ",") {
-		return COMMA_PAUSE;
+		return bindings.commaPauseChars;
 	}
 	if (char === "." || char === "!" || char === "?") {
-		return STOP_PAUSE;
+		return bindings.stopPauseChars;
 	}
 	return 0;
 };
@@ -145,7 +147,12 @@ export class DialogueSystem implements UpdateSystem {
 		if (!state.opened) {
 			state.opened = true;
 			state.phase = "entering";
-			state.slide.retarget(0, 1, SLIDE_IN, "easeOutBack");
+			state.slide.retarget(
+				0,
+				1,
+				this.bindings.slideIn,
+				"easeOutBack",
+			);
 			this.setCameraTargets(ecs, [this.playerId(ecs), state.source]);
 			events.emit(new DialogueOpenedEvent(id));
 			this.gatherBlock(story, state, assetManager);
@@ -202,10 +209,11 @@ export class DialogueSystem implements UpdateSystem {
 			} else if (state.pause > 0) {
 				state.pause = Math.max(0, state.pause - dt / 1000) as Seconds;
 			} else {
+				const cps = this.bindings.charactersPerSecond;
 				const prev = Math.floor(state.revealed);
 				state.revealed = Math.min(
 					total,
-					state.revealed + (state.charactersPerSecond * dt) / 1000,
+					state.revealed + (cps * dt) / 1000,
 				);
 				const now = Math.floor(state.revealed);
 				if (now > prev && state.revealed < total) {
@@ -215,10 +223,9 @@ export class DialogueSystem implements UpdateSystem {
 							new CharacterRevealedEvent(id, char, now - 1),
 						);
 					}
-					const extra = punctuationPause(char);
+					const extra = punctuationPause(char, this.bindings);
 					if (extra > 0) {
-						state.pause = (extra /
-							state.charactersPerSecond) as Seconds;
+						state.pause = (extra / cps) as Seconds;
 					}
 				}
 			}
@@ -341,7 +348,7 @@ export class DialogueSystem implements UpdateSystem {
 		state.slide.retarget(
 			state.slide.value(),
 			0,
-			SLIDE_OUT,
+			this.bindings.slideOut,
 			"easeInCubic",
 		);
 	}

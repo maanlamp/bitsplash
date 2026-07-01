@@ -22,20 +22,3 @@ export class QuestComponent {
 		this.goals = goals;
 	}
 }
-
-@serializable("QuestMarker")
-export default class QuestMarkerTag {
-	@serialize() questId: QuestComponent["id"];
-	@serialize() stage: string;
-	@serialize() type: string;
-
-	constructor(
-		questId: string = "",
-		stage: string = "",
-		type: string = "",
-	) {
-		this.questId = questId;
-		this.stage = stage;
-		this.type = type;
-	}
-}

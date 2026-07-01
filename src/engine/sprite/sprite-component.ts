@@ -43,6 +43,7 @@ export class SpriteComponent {
 	finished: boolean = false;
 
 	constructor(
+		// TODO: Dont have engine sprite assets, raise an error state instead
 		url: string = unknownSrc,
 		opacity: number = 1,
 		flipX: boolean = false,

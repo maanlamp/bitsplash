@@ -6,11 +6,14 @@ import {
 } from "../../engine/system";
 import { HealthComponent } from "../health/health-component";
 import { HealthBarStateComponent } from "../health/health-bar-state-component";
-import { fadeAlpha, withAlpha } from "../fade";
+import {
+	fadeAlpha,
+	withAlpha,
+} from "../../engine/render/color-resolver";
 
 const FADE = 1;
 
-export default class HealthRenderSystem implements RenderSystem {
+export class HealthRenderSystem implements RenderSystem {
 	constructor(private layer: number) {}
 
 	render({ ecs, renderer }: RenderContext) {

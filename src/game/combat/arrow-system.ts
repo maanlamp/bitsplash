@@ -17,7 +17,7 @@ import { Layer } from "../collision";
 import { ArrowComponent } from "../combat/arrow-component";
 import { HealthComponent } from "../health/health-component";
 import { DamageEvent } from "../events";
-import { fadeAlpha } from "../fade";
+import { fadeAlpha } from "../../engine/render/color-resolver";
 
 const BOUNDS_MARGIN = 4 * TILE_SIZE;
 const ARROW_REACH = 8;

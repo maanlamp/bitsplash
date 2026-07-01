@@ -29,45 +29,30 @@ Always run `bun check` before declaring a task complete.
 src/
   desktop/          # Electron main process + preload (IPC bridge)
   editor/           # Editor UI (React); never imported by engine or game
-    audio/
-    font/
-    sprite/
-    styles/
-    systems/
-    timeline/
-    workspace/
   engine/           # Reusable engine; never imports editor or game code
-    animation/
-    assets/
-    audio/
-    bt/
-    components/
-    dialogue/
-    fsm/
-    gl/
-    ink/
-    input/
-    render/
-    scene/
-    serialization/
-    systems/
-    tilemap/
   game/             # Game-specific code; never imports editor code
-    assets/
-    components/
-    entities/
-    fsm/
-    ink/
-    levels/
-    prefabs/
-    quest/
-    quests/
-    scenes/
-    systems/
+    content/        # ALL authored data: levels/, prefabs/, quests/, dialogue/ (.ink), assets/
   style/            # Global CSS reset, tokens, body defs
 docs/
   plans/            # Detailed architectural plans per system
 ```
+
+Within `engine/` and `game/`, code is organized as **vertical feature
+slices**: one folder per feature holding all of its code — components,
+systems, FSM defs, renderers (e.g. `game/health/`, `game/quest/`,
+`engine/camera/`, `engine/tilemap/`). There are no type-based buckets
+(`components/`, `systems/`); never create one. Core engine primitives
+(`ecs`, `world`, `vector2`, ...) live at the engine root.
+
+Rules:
+
+- One class per file; file name is the class name in kebab-case
+  (`health-component.ts`, `patrol-def.ts`, `quest-marker-render-system.ts`).
+- Named exports for components and systems.
+- New code joins the feature slice it belongs to; a new feature gets a
+  new slice folder.
+- Authored data (JSON, `.ink`, art, fonts, audio) goes under
+  `game/content/`, never next to code. Code slices are pure code.
 
 ## Architectural layers
 

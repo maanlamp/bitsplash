@@ -5,7 +5,7 @@ import {
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import { QuestNoticeComponent } from "../quest/quest-notice-component";
-import { withAlpha } from "../fade";
+import { withAlpha } from "../../engine/render/color-resolver";
 import { UI_SCALE } from "../settings";
 
 const PADDING = 8;

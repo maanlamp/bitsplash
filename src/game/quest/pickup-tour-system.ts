@@ -18,9 +18,8 @@ import {
 	type TourTarget,
 } from "../quest/pickup-tour-component";
 import { PlayerInputComponent } from "../player/player-input-component";
-import QuestMarkerTag, {
-	QuestComponent,
-} from "../quest/quest-component";
+import { QuestComponent } from "../quest/quest-component";
+import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
 
 export const PICKUP_TOUR_QUEST = "pickup_tour";
 export const PICKUP_TOUR_TAG = "quest:pickup_tour";
@@ -62,7 +61,11 @@ export const beginPickupTour = (ecs: ECS): void => {
 	for (const target of queue) {
 		ecs.addComponent(
 			target.id,
-			new QuestMarkerTag(PICKUP_TOUR_QUEST, undefined, "collect"),
+			new QuestMarkerTagComponent(
+				PICKUP_TOUR_QUEST,
+				undefined,
+				"collect",
+			),
 		);
 	}
 	for (const [, quest] of ecs.query(QuestComponent)) {

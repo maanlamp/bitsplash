@@ -7,6 +7,19 @@ export type ColorInput = string | RGBA;
 const clamp01 = (value: number | null): number =>
 	Math.max(0, Math.min(1, value ?? 0));
 
+export const fadeAlpha = (remaining: number, fade: number): number =>
+	clamp01(remaining / fade);
+
+export const withAlpha = (
+	color: ColorInput,
+	alpha: number,
+): ColorInput => {
+	if (typeof color !== "string") {
+		return [color[0], color[1], color[2], color[3] * alpha];
+	}
+	return `color-mix(in srgb, ${color} ${alpha * 100}%, transparent)`;
+};
+
 export class ColorResolver {
 	private cache = new Map<string, RGBA>();
 	private ctx: CanvasRenderingContext2D | null = null;

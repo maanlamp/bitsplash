@@ -4,6 +4,7 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
 import { DialogueSourceComponent } from "../dialogue/dialogue-source-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { InteractEvent } from "../events";
@@ -35,7 +36,8 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			const panel = panelForTag(tagValue(tags, "panel"));
 			story.ChoosePathString(source.knot);
 			ecs.createEntity([
-				new DialogueComponent(event.interactable, font, panel),
+				new DialogueComponent(event.interactable, font),
+				new DialoguePanelComponent(panel),
 			]);
 			const stateEntry = ecs.query(InteractionStateComponent)[0];
 			if (stateEntry) {

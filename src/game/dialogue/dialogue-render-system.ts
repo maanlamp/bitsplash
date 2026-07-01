@@ -13,8 +13,9 @@ import {
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
+import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
 import { DIALOGUE_UI } from "../dialogue/dialogue-ui";
-import { withAlpha } from "../fade";
+import { withAlpha } from "../../engine/render/color-resolver";
 import { UI_SCALE } from "../settings";
 
 const FALLBACK_INSETS: NineSliceInsets = {
@@ -59,6 +60,8 @@ export class DialogueRenderSystem implements RenderSystem {
 			return;
 		}
 		const state = entry[1];
+		const panelUrl =
+			ecs.getComponent(entry[0], DialoguePanelComponent)?.panel ?? "";
 		const font = resolveFont(state.font, assetManager);
 		if (!font) {
 			return;
@@ -76,7 +79,7 @@ export class DialogueRenderSystem implements RenderSystem {
 
 		const insets =
 			nineSliceInsets(
-				assetManager.getImageMetadata(state.panel) || null,
+				assetManager.getImageMetadata(panelUrl) || null,
 			) ?? FALLBACK_INSETS;
 
 		const lastTextBaseline = (lineCount - 1) * tm.line + tm.ex;
@@ -104,7 +107,7 @@ export class DialogueRenderSystem implements RenderSystem {
 			restY + (1 - state.slide.value()) * slideDistance,
 		);
 
-		const panel = assetManager.getImage(state.panel);
+		const panel = assetManager.getImage(panelUrl);
 		if (panel) {
 			drawNineSlice(renderer, UI_LAYER_MIN, panel, {
 				x: panelX,

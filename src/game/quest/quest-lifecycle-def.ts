@@ -5,8 +5,8 @@ import {
 } from "../../engine/fsm/conditions";
 import { type FSM, fsm } from "../../engine/fsm/define";
 
-@fsm("pickup-tour-quest")
-export class PickupTourQuestDef implements FSM<DataCondition> {
+@fsm("quest-lifecycle")
+export class QuestLifecycleDef implements FSM<DataCondition> {
 	initial = "offered";
 
 	states = {

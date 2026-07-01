@@ -1,8 +1,3 @@
-import {
-	SURFACE_DECORATION_DENSITY,
-	SURFACE_DECORATION_JITTER,
-	TILE_DECORATION_DENSITY,
-} from "../constants";
 import { hashCell } from "../hash";
 import { loadImage } from "../load";
 import type Renderer2D from "../render/renderer-2d";
@@ -65,6 +60,7 @@ export abstract class Decorations {
 export class SurfaceDecorations extends Decorations {
 	private backLayer: number;
 	private frontLayer: number;
+	private jitter: number;
 	private backBatch: StaticBatch | null = null;
 	private frontBatch: StaticBatch | null = null;
 
@@ -73,10 +69,13 @@ export class SurfaceDecorations extends Decorations {
 		atlasUrl: string,
 		backLayer: number,
 		frontLayer: number,
+		density: number,
+		jitter: number,
 	) {
-		super(grid, atlasUrl, SURFACE_DECORATION_DENSITY);
+		super(grid, atlasUrl, density);
 		this.backLayer = backLayer;
 		this.frontLayer = frontLayer;
+		this.jitter = jitter;
 	}
 
 	render(renderer: Renderer2D): void {
@@ -125,8 +124,7 @@ export class SurfaceDecorations extends Decorations {
 				continue;
 			}
 			const jitter =
-				(hashCell(gx, gy, 4) % (2 * SURFACE_DECORATION_JITTER + 1)) -
-				SURFACE_DECORATION_JITTER;
+				(hashCell(gx, gy, 4) % (2 * this.jitter + 1)) - this.jitter;
 			const batch =
 				hashCell(gx, gy, 5) & 1 ? this.frontBatch! : this.backBatch!;
 			batch.cell(
@@ -147,8 +145,13 @@ export class TileDecorations extends Decorations {
 	private layer: number;
 	private batch: StaticBatch | null = null;
 
-	constructor(grid: TileGrid, atlasUrl: string, layer: number) {
-		super(grid, atlasUrl, TILE_DECORATION_DENSITY);
+	constructor(
+		grid: TileGrid,
+		atlasUrl: string,
+		layer: number,
+		density: number,
+	) {
+		super(grid, atlasUrl, density);
 		this.layer = layer;
 	}
 

@@ -1,7 +1,7 @@
 {
 	"id": "pickup_tour",
 	"name": "Learn the Gear",
-	"fsm": "pickup-tour-quest",
+	"fsm": "quest-lifecycle",
 	"objectives": [
 		{
 			"activeInStage": "active",

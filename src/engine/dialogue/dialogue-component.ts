@@ -9,8 +9,6 @@ export type DialoguePhase = "entering" | "open" | "closing";
 export class DialogueComponent {
 	source: EntityId | null;
 	font: FontSettings;
-	panel: string;
-	charactersPerSecond = 24;
 
 	text = "";
 	paginated = false;
@@ -35,10 +33,8 @@ export class DialogueComponent {
 	constructor(
 		source: EntityId | null = null,
 		font: FontSettings = new FontSettings(),
-		panel = "",
 	) {
 		this.source = source;
 		this.font = font;
-		this.panel = panel;
 	}
 }

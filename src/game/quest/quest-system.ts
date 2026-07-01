@@ -9,9 +9,8 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import QuestMarkerTag, {
-	QuestComponent,
-} from "../quest/quest-component";
+import { QuestComponent } from "../quest/quest-component";
+import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
 import { QuestNoticeComponent } from "../quest/quest-notice-component";
 import {
 	AdvanceQuestEvent,
@@ -36,8 +35,8 @@ export class QuestSystem implements UpdateSystem {
 		for (const event of events.read(DeathEvent)) {
 			const marker = ecs
 				.componentsOf(event.entity)
-				.find((c) => c instanceof QuestMarkerTag) as
-				| QuestMarkerTag
+				.find((c) => c instanceof QuestMarkerTagComponent) as
+				| QuestMarkerTagComponent
 				| undefined;
 			if (marker?.type === "kill") {
 				this.trackTagged(ecs, "killTagged");
@@ -46,8 +45,8 @@ export class QuestSystem implements UpdateSystem {
 		for (const event of events.read(PickupCollectedEvent)) {
 			const marker = ecs
 				.componentsOf(event.entity)
-				.find((c) => c instanceof QuestMarkerTag) as
-				| QuestMarkerTag
+				.find((c) => c instanceof QuestMarkerTagComponent) as
+				| QuestMarkerTagComponent
 				| undefined;
 			if (marker?.type === "collect") {
 				this.trackTagged(ecs, "collectTagged");

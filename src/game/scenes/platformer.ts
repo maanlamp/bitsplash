@@ -6,6 +6,11 @@ import {
 	collisionMatrix,
 } from "../collision";
 import {
+	SURFACE_DECORATION_DENSITY,
+	SURFACE_DECORATION_JITTER,
+	TILE_DECORATION_DENSITY,
+} from "../constants";
+import {
 	SurfaceDecorations,
 	TileDecorations,
 } from "../../engine/decorations/decorations";
@@ -49,7 +54,7 @@ import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
 import { GroundDetectionSystem } from "../player/ground-detection-system";
 import { HealthSystem } from "../health/health-system";
 import { HealthBarSystem } from "../health/health-bar-system";
-import HealthRenderSystem from "../health/health-render-system";
+import { HealthRenderSystem } from "../health/health-render-system";
 import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
 import { InteractionSystem } from "../interaction/interaction-system";
 import { ObjectiveRenderSystem } from "../quest/objective-render-system";
@@ -61,7 +66,7 @@ import { PlayerInputSystem } from "../player/player-input-system";
 import { QuestSystem } from "../quest/quest-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
 import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
-import { QuestMarkerDrawerSystem } from "../quest/quest-marker-drawer-system";
+import { QuestMarkerRenderSystem } from "../quest/quest-marker-render-system";
 import { SpawnSystem } from "../respawn/spawn-system";
 import { VoiceSystem } from "../dialogue/voice-system";
 
@@ -89,11 +94,14 @@ registerScene("platformer", ({ config, name }): Scene => {
 		knickKnacksUrl,
 		Layer.SURFACE_DECO_BACK,
 		Layer.SURFACE_DECO_FRONT,
+		SURFACE_DECORATION_DENSITY,
+		SURFACE_DECORATION_JITTER,
 	);
 	const tileDecorations = new TileDecorations(
 		tileGrid,
 		tileDecorationsUrl,
 		Layer.TILE_DECO,
+		TILE_DECORATION_DENSITY,
 	);
 
 	const gameplaySystems = [
@@ -131,7 +139,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem(Layer.DEBUG_TAG));
-	ecs.addRenderSystem(new QuestMarkerDrawerSystem(Layer.DEBUG_TAG));
+	ecs.addRenderSystem(new QuestMarkerRenderSystem(Layer.DEBUG_TAG));
 	ecs.addRenderSystem(
 		new InteractHintRenderSystem(Layer.DEBUG_TAG, Layer.PLAYER),
 	);
