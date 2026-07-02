@@ -24,7 +24,10 @@ import {
 import { Scene, type SceneFile } from "../../engine/scene/scene";
 import { Camera2DFollowSystem } from "../../engine/camera/camera-2d-follow-system";
 import { CameraShakeSystem } from "../../engine/camera/camera-shake-system";
+import { CameraTransitionSystem } from "../../engine/camera/camera-transition-system";
+import { CutsceneSystem } from "../../engine/cutscene/cutscene-system";
 import { ScreenFadeRenderSystem } from "../../engine/fade/screen-fade-render-system";
+import { ScreenFadeSystem } from "../../engine/fade/screen-fade-system";
 import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
 import { DecorationsRenderSystem } from "../../engine/decorations/decorations-render-system";
 import { PhysicsSystem } from "../../engine/physics/physics-system";
@@ -40,6 +43,7 @@ import tilesetUrl from "../content/assets/dirt.tileset.png";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 import knickKnacksUrl from "../content/assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "../content/assets/tile-decorations.png";
+import { InputBindings } from "../input-bindings";
 import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
 import { spawnRuntimeEntities } from "./bootstrap";
 import { ArrowSystem } from "../combat/arrow-system";
@@ -60,7 +64,6 @@ import { InteractionSystem } from "../interaction/interaction-system";
 import { ObjectiveRenderSystem } from "../quest/objective-render-system";
 import { PatrolSystem } from "../enemy/patrol-system";
 import { PickupSystem } from "../pickup/pickup-system";
-import { PickupTourSystem } from "../quest/pickup-tour-system";
 import { PlayerAnimationSystem } from "../player/player-animation-system";
 import { PlayerInputSystem } from "../player/player-input-system";
 import { QuestSystem } from "../quest/quest-system";
@@ -123,7 +126,10 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new DamageShakeSystem(),
 		new DeathSystem(),
 		new QuestSystem(),
-		new PickupTourSystem(),
+		new CutsceneSystem({
+			skipHeld: ({ input }) =>
+				!!input.keyboard.keys[InputBindings.interact],
+		}),
 		new TimerSystem(),
 		new SpawnSystem(),
 		new DeathNoticeSystem(),
@@ -131,6 +137,8 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new HealthBarSystem(),
 		new VoiceSystem(),
 		new Camera2DFollowSystem(),
+		new ScreenFadeSystem(),
+		new CameraTransitionSystem(),
 		new CameraShakeSystem(),
 	];
 

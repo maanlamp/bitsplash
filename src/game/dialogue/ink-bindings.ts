@@ -8,12 +8,20 @@ import {
 	QuestDeclinedEvent,
 	StartQuestEvent,
 } from "../events";
+import { startCutscene } from "../../engine/cutscene/cutscene-system";
+import type { CutsceneDef } from "../../engine/cutscene/cutscene";
 import {
-	beginPickupTour,
-	endPickupTour,
-	nextPickup,
-} from "../quest/pickup-tour-system";
+	pickupTourCutscene,
+	pickupTourKissCutscene,
+} from "../quest/pickup-tour-cutscene";
 import { createStory } from "./ink-loader";
+
+const cutscenes = new Map<string, CutsceneDef>(
+	[pickupTourCutscene, pickupTourKissCutscene].map((def) => [
+		def.id,
+		def,
+	]),
+);
 
 const bindExternals = (
 	story: Story,
@@ -47,21 +55,12 @@ const bindExternals = (
 		false,
 	);
 	story.BindExternalFunction(
-		"begin_pickup_tour",
-		() => {
-			beginPickupTour(ecs);
-		},
-		false,
-	);
-	story.BindExternalFunction(
-		"next_pickup",
-		() => nextPickup(ecs),
-		false,
-	);
-	story.BindExternalFunction(
-		"end_pickup_tour",
-		() => {
-			endPickupTour(ecs);
+		"start_cutscene",
+		(id: string) => {
+			const def = cutscenes.get(id);
+			if (def) {
+				startCutscene(ecs, def);
+			}
 		},
 		false,
 	);

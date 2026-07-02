@@ -10,8 +10,6 @@ EXTERNAL start_quest(quest, stage)
 EXTERNAL advance_quest(quest, to)
 EXTERNAL decline_quest(quest)
 EXTERNAL give_item(item, count)
-EXTERNAL begin_pickup_tour()
-EXTERNAL next_pickup()
-EXTERNAL end_pickup_tour()
+EXTERNAL start_cutscene(id)
 
 -> END

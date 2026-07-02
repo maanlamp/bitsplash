@@ -9,6 +9,7 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
+import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { InteractableComponent } from "../interaction/interactable-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
@@ -24,7 +25,7 @@ export class InteractHintRenderSystem implements RenderSystem {
 	}
 
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		if (ecs.query(DialogueComponent)[0]) {
+		if (ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs)) {
 			return;
 		}
 		const stateEntry = ecs.query(InteractionStateComponent)[0];

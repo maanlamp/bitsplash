@@ -9,6 +9,7 @@ export type DialoguePhase = "entering" | "open" | "closing";
 export class DialogueComponent {
 	source: EntityId | null;
 	font: FontSettings;
+	speaker = "";
 
 	text = "";
 	paginated = false;
@@ -22,7 +23,6 @@ export class DialogueComponent {
 	selectedOption = 0;
 
 	opened = false;
-	hold = false;
 	navUpHeld = false;
 	navDownHeld = false;
 	escHeld = false;

@@ -1,3 +1,4 @@
+import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { Input } from "../../engine/input/input";
@@ -28,7 +29,8 @@ export class PlayerInputSystem implements UpdateSystem {
 			return;
 		}
 		const s = dt / 1000;
-		const frozen = !!ecs.query(DialogueComponent)[0];
+		const frozen =
+			!!ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs);
 		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,
@@ -37,11 +39,15 @@ export class PlayerInputSystem implements UpdateSystem {
 				continue;
 			}
 			let dir = 0;
-			if (!frozen && input.keyboard.keys[InputBindings.left]) {
-				dir -= 1;
-			}
-			if (!frozen && input.keyboard.keys[InputBindings.right]) {
-				dir += 1;
+			if (player.scriptedMoveDir !== null) {
+				dir = player.scriptedMoveDir;
+			} else {
+				if (!frozen && input.keyboard.keys[InputBindings.left]) {
+					dir -= 1;
+				}
+				if (!frozen && input.keyboard.keys[InputBindings.right]) {
+					dir += 1;
+				}
 			}
 			player.moveDir = dir;
 			if (dir !== 0) {
@@ -94,7 +100,9 @@ export class PlayerInputSystem implements UpdateSystem {
 		}
 
 		const dashHeld =
-			!frozen && !!input.keyboard.keys[InputBindings.dash];
+			player.canDash &&
+			!frozen &&
+			!!input.keyboard.keys[InputBindings.dash];
 		const dashPressed = dashHeld && !player.dashWasHeld;
 		player.dashWasHeld = dashHeld;
 

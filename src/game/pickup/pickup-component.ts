@@ -7,7 +7,7 @@ export const PICKUP_TYPES = [
 	"extra-jump",
 	"wall-slide",
 	"wall-jump",
-	"speed-up",
+	"dash",
 ] as const;
 
 export type PickupType = (typeof PICKUP_TYPES)[number];

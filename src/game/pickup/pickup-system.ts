@@ -1,3 +1,4 @@
+import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { TransformComponent } from "../../engine/transform-component";
@@ -6,7 +7,6 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 import {
 	PICKUP_TYPES,
@@ -29,6 +29,7 @@ export class PickupSystem implements UpdateSystem {
 		switch (type) {
 			case "extra-jump":
 				player.maxJumps += 1;
+				player.jumpsRemaining += 1;
 				break;
 			case "wall-slide":
 				player.canWallSlide = true;
@@ -36,8 +37,8 @@ export class PickupSystem implements UpdateSystem {
 			case "wall-jump":
 				player.canWallJump = true;
 				break;
-			case "speed-up":
-				player.maxSpeed += 0.5 * TILE_SIZE;
+			case "dash":
+				player.canDash = true;
 				break;
 		}
 	}
@@ -63,7 +64,7 @@ export class PickupSystem implements UpdateSystem {
 			}
 		}
 
-		if (ecs.query(DialogueComponent)[0]) {
+		if (ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs)) {
 			return;
 		}
 

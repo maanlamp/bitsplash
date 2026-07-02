@@ -1,3 +1,4 @@
+import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import {
@@ -15,7 +16,7 @@ import { tagValue } from "../dialogue/ink-tags";
 
 export class DialogueTriggerSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
-		if (ecs.query(DialogueComponent)[0]) {
+		if (ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs)) {
 			return;
 		}
 		for (const event of events.read(InteractEvent)) {
@@ -35,10 +36,12 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			const font = fontForTag(tagValue(tags, "font"));
 			const panel = panelForTag(tagValue(tags, "panel"));
 			story.ChoosePathString(source.knot);
-			ecs.createEntity([
-				new DialogueComponent(event.interactable, font),
-				new DialoguePanelComponent(panel),
-			]);
+			const dialogue = new DialogueComponent(
+				event.interactable,
+				font,
+			);
+			dialogue.speaker = tagValue(tags, "speaker") ?? "";
+			ecs.createEntity([dialogue, new DialoguePanelComponent(panel)]);
 			const stateEntry = ecs.query(InteractionStateComponent)[0];
 			if (stateEntry) {
 				stateEntry[1].pressedThisFrame = false;

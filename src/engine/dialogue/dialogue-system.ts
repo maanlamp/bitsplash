@@ -1,6 +1,7 @@
 import type { Story } from "inkjs/full";
 import type AssetManager from "../assets";
 import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
+import { isCutsceneActive } from "../cutscene/cutscene-system";
 import { DialogueComponent } from "../dialogue/dialogue-component";
 import { InkStoryComponent } from "../ink/ink-story-component";
 import type { Seconds } from "../duration";
@@ -176,13 +177,6 @@ export class DialogueSystem implements UpdateSystem {
 
 		this.ensurePages(state, assetManager);
 		if (!state.paginated) {
-			if (pressed) {
-				consume();
-			}
-			return;
-		}
-
-		if (state.hold) {
 			if (pressed) {
 				consume();
 			}
@@ -372,6 +366,9 @@ export class DialogueSystem implements UpdateSystem {
 		ecs: ECS,
 		targets: ReadonlyArray<EntityId | null>,
 	): void {
+		if (isCutsceneActive(ecs)) {
+			return;
+		}
 		const followEntry = ecs.query(Camera2DFollowComponent)[0];
 		if (!followEntry) {
 			return;

@@ -1,6 +1,6 @@
 == pickup_tutor ==
 # speaker: Quartermaster
-# font: doublehomicide
+# font: cartridge
 {quest_pickup_tour == "active": -> pt_in_progress}
 {quest_pickup_tour == "return": -> pt_return}
 {quest_pickup_tour == "complete": -> pt_done}
@@ -18,23 +18,50 @@
 + [Leave] -> END
 
 = pt_accept
-~ begin_pickup_tour()
 ~ advance_quest("pickup_tour", "active")
--> pt_loop
+~ start_cutscene("pickup-tour")
+-> END
 
-= pt_loop
-~ temp t = next_pickup()
-{t == "": -> pt_wrap}
-{t == "extra-jump": This one grants an extra jump in mid-air. Tap again at the apex and you'll vault higher than any wall expects.}
-{t == "wall-slide": Grab this and you'll cling to walls, sliding down slow instead of dropping like a stone. Buys you a breath to think.}
-{t == "wall-jump": With this you kick off walls. Slide, then leap the other way - chain them to climb shafts with no floor at all.}
-{t == "speed-up": Pure pace. Pick it up and you'll outrun anything on these roads, and clear gaps that look impossible.}
-+ [Next] -> pt_loop
+= pt_intro_walk
+# speaker: Quartermaster
+Come, walk with me.
+-> DONE
+
+= pt_intro
+# speaker: Quartermaster
+The wilds are littered with old gear. Watch close, I'll show you where it hides.
+-> DONE
+
+= pt_line_wall_slide
+# speaker: Quartermaster
+Grab this and you'll cling to walls, sliding down slow instead of dropping like a stone. Buys you a breath to think.
+-> DONE
+
+= pt_line_wall_jump
+# speaker: Quartermaster
+With this you kick off walls. Slide, then leap the other way - chain them to climb shafts with no floor at all.
+-> DONE
+
+= pt_line_dash
+# speaker: Quartermaster
+Pure burst. Slam it and you'll lunge forward faster than anything can track - across gaps that swallow careful jumpers.
+-> DONE
+
+= pt_line_extra_jump
+# speaker: Quartermaster
+This one grants an extra jump in mid-air. Tap again at the apex and you'll vault higher than any wall expects.
+-> DONE
 
 = pt_wrap
-~ end_pickup_tour()
+# speaker: Quartermaster
 Got all that? Good, now collect them.
--> END
+-> DONE
+
+= pt_smooch
+# speaker: You
+# font: comicoro
+Thanks, guy! <wave>smooch</wave>
+-> DONE
 
 = pt_decline
 ~ decline_quest("pickup_tour")
@@ -47,8 +74,9 @@ The gear's still out there. Go on, collect it.
 
 = pt_return
 You found every piece. Good. Here - you've earned an extra spring in your step.
-+ [Leave]
++ [Thank him]
     ~ advance_quest("pickup_tour", "complete")
+    ~ start_cutscene("pickup-tour-kiss")
     -> END
 
 = pt_done

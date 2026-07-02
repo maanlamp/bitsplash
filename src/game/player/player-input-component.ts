@@ -17,11 +17,13 @@ export class PlayerInputComponent {
 	@serialize() wallSlideSpeed: number = 2 * TILE_SIZE;
 	@serialize() canWallSlide: boolean = false;
 	@serialize() canWallJump: boolean = false;
+	@serialize() canDash: boolean = false;
 	@serialize() dashSpeed: number = 9 * TILE_SIZE;
 	@serialize() dashDuration: number = 150;
 	@serialize() dashCooldown: number = 500;
 
 	moveDir: number = 0;
+	scriptedMoveDir: number | null = null;
 	facing: number = 1;
 	grounded: boolean = false;
 	jumping: boolean = false;

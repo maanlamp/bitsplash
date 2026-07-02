@@ -1,5 +1,4 @@
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
-import { FontSettings } from "../../engine/text/font-settings";
 import { type LoadedFont, STYLE_REGULAR } from "../../engine/load";
 import { nineSliceInsets } from "../../engine/png-metadata";
 import {
@@ -12,9 +11,8 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
-import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
-import { DIALOGUE_UI } from "../dialogue/dialogue-ui";
+import { DIALOGUE_UI, UI_FONT } from "../dialogue/dialogue-ui";
 import { withAlpha } from "../../engine/render/color-resolver";
 import { UI_SCALE } from "../settings";
 
@@ -31,8 +29,6 @@ const ACCENT: [number, number, number, number] = [
 	0.478, 0.329, 0.063, 1,
 ];
 const MORE_ALPHA = 0.5;
-
-const PLAYER_FONT = new FontSettings(fsPixelSansUrl);
 
 type Metrics = Readonly<{
 	ex: number;
@@ -66,7 +62,7 @@ export class DialogueRenderSystem implements RenderSystem {
 		if (!font) {
 			return;
 		}
-		const optionFont = resolveFont(PLAYER_FONT, assetManager) ?? font;
+		const optionFont = resolveFont(UI_FONT, assetManager) ?? font;
 
 		const tm = metricsOf(font);
 		const om = metricsOf(optionFont);
@@ -116,6 +112,17 @@ export class DialogueRenderSystem implements RenderSystem {
 				height: panelH,
 				insets,
 			});
+		}
+
+		if (state.speaker.length > 0) {
+			renderer.drawText(
+				UI_LAYER_MIN + 1,
+				optionFont,
+				state.speaker,
+				panelX + DIALOGUE_UI.padding,
+				panelY - om.below,
+				{ align: "left", color: ACCENT },
+			);
 		}
 
 		const revealed = Math.floor(state.revealed);
