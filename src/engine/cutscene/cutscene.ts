@@ -15,7 +15,7 @@ export type CutsceneContext = Readonly<{
 
 export type CutsceneWait = Readonly<{
 	done(ctx: UpdateContext): boolean;
-	complete(ctx: UpdateContext): void;
+	complete(ctx: UpdateContext): boolean;
 }>;
 
 export type CutsceneScene = (

@@ -10,10 +10,19 @@ export type CutsceneBindings = Readonly<{
 const SKIP_HOLD_SECONDS = 0.6;
 
 export const startCutscene = (ecs: ECS, def: CutsceneDef): void => {
-	if (ecs.query(CutsceneComponent)[0]) {
+	const entry = ecs.query(CutsceneComponent)[0];
+	if (!entry) {
+		ecs.createEntity([new CutsceneComponent(def)]);
 		return;
 	}
-	ecs.createEntity([new CutsceneComponent(def)]);
+	const cutscene = entry[1];
+	if (
+		cutscene.def.id === def.id ||
+		cutscene.queue.some((queued) => queued.id === def.id)
+	) {
+		return;
+	}
+	cutscene.queue.push(def);
 };
 
 export const isCutsceneActive = (ecs: ReadonlyECS): boolean =>
@@ -57,7 +66,16 @@ export class CutsceneSystem implements UpdateSystem {
 		}
 
 		if (cutscene.sceneIndex >= cutscene.def.scenes.length) {
-			ctx.ecs.destroyEntity(id);
+			const next = cutscene.queue.shift();
+			if (next) {
+				cutscene.def = next;
+				cutscene.sceneIndex = 0;
+				cutscene.iterator = null;
+				cutscene.wait = null;
+				cutscene.skipHeldTime = 0;
+			} else {
+				ctx.ecs.destroyEntity(id);
+			}
 		}
 	}
 
@@ -104,7 +122,9 @@ export class CutsceneSystem implements UpdateSystem {
 			return;
 		}
 		if (cutscene.wait) {
-			cutscene.wait.complete(ctx);
+			if (!cutscene.wait.complete(ctx)) {
+				return;
+			}
 			cutscene.wait = null;
 		}
 		while (true) {
@@ -112,7 +132,10 @@ export class CutsceneSystem implements UpdateSystem {
 			if (result.done) {
 				break;
 			}
-			result.value.complete(ctx);
+			if (!result.value.complete(ctx)) {
+				cutscene.wait = result.value;
+				return;
+			}
 		}
 		cutscene.iterator = null;
 		cutscene.sceneIndex += 1;

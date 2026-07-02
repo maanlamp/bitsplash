@@ -18,18 +18,22 @@ export const wait = (seconds: Seconds): CutsceneWait => {
 		},
 		complete: () => {
 			elapsed = seconds;
+			return true;
 		},
 	};
 };
 
 export const waitFor = <T>(event: EventClass<T>): CutsceneWait => ({
 	done: (ctx) => ctx.events.read(event).length > 0,
-	complete: () => {},
+	complete: () => true,
 });
 
 export const effect = (handle: EffectHandle): CutsceneWait => ({
 	done: () => handle.done(),
-	complete: () => handle.complete(),
+	complete: () => {
+		handle.complete();
+		return true;
+	},
 });
 
 export const fade = (
@@ -81,10 +85,15 @@ export const sequence = (
 			return true;
 		},
 		complete: (ctx) => {
-			for (; index < items.length; index += 1) {
-				(current ?? materialize(items[index]!)).complete(ctx);
+			while (index < items.length) {
+				current ??= materialize(items[index]!);
+				if (!current.complete(ctx)) {
+					return false;
+				}
 				current = null;
+				index += 1;
 			}
+			return true;
 		},
 	};
 };
@@ -99,10 +108,8 @@ export const parallel = (
 			return remaining.length === 0;
 		},
 		complete: (ctx) => {
-			for (const w of remaining) {
-				w.complete(ctx);
-			}
-			remaining = [];
+			remaining = remaining.filter((w) => !w.complete(ctx));
+			return remaining.length === 0;
 		},
 	};
 };

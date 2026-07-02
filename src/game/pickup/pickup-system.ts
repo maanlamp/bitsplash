@@ -1,5 +1,4 @@
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
-import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { TransformComponent } from "../../engine/transform-component";
 import { CollisionEvent } from "../../engine/events";
@@ -64,7 +63,7 @@ export class PickupSystem implements UpdateSystem {
 			}
 		}
 
-		if (ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs)) {
+		if (isCutsceneActive(ecs)) {
 			return;
 		}
 

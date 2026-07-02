@@ -1,7 +1,5 @@
 import type { Story } from "inkjs/full";
 import type AssetManager from "../assets";
-import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
-import { isCutsceneActive } from "../cutscene/cutscene-system";
 import { DialogueComponent } from "../dialogue/dialogue-component";
 import { InkStoryComponent } from "../ink/ink-story-component";
 import type { Seconds } from "../duration";
@@ -32,10 +30,8 @@ export type DialogueBindings = Readonly<{
 	slideOut: Seconds;
 	advancePressed: (ctx: UpdateContext) => boolean;
 	consumeAdvance: (ctx: UpdateContext) => void;
-	cancelHeld: (ctx: UpdateContext) => boolean;
 	navUpHeld: (ctx: UpdateContext) => boolean;
 	navDownHeld: (ctx: UpdateContext) => boolean;
-	playerId: (ecs: ECS) => EntityId | null;
 }>;
 
 const punctuationPause = (
@@ -154,7 +150,6 @@ export class DialogueSystem implements UpdateSystem {
 				this.bindings.slideIn,
 				"easeOutBack",
 			);
-			this.setCameraTargets(ecs, [this.playerId(ecs), state.source]);
 			events.emit(new DialogueOpenedEvent(id));
 			this.gatherBlock(story, state, assetManager);
 		}
@@ -180,14 +175,6 @@ export class DialogueSystem implements UpdateSystem {
 			if (pressed) {
 				consume();
 			}
-			return;
-		}
-
-		const escHeld = this.bindings.cancelHeld(ctx);
-		const escPressed = escHeld && !state.escHeld;
-		state.escHeld = escHeld;
-		if (escPressed) {
-			this.beginClose(state);
 			return;
 		}
 
@@ -353,28 +340,7 @@ export class DialogueSystem implements UpdateSystem {
 		id: EntityId,
 		state: DialogueComponent,
 	): void {
-		this.setCameraTargets(ecs, [this.playerId(ecs)]);
 		ecs.destroyEntity(id);
 		events.emit(new DialogueClosedEvent(id, state.source));
-	}
-
-	private playerId(ecs: ECS): EntityId | null {
-		return this.bindings.playerId(ecs);
-	}
-
-	private setCameraTargets(
-		ecs: ECS,
-		targets: ReadonlyArray<EntityId | null>,
-	): void {
-		if (isCutsceneActive(ecs)) {
-			return;
-		}
-		const followEntry = ecs.query(Camera2DFollowComponent)[0];
-		if (!followEntry) {
-			return;
-		}
-		followEntry[1].targets = targets.filter(
-			(id): id is EntityId => id !== null,
-		);
 	}
 }

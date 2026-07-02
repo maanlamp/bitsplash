@@ -6,6 +6,7 @@ import type {
 
 export class CutsceneComponent {
 	def: CutsceneDef;
+	queue: CutsceneDef[] = [];
 	context: CutsceneContext | null = null;
 	sceneIndex = 0;
 	iterator: Generator<CutsceneWait, void, unknown> | null = null;

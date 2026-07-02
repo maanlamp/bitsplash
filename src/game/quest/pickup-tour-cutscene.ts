@@ -8,9 +8,7 @@ import {
 	parallel,
 	sequence,
 	wait,
-	waitFor,
 } from "../../engine/cutscene/verbs";
-import { DialogueClosedEvent } from "../../engine/dialogue/events";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
@@ -99,7 +97,6 @@ const setupQuest = (ecs: ECS): void => {
 
 const intro: CutsceneScene = function* (ctx) {
 	setupQuest(ctx.ecs);
-	yield waitFor(DialogueClosedEvent);
 	const quartermaster = quartermasterId(ctx.ecs);
 	const player = playerId(ctx.ecs);
 	const position = quartermaster
@@ -211,7 +208,6 @@ const wrapUp: CutsceneScene = function* (ctx) {
 };
 
 const smooch: CutsceneScene = function* (ctx) {
-	yield waitFor(DialogueClosedEvent);
 	const player = playerId(ctx.ecs);
 	const quartermaster = quartermasterId(ctx.ecs);
 	const target = quartermaster

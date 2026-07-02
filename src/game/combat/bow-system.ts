@@ -1,10 +1,10 @@
+import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
-import { TransformComponent } from "../../engine/transform-component";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
+import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
 import { ArrowComponent } from "../combat/arrow-component";
 import { BowComponent } from "../combat/bow-component";
@@ -61,7 +61,6 @@ export class BowSystem implements UpdateSystem {
 			.clone()
 			.add(direction.clone().mul(bow.spawnDistance));
 		const arrowId = spawnPrefab(world, "arrow", spawnPosition);
-		console.log(arrowId);
 		if (arrowId === null) {
 			return;
 		}

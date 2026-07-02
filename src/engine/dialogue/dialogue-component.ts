@@ -25,7 +25,6 @@ export class DialogueComponent {
 	opened = false;
 	navUpHeld = false;
 	navDownHeld = false;
-	escHeld = false;
 
 	phase: DialoguePhase = "entering";
 	slide = new Tween();

@@ -1,5 +1,4 @@
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
-import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { Input } from "../../engine/input/input";
 import {
@@ -29,8 +28,7 @@ export class PlayerInputSystem implements UpdateSystem {
 			return;
 		}
 		const s = dt / 1000;
-		const frozen =
-			!!ecs.query(DialogueComponent)[0] || isCutsceneActive(ecs);
+		const frozen = isCutsceneActive(ecs);
 		for (const [, player, rb] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,

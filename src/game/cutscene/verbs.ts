@@ -2,8 +2,10 @@ import type {
 	CutsceneContext,
 	CutsceneWait,
 } from "../../engine/cutscene/cutscene";
+import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-component";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
+import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
@@ -73,15 +75,29 @@ export const walkTo = (
 				player.scriptedMoveDir = null;
 			}
 			if (!transform) {
-				return;
+				return true;
 			}
 			transform.position.x = x;
 			if (body?.body) {
 				body.body.setTransform(transform.position, 0);
 				body.linearVelocity = new Vector2(0, body.linearVelocity.y);
 			}
+			return true;
 		},
 	};
+};
+
+export const follow = (
+	ctx: CutsceneContext,
+	targets: ReadonlyArray<EntityId | null>,
+): void => {
+	const entry = ctx.ecs.query(Camera2DFollowComponent)[0];
+	if (!entry) {
+		return;
+	}
+	entry[1].targets = targets.filter(
+		(id): id is EntityId => id !== null,
+	);
 };
 
 export const dialogue = (
@@ -91,7 +107,7 @@ export const dialogue = (
 ): CutsceneWait => {
 	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
 	if (!inkEntry) {
-		return { done: () => true, complete: () => {} };
+		return { done: () => true, complete: () => true };
 	}
 	const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
 	const tags = story.TagsForContentAtPath(knot);
@@ -116,10 +132,22 @@ export const dialogue = (
 		done: () =>
 			ctx.ecs.getComponent(id, DialogueComponent) === undefined,
 		complete: () => {
-			if (ctx.ecs.getComponent(id, DialogueComponent)) {
-				ctx.ecs.destroyEntity(id);
-				ctx.events.emit(new DialogueClosedEvent(id, source));
+			const state = ctx.ecs.getComponent(id, DialogueComponent);
+			if (!state) {
+				return true;
 			}
+			if (state.choices.length > 0) {
+				if (state.paginated) {
+					state.pageIndex = state.pages.length - 1;
+					state.revealed = Infinity;
+					state.pause = 0 as Seconds;
+					state.complete = true;
+				}
+				return false;
+			}
+			ctx.ecs.destroyEntity(id);
+			ctx.events.emit(new DialogueClosedEvent(id, source));
+			return true;
 		},
 	};
 };
