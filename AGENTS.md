@@ -87,19 +87,6 @@ Violating these boundaries is never acceptable, regardless of convenience.
 - Do not handroll your own components; check `base-ui` (https://base-ui.com/llms.txt) first.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
 
-## Editor UI
-
-Full styling rules are in `docs/EDITOR_STYLING.md`. Key points:
-
-- **No inline `style={{}}`** for static values. Use CSS modules colocated with their component.
-- For dynamic per-render values, pass a CSS custom property via `style` and consume it in the stylesheet.
-- **Spacing:** `var(--unit-N)` tokens only. Never hardcode px or rem.
-- **Type:** `--text-xs…2xl` and font role tokens (`--font-body`, `--font-heading`, etc.).
-- **Borders are never 1px.** Minimum is `var(--border-width)` (2px).
-- **Floating surfaces are always glassy.** Use `@include g.glass-surface(...)` from `src/editor/styles/_glass.scss`. Never hand-roll `backdrop-filter`.
-- Every visual state change is animated — `--duration-fast` (100ms) and `--ease-standard`.
-- Modal dialogs use `surface.dialogPopup`, are viewport-centred, and are driven by an `open` prop — never `{cond && <Dialog/>}`.
-
 ## UX decisions are not yours to make
 
 Never make a user-experience decision without asking the user first. This applies to anything that shapes how a user (game author or player) experiences a flow: error handling and where/how failures surface, field interaction, validation behavior, when/whether something blocks an action, notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems obvious, and even mid-task. This applies across all parts of the project (editor, game runtime, serialization, save/load).

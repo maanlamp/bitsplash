@@ -1,6 +1,5 @@
 import {
 	EraserIcon,
-	EyedropperIcon,
 	HandIcon,
 	type Icon,
 	PaintBrushIcon,
@@ -24,12 +23,6 @@ export const SPRITE_TOOLS: ReadonlyArray<SpriteToolDef> = [
 	},
 	{ id: "erase", label: "Eraser", icon: EraserIcon, shortcut: "e" },
 	{ id: "pan", label: "Pan", icon: HandIcon, shortcut: "h" },
-	{
-		id: "pick",
-		label: "Pick color",
-		icon: EyedropperIcon,
-		shortcut: "i",
-	},
 ];
 
 export const toolShowsBrush = (tool: SpriteTool): boolean =>

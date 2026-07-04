@@ -10,6 +10,8 @@ export class TileGrid {
 	private listeners: Set<() => void> = new Set();
 	private notifyScheduled = false;
 
+	version = 0;
+
 	private key(gx: number, gy: number): string {
 		return `${gx},${gy}`;
 	}
@@ -20,6 +22,7 @@ export class TileGrid {
 			return;
 		}
 		this.cells.add(k);
+		this.version += 1;
 		this.notify();
 	}
 
@@ -27,6 +30,7 @@ export class TileGrid {
 		if (!this.cells.delete(this.key(gx, gy))) {
 			return;
 		}
+		this.version += 1;
 		this.notify();
 	}
 
@@ -66,6 +70,7 @@ export class TileGrid {
 			return;
 		}
 		this.cells.clear();
+		this.version += 1;
 		this.notify();
 	}
 

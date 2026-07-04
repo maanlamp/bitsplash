@@ -10,15 +10,16 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { resolveRenderLayer } from "../../engine/render/render-layers";
 import { InteractableComponent } from "../interaction/interactable-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { InputBindings } from "../input-bindings";
 
 export class InteractHintRenderSystem implements RenderSystem {
-	private layer: number;
-	private outlineLayer: number;
+	private layer: string;
+	private outlineLayer: string;
 
-	constructor(layer: number, outlineLayer: number) {
+	constructor(layer: string, outlineLayer: string) {
 		this.layer = layer;
 		this.outlineLayer = outlineLayer;
 	}
@@ -50,13 +51,17 @@ export class InteractHintRenderSystem implements RenderSystem {
 			if (image) {
 				const source = spriteSource(sprite, image);
 				const height = source.height * transform.scale.y;
-				renderer.drawImageOutline(this.outlineLayer, image, {
-					x: transform.position.x,
-					y: transform.position.y,
-					width: source.width * transform.scale.x,
-					height,
-					rotation: transform.rotation.radians,
-				});
+				renderer.drawImageOutline(
+					resolveRenderLayer(ecs, this.outlineLayer),
+					image,
+					{
+						x: transform.position.x,
+						y: transform.position.y,
+						width: source.width * transform.scale.x,
+						height,
+						rotation: transform.rotation.radians,
+					},
+				);
 				spriteHalfHeight = height / 2;
 			}
 		}
@@ -67,7 +72,7 @@ export class InteractHintRenderSystem implements RenderSystem {
 		const top = transform.position.y - spriteHalfHeight - 4;
 
 		renderer.drawText(
-			this.layer,
+			resolveRenderLayer(ecs, this.layer),
 			font,
 			`Press ${InputBindings.interact} to ${interactable.prompt}`,
 			transform.position.x,

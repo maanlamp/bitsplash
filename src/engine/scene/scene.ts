@@ -12,14 +12,13 @@ import {
 	type ValueType,
 	VALUE_TYPE,
 } from "../serialization/serializable-value";
-import type { TileGrid } from "../tilemap/grid";
 import Vector2 from "../vector2";
 import type { World } from "../world";
 
 export type SceneConfigData = Readonly<{
 	gravity: Readonly<{ x: number; y: number }>;
 	uiScale?: number;
-	tileset?: string;
+	clearColor?: string;
 }>;
 
 @serializable("SceneConfig")
@@ -30,8 +29,7 @@ export class SceneConfig implements ValueType {
 
 	@serialize() gravity: Vector2 = new Vector2(0, 20);
 	@serialize() uiScale = 1;
-	@serialize({ file: "image/*" })
-	tileset = "";
+	@serialize({ color: true }) clearColor = "transparent";
 }
 
 export const toSceneConfig = (data: SceneConfigData): SceneConfig => {
@@ -40,8 +38,8 @@ export const toSceneConfig = (data: SceneConfigData): SceneConfig => {
 	if (data.uiScale !== undefined) {
 		config.uiScale = data.uiScale;
 	}
-	if (data.tileset !== undefined) {
-		config.tileset = data.tileset;
+	if (data.clearColor !== undefined) {
+		config.clearColor = data.clearColor;
 	}
 	return config;
 };
@@ -58,7 +56,7 @@ export type SceneFile = Readonly<{
 	kind: string;
 	name?: string;
 	config: SceneConfigData;
-	tiles: ReadonlyArray<SceneTileRect>;
+	tiles?: ReadonlyArray<SceneTileRect>;
 	entities: SerializedWorld;
 }>;
 
@@ -75,10 +73,10 @@ export type SceneParams = Readonly<{
 	name: string;
 	config: SceneConfig;
 	world: World;
-	tileGrid?: TileGrid;
 	gameplaySystems: ReadonlyArray<UpdateSystem>;
 	spawnRuntimeEntities?: () => void;
 	defaultEntity?: (position: Vector2) => ReadonlyArray<object>;
+	migrateFile?: (file: SceneFile) => void;
 }>;
 
 export class Scene {
@@ -86,13 +84,13 @@ export class Scene {
 	readonly name: string;
 	readonly config: SceneConfig;
 	readonly world: World;
-	readonly tileGrid?: TileGrid;
 
 	private readonly gameplaySystems: ReadonlyArray<UpdateSystem>;
 	private readonly spawnRuntime?: () => void;
 	private readonly makeDefaultEntity?: (
 		position: Vector2,
 	) => ReadonlyArray<object>;
+	private readonly migrate?: (file: SceneFile) => void;
 
 	private simulating = false;
 	private snapshot: SerializedWorld | null = null;
@@ -102,10 +100,14 @@ export class Scene {
 		this.name = params.name;
 		this.config = params.config;
 		this.world = params.world;
-		this.tileGrid = params.tileGrid;
 		this.gameplaySystems = params.gameplaySystems;
 		this.spawnRuntime = params.spawnRuntimeEntities;
 		this.makeDefaultEntity = params.defaultEntity;
+		this.migrate = params.migrateFile;
+	}
+
+	migrateFile(file: SceneFile): void {
+		this.migrate?.(file);
 	}
 
 	get ecs(): ECS {

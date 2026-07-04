@@ -1,10 +1,13 @@
+import type { ECS, EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
-import { TileGrid } from "../../engine/tilemap/grid";
+import type { TileGrid } from "../../engine/tilemap/grid";
+import { TileLayerComponent } from "../../engine/tilemap/tile-layer-component";
+import { activeTileLayer } from "../active-layer";
 import { FLOOD_FILL_CELL_CAP } from "../constants";
 import type { EditorState } from "../editor-state";
 import type { History } from "../history";
@@ -15,10 +18,19 @@ type Cell = Readonly<{
 	gy: number;
 }>;
 
+type PendingAction = {
+	layerId: EntityId;
+	added: Cell[];
+	removed: Cell[];
+};
+
 export class TileEditorSystem implements UpdateSystem {
-	private grid: TileGrid;
 	private editor: EditorState;
 	private history: History;
+
+	private ecs: ECS | null = null;
+	private layerId: EntityId | null = null;
+	private grid: TileGrid | null = null;
 
 	private prevLeft = false;
 	private brushPrev: Cell | null = null;
@@ -26,33 +38,43 @@ export class TileEditorSystem implements UpdateSystem {
 	private lassoStart: Cell = { gx: 0, gy: 0 };
 	private lassoCells: Cell[] = [];
 	private lassoSeen = new Set<string>();
-	private pending: { added: Cell[]; removed: Cell[] } | null = null;
+	private pending: PendingAction | null = null;
 
-	constructor(grid: TileGrid, editor: EditorState, history: History) {
-		this.grid = grid;
+	constructor(editor: EditorState, history: History) {
 		this.editor = editor;
 		this.history = history;
 	}
 
 	private beginAction(): void {
-		if (!this.pending) {
-			this.pending = { added: [], removed: [] };
+		if (!this.pending && this.layerId !== null) {
+			this.pending = {
+				layerId: this.layerId,
+				added: [],
+				removed: [],
+			};
 		}
 	}
 
 	private commitAction(): void {
 		const pending = this.pending;
 		this.pending = null;
+		const ecs = this.ecs;
 		if (
 			!pending ||
+			!ecs ||
 			(pending.added.length === 0 && pending.removed.length === 0)
 		) {
 			return;
 		}
-		const { added, removed } = pending;
-		const grid = this.grid;
+		const { layerId, added, removed } = pending;
+		const gridOf = (): TileGrid | undefined =>
+			ecs.getComponent(layerId, TileLayerComponent)?.grid;
 		this.history.push({
 			undo: () => {
+				const grid = gridOf();
+				if (!grid) {
+					return;
+				}
 				for (const c of added) {
 					grid.removeTile(c.gx, c.gy);
 				}
@@ -61,6 +83,10 @@ export class TileEditorSystem implements UpdateSystem {
 				}
 			},
 			redo: () => {
+				const grid = gridOf();
+				if (!grid) {
+					return;
+				}
 				for (const c of added) {
 					grid.setTile(c.gx, c.gy);
 				}
@@ -72,6 +98,24 @@ export class TileEditorSystem implements UpdateSystem {
 	}
 
 	update({ ecs, input }: UpdateContext): void {
+		this.ecs = ecs;
+		const entry = activeTileLayer(ecs, this.editor);
+		if (!entry) {
+			this.commitAction();
+			this.layerId = null;
+			this.grid = null;
+			this.brushPrev = null;
+			this.lassoActive = false;
+			return;
+		}
+		if (entry[0] !== this.layerId) {
+			this.commitAction();
+			this.brushPrev = null;
+			this.lassoActive = false;
+		}
+		this.layerId = entry[0];
+		this.grid = entry[1].grid;
+
 		const camera = pickActiveCamera2D(ecs);
 		if (!camera) {
 			return;
@@ -104,7 +148,7 @@ export class TileEditorSystem implements UpdateSystem {
 			case "fill":
 				if (leftPressed) {
 					this.beginAction();
-					this.flood(gx, gy, !this.grid.hasTile(gx, gy));
+					this.flood(gx, gy, !entry[1].grid.hasTile(gx, gy));
 					this.commitAction();
 				}
 				break;
@@ -186,13 +230,17 @@ export class TileEditorSystem implements UpdateSystem {
 	}
 
 	private applyCell(c: Cell, add: boolean): void {
+		const grid = this.grid;
+		if (!grid) {
+			return;
+		}
 		if (add) {
-			if (!this.grid.hasTile(c.gx, c.gy)) {
-				this.grid.setTile(c.gx, c.gy);
+			if (!grid.hasTile(c.gx, c.gy)) {
+				grid.setTile(c.gx, c.gy);
 				this.pending?.added.push(c);
 			}
-		} else if (this.grid.hasTile(c.gx, c.gy)) {
-			this.grid.removeTile(c.gx, c.gy);
+		} else if (grid.hasTile(c.gx, c.gy)) {
+			grid.removeTile(c.gx, c.gy);
 			this.pending?.removed.push(c);
 		}
 	}
@@ -256,8 +304,12 @@ export class TileEditorSystem implements UpdateSystem {
 	}
 
 	private flood(gx: number, gy: number, add: boolean): void {
+		const grid = this.grid;
+		if (!grid) {
+			return;
+		}
 		const fillState = !add;
-		if (this.grid.hasTile(gx, gy) !== fillState) {
+		if (grid.hasTile(gx, gy) !== fillState) {
 			return;
 		}
 
@@ -282,7 +334,7 @@ export class TileEditorSystem implements UpdateSystem {
 				if (visited.has(k)) {
 					continue;
 				}
-				if (this.grid.hasTile(nx, ny) !== fillState) {
+				if (grid.hasTile(nx, ny) !== fillState) {
 					continue;
 				}
 				visited.add(k);

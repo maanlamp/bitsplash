@@ -27,8 +27,10 @@ export const serializable =
 export const serialize =
 	(options: SerializeOptions = {}) =>
 	<V extends SerializableValue>(
-		_value: undefined,
-		context: ClassFieldDecoratorContext<unknown, V>,
+		_value: unknown,
+		context:
+			| ClassFieldDecoratorContext<unknown, V>
+			| ClassGetterDecoratorContext<unknown, V>,
 	): void => {
 		fieldsOf(context.metadata).set(String(context.name), options);
 	};

@@ -67,6 +67,16 @@ export const formatOklch = (color: OklchColor): string =>
 		.toFixed(2)
 		.padStart(6, "\u2007")} / ${color.alpha.toFixed(3)})`;
 
+const trim = (value: number, digits: number): string =>
+	Number(value.toFixed(digits)).toString();
+
+// Compact `oklch(l c h / a)` suitable for storage in a scene file.
+export const oklchCss = (color: OklchColor): string =>
+	`oklch(${trim(color.l, 4)} ${trim(color.c, 4)} ${trim(
+		color.h,
+		2,
+	)} / ${trim(color.alpha, 3)})`;
+
 const number = (token: string): number =>
 	token.endsWith("%") ? parseFloat(token) / 100 : parseFloat(token);
 

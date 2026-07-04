@@ -8,11 +8,12 @@ import { TransformComponent } from "../transform-component";
 import { resolveFont } from "../text/resolve-font";
 import { type RenderContext, RenderSystem } from "../system";
 import { DebugTagComponent } from "../debug/debug-tag-component";
+import { resolveRenderLayer } from "../render/render-layers";
 
 export class DebugTagSystem implements RenderSystem {
-	private layer: number;
+	private layer: string;
 
-	constructor(layer: number) {
+	constructor(layer: string) {
 		this.layer = layer;
 	}
 
@@ -41,7 +42,7 @@ export class DebugTagSystem implements RenderSystem {
 				4;
 
 			renderer.drawText(
-				this.layer,
+				resolveRenderLayer(ecs, this.layer),
 				font,
 				tag.label,
 				transform.position.x,

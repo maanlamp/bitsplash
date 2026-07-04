@@ -75,7 +75,7 @@ scheme exists); panel polish (opacity, blend, groups, rename UX).
 2. **`TileLayerComponent` + data-model swap** (the big step; ends green with
    the migrated demo level playing identically). Component in
    `engine/tilemap/`: `name`, `tileset` (file ref), `collision:
-   "none" | "solid"`, `renderLayer`, `order`, serialized rect field +
+"none" | "solid"`, `renderLayer`, `order`, serialized rect field +
    runtime `TileGrid`. `TilemapRenderSystem` drops constructor injection,
    queries all layers, caches one `StaticBatch` per layer entity, loads each
    layer's tileset on demand (missing asset blocks only that layer's
@@ -92,13 +92,16 @@ scheme exists); panel polish (opacity, blend, groups, rename UX).
    `tile-editor-preview.ts`, and `History` entries operate on the active
    layer's store (undo/redo records the layer id, not a closed-over grid).
    Entity click-select excludes layer entities.
-4. **Layers panel** (agreed minimal shape): ordered list in existing editor
-   chrome — per row: name, tileset picker from registered tileset assets,
-   collision toggle, visibility eye (editor-only), drag reorder (writes
-   registry/order); active row highlighted, paint/erase/fill/lasso target
-   it; add-layer button; entities appear as one fixed marker row for
-   ordering. Styling per `docs/EDITOR_STYLING.md`; interaction details
-   surfaced during build per `AGENTS.md`.
+4. **Layers panel** (agreed minimal shape): embedded in `SceneViewPanel`
+   via the workspace `Split` (view-owned, like the sprite editor's panel —
+   scene-dependent panels live inside the scene view, decided over global
+   docks). Per row: visibility eye (editor-only), tileset picker
+   (image dialog), inline rename, collision toggle, delete, drag reorder;
+   active row highlighted, paint/erase/fill/lasso target it; add-layer
+   button; entities appear as one draggable marker row. Reorder rewrites
+   `renderLayer`/`order`: rows above the marker map to `terrain`, below to
+   `background`, order by position. Styling mirrors the sprite editor's
+   layers panel per `docs/EDITOR_STYLING.md`.
 
 ## Verification
 
@@ -116,3 +119,6 @@ scheme exists); panel polish (opacity, blend, groups, rename UX).
 - Slice 3: stamp mode + props + sway-weight seam.
 - Slice 4: decoration layer rework + curation.
 - Scheme-seam generalization of the autotiler when a second scheme arrives.
+- Migrate the entity inspector into the scene view it edits (same
+  view-owned-panel argument as the layers panel; own slice — touches view
+  registry, auto-insert logic, tree selection flow).

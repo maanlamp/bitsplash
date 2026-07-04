@@ -37,7 +37,7 @@ Worldbuilding priorities drive the slice order:
 - `game/scenes/platformer.ts` — hand-wires all of the above; hardcodes
   `dirt.tileset.png` and the numeric `Layer` const.
 - `engine/scene/scene.ts` — `Scene.tileGrid?`; `SceneFile.tiles:
-  SceneTileRect[]` separate from `entities`; `SceneConfig.tileset` is a dead
+SceneTileRect[]` separate from `entities`; `SceneConfig.tileset` is a dead
   serialized field nothing consumes (dies in slice 1).
 - Grid consumers beyond the obvious: `ArrowSystem` (only `bounds()`, for
   despawn), `bootstrap.ts` (receives `tileGrid` but never uses it —

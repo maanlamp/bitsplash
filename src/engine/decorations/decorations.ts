@@ -1,18 +1,22 @@
+import type { EntityId, ReadonlyECS } from "../ecs";
 import { hashCell } from "../hash";
 import { loadImage } from "../load";
 import type Renderer2D from "../render/renderer-2d";
 import type { StaticBatch } from "../render/renderer-2d";
+import { resolveRenderLayer } from "../render/render-layers";
+import { solidTileLayers } from "../tilemap/occupancy";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../tilemap/tile";
 import type { TileGrid } from "../tilemap/grid";
 
 export abstract class Decorations {
-	protected grid: TileGrid;
 	private density: number;
 	protected atlas: HTMLImageElement | null = null;
 	protected cols = 0;
 	protected count = 0;
 	protected dirty = true;
 	private batchRenderer: Renderer2D | null = null;
+	private trackedId: EntityId | null = null;
+	private trackedVersion = -1;
 
 	protected rendererChanged(renderer: Renderer2D): boolean {
 		if (this.batchRenderer === renderer) {
@@ -23,8 +27,7 @@ export abstract class Decorations {
 		return true;
 	}
 
-	constructor(grid: TileGrid, atlasUrl: string, density: number) {
-		this.grid = grid;
+	constructor(atlasUrl: string, density: number) {
 		this.density = density;
 		void loadImage(atlasUrl).then((image) => {
 			this.atlas = image;
@@ -33,12 +36,22 @@ export abstract class Decorations {
 			this.count = this.cols * rows;
 			this.dirty = true;
 		});
-		grid.onChange(() => {
-			this.dirty = true;
-		});
 	}
 
-	abstract render(renderer: Renderer2D): void;
+	abstract render(renderer: Renderer2D, ecs: ReadonlyECS): void;
+
+	protected track(ecs: ReadonlyECS): TileGrid | null {
+		const entry = solidTileLayers(ecs)[0] ?? null;
+		const id = entry?.[0] ?? null;
+		const grid = entry?.[1].grid ?? null;
+		const version = grid?.version ?? -1;
+		if (id !== this.trackedId || version !== this.trackedVersion) {
+			this.trackedId = id;
+			this.trackedVersion = version;
+			this.dirty = true;
+		}
+		return grid;
+	}
 
 	protected ready(): boolean {
 		return this.atlas !== null && this.count > 0;
@@ -58,28 +71,28 @@ export abstract class Decorations {
 }
 
 export class SurfaceDecorations extends Decorations {
-	private backLayer: number;
-	private frontLayer: number;
+	private backLayer: string;
+	private frontLayer: string;
 	private jitter: number;
 	private backBatch: StaticBatch | null = null;
 	private frontBatch: StaticBatch | null = null;
 
 	constructor(
-		grid: TileGrid,
 		atlasUrl: string,
-		backLayer: number,
-		frontLayer: number,
+		backLayer: string,
+		frontLayer: string,
 		density: number,
 		jitter: number,
 	) {
-		super(grid, atlasUrl, density);
+		super(atlasUrl, density);
 		this.backLayer = backLayer;
 		this.frontLayer = frontLayer;
 		this.jitter = jitter;
 	}
 
-	render(renderer: Renderer2D): void {
-		if (!this.ready()) {
+	render(renderer: Renderer2D, ecs: ReadonlyECS): void {
+		const grid = this.track(ecs);
+		if (!grid || !this.ready()) {
 			return;
 		}
 		const array = renderer.getTileArray(
@@ -98,26 +111,26 @@ export class SurfaceDecorations extends Decorations {
 			this.frontBatch = renderer.createStaticBatch();
 		}
 		if (this.dirty) {
-			this.bake();
+			this.bake(grid);
 			this.dirty = false;
 		}
 		renderer.drawStaticBatch(
-			this.backLayer,
+			resolveRenderLayer(ecs, this.backLayer),
 			this.backBatch,
 			array.texture,
 		);
 		renderer.drawStaticBatch(
-			this.frontLayer,
+			resolveRenderLayer(ecs, this.frontLayer),
 			this.frontBatch,
 			array.texture,
 		);
 	}
 
-	private bake(): void {
+	private bake(grid: TileGrid): void {
 		this.backBatch!.clear();
 		this.frontBatch!.clear();
-		for (const [gx, gy] of this.grid.occupiedCells()) {
-			if (this.grid.hasTile(gx, gy - 1)) {
+		for (const [gx, gy] of grid.occupiedCells()) {
+			if (grid.hasTile(gx, gy - 1)) {
 				continue;
 			}
 			if (!this.present(gx, gy)) {
@@ -142,21 +155,24 @@ export class SurfaceDecorations extends Decorations {
 }
 
 export class TileDecorations extends Decorations {
-	private layer: number;
+	private layer: string;
+	private order: number;
 	private batch: StaticBatch | null = null;
 
 	constructor(
-		grid: TileGrid,
 		atlasUrl: string,
-		layer: number,
+		layer: string,
 		density: number,
+		order = 0,
 	) {
-		super(grid, atlasUrl, density);
+		super(atlasUrl, density);
 		this.layer = layer;
+		this.order = order;
 	}
 
-	render(renderer: Renderer2D): void {
-		if (!this.ready()) {
+	render(renderer: Renderer2D, ecs: ReadonlyECS): void {
+		const grid = this.track(ecs);
+		if (!grid || !this.ready()) {
 			return;
 		}
 		const array = renderer.getTileArray(
@@ -171,16 +187,20 @@ export class TileDecorations extends Decorations {
 			this.batch = renderer.createStaticBatch();
 		}
 		if (this.dirty) {
-			this.bake();
+			this.bake(grid);
 			this.dirty = false;
 		}
-		renderer.drawStaticBatch(this.layer, this.batch, array.texture);
+		renderer.drawStaticBatch(
+			resolveRenderLayer(ecs, this.layer, this.order),
+			this.batch,
+			array.texture,
+		);
 	}
 
-	private bake(): void {
+	private bake(grid: TileGrid): void {
 		this.batch!.clear();
-		for (const [gx, gy] of this.grid.occupiedCells()) {
-			if (!this.fullCorner(gx, gy)) {
+		for (const [gx, gy] of grid.occupiedCells()) {
+			if (!this.fullCorner(grid, gx, gy)) {
 				continue;
 			}
 			if (!this.present(gx, gy)) {
@@ -198,11 +218,15 @@ export class TileDecorations extends Decorations {
 		this.batch!.commit();
 	}
 
-	private fullCorner(gx: number, gy: number): boolean {
+	private fullCorner(
+		grid: TileGrid,
+		gx: number,
+		gy: number,
+	): boolean {
 		return (
-			this.grid.hasTile(gx - 1, gy) &&
-			this.grid.hasTile(gx, gy - 1) &&
-			this.grid.hasTile(gx - 1, gy - 1)
+			grid.hasTile(gx - 1, gy) &&
+			grid.hasTile(gx, gy - 1) &&
+			grid.hasTile(gx - 1, gy - 1)
 		);
 	}
 }

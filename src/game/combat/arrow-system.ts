@@ -10,7 +10,7 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
-import type { TileGrid } from "../../engine/tilemap/grid";
+import { solidBounds } from "../../engine/tilemap/occupancy";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
 import { Layer } from "../collision";
@@ -24,12 +24,6 @@ const ARROW_REACH = 8;
 const EMBED_DEPTH = 4;
 
 export class ArrowSystem implements UpdateSystem {
-	private tileGrid: TileGrid;
-
-	constructor(tileGrid: TileGrid) {
-		this.tileGrid = tileGrid;
-	}
-
 	update({ dt, ecs, world, events }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;
 		for (const [id, arrow, transform, rb, sprite] of ecs.query(
@@ -74,7 +68,7 @@ export class ArrowSystem implements UpdateSystem {
 				continue;
 			}
 
-			if (this.outOfBounds(transform.position)) {
+			if (this.outOfBounds(ecs, transform.position)) {
 				world.scheduleDespawn(id);
 				continue;
 			}
@@ -167,8 +161,11 @@ export class ArrowSystem implements UpdateSystem {
 		);
 	}
 
-	private outOfBounds(position: Vector2): boolean {
-		const gb = this.tileGrid.bounds();
+	private outOfBounds(
+		ecs: UpdateContext["ecs"],
+		position: Vector2,
+	): boolean {
+		const gb = solidBounds(ecs);
 		if (!gb) {
 			return false;
 		}

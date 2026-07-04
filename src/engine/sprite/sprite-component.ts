@@ -36,6 +36,8 @@ export class SpriteComponent {
 	@serialize() contentWidth: number | undefined = undefined;
 	@serialize() contentHeight: number | undefined = undefined;
 	@serialize() clips: Record<string, SpriteClip> = {};
+	@serialize() renderLayer = "entities";
+	@serialize() order = 0;
 	current: string = "";
 	playing: string = "";
 	elapsed: number = 0;

@@ -50,13 +50,13 @@ export class SceneView {
 		readonly debugFlags: DebugFlags,
 		private readonly services: GlobalServices,
 	) {
-		const grid = scene.tileGrid ?? null;
-		this.camera = new EditorCamera2DSystem(grid, store);
-		const updateSystems: UpdateSystem[] = [
+		this.camera = new EditorCamera2DSystem(store);
+		this.updateSystems = [
 			this.camera,
 			new EntityEditorSystem(store, this.history),
+			new TileEditorSystem(store, this.history),
 		];
-		const renderSystems: RenderSystem[] = [
+		this.renderSystems = [
 			new PhysicsShapeDebugSystem(
 				debugFlags,
 				DEBUG_OVERLAY.colliders,
@@ -75,22 +75,9 @@ export class SceneView {
 				EditorLayer.DEBUG_OVERLAY,
 			),
 			new EntityHighlightSystem(store, EditorLayer.EDITOR_PREVIEW),
+			new TileEditorPreviewSystem(EditorLayer.EDITOR_PREVIEW, store),
+			new DebugGridSystem(EditorLayer.DEBUG_GRID),
 		];
-		if (grid) {
-			updateSystems.push(
-				new TileEditorSystem(grid, store, this.history),
-			);
-			renderSystems.push(
-				new TileEditorPreviewSystem(
-					grid,
-					EditorLayer.EDITOR_PREVIEW,
-					store,
-				),
-				new DebugGridSystem(EditorLayer.DEBUG_GRID),
-			);
-		}
-		this.updateSystems = updateSystems;
-		this.renderSystems = renderSystems;
 
 		this.addSystems();
 		this.camera.ensure(scene.world.ecs);

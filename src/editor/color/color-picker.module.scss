@@ -1,5 +1,4 @@
 @use "../styles/fields" as f;
-@use "../styles/glass" as g;
 
 .colorButton {
 	width: var(--unit-48);
@@ -64,12 +63,9 @@
 }
 
 .sliderBubble {
-	@include g.glass-surface(
-		$radius: var(--radius-md),
-		$radius-px: 4,
-		$position: absolute
-	);
-	--glass-tint: var(--surface-overlay-raised);
+	position: absolute;
+	border-radius: var(--radius-md);
+	background: var(--surface-float);
 	bottom: 100%;
 	margin-bottom: var(--unit-4);
 	transform: translateX(-50%) scale(0.85);
@@ -108,11 +104,74 @@
 	pointer-events: none;
 }
 
-.colorOklchInput {
-	@include f.field-input;
-	flex: 0 0 auto;
-	field-sizing: content;
+.oklchField {
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	align-items: center;
+	gap: 0;
+	padding: var(--unit-8) var(--unit-12);
+	border-radius: var(--radius-lg);
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	outline: var(--border-width) solid transparent;
+	outline-offset: var(--focus-ring-offset);
+	transition: outline-color var(--duration-fast) var(--ease-standard);
 	font-variant-numeric: tabular-nums;
+	cursor: text;
+
+	&:focus-within {
+		outline-color: var(--accent);
+	}
+}
+
+.swatchButton {
+	flex: none;
+	width: var(--unit-16);
+	height: var(--unit-16);
+	padding: 0;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	margin-inline-end: var(--unit-8);
+	cursor: pointer;
+	outline: none;
+
+	&:focus-visible {
+		outline: var(--border-width) solid var(--accent);
+	}
+}
+
+.oklchSyntax {
+	color: var(--on-surface-muted);
+	white-space: pre;
+	user-select: none;
+}
+
+.oklchSegment {
+	field-sizing: content;
+	min-width: var(--unit-8);
+	border: none;
+	outline: none;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+	-moz-appearance: textfield;
+	appearance: textfield;
+
+	&::-webkit-outer-spin-button,
+	&::-webkit-inner-spin-button {
+		appearance: none;
+		margin: 0;
+	}
+
+	&:focus {
+		background: var(--accent-soft, rgba(127, 127, 127, 0.2));
+		border-radius: var(--radius-sm);
+	}
 }
 
 .spriteRingThumb {

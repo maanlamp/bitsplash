@@ -1,110 +1,87 @@
-import { loadImage } from "../load";
+import type { EntityId } from "../ecs";
 import type Renderer2D from "../render/renderer-2d";
-import type { StaticBatch, TileSource } from "../render/renderer-2d";
+import type { StaticBatch } from "../render/renderer-2d";
+import { resolveRenderLayer } from "../render/render-layers";
 import { type RenderContext, RenderSystem } from "../system";
-import { HALF_TILE_SIZE, TILE_SIZE } from "../tilemap/tile";
-import { SHEET_COLUMNS, cornerSlots } from "../tilemap/autotile";
-import type { TileGrid } from "../tilemap/grid";
+import {
+	SHEET_COLUMNS,
+	bakeAutotile,
+	isAutotileTileset,
+} from "./autotile";
+import type { TileGrid } from "./grid";
+import { TILE_SIZE } from "./tile";
+import { TileLayerComponent } from "./tile-layer-component";
+
+type LayerBatch = {
+	batch: StaticBatch;
+	version: number;
+	tileset: string;
+};
 
 export class TilemapRenderSystem implements RenderSystem {
-	private grid: TileGrid;
-	private layer: number;
-	private tileset: TileSource | null = null;
-	private batch: StaticBatch | null = null;
+	private batches = new Map<EntityId, LayerBatch>();
 	private batchRenderer: Renderer2D | null = null;
-	private dirty = true;
 
-	constructor(
-		grid: TileGrid,
-		tileset: string | TileSource,
-		layer: number,
-	) {
-		this.grid = grid;
-		this.layer = layer;
-		if (typeof tileset === "string") {
-			void loadImage(tileset).then((image) => {
-				this.tileset = image;
-				this.dirty = true;
-			});
-		} else {
-			this.tileset = tileset;
-		}
-		grid.onChange(() => {
-			this.dirty = true;
-		});
-	}
-
-	render({ renderer }: RenderContext): void {
-		const tileset = this.tileset;
-		if (!tileset) {
-			return;
-		}
-		const width =
-			"naturalWidth" in tileset
-				? tileset.naturalWidth
-				: tileset.width;
-		if (width === 0) {
-			return;
-		}
-		const srcSize = width / SHEET_COLUMNS;
-		const array = renderer.getTileArray(
-			tileset,
-			SHEET_COLUMNS,
-			srcSize,
-		);
+	render({ renderer, ecs, assetManager }: RenderContext): void {
 		if (this.batchRenderer !== renderer) {
-			this.batch = null;
 			this.batchRenderer = renderer;
-			this.dirty = true;
+			this.batches.clear();
 		}
-		if (!this.batch) {
-			this.batch = renderer.createStaticBatch();
+		const seen = new Set<EntityId>();
+		for (const [id, layer] of ecs.query(TileLayerComponent)) {
+			seen.add(id);
+			if (!layer.visible || !layer.tileset) {
+				continue;
+			}
+			const image = assetManager.getImage(layer.tileset);
+			if (!image || image.naturalWidth === 0) {
+				continue;
+			}
+			const autotile = isAutotileTileset(layer.tileset);
+			const columns = autotile ? SHEET_COLUMNS : 1;
+			const srcSize = image.naturalWidth / columns;
+			const array = renderer.getTileArray(image, columns, srcSize);
+			let entry = this.batches.get(id);
+			if (!entry || entry.tileset !== layer.tileset) {
+				entry = {
+					batch: renderer.createStaticBatch(),
+					version: -1,
+					tileset: layer.tileset,
+				};
+				this.batches.set(id, entry);
+			}
+			if (entry.version !== layer.grid.version) {
+				if (autotile) {
+					bakeAutotile(entry.batch, layer.grid, array.rows);
+				} else {
+					this.bakeSingle(entry.batch, layer.grid);
+				}
+				entry.version = layer.grid.version;
+			}
+			renderer.drawStaticBatch(
+				resolveRenderLayer(ecs, layer.renderLayer, layer.order),
+				entry.batch,
+				array.texture,
+			);
 		}
-		if (this.dirty) {
-			this.bake(this.batch, array.rows);
-			this.dirty = false;
+		for (const id of this.batches.keys()) {
+			if (!seen.has(id)) {
+				this.batches.delete(id);
+			}
 		}
-		renderer.drawStaticBatch(this.layer, this.batch, array.texture);
 	}
 
-	private bake(batch: StaticBatch, rows: number): void {
+	private bakeSingle(batch: StaticBatch, grid: TileGrid): void {
 		batch.clear();
-		const bounds = this.grid.bounds();
-		if (bounds) {
-			const { minX, minY, maxX, maxY } = bounds;
-			for (let cy = minY; cy <= maxY + 1; cy++) {
-				for (let cx = minX; cx <= maxX + 1; cx++) {
-					const { fill } = cornerSlots(this.grid, cx, cy, rows);
-					if (!fill) {
-						continue;
-					}
-					batch.tile(
-						cx * TILE_SIZE - HALF_TILE_SIZE,
-						cy * TILE_SIZE - HALF_TILE_SIZE,
-						TILE_SIZE,
-						fill.row * SHEET_COLUMNS + fill.col,
-						fill.rot,
-						fill.flip,
-					);
-				}
-			}
-
-			for (let cy = minY; cy <= maxY + 1; cy++) {
-				for (let cx = minX; cx <= maxX + 1; cx++) {
-					const { cap } = cornerSlots(this.grid, cx, cy, rows);
-					if (!cap) {
-						continue;
-					}
-					batch.tile(
-						cx * TILE_SIZE - HALF_TILE_SIZE,
-						cy * TILE_SIZE - HALF_TILE_SIZE,
-						TILE_SIZE,
-						cap.row * SHEET_COLUMNS + cap.col,
-						cap.rot,
-						cap.flip,
-					);
-				}
-			}
+		for (const [gx, gy] of grid.occupiedCells()) {
+			batch.tile(
+				gx * TILE_SIZE,
+				gy * TILE_SIZE,
+				TILE_SIZE,
+				0,
+				0,
+				false,
+			);
 		}
 		batch.commit();
 	}

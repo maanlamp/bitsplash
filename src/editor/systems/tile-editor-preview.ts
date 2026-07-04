@@ -4,7 +4,7 @@ import {
 } from "../../engine/system";
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
-import { TileGrid } from "../../engine/tilemap/grid";
+import { activeTileLayer } from "../active-layer";
 import type { EditorState } from "../editor-state";
 
 type CellStyle = Readonly<{
@@ -13,7 +13,6 @@ type CellStyle = Readonly<{
 }>;
 
 export class TileEditorPreviewSystem implements RenderSystem {
-	private grid: TileGrid;
 	private layer: number;
 	private editor: EditorState;
 
@@ -26,15 +25,16 @@ export class TileEditorPreviewSystem implements RenderSystem {
 		stroke: "rgba(255, 80, 80, 0.7)",
 	};
 
-	constructor(grid: TileGrid, layer: number, editor: EditorState) {
-		this.grid = grid;
+	constructor(layer: number, editor: EditorState) {
 		this.layer = layer;
 		this.editor = editor;
 	}
 
 	render({ renderer, ecs, input }: RenderContext): void {
 		const camera = pickActiveCamera2D(ecs);
+		const entry = activeTileLayer(ecs, this.editor);
 		if (
+			!entry ||
 			this.editor.mode === "pan" ||
 			this.editor.mode === "select" ||
 			!input.mouse.inside ||
@@ -51,7 +51,7 @@ export class TileEditorPreviewSystem implements RenderSystem {
 		} else if (this.editor.mode === "paint") {
 			style = this.addStyle;
 		} else {
-			style = this.grid.hasTile(gx, gy)
+			style = entry[1].grid.hasTile(gx, gy)
 				? this.deleteStyle
 				: this.addStyle;
 		}

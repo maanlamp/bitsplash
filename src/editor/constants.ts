@@ -5,6 +5,6 @@ export const EDITOR_CAMERA_ZOOM_STEP = 1.0018;
 
 export const EditorLayer = {
 	DEBUG_GRID: 0,
-	DEBUG_OVERLAY: 95,
-	EDITOR_PREVIEW: 100,
+	DEBUG_OVERLAY: 900_000,
+	EDITOR_PREVIEW: 910_000,
 } as const;

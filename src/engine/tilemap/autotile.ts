@@ -1,5 +1,7 @@
 import { hashCell } from "../hash";
+import type { StaticBatch } from "../render/renderer-2d";
 import type { TileGrid } from "./grid";
+import { HALF_TILE_SIZE, TILE_SIZE } from "./tile";
 
 export const Variant = {
 	EMPTY: 0,
@@ -79,6 +81,11 @@ export const classifyCap = (
 
 export const SHEET_COLUMNS = 3;
 
+export const TILESET_SUFFIX = ".tileset.png";
+
+export const isAutotileTileset = (url: string): boolean =>
+	url.toLowerCase().endsWith(TILESET_SUFFIX);
+
 export const CAP_ROW = 2;
 
 export const CAP_SPRITES: Readonly<Record<number, number>> = {
@@ -155,4 +162,50 @@ export const cornerSlots = (
 	}
 
 	return { cap, fill };
+};
+
+export const bakeAutotile = (
+	batch: StaticBatch,
+	grid: TileGrid,
+	rows: number,
+): void => {
+	batch.clear();
+	const bounds = grid.bounds();
+	if (bounds) {
+		const { minX, minY, maxX, maxY } = bounds;
+		for (let cy = minY; cy <= maxY + 1; cy++) {
+			for (let cx = minX; cx <= maxX + 1; cx++) {
+				const { fill } = cornerSlots(grid, cx, cy, rows);
+				if (!fill) {
+					continue;
+				}
+				batch.tile(
+					cx * TILE_SIZE - HALF_TILE_SIZE,
+					cy * TILE_SIZE - HALF_TILE_SIZE,
+					TILE_SIZE,
+					fill.row * SHEET_COLUMNS + fill.col,
+					fill.rot,
+					fill.flip,
+				);
+			}
+		}
+
+		for (let cy = minY; cy <= maxY + 1; cy++) {
+			for (let cx = minX; cx <= maxX + 1; cx++) {
+				const { cap } = cornerSlots(grid, cx, cy, rows);
+				if (!cap) {
+					continue;
+				}
+				batch.tile(
+					cx * TILE_SIZE - HALF_TILE_SIZE,
+					cy * TILE_SIZE - HALF_TILE_SIZE,
+					TILE_SIZE,
+					cap.row * SHEET_COLUMNS + cap.col,
+					cap.rot,
+					cap.flip,
+				);
+			}
+		}
+	}
+	batch.commit();
 };

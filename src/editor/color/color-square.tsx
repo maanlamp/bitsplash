@@ -10,11 +10,13 @@ const ColorSquare = ({
 	c,
 	h,
 	onPick,
+	onCommit,
 }: Readonly<{
 	l: number;
 	c: number;
 	h: number;
 	onPick: (l: number, c: number) => void;
+	onCommit?: () => void;
 }>) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const dragging = useRef(false);
@@ -83,8 +85,11 @@ const ColorSquare = ({
 					}
 				}}
 				onPointerUp={(e) => {
-					dragging.current = false;
-					e.currentTarget.releasePointerCapture(e.pointerId);
+					if (dragging.current) {
+						dragging.current = false;
+						e.currentTarget.releasePointerCapture(e.pointerId);
+						onCommit?.();
+					}
 				}}
 			/>
 			<div

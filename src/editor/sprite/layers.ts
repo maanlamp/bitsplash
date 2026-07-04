@@ -1,4 +1,6 @@
+import { RENDER_LAYER_BASE } from "../../engine/render/render-layers";
+
 export const SpriteLayer = {
-	BACKGROUND: -10,
-	CONTENT: 0,
+	BACKGROUND: RENDER_LAYER_BASE - 10,
+	CONTENT: RENDER_LAYER_BASE,
 } as const;

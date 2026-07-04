@@ -1,37 +1,45 @@
 import type { RigidBody } from "../physics/rigid-body";
-import { TILE_SIZE } from "../tilemap/tile";
+import { type UpdateContext, UpdateSystem } from "../system";
 import type { World } from "../world";
-import type { TileGrid } from "./grid";
+import { mergedSolidCells, solidTileLayers } from "./occupancy";
+import { TILE_SIZE } from "./tile";
 
 type Point = Readonly<{
 	x: number;
 	y: number;
 }>;
 
-export class TileCollisionBaker {
-	private grid: TileGrid;
-	private world: World;
+export class TileCollisionSystem implements UpdateSystem {
 	private layer: string | undefined;
 	private bodies: RigidBody[] = [];
+	private signature: string | null = null;
 
-	constructor(grid: TileGrid, world: World, layer?: string) {
-		this.grid = grid;
-		this.world = world;
+	constructor(layer?: string) {
 		this.layer = layer;
-		grid.onChange(() => this.rebuild());
 	}
 
-	private rebuild(): void {
+	update({ ecs, world }: UpdateContext): void {
+		const signature = solidTileLayers(ecs)
+			.map(([id, layer]) => `${id}:${layer.grid.version}`)
+			.join("|");
+		if (signature === this.signature) {
+			return;
+		}
+		this.signature = signature;
+		this.rebuild(world, mergedSolidCells(ecs));
+	}
+
+	private rebuild(world: World, cells: Set<string>): void {
 		for (const body of this.bodies) {
-			this.world.destroyBody(body);
+			world.destroyBody(body);
 		}
 		this.bodies = [];
 
-		for (const loop of this.traceLoops()) {
+		for (const loop of this.traceLoops(cells)) {
 			if (loop.length < 3) {
 				continue;
 			}
-			const body = this.world.createStaticChain(
+			const body = world.createStaticChain(
 				loop.map((p) => ({
 					x: p.x * TILE_SIZE,
 					y: p.y * TILE_SIZE,
@@ -43,7 +51,9 @@ export class TileCollisionBaker {
 		}
 	}
 
-	private traceLoops(): Point[][] {
+	private traceLoops(cells: Set<string>): Point[][] {
+		const has = (x: number, y: number): boolean =>
+			cells.has(`${x},${y}`);
 		const edges = new Map<string, Point[]>();
 		const add = (a: Point, b: Point): void => {
 			const k = `${a.x},${a.y}`;
@@ -55,21 +65,22 @@ export class TileCollisionBaker {
 			}
 		};
 
-		for (const [gx, gy] of this.grid.occupiedCells()) {
+		for (const key of cells) {
+			const [gx, gy] = key.split(",").map(Number) as [number, number];
 			const tl = { x: gx, y: gy };
 			const tr = { x: gx + 1, y: gy };
 			const br = { x: gx + 1, y: gy + 1 };
 			const bl = { x: gx, y: gy + 1 };
-			if (!this.grid.hasTile(gx, gy - 1)) {
+			if (!has(gx, gy - 1)) {
 				add(tl, tr);
 			}
-			if (!this.grid.hasTile(gx + 1, gy)) {
+			if (!has(gx + 1, gy)) {
 				add(tr, br);
 			}
-			if (!this.grid.hasTile(gx, gy + 1)) {
+			if (!has(gx, gy + 1)) {
 				add(br, bl);
 			}
-			if (!this.grid.hasTile(gx - 1, gy)) {
+			if (!has(gx - 1, gy)) {
 				add(bl, tl);
 			}
 		}

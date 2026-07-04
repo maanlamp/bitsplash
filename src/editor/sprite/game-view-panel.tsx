@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
-import { TilemapRenderSystem } from "../../engine/tilemap/tilemap-render-system";
+import { TilesetPreviewSystem } from "./tileset-preview-system";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 import { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
@@ -64,7 +64,7 @@ const GameViewPanel = ({
 			}),
 		);
 		scene.ecs.addRenderSystem(
-			new TilemapRenderSystem(grid, doc.canvas, SpriteLayer.CONTENT),
+			new TilesetPreviewSystem(grid, doc.canvas, SpriteLayer.CONTENT),
 		);
 		scene.ecs.addRenderSystem(
 			new SpriteHoverSystem(SpriteLayer.CONTENT, hover, state),
@@ -151,14 +151,6 @@ const GameViewPanel = ({
 			}
 			const world = worldOf(e);
 			if (!world) {
-				return;
-			}
-			if (state.tool === "pick") {
-				const pixel = resolveAt(world.x, world.y);
-				const rgba = pixel && doc.colorAt(pixel.x, pixel.y);
-				if (rgba) {
-					state.setFromRgba(rgba[0], rgba[1], rgba[2], rgba[3]);
-				}
 				return;
 			}
 			painting = true;

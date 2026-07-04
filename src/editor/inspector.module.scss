@@ -47,20 +47,27 @@
 }
 
 .fields {
-	display: grid;
-	grid-template-columns: max-content 1fr;
-	gap: var(--unit-4) var(--unit-8);
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-12);
+}
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-2);
+}
+
+.fieldInline {
+	flex-direction: row;
 	align-items: center;
+	justify-content: space-between;
+	gap: var(--unit-8);
 }
 
 .fieldLabel {
+	font: var(--font-caption);
 	color: var(--on-surface-faint);
-	white-space: nowrap;
-}
-
-.fieldLabelTop {
-	align-self: start;
-	padding-top: var(--unit-8);
 }
 
 .inlayHint {

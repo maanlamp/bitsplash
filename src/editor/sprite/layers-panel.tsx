@@ -15,8 +15,8 @@ import type { History } from "../history";
 import controls from "../styles/controls.module.scss";
 import surface from "../styles/surface.module.scss";
 import Tooltip from "../tooltip";
+import GradientSlider from "../color/gradient-slider";
 import { BLEND_MODES } from "./blend-modes";
-import GradientSlider from "./gradient-slider";
 import {
 	addLayer,
 	commitLayerOpacity,
@@ -27,8 +27,8 @@ import {
 	setLayerVisible,
 } from "./layer-commands";
 import LayerThumbnail from "./layer-thumbnail";
+import SliderValue from "../color/slider-value";
 import styles from "./layers-panel.module.scss";
-import SliderValue from "./slider-value";
 import type { LayerView, SpriteDocument } from "./sprite-document";
 
 const LayerRow = ({

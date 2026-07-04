@@ -16,8 +16,10 @@ import {
 } from "./entity-context-menu";
 import PerfMonitor from "./perf-monitor";
 import type { SceneView } from "./scene-view";
+import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
 import { useEditorValue } from "./use-editor";
+import Split from "./workspace/split";
 
 const snap = (value: number): number =>
 	Math.round(value / TILE_SIZE) * TILE_SIZE;
@@ -98,36 +100,43 @@ const SceneViewPanel = ({
 	};
 
 	return (
-		<div className={styles.canvasStack}>
-			<EntityContextMenu
-				entity={menuEntity}
-				deps={deps}
-				onCreateEntity={onCreateEntity}
-			>
-				<div
-					ref={attachRef}
-					className={styles.canvasMount}
-					onMouseLeave={() => store.setHovered(null)}
-					onContextMenu={(e) => {
-						recordCreatePosition(e);
-						setMenuEntity(store.hovered);
-					}}
+		<Split
+			direction="row"
+			initial={[0.78, 0.22]}
+			storageKey="scene-split-layers"
+		>
+			<div className={styles.canvasStack}>
+				<EntityContextMenu
+					entity={menuEntity}
+					deps={deps}
+					onCreateEntity={onCreateEntity}
+				>
+					<div
+						ref={attachRef}
+						className={styles.canvasMount}
+						onMouseLeave={() => store.setHovered(null)}
+						onContextMenu={(e) => {
+							recordCreatePosition(e);
+							setMenuEntity(store.hovered);
+						}}
+					/>
+				</EntityContextMenu>
+				<PerfMonitor stats={view} />
+				<Toolbar
+					mode={mode}
+					onModeChange={(m) => store.setMode(m)}
+					onPlay={onPlay}
+					onUndo={() => history.undo()}
+					onRedo={() => history.redo()}
+					canUndo={canUndo}
+					canRedo={canRedo}
+					undoShortcut={undoShortcut}
+					redoShortcut={redoShortcut}
+					debugFlags={view.debugFlags}
 				/>
-			</EntityContextMenu>
-			<PerfMonitor stats={view} />
-			<Toolbar
-				mode={mode}
-				onModeChange={(m) => store.setMode(m)}
-				onPlay={onPlay}
-				onUndo={() => history.undo()}
-				onRedo={() => history.redo()}
-				canUndo={canUndo}
-				canRedo={canRedo}
-				undoShortcut={undoShortcut}
-				redoShortcut={redoShortcut}
-				debugFlags={view.debugFlags}
-			/>
-		</div>
+			</div>
+			<TileLayersPanel view={view} />
+		</Split>
 	);
 };
 

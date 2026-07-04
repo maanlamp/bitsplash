@@ -8,7 +8,7 @@ export class DecorationsRenderSystem implements RenderSystem {
 		this.decorations = decorations;
 	}
 
-	render({ renderer }: RenderContext): void {
-		this.decorations.render(renderer);
+	render({ renderer, ecs }: RenderContext): void {
+		this.decorations.render(renderer, ecs);
 	}
 }

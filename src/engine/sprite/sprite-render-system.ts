@@ -5,14 +5,9 @@ import {
 } from "../sprite/sprite-component";
 import { TransformComponent } from "../transform-component";
 import { RenderSystem, type RenderContext } from "../system";
+import { resolveRenderLayer } from "../render/render-layers";
 
 export class SpriteRenderSystem implements RenderSystem {
-	layer: number;
-
-	constructor(layer: number) {
-		this.layer = layer;
-	}
-
 	render({ renderer, ecs, assetManager }: RenderContext): void {
 		for (const [, sprite, transform] of ecs.query(
 			SpriteComponent,
@@ -23,7 +18,12 @@ export class SpriteRenderSystem implements RenderSystem {
 				continue;
 			}
 			const source = spriteSource(sprite, image);
-			renderer.drawImage(this.layer, image, {
+			const layer = resolveRenderLayer(
+				ecs,
+				sprite.renderLayer,
+				sprite.order,
+			);
+			renderer.drawImage(layer, image, {
 				x: transform.position.x,
 				y: transform.position.y,
 				width: source.width * transform.scale.x,

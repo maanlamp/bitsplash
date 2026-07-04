@@ -14,9 +14,21 @@ export class EditorState extends Subscribable {
 	private _selected: EntityId | null = null;
 	private _hovered: EntityId | null = null;
 	private _inspectingWorld = false;
+	private _activeLayer: EntityId | null = null;
 
 	get mode(): EditorMode {
 		return this._mode;
+	}
+
+	get activeLayer(): EntityId | null {
+		return this._activeLayer;
+	}
+
+	setActiveLayer(entity: EntityId | null): void {
+		if (entity !== this._activeLayer) {
+			this._activeLayer = entity;
+			this.notify();
+		}
 	}
 
 	get selected(): EntityId | null {

@@ -1,4 +1,5 @@
 import { Game, type FrameInfo } from "../game";
+import { seedRenderLayers } from "../render/render-layers";
 import type { GlobalServices } from "../services";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
@@ -56,16 +57,9 @@ export const createScene = (
 		name: file.name ?? id,
 		services,
 	});
-	if (scene.tileGrid) {
-		for (const rect of file.tiles) {
-			for (let gy = rect.y; gy < rect.y + rect.h; gy++) {
-				for (let gx = rect.x; gx < rect.x + rect.w; gx++) {
-					scene.tileGrid.setTile(gx, gy);
-				}
-			}
-		}
-	}
 	deserializeWorld(scene.world, file.entities as SerializedWorld);
+	seedRenderLayers(scene.world.ecs);
+	scene.migrateFile(file);
 	return scene;
 };
 

@@ -7,7 +7,7 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
-import type { TileGrid } from "../../engine/tilemap/grid";
+import { tileBounds } from "../../engine/tilemap/occupancy";
 import Vector2 from "../../engine/vector2";
 import {
 	EDITOR_CAMERA_PRIORITY,
@@ -16,14 +16,12 @@ import {
 import type { EditorState } from "../editor-state";
 
 export class EditorCamera2DSystem implements UpdateSystem {
-	private grid: TileGrid | null;
 	private editor: EditorState;
 	private cameraId: EntityId | null = null;
 	private cameraComponent: Camera2DComponent | null = null;
 	private lastDragScreen: Vector2 | null = null;
 
-	constructor(grid: TileGrid | null, editor: EditorState) {
-		this.grid = grid;
+	constructor(editor: EditorState) {
 		this.editor = editor;
 	}
 
@@ -55,7 +53,7 @@ export class EditorCamera2DSystem implements UpdateSystem {
 			}
 		}
 		const camera = new Camera2D();
-		const bounds = this.grid?.bounds();
+		const bounds = tileBounds(ecs);
 		if (bounds) {
 			camera.position.set(
 				((bounds.minX + bounds.maxX + 1) / 2) * TILE_SIZE,

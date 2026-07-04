@@ -114,6 +114,11 @@ ipcMain.handle(
 	},
 );
 
+ipcMain.handle("capturePage", async (event) => {
+	const image = await event.sender.capturePage();
+	return image.toDataURL();
+});
+
 ipcMain.handle("getAssetsRoot", async () => ({ path: ASSETS_DIR }));
 
 ipcMain.handle("listDir", async (_event, { path: dir }) => {

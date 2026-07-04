@@ -1,5 +1,3 @@
-@use "./styles/glass" as g;
-
 .viewport {
 	position: fixed;
 	bottom: var(--unit-16);
@@ -12,7 +10,9 @@
 }
 
 .toast {
-	@include g.glass-surface($radius: var(--radius-lg), $radius-px: 8);
+	border-radius: var(--radius-lg);
+	background: var(--surface-float);
+	color: var(--on-surface);
 	display: flex;
 	align-items: flex-start;
 	gap: var(--unit-8);
@@ -22,10 +22,10 @@
 		transform var(--duration-fast) var(--ease-standard);
 
 	&[data-type="error"] {
-		--glass-tint: color-mix(
+		background: color-mix(
 			in oklch,
 			var(--accent-danger) 22%,
-			var(--surface-overlay)
+			var(--surface-float)
 		);
 	}
 

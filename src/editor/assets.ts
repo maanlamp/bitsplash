@@ -1,10 +1,11 @@
 export type { AssetEntry } from "../project-rpc";
+import { TILESET_SUFFIX } from "../engine/tilemap/autotile";
 
 const AUDIO_EXTENSIONS = [".wav", ".mp3", ".ogg"];
 const FONT_EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2"];
 const FONT_ZIP_SUFFIX = ".font.zip";
 
-export const TILESET_SUFFIX = ".tileset.png";
+export { TILESET_SUFFIX };
 
 export const isTilesetName = (name: string): boolean =>
 	name.toLowerCase().endsWith(TILESET_SUFFIX);

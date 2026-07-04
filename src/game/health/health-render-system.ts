@@ -10,13 +10,15 @@ import {
 	fadeAlpha,
 	withAlpha,
 } from "../../engine/render/color-resolver";
+import { resolveRenderLayer } from "../../engine/render/render-layers";
 
 const FADE = 1;
 
 export class HealthRenderSystem implements RenderSystem {
-	constructor(private layer: number) {}
+	constructor(private layer: string) {}
 
 	render({ ecs, renderer }: RenderContext) {
+		const layer = resolveRenderLayer(ecs, this.layer);
 		for (const [id, health, transform, rb] of ecs.query(
 			HealthComponent,
 			TransformComponent,
@@ -31,7 +33,7 @@ export class HealthRenderSystem implements RenderSystem {
 			const oy = transform.position.y + rb.halfExtents.y * -2 - 4;
 			const pct = Math.floor((health.hp / health.maxHp) * 100);
 			const color = `color-mix(in oklch, lime ${pct}%, red)`;
-			renderer.drawRect(this.layer, {
+			renderer.drawRect(layer, {
 				x: ox - 1,
 				y: oy - 1,
 				width: 34,
@@ -41,14 +43,14 @@ export class HealthRenderSystem implements RenderSystem {
 					alpha,
 				),
 			});
-			renderer.drawRect(this.layer, {
+			renderer.drawRect(layer, {
 				x: ox,
 				y: oy,
 				width: Math.ceil((32 / health.maxHp) * bar.displayed),
 				height: 4,
 				fill: withAlpha([1, 1, 1, 0.7], alpha),
 			});
-			renderer.drawRect(this.layer, {
+			renderer.drawRect(layer, {
 				x: ox,
 				y: oy,
 				width: Math.ceil((32 / health.maxHp) * health.hp),

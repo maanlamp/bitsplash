@@ -17,4 +17,5 @@ export type SerializeOptions = Readonly<{
 	file?: string;
 	options?: readonly string[];
 	multiline?: boolean;
+	color?: boolean;
 }>;

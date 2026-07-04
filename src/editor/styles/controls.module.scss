@@ -1,5 +1,4 @@
 @use "./buttons" as b;
-@use "./glass" as g;
 
 .iconButton {
 	@include b.button-reset;
@@ -59,11 +58,7 @@
 	align-self: center;
 	margin: 0 var(--unit-2);
 	height: var(--unit-32);
-	background: var(--glass-edge-sheen);
-	backdrop-filter: var(--glass-edge-blur)
-		brightness(var(--glass-edge-brightness));
-	-webkit-backdrop-filter: var(--glass-edge-blur)
-		brightness(var(--glass-edge-brightness));
+	background: var(--border);
 }
 
 .select {
@@ -100,9 +95,10 @@
 	align-items: center;
 	gap: var(--unit-8);
 	padding: var(--unit-6) var(--unit-12);
-	@include g.glass-surface($radius: var(--radius-md), $radius-px: 4);
+	border-radius: var(--radius-md);
+	background: var(--surface-float);
+	color: var(--on-surface);
 	overflow: clip;
-	--glass-tint: var(--surface-overlay-raised);
 	transform-origin: var(--transform-origin);
 	transition:
 		opacity var(--duration-fast) var(--ease-standard),
@@ -110,6 +106,7 @@
 
 	&[data-starting-style],
 	&[data-ending-style] {
+		opacity: 0;
 		transform: scale(0.95);
 	}
 }

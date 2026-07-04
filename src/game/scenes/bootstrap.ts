@@ -1,6 +1,5 @@
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import { TransformComponent } from "../../engine/transform-component";
-import type { TileGrid } from "../../engine/tilemap/grid";
 import type { World } from "../../engine/world";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { PlayerInputComponent } from "../player/player-input-component";
@@ -40,7 +39,7 @@ const spawnInitialEntities = (world: World): void => {
 };
 
 export const spawnRuntimeEntities = (
-	deps: Readonly<{ tileGrid: TileGrid; world: World }>,
+	deps: Readonly<{ world: World }>,
 ): void => {
 	spawnInitialEntities(deps.world);
 	const player = deps.world.ecs.query(PlayerInputComponent)[0];

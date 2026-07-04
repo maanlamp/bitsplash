@@ -1,5 +1,3 @@
-@use "./styles/glass" as g;
-
 .dock {
 	position: absolute;
 	bottom: var(--unit-16);
@@ -10,13 +8,10 @@
 }
 
 .bar {
-	@include g.glass-surface(
-		$radius: calc(var(--radius-xl) + var(--unit-4)),
-		$radius-px: 16
-	);
-	--glass-tint: transparent;
 	display: flex;
 	align-items: center;
 	gap: var(--unit-4);
 	padding: var(--unit-4);
+	border-radius: calc(var(--radius-xl) + var(--unit-4));
+	background: var(--surface);
 }

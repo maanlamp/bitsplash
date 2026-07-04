@@ -75,6 +75,7 @@
 	--surface: var(--color-neutral-100);
 	--surface-raised: var(--color-neutral-200);
 	--surface-control: var(--color-neutral-300);
+	--surface-float: var(--color-neutral-300);
 	--surface-overlay: color-mix(in oklch, white, transparent 90%);
 	--surface-overlay-raised: color-mix(
 		in oklch,
@@ -120,23 +121,6 @@
 		var(--color-neutral-0),
 		transparent 45%
 	);
-	--overlay-blur-radius: var(--unit-16);
-	--overlay-blur: blur(var(--overlay-blur-radius));
-	--glass-fill: color-mix(
-		in oklch,
-		var(--color-neutral-650),
-		transparent 82%
-	);
-	--glass-blur: 1.5px;
-	--glass-edge-thickness: var(--unit-2);
-	--glass-edge-blur: blur(var(--unit-12));
-	--glass-edge-brightness: 2;
-	--glass-edge-sheen: color-mix(
-		in oklch,
-		var(--color-neutral-1000),
-		transparent 88%
-	);
-
 	--duration-fast: 100ms;
 	--duration-slow: 800ms;
 	--ease-standard: cubic-bezier(0.2, 0, 0, 1);

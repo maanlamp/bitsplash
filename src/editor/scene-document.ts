@@ -4,14 +4,9 @@ import { serializeWorld } from "../engine/serialization/serialize";
 import { exportSceneJson } from "./level-export";
 import { Subscribable } from "./subscribable";
 
-type Baseline = Readonly<{
-	entities: SerializedWorld;
-	tiles: ReadonlyArray<readonly [number, number]>;
-}>;
-
 export class SceneDocument extends Subscribable {
 	private _dirty = false;
-	private baseline: Baseline;
+	private baseline: SerializedWorld;
 
 	constructor(readonly scene: Scene) {
 		super();
@@ -34,14 +29,7 @@ export class SceneDocument extends Subscribable {
 	}
 
 	revert(): void {
-		this.scene.restore(this.baseline.entities);
-		const grid = this.scene.tileGrid;
-		if (grid) {
-			grid.clear();
-			for (const [gx, gy] of this.baseline.tiles) {
-				grid.setTile(gx, gy);
-			}
-		}
+		this.scene.restore(this.baseline);
 		this._dirty = false;
 		this.notify();
 	}
@@ -53,10 +41,7 @@ export class SceneDocument extends Subscribable {
 		);
 	}
 
-	private capture(): Baseline {
-		return {
-			entities: serializeWorld(this.scene.ecs),
-			tiles: this.scene.tileGrid?.occupiedCells() ?? [],
-		};
+	private capture(): SerializedWorld {
+		return serializeWorld(this.scene.ecs);
 	}
 }

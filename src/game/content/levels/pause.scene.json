@@ -6,7 +6,8 @@
 		"gravity": {
 			"x": 0,
 			"y": 0
-		}
+		},
+		"clearColor": "rgba(0, 0, 0, 0.5)"
 	},
 	"tiles": [],
 	"entities": [

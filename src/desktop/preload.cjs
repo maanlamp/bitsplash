@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld("bitsplashDesktop", {
 	uploadAsset: (payload) =>
 		ipcRenderer.invoke("uploadAsset", payload),
 	getAssetsRoot: () => ipcRenderer.invoke("getAssetsRoot"),
+	capturePage: () => ipcRenderer.invoke("capturePage"),
 	listDir: (payload) => ipcRenderer.invoke("listDir", payload),
 	listAssetsDeep: () => ipcRenderer.invoke("listAssetsDeep"),
 	rename: (payload) => ipcRenderer.invoke("rename", payload),

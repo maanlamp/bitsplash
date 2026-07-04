@@ -1,14 +1,21 @@
+import type Viewport from "../camera/viewport";
 import {
-	type ColorInput,
-	ColorResolver,
-	type RGBA,
-} from "../render/color-resolver";
-import { FontAtlas } from "../text/font-atlas";
+	type FontStyle,
+	type LoadedFont,
+	STYLE_BOLD,
+	STYLE_ITALIC,
+	STYLE_REGULAR,
+} from "../load";
 import {
 	applyCompositeBlend,
 	applyLayerBlend,
 	BlendMode,
 } from "../render/blend";
+import {
+	type ColorInput,
+	ColorResolver,
+	type RGBA,
+} from "../render/color-resolver";
 import {
 	type BlitProgram,
 	createBlitProgram,
@@ -19,20 +26,14 @@ import {
 	type OutlineProgram,
 	type WorldProgram,
 } from "../render/programs";
-import {
-	type FontStyle,
-	type LoadedFont,
-	STYLE_BOLD,
-	STYLE_ITALIC,
-	STYLE_REGULAR,
-} from "../load";
 import { RenderTarget } from "../render/render-target";
-import type Viewport from "../camera/viewport";
+import { FontAtlas } from "../text/font-atlas";
 
 const QUAD_FLOATS = 8;
 const TILE_FLOATS = 9;
 const VERTS_PER_QUAD = 6;
 const WHITE: RGBA = [1, 1, 1, 1];
+const TRANSPARENT: RGBA = [0, 0, 0, 0];
 
 export type DrawImageOpts = Readonly<{
 	x: number;
@@ -1198,10 +1199,15 @@ export default class Renderer2D {
 			.sort((a, b) => a - b);
 	}
 
+	resolveColor(input: ColorInput): RGBA {
+		return this.colors.resolve(input);
+	}
+
 	renderTo(
 		target: RenderTarget,
 		includeLayer?: (id: number) => boolean,
 		clear = true,
+		clearColor: RGBA = TRANSPARENT,
 	): void {
 		const gl = this.gl;
 		const texW = target.width;
@@ -1245,7 +1251,12 @@ export default class Renderer2D {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 		gl.viewport(0, 0, texW, texH);
 		if (clear) {
-			gl.clearColor(0, 0, 0, 0);
+			gl.clearColor(
+				clearColor[0],
+				clearColor[1],
+				clearColor[2],
+				clearColor[3],
+			);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 		}
 		for (const id of ordered) {

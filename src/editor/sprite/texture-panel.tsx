@@ -127,23 +127,12 @@ const TexturePanel = ({
 			}
 		};
 
-		const pick = (x: number, y: number) => {
-			const rgba = doc.colorAt(x, y);
-			if (rgba) {
-				state.setFromRgba(rgba[0], rgba[1], rgba[2], rgba[3]);
-			}
-		};
-
 		const onPointerDown = (e: PointerEvent) => {
 			if (e.button !== 0 || state.tool === "pan") {
 				return;
 			}
 			const p = pixelAt(e);
 			if (!p || !inBounds(p.x, p.y)) {
-				return;
-			}
-			if (state.tool === "pick") {
-				pick(p.x, p.y);
 				return;
 			}
 			painting = true;

@@ -8,6 +8,7 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
+import { resolveRenderLayer } from "../../engine/render/render-layers";
 import { QuestComponent } from "../quest/quest-component";
 import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
 import { getQuest } from "../quest/loader";
@@ -21,9 +22,9 @@ const FILL: [number, number, number, number] = [1, 0.85, 0.4, 1];
 const OUTLINE: [number, number, number, number] = [0, 0, 0, 1];
 
 export class QuestMarkerRenderSystem implements RenderSystem {
-	private layer: number;
+	private layer: string;
 
-	constructor(layer: number) {
+	constructor(layer: string) {
 		this.layer = layer;
 	}
 
@@ -32,6 +33,7 @@ export class QuestMarkerRenderSystem implements RenderSystem {
 		if (tags.size === 0) {
 			return;
 		}
+		const layer = resolveRenderLayer(ecs, this.layer);
 		const bob = Math.sin(time.elapsed * BOB_SPEED) * BOB_AMOUNT;
 		for (const [id, _, transform] of ecs.query(
 			QuestMarkerTagComponent,
@@ -50,13 +52,14 @@ export class QuestMarkerRenderSystem implements RenderSystem {
 			const cx = transform.position.x;
 			const apexY = transform.position.y - half - GAP - bob;
 			const baseY = apexY - HEIGHT;
-			this.chevron(renderer, cx, baseY, apexY, 4, OUTLINE);
-			this.chevron(renderer, cx, baseY, apexY, 2, FILL);
+			this.chevron(renderer, layer, cx, baseY, apexY, 4, OUTLINE);
+			this.chevron(renderer, layer, cx, baseY, apexY, 2, FILL);
 		}
 	}
 
 	private chevron(
 		renderer: RenderContext["renderer"],
+		layer: number,
 		cx: number,
 		baseY: number,
 		apexY: number,
@@ -64,7 +67,7 @@ export class QuestMarkerRenderSystem implements RenderSystem {
 		color: [number, number, number, number],
 	): void {
 		renderer.drawLine(
-			this.layer,
+			layer,
 			cx - HALF_WIDTH,
 			baseY,
 			cx,
@@ -73,7 +76,7 @@ export class QuestMarkerRenderSystem implements RenderSystem {
 			width,
 		);
 		renderer.drawLine(
-			this.layer,
+			layer,
 			cx + HALF_WIDTH,
 			baseY,
 			cx,

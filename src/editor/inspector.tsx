@@ -3,7 +3,6 @@ import { Select } from "@base-ui/react/select";
 import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react";
 import classNames from "classnames";
 import {
-	Fragment,
 	useEffect,
 	useReducer,
 	useState,
@@ -18,6 +17,7 @@ import {
 } from "../engine/serialization/registry";
 import type { Scene } from "../engine/scene/scene";
 import Vector2 from "../engine/vector2";
+import { ColorField } from "./color/color-field";
 import { setField } from "./commands";
 import { componentLabel } from "./component-label";
 import type { EditorState } from "./editor-state";
@@ -356,6 +356,17 @@ export const FieldControl = ({
 
 	const requiredMissing = !!options?.required && isEmptyValue(value);
 
+	if (options?.color) {
+		return (
+			<ColorField
+				component={component}
+				fieldKey={fieldKey}
+				value={value as string}
+				history={history}
+			/>
+		);
+	}
+
 	const accept = options?.file;
 	if (accept !== undefined) {
 		if (/image/i.test(accept)) {
@@ -419,6 +430,23 @@ export const FieldControl = ({
 	);
 };
 
+const Field = ({
+	label,
+	inline,
+	children,
+}: Readonly<{
+	label: string;
+	inline?: boolean;
+	children: ReactNode;
+}>) => (
+	<div
+		className={classNames(styles.field, inline && styles.fieldInline)}
+	>
+		<span className={styles.fieldLabel}>{label}</span>
+		{children}
+	</div>
+);
+
 const ComponentSection = ({
 	component,
 	history,
@@ -462,22 +490,18 @@ const ComponentSection = ({
 					{fieldKeys.map((key) => {
 						const value = (component as Record<string, unknown>)[key];
 						return (
-							<Fragment key={key}>
-								<span
-									className={classNames(
-										styles.fieldLabel,
-										isValueObject(value) && styles.fieldLabelTop,
-									)}
-								>
-									{toSentenceCase(key)}
-								</span>
+							<Field
+								key={key}
+								label={toSentenceCase(key)}
+								inline={typeof value === "boolean"}
+							>
 								<FieldControl
 									component={component}
 									fieldKey={key}
 									value={value}
 									history={history}
 								/>
-							</Fragment>
+							</Field>
 						);
 					})}
 				</div>
@@ -558,22 +582,18 @@ export const SceneConfigInspector = ({
 				<div className={styles.sectionTitle}>World</div>
 				<div className={styles.fields} key={revision}>
 					{Object.entries(config).map(([key, value]) => (
-						<Fragment key={key}>
-							<span
-								className={classNames(
-									styles.fieldLabel,
-									isValueObject(value) && styles.fieldLabelTop,
-								)}
-							>
-								{toSentenceCase(key)}
-							</span>
+						<Field
+							key={key}
+							label={toSentenceCase(key)}
+							inline={typeof value === "boolean"}
+						>
 							<FieldControl
 								component={config}
 								fieldKey={key}
 								value={value}
 								history={history}
 							/>
-						</Fragment>
+						</Field>
 					))}
 				</div>
 			</section>

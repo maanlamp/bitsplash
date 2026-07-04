@@ -35,8 +35,8 @@ import { SpriteAnimationSystem } from "../../engine/sprite/sprite-animation-syst
 import { SpriteRenderSystem } from "../../engine/sprite/sprite-render-system";
 import { TilemapRenderSystem } from "../../engine/tilemap/tilemap-render-system";
 import { TimerSystem } from "../../engine/timer/timer-system";
-import { TileCollisionBaker } from "../../engine/tilemap/collision";
-import { TileGrid } from "../../engine/tilemap/grid";
+import { TileCollisionSystem } from "../../engine/tilemap/tile-collision-system";
+import { TileLayerComponent } from "../../engine/tilemap/tile-layer-component";
 import type Vector2 from "../../engine/vector2";
 import { World } from "../../engine/world";
 import tilesetUrl from "../content/assets/dirt.tileset.png";
@@ -77,34 +77,25 @@ import "./pause";
 
 import.meta.glob("../*/*-def.ts", { eager: true });
 
-export const Layer = {
-	SURFACE_DECO_BACK: 10,
-	PLAYER: 20,
-	SURFACE_DECO_FRONT: 30,
-	TILEMAP: 40,
-	TILE_DECO: 45,
-	DEBUG_TAG: 90,
-} as const;
-
 registerScene("platformer", ({ config, name }): Scene => {
 	const world = new World(config.gravity, collisionMatrix);
 	const ecs = world.ecs;
 
-	const tileGrid = new TileGrid();
-	new TileCollisionBaker(tileGrid, world, CollisionLayer.Terrain);
+	ecs.addUpdateSystem(
+		new TileCollisionSystem(CollisionLayer.Terrain),
+	);
 	const surfaceDecorations = new SurfaceDecorations(
-		tileGrid,
 		knickKnacksUrl,
-		Layer.SURFACE_DECO_BACK,
-		Layer.SURFACE_DECO_FRONT,
+		"background",
+		"foreground",
 		SURFACE_DECORATION_DENSITY,
 		SURFACE_DECORATION_JITTER,
 	);
 	const tileDecorations = new TileDecorations(
-		tileGrid,
 		tileDecorationsUrl,
-		Layer.TILE_DECO,
+		"terrain",
 		TILE_DECORATION_DENSITY,
+		10,
 	);
 
 	const gameplaySystems = [
@@ -116,7 +107,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new GroundDetectionSystem(),
 		new PhysicsSystem(),
 		new BowSystem(),
-		new ArrowSystem(tileGrid),
+		new ArrowSystem(),
 		new PickupSystem(),
 		new InteractionSystem(),
 		new DialogueTriggerSystem(),
@@ -146,17 +137,15 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new DecorationsRenderSystem(surfaceDecorations),
 	);
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
-	ecs.addRenderSystem(new DebugTagSystem(Layer.DEBUG_TAG));
-	ecs.addRenderSystem(new QuestMarkerRenderSystem(Layer.DEBUG_TAG));
+	ecs.addRenderSystem(new DebugTagSystem("overlay"));
+	ecs.addRenderSystem(new QuestMarkerRenderSystem("overlay"));
 	ecs.addRenderSystem(
-		new InteractHintRenderSystem(Layer.DEBUG_TAG, Layer.PLAYER),
+		new InteractHintRenderSystem("overlay", "entities"),
 	);
 	ecs.addRenderSystem(new DialogueRenderSystem());
-	ecs.addRenderSystem(new SpriteRenderSystem(Layer.PLAYER));
-	ecs.addRenderSystem(
-		new TilemapRenderSystem(tileGrid, tilesetUrl, Layer.TILEMAP),
-	);
-	ecs.addRenderSystem(new HealthRenderSystem(Layer.TILEMAP));
+	ecs.addRenderSystem(new SpriteRenderSystem());
+	ecs.addRenderSystem(new TilemapRenderSystem());
+	ecs.addRenderSystem(new HealthRenderSystem("terrain"));
 	ecs.addRenderSystem(new DeathOverlayRenderSystem());
 	ecs.addRenderSystem(new QuestNoticeRenderSystem());
 	ecs.addRenderSystem(new ObjectiveRenderSystem());
@@ -167,10 +156,8 @@ registerScene("platformer", ({ config, name }): Scene => {
 		name,
 		config,
 		world,
-		tileGrid,
 		gameplaySystems,
-		spawnRuntimeEntities: () =>
-			spawnRuntimeEntities({ tileGrid, world }),
+		spawnRuntimeEntities: () => spawnRuntimeEntities({ world }),
 		defaultEntity: (position: Vector2) => [
 			new TransformComponent(position),
 			new SpriteComponent(),
@@ -179,6 +166,16 @@ registerScene("platformer", ({ config, name }): Scene => {
 				new FontSettings(fsPixelSansUrl),
 			),
 		],
+		migrateFile: (file) => {
+			if (!file.tiles?.length || ecs.query(TileLayerComponent)[0]) {
+				return;
+			}
+			const layer = new TileLayerComponent();
+			layer.name = "terrain";
+			layer.tileset = tilesetUrl;
+			layer.cells = file.tiles;
+			ecs.createEntity([layer]);
+		},
 	});
 });
 

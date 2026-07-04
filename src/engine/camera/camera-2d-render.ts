@@ -33,6 +33,7 @@ export const renderSceneToTexture = (
 	}
 	target.resize(vw, vh);
 
+	const clearColor = renderer.resolveColor(scene.config.clearColor);
 	const camera = pickActiveCamera2D(scene.world.ecs);
 	let drewWorld = false;
 	if (camera && camera.zoom > 0) {
@@ -47,12 +48,22 @@ export const renderSceneToTexture = (
 		const snappedY =
 			Math.round((camera.position.y + camera.shake.y) * z) / z;
 		target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
-		renderer.renderTo(target, (id) => id < UI_LAYER_MIN, true);
+		renderer.renderTo(
+			target,
+			(id) => id < UI_LAYER_MIN,
+			true,
+			clearColor,
+		);
 		drewWorld = true;
 	}
 
 	const uiScale = scene.config.uiScale ?? 1;
 	target.setSpan(vw / uiScale, vh / uiScale);
 	target.setOrigin(0, 0);
-	renderer.renderTo(target, (id) => id >= UI_LAYER_MIN, !drewWorld);
+	renderer.renderTo(
+		target,
+		(id) => id >= UI_LAYER_MIN,
+		!drewWorld,
+		clearColor,
+	);
 };

@@ -1,7 +1,7 @@
 import { Subscribable } from "../subscribable";
-import { chromaInGamut, type OklchColor, rgbToOklch } from "./oklch";
+import { chromaInGamut, type OklchColor } from "../color/oklch";
 
-export type SpriteTool = "paint" | "erase" | "pan" | "pick";
+export type SpriteTool = "paint" | "erase" | "pan";
 
 export class SpriteEditorState extends Subscribable {
 	private _l = 1;
@@ -64,11 +64,6 @@ export class SpriteEditorState extends Subscribable {
 
 	setColor(color: OklchColor): void {
 		this.update(color.l, color.c, color.h, color.alpha);
-	}
-
-	setFromRgba(r: number, g: number, b: number, a: number): void {
-		const { l, c, h } = rgbToOklch(r, g, b);
-		this.update(l, c, h, a / 255);
 	}
 
 	setTool(tool: SpriteTool): void {
