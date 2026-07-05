@@ -16,6 +16,7 @@ import type { World } from "../../engine/world";
 import { Layer } from "../collision";
 import { ArrowComponent } from "../combat/arrow-component";
 import { HealthComponent } from "../health/health-component";
+import { resolveHit } from "../combat/resolve-hit";
 import { DamageEvent } from "../events";
 import { fadeAlpha } from "../../engine/render/color-resolver";
 
@@ -102,7 +103,20 @@ export class ArrowSystem implements UpdateSystem {
 						arrow.attachOffsetY = stuckPos.y - host.position.y;
 					}
 					if (ecs.getComponent(victim, HealthComponent)) {
-						events.emit(new DamageEvent(victim, arrow.damage));
+						const { amount, crit } = resolveHit(
+							arrow,
+							arrow.mods,
+							Math.random,
+						);
+						events.emit(
+							new DamageEvent(
+								victim,
+								amount,
+								crit,
+								arrow.flavourSet,
+								id,
+							),
+						);
 					}
 				}
 			}

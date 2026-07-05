@@ -236,8 +236,12 @@
 						"variant": "Regular"
 					}
 				},
-				"DamageTrigger": {
-					"amount": 25
+				"DamageTrigger": {},
+				"DamageStats": {
+					"base": 25,
+					"critChance": 0,
+					"critMultiplier": 2,
+					"flavourSet": "default"
 				},
 				"Sprite": {
 					"url": "/src/engine/assets/unknown.png",

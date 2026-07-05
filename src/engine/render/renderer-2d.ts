@@ -27,7 +27,7 @@ import {
 	type WorldProgram,
 } from "../render/programs";
 import { RenderTarget } from "../render/render-target";
-import { FontAtlas } from "../text/font-atlas";
+import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
 
 const QUAD_FLOATS = 8;
 const TILE_FLOATS = 9;
@@ -81,6 +81,8 @@ export type DrawTextOpts = Readonly<{
 	outline?: ColorInput;
 	bold?: boolean;
 	italic?: boolean;
+	scale?: number;
+	rotation?: number;
 }>;
 
 export type RawLayerContext = Readonly<{
@@ -1113,34 +1115,88 @@ export default class Renderer2D {
 		const color = opts.color
 			? this.colors.resolve(opts.color)
 			: WHITE;
+		const scale = opts.scale ?? 1;
+		const rotation = opts.rotation ?? 0;
 		const texture = atlas.texture;
 		if (opts.outline) {
 			const outline = this.colors.resolve(opts.outline);
 			for (const [ox, oy] of OUTLINE_OFFSETS) {
 				for (const q of quads) {
-					this.pushQuadShape(
+					this.pushGlyphQuad(
 						id,
 						texture,
-						"text",
-						[q.x + ox, q.x + q.w + ox, q.x + q.w + ox, q.x + ox],
-						[q.y + oy, q.y + oy, q.y + q.h + oy, q.y + q.h + oy],
-						[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
+						q,
+						x,
+						y,
+						ox,
+						oy,
+						scale,
+						rotation,
 						outline,
 					);
 				}
 			}
 		}
 		for (const q of quads) {
-			this.pushQuadShape(
+			this.pushGlyphQuad(
 				id,
 				texture,
-				"text",
-				[q.x, q.x + q.w, q.x + q.w, q.x],
-				[q.y, q.y, q.y + q.h, q.y + q.h],
-				[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
+				q,
+				x,
+				y,
+				0,
+				0,
+				scale,
+				rotation,
 				color,
 			);
 		}
+	}
+
+	private pushGlyphQuad(
+		id: number,
+		texture: WebGLTexture,
+		q: GlyphQuad,
+		anchorX: number,
+		anchorY: number,
+		offsetX: number,
+		offsetY: number,
+		scale: number,
+		rotation: number,
+		color: RGBA,
+	): void {
+		const x0 = q.x + offsetX;
+		const x1 = q.x + q.w + offsetX;
+		const y0 = q.y + offsetY;
+		const y1 = q.y + q.h + offsetY;
+		const lx = [
+			(x0 - anchorX) * scale,
+			(x1 - anchorX) * scale,
+			(x1 - anchorX) * scale,
+			(x0 - anchorX) * scale,
+		];
+		const ly = [
+			(y0 - anchorY) * scale,
+			(y0 - anchorY) * scale,
+			(y1 - anchorY) * scale,
+			(y1 - anchorY) * scale,
+		];
+		const { px, py } = rotateCorners(
+			anchorX,
+			anchorY,
+			lx,
+			ly,
+			rotation,
+		);
+		this.pushQuadShape(
+			id,
+			texture,
+			"text",
+			px,
+			py,
+			[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
+			color,
+		);
 	}
 
 	drawGlyph(
@@ -1157,13 +1213,16 @@ export default class Renderer2D {
 		if (!q) {
 			return;
 		}
-		this.pushQuadShape(
+		this.pushGlyphQuad(
 			id,
 			atlas.texture,
-			"text",
-			[q.x, q.x + q.w, q.x + q.w, q.x],
-			[q.y, q.y, q.y + q.h, q.y + q.h],
-			[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
+			q,
+			x,
+			y,
+			0,
+			0,
+			1,
+			0,
 			this.colors.resolve(color),
 		);
 	}

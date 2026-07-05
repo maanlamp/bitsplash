@@ -59,6 +59,9 @@ import { GroundDetectionSystem } from "../player/ground-detection-system";
 import { HealthSystem } from "../health/health-system";
 import { HealthBarSystem } from "../health/health-bar-system";
 import { HealthRenderSystem } from "../health/health-render-system";
+import { HitsplatSpawnSystem } from "../hitsplat/hitsplat-spawn-system";
+import { HitsplatSystem } from "../hitsplat/hitsplat-system";
+import { HitsplatRenderSystem } from "../hitsplat/hitsplat-render-system";
 import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
 import { InteractionSystem } from "../interaction/interaction-system";
 import { ObjectiveRenderSystem } from "../quest/objective-render-system";
@@ -115,6 +118,8 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new DamageTriggerSystem(),
 		new HealthSystem(),
 		new DamageShakeSystem(),
+		new HitsplatSpawnSystem(),
+		new HitsplatSystem(),
 		new DeathSystem(),
 		new QuestSystem(),
 		new CutsceneSystem({
@@ -146,6 +151,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	ecs.addRenderSystem(new SpriteRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());
 	ecs.addRenderSystem(new HealthRenderSystem("terrain"));
+	ecs.addRenderSystem(new HitsplatRenderSystem("terrain"));
 	ecs.addRenderSystem(new DeathOverlayRenderSystem());
 	ecs.addRenderSystem(new QuestNoticeRenderSystem());
 	ecs.addRenderSystem(new ObjectiveRenderSystem());

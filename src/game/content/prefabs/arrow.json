@@ -33,7 +33,10 @@
 			"flipX": false
 		},
 		"Arrow": {
-			"damage": 25,
+			"base": 25,
+			"critChance": 0,
+			"critMultiplier": 2,
+			"flavourSet": "arrow",
 			"speed": 360,
 			"fade": 1,
 			"stuckLifetime": 4,

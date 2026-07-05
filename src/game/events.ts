@@ -11,6 +11,9 @@ export class DamageEvent {
 	constructor(
 		public target: EntityId,
 		public amount: number,
+		public crit: boolean,
+		public flavourSet: string,
+		public source: EntityId | null,
 	) {}
 }
 

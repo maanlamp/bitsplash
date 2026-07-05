@@ -5,6 +5,7 @@ import { InteractionStateComponent } from "../interaction/interaction-state-comp
 import { PlayerInputComponent } from "../player/player-input-component";
 import { RespawnComponent } from "../respawn/respawn-component";
 import { SpawnPointComponent } from "../respawn/spawn-point-component";
+import { HitsplatStyleComponent } from "../hitsplat/hitsplat-style-component";
 import { spawnBow } from "../combat/spawn-bow";
 import { spawnCamera2D } from "../spawn-camera-2d";
 import { spawnPrefab } from "../prefabs";
@@ -49,4 +50,5 @@ export const spawnRuntimeEntities = (
 	}
 	deps.world.ecs.createEntity([new InteractionStateComponent()]);
 	deps.world.ecs.createEntity([new InkStoryComponent()]);
+	deps.world.ecs.createEntity([new HitsplatStyleComponent()]);
 };

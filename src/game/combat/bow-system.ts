@@ -8,6 +8,8 @@ import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
 import { ArrowComponent } from "../combat/arrow-component";
 import { BowComponent } from "../combat/bow-component";
+import { DamageStatsComponent } from "../combat/damage-stats-component";
+import { NO_MODIFIERS } from "../combat/resolve-hit";
 import { spawnPrefab } from "../prefabs";
 
 const SHOT_SPREAD = 0.04;
@@ -20,13 +22,17 @@ export class BowSystem implements UpdateSystem {
 		}
 		const mouseWorld = camera.screenToWorld(input.mouse.position);
 
-		for (const [, bow, transform, sprite] of ecs.query(
+		for (const [id, bow, transform, sprite] of ecs.query(
 			BowComponent,
 			TransformComponent,
 			SpriteComponent,
 		)) {
 			const owner = ecs.getComponent(bow.owner, TransformComponent);
 			if (!owner) {
+				continue;
+			}
+			const stats = ecs.getComponent(id, DamageStatsComponent);
+			if (!stats) {
 				continue;
 			}
 			const angle = mouseWorld.clone().sub(owner.position).angle();
@@ -44,7 +50,14 @@ export class BowSystem implements UpdateSystem {
 
 			const firing = !!input.mouse.buttons.left;
 			if (firing && !bow.wasFiring) {
-				this.fire(world, bow, transform.position, direction, angle);
+				this.fire(
+					world,
+					bow,
+					stats,
+					transform.position,
+					direction,
+					angle,
+				);
 			}
 			bow.wasFiring = firing;
 		}
@@ -53,6 +66,7 @@ export class BowSystem implements UpdateSystem {
 	private fire(
 		world: UpdateContext["world"],
 		bow: BowComponent,
+		stats: DamageStatsComponent,
 		bowPosition: Vector2,
 		direction: Vector2,
 		angle: number,
@@ -75,7 +89,14 @@ export class BowSystem implements UpdateSystem {
 		}
 		if (arrow) {
 			arrow.aimAngle = shotAngle;
-			arrow.damage = bow.damage;
+			// Snapshot the roll inputs at fire time; the crit roll itself
+			// happens at impact (§10.2). The arrow is self-contained so a
+			// buff expiring mid-flight cannot retroactively weaken it.
+			arrow.base = stats.base;
+			arrow.critChance = stats.critChance;
+			arrow.critMultiplier = stats.critMultiplier;
+			arrow.flavourSet = stats.flavourSet;
+			arrow.mods = NO_MODIFIERS;
 			arrow.speed = bow.arrowSpeed;
 		}
 	}

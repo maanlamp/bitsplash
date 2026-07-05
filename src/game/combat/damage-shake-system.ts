@@ -4,9 +4,11 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { HealthComponent } from "../health/health-component";
+import { HitsplatStyleComponent } from "../hitsplat/hitsplat-style-component";
 import { DamageEvent } from "../events";
 
-const TRAUMA_PER_HP = 0.03;
+const DEFAULT_TRAUMA_PER_HP = 0.015;
+const DEFAULT_CRIT_TRAUMA_BONUS = 0.15;
 
 export class DamageShakeSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
@@ -19,13 +21,18 @@ export class DamageShakeSystem implements UpdateSystem {
 			return;
 		}
 		const shake = shakeEntry[1];
+		const style = ecs.query(HitsplatStyleComponent)[0]?.[1];
+		const traumaPerHp = style?.traumaPerHp ?? DEFAULT_TRAUMA_PER_HP;
+		const critTraumaBonus =
+			style?.critTraumaBonus ?? DEFAULT_CRIT_TRAUMA_BONUS;
 		for (const event of damage) {
 			if (!ecs.getComponent(event.target, HealthComponent)) {
 				continue;
 			}
+			const bonus = event.crit ? critTraumaBonus : 0;
 			shake.trauma = Math.min(
 				1,
-				shake.trauma + event.amount * TRAUMA_PER_HP,
+				shake.trauma + event.amount * traumaPerHp + bonus,
 			);
 		}
 	}

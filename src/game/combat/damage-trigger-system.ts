@@ -3,7 +3,9 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
+import { DamageStatsComponent } from "../combat/damage-stats-component";
 import { DamageTriggerComponent } from "../combat/damage-trigger-component";
+import { resolveHit, NO_MODIFIERS } from "../combat/resolve-hit";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { DamageEvent } from "../events";
 
@@ -20,11 +22,27 @@ export class DamageTriggerSystem implements UpdateSystem {
 			if (!trigger) {
 				continue;
 			}
+			const stats = ecs.getComponent(
+				event.source,
+				DamageStatsComponent,
+			);
+			if (!stats) {
+				continue;
+			}
 			const player = ecs.query(PlayerInputComponent)[0];
 			if (!player) {
 				continue;
 			}
-			events.emit(new DamageEvent(player[0], trigger.amount));
+			const { amount, crit } = resolveHit(stats, NO_MODIFIERS);
+			events.emit(
+				new DamageEvent(
+					player[0],
+					amount,
+					crit,
+					stats.flavourSet,
+					event.source,
+				),
+			);
 		}
 	}
 }

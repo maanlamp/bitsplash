@@ -1,0 +1,5 @@
+{
+	"default": ["BLAM!", "POW!"],
+	"arrow": ["THWACK!", "SKEWERED!"],
+	"blunt": ["WHAM!", "CRUNCH!"]
+}

@@ -5,6 +5,7 @@ import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
 import bowUrl from "../content/assets/bow.png";
 import { BowComponent } from "../combat/bow-component";
+import { DamageStatsComponent } from "../combat/damage-stats-component";
 
 export const spawnBow = (
 	world: World,
@@ -19,5 +20,6 @@ export const spawnBow = (
 		new TransformComponent(new Vector2(start?.x, start?.y)),
 		new SpriteComponent(bowUrl),
 		new BowComponent(options.owner),
+		new DamageStatsComponent(25, 0.1, 2, "arrow"),
 	]);
 };
