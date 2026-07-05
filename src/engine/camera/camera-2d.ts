@@ -15,7 +15,7 @@ export class Camera2D {
 
 	constructor(
 		position: Vector2 = Vector2.zero(),
-		zoom: number = 1,
+		zoom: number = 3,
 		minZoom: number = 0.25,
 		maxZoom: number = 16,
 	) {
