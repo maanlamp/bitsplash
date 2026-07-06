@@ -134,4 +134,10 @@
 		var(--debug-axis-x) 0 50%,
 		var(--debug-axis-y) 50% 100%
 	);
+	--debug-nav-node: oklch(0.63 0.24 25 / 0.9);
+	--debug-nav-path: oklch(1 0 0 / 0.95);
+	--debug-nav-target: oklch(82.827% 0.24347 139.783 / 0.98);
+	--debug-nav-edge-walk: oklch(0.78 0.19 145 / 0.7);
+	--debug-nav-edge-fall: oklch(69.674% 0.29091 334.749 / 0.75);
+	--debug-nav-edge-jump: oklch(66.279% 0.204 40.959 / 0.8);
 }

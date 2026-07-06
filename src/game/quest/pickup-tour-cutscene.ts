@@ -6,7 +6,6 @@ import type {
 import {
 	cameraTo,
 	parallel,
-	sequence,
 	wait,
 } from "../../engine/cutscene/verbs";
 import type { Seconds } from "../../engine/duration";
@@ -14,7 +13,7 @@ import type { ECS, EntityId } from "../../engine/ecs";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
-import { dialogue, walkTo } from "../cutscene/verbs";
+import { dialogue, escort, moveTo, walkTo } from "../cutscene/verbs";
 import { DialogueSourceComponent } from "../dialogue/dialogue-source-component";
 import {
 	PickupComponent,
@@ -110,21 +109,23 @@ const intro: CutsceneScene = function* (ctx) {
 		zoom: INTRO_ZOOM,
 		followAfter: [quartermaster],
 	});
-	const walks = [
-		walkTo(ctx, quartermaster, position.x + 5.5 * TILE_SIZE),
-	];
+	const dest = position.x + 5.5 * TILE_SIZE;
 	if (player !== null) {
-		walks.push(
-			sequence(
-				wait(1 as Seconds),
-				walkTo(ctx, player, position.x + 4 * TILE_SIZE),
+		yield parallel(
+			escort(
+				ctx,
+				player,
+				quartermaster,
+				new Vector2(dest, position.y),
 			),
+			dialogue(ctx, "pickup_tutor.pt_intro_walk"),
+		);
+	} else {
+		yield parallel(
+			walkTo(ctx, quartermaster, dest),
+			dialogue(ctx, "pickup_tutor.pt_intro_walk"),
 		);
 	}
-	yield parallel(
-		...walks,
-		dialogue(ctx, "pickup_tutor.pt_intro_walk"),
-	);
 	yield cameraTo(ctx, {
 		target: quartermaster,
 		zoom: EDGE_ZOOM,
@@ -218,7 +219,11 @@ const smooch: CutsceneScene = function* (ctx) {
 		return;
 	}
 	const side = Math.sign(from.x - target.x) || -1;
-	yield walkTo(ctx, player, target.x + side * 28);
+	yield moveTo(
+		ctx,
+		player,
+		new Vector2(target.x + side * 28, target.y),
+	);
 	yield wait(0.5 as Seconds);
 	yield dialogue(ctx, "pickup_tutor.pt_smooch", player);
 	yield cameraTo(ctx, {

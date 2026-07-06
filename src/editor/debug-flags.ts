@@ -1,6 +1,11 @@
 import { Subscribable } from "./subscribable";
 
-export type DebugOverlayId = "colliders" | "sensors" | "transforms";
+export type DebugOverlayId =
+	| "colliders"
+	| "sensors"
+	| "transforms"
+	| "navGraph"
+	| "navPath";
 
 export type DebugOverlay = Readonly<{
 	id: DebugOverlayId;
@@ -19,6 +24,16 @@ export const DEBUG_OVERLAYS: ReadonlyArray<DebugOverlay> = [
 		id: "transforms",
 		label: "Transforms",
 		colorToken: "--debug-transform",
+	},
+	{
+		id: "navGraph",
+		label: "Nav Graph",
+		colorToken: "--debug-nav-node",
+	},
+	{
+		id: "navPath",
+		label: "Nav Path",
+		colorToken: "--debug-nav-path",
 	},
 ];
 

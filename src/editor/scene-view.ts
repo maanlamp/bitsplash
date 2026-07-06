@@ -19,6 +19,7 @@ import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
 import { EntityEditorSystem } from "./systems/entity-editor";
 import { EntityHighlightSystem } from "./systems/entity-highlight";
+import { NavGraphDebugSystem } from "./systems/nav-graph-debug";
 import { PhysicsShapeDebugSystem } from "./systems/physics-shape-debug";
 import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
@@ -77,6 +78,11 @@ export class SceneView {
 			new TransformGizmoDebugSystem(
 				debugFlags,
 				DEBUG_OVERLAY.transforms,
+				EditorLayer.DEBUG_OVERLAY,
+			),
+			new NavGraphDebugSystem(
+				debugFlags,
+				store,
 				EditorLayer.DEBUG_OVERLAY,
 			),
 			new EntityHighlightSystem(store, EditorLayer.EDITOR_PREVIEW),

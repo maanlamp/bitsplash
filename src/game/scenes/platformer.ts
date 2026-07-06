@@ -65,10 +65,15 @@ import { HitsplatRenderSystem } from "../hitsplat/hitsplat-render-system";
 import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
 import { InteractionSystem } from "../interaction/interaction-system";
 import { ObjectiveRenderSystem } from "../quest/objective-render-system";
-import { PatrolSystem } from "../enemy/patrol-system";
+import { LocomotionSystem } from "../../engine/locomotion/locomotion-system";
+import { NavAgentSystem } from "../../engine/nav/nav-agent-system";
+import { NavGraphSystem } from "../../engine/nav/nav-graph-system";
+import { FollowSystem } from "../follow/follow-system";
+import { WanderSystem } from "../enemy/wander-system";
 import { PickupSystem } from "../pickup/pickup-system";
 import { PlayerAnimationSystem } from "../player/player-animation-system";
-import { PlayerInputSystem } from "../player/player-input-system";
+import { PlayerIntentSystem } from "../player/player-intent-system";
+import { PlayerMovementSystem } from "../player/player-movement-system";
 import { QuestSystem } from "../quest/quest-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
 import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
@@ -87,6 +92,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	ecs.addUpdateSystem(
 		new TileCollisionSystem(CollisionLayer.Terrain),
 	);
+	ecs.addUpdateSystem(new NavGraphSystem(Math.abs(config.gravity.y)));
 	const surfaceDecorations = new SurfaceDecorations(
 		knickKnacksUrl,
 		"background",
@@ -102,11 +108,15 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 
 	const gameplaySystems = [
-		new PlayerInputSystem(),
+		new PlayerIntentSystem(),
 		new StateMachineSystem(),
 		new PlayerAnimationSystem(),
 		new SpriteAnimationSystem(),
-		new PatrolSystem(),
+		new WanderSystem(),
+		new FollowSystem(),
+		new NavAgentSystem(),
+		new PlayerMovementSystem(),
+		new LocomotionSystem(),
 		new GroundDetectionSystem(),
 		new PhysicsSystem(),
 		new BowSystem(),

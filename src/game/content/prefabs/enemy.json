@@ -57,28 +57,42 @@
 				"id": null
 			}
 		},
-		"Patrol": {
-			"speed": 48,
-			"interval": {
+		"MovementIntent": {},
+		"Locomotion": {
+			"maxSpeed": 64,
+			"acceleration": 1280,
+			"deceleration": 1600,
+			"airControl": {
+				"$type": "Percent",
+				"value": 1
+			},
+			"jumpSpeed": 320
+		},
+		"NavAgent": {
+			"jumpSpeed": 0,
+			"moveSpeed": 0,
+			"maxDropHeight": 256,
+			"arriveTolerance": 4,
+			"stuckTimeout": {
 				"$type": "Duration",
 				"seconds": 1.5
 			}
 		},
-		"EnemyTag": {},
-		"PatrolTag": {},
+		"Wander": {
+			"radiusTiles": 6,
+			"minInterval": {
+				"$type": "Duration",
+				"seconds": 3
+			},
+			"maxInterval": {
+				"$type": "Duration",
+				"seconds": 7
+			}
+		},
 		"QuestMarker": {
 			"questId": "massacre",
 			"stage": "active",
 			"type": "kill"
-		},
-		"StateMachine": {
-			"defId": "patrol",
-			"current": "right",
-			"elapsed": 0,
-			"params": {
-				"elapsed": 0,
-				"interval": 1.5
-			}
 		}
 	}
 }

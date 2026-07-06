@@ -1,4 +1,5 @@
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { Input } from "../../engine/input/input";
 import {
@@ -20,7 +21,7 @@ const approach = (
 	return Math.max(current - maxDelta, target);
 };
 
-export class PlayerInputSystem implements UpdateSystem {
+export class PlayerMovementSystem implements UpdateSystem {
 	enabled = true;
 
 	update({ dt, ecs, input }: UpdateContext): void {
@@ -29,27 +30,18 @@ export class PlayerInputSystem implements UpdateSystem {
 		}
 		const s = dt / 1000;
 		const frozen = isCutsceneActive(ecs);
-		for (const [, player, rb] of ecs.query(
+		for (const [, player, intent, rb] of ecs.query(
 			PlayerInputComponent,
+			MovementIntentComponent,
 			PhysicsBodyComponent,
 		)) {
 			if (!rb.body) {
 				continue;
 			}
-			let dir = 0;
-			if (player.scriptedMoveDir !== null) {
-				dir = player.scriptedMoveDir;
-			} else {
-				if (!frozen && input.keyboard.keys[InputBindings.left]) {
-					dir -= 1;
-				}
-				if (!frozen && input.keyboard.keys[InputBindings.right]) {
-					dir += 1;
-				}
-			}
+			const dir = intent.moveX;
 			player.moveDir = dir;
 			if (dir !== 0) {
-				player.facing = dir;
+				player.facing = Math.sign(dir);
 			}
 
 			if (this.handleDash(input, player, rb, dir, frozen, s)) {
@@ -72,12 +64,7 @@ export class PlayerInputSystem implements UpdateSystem {
 				player.wallJumping = false;
 			}
 
-			if (frozen) {
-				player.jumpWasHeld =
-					!!input.keyboard.keys[InputBindings.jump];
-			} else {
-				this.handleJump(input, player, rb, newVx, onWall, dir);
-			}
+			this.handleJump(intent, player, rb, newVx, onWall, dir);
 			this.handleWallSlide(player, rb, onWall);
 		}
 	}
@@ -111,7 +98,7 @@ export class PlayerInputSystem implements UpdateSystem {
 		) {
 			player.dashing = true;
 			player.dashTimeRemaining = player.dashDuration.seconds * 1000;
-			player.dashDir = dir !== 0 ? dir : player.facing;
+			player.dashDir = dir !== 0 ? Math.sign(dir) : player.facing;
 			rb.body!.linearVelocity = {
 				x: player.dashDir * player.dashSpeed,
 				y: 0,
@@ -162,7 +149,7 @@ export class PlayerInputSystem implements UpdateSystem {
 	}
 
 	private handleJump(
-		input: Input,
+		intent: MovementIntentComponent,
 		player: PlayerInputComponent,
 		rb: PhysicsBodyComponent,
 		vx: number,
@@ -182,17 +169,20 @@ export class PlayerInputSystem implements UpdateSystem {
 			player.jumpsRemaining = player.maxJumps - 1;
 		}
 
-		const jumpHeld = !!input.keyboard.keys[InputBindings.jump];
-		const jumpPressed = jumpHeld && !player.jumpWasHeld;
-		player.jumpWasHeld = jumpHeld;
+		const jumpHeld = intent.jumpHeld;
+		const jumpPressed = intent.jumpPressed;
 
 		const wallJump =
 			onWall && player.canWallSlide && player.canWallJump;
 
 		if (jumpPressed && (player.jumpsRemaining > 0 || wallJump)) {
-			const speed = player.grounded
-				? player.maxJumpSpeed
-				: player.airJumpSpeed;
+			const scripted = intent.jumpSpeed;
+			const speed =
+				scripted !== null
+					? Math.min(scripted, player.maxJumpSpeed)
+					: player.grounded
+						? player.maxJumpSpeed
+						: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
 			rb.body!.linearVelocity = { x: launchVx, y: -speed };
 			if (wallJump) {
@@ -211,7 +201,11 @@ export class PlayerInputSystem implements UpdateSystem {
 		const vy = rb.linearVelocity.y;
 		if (vy >= 0) {
 			player.jumping = false;
-		} else if (!jumpHeld && vy < -player.minJumpSpeed) {
+		} else if (
+			intent.jumpSpeed === null &&
+			!jumpHeld &&
+			vy < -player.minJumpSpeed
+		) {
 			rb.body!.linearVelocity = { x: vx, y: -player.minJumpSpeed };
 			player.jumping = false;
 		}
