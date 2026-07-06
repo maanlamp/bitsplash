@@ -13,6 +13,14 @@
 	font-style: italic;
 }
 
+.runtimeBadge {
+	padding: var(--unit-6) var(--unit-8);
+	border-radius: var(--unit-4);
+	background: var(--surface-warning, rgba(255, 176, 32, 0.15));
+	color: var(--on-surface-faint);
+	font: var(--font-caption, var(--font-body));
+}
+
 .section {
 	display: flex;
 	flex-direction: column;

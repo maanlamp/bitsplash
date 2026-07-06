@@ -62,6 +62,7 @@ const LayerRow = ({
 	bump: () => void;
 }>) => {
 	const history: History = view.history;
+	const ecs = view.scene.ecs;
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
 
@@ -69,7 +70,7 @@ const LayerRow = ({
 		setEditing(false);
 		const trimmed = name.trim();
 		if (trimmed && trimmed !== layer.name) {
-			renameTileLayer(history, layer, trimmed);
+			renameTileLayer(ecs, history, id, trimmed);
 		}
 		bump();
 	};
@@ -78,7 +79,7 @@ const LayerRow = ({
 		void openImageDialog().then((path) => {
 			if (path) {
 				void resolveToWebPath(path).then((webPath) => {
-					setTileLayerTileset(history, layer, webPath);
+					setTileLayerTileset(ecs, history, id, webPath);
 					bump();
 				});
 			}
@@ -167,8 +168,9 @@ const LayerRow = ({
 				value={layer.collision}
 				onValueChange={(value) => {
 					setTileLayerCollision(
+						ecs,
 						history,
-						layer,
+						id,
 						value as TileCollisionMode,
 					);
 					bump();
@@ -232,7 +234,10 @@ const LayerRow = ({
 	);
 };
 
-const TileLayersPanel = ({ view }: Readonly<{ view: SceneView }>) => {
+const TileLayersPanel = ({
+	view,
+	editorEnabled,
+}: Readonly<{ view: SceneView; editorEnabled: boolean }>) => {
 	const ecs = view.scene.ecs;
 	const history = view.history;
 	const [, bump] = useReducer((x: number) => x + 1, 0);
@@ -254,7 +259,12 @@ const TileLayersPanel = ({ view }: Readonly<{ view: SceneView }>) => {
 	const rows = layerRowIds(ecs);
 
 	return (
-		<div className={styles.layersPanel}>
+		<div
+			className={classNames(
+				styles.layersPanel,
+				!editorEnabled && styles.disabled,
+			)}
+		>
 			<div className={styles.layersHeader}>
 				<span className={styles.layersHeading}>Layers</span>
 				<Tooltip label="Add layer">

@@ -15,6 +15,7 @@ import {
 	type MenuDeps,
 } from "./entity-context-menu";
 import PerfMonitor from "./perf-monitor";
+import PlaybackBar from "./playback-bar";
 import type { SceneView } from "./scene-view";
 import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
@@ -27,12 +28,30 @@ const snap = (value: number): number =>
 const SceneViewPanel = ({
 	view,
 	onPlay,
+	onRun,
+	onStop,
+	onPause,
+	onStep,
+	onSetMode,
+	inputMode,
+	paused,
+	running,
+	editorEnabled,
 	requestAddComponent,
 	undoShortcut,
 	redoShortcut,
 }: Readonly<{
 	view: SceneView;
 	onPlay: () => void;
+	onRun: () => void;
+	onStop: () => void;
+	onPause: () => void;
+	onStep: () => void;
+	onSetMode: (mode: "game" | "editor") => void;
+	inputMode: "game" | "editor";
+	paused: boolean;
+	running: boolean;
+	editorEnabled: boolean;
 	requestAddComponent: (entity: EntityId) => void;
 	undoShortcut: string;
 	redoShortcut: string;
@@ -99,6 +118,23 @@ const SceneViewPanel = ({
 		store.setSelected(id);
 	};
 
+	const mount = (
+		<div
+			ref={attachRef}
+			className={styles.canvasMount}
+			onMouseLeave={() => store.setHovered(null)}
+			onContextMenu={(e) => {
+				if (!editorEnabled) {
+					e.preventDefault();
+					e.stopPropagation();
+					return;
+				}
+				recordCreatePosition(e);
+				setMenuEntity(store.hovered);
+			}}
+		/>
+	);
+
 	return (
 		<Split
 			direction="row"
@@ -107,25 +143,28 @@ const SceneViewPanel = ({
 		>
 			<div className={styles.canvasStack}>
 				<EntityContextMenu
-					entity={menuEntity}
-					deps={deps}
-					onCreateEntity={onCreateEntity}
+					entity={editorEnabled ? menuEntity : null}
+					deps={editorEnabled ? deps : null}
+					onCreateEntity={editorEnabled ? onCreateEntity : undefined}
 				>
-					<div
-						ref={attachRef}
-						className={styles.canvasMount}
-						onMouseLeave={() => store.setHovered(null)}
-						onContextMenu={(e) => {
-							recordCreatePosition(e);
-							setMenuEntity(store.hovered);
-						}}
-					/>
+					{mount}
 				</EntityContextMenu>
 				<PerfMonitor stats={view} />
+				<PlaybackBar
+					onPlaytest={onPlay}
+					onRun={onRun}
+					onStop={onStop}
+					onPause={onPause}
+					onStep={onStep}
+					onSetMode={onSetMode}
+					inputMode={inputMode}
+					paused={paused}
+					running={running}
+				/>
 				<Toolbar
 					mode={mode}
 					onModeChange={(m) => store.setMode(m)}
-					onPlay={onPlay}
+					editorEnabled={editorEnabled}
 					onUndo={() => history.undo()}
 					onRedo={() => history.redo()}
 					canUndo={canUndo}
@@ -135,7 +174,7 @@ const SceneViewPanel = ({
 					debugFlags={view.debugFlags}
 				/>
 			</div>
-			<TileLayersPanel view={view} />
+			<TileLayersPanel view={view} editorEnabled={editorEnabled} />
 		</Split>
 	);
 };

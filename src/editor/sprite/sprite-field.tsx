@@ -1,19 +1,18 @@
 import type { SpriteComponent } from "../../engine/sprite/sprite-component";
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 import { Field } from "../inspector/field";
 import { ImagePreview, useImageDrop } from "../inspector/image-input";
 import { Checkbox, NumberInput } from "../inspector/inputs";
-import { commit } from "../inspector/inspector";
 import { Preview } from "../inspector/preview";
 
 const SpriteField = ({
 	value,
-	history,
-}: Readonly<{ value: SpriteComponent; history: History }>) => {
+	binding,
+}: Readonly<{ value: SpriteComponent; binding: FieldBinding }>) => {
 	const { dragging, rootProps } = useImageDrop({
 		component: value,
 		fieldKey: "urlRef",
-		onCommit: (s) => commit(history, value.urlRef, "path", s),
+		onCommit: (s) => binding.commit(["urlRef", "path"], s),
 	});
 	return (
 		<Preview.Root>
@@ -29,16 +28,14 @@ const SpriteField = ({
 						<NumberInput
 							value={value.opacity.value}
 							onCommit={(n) =>
-								commit(history, value.opacity, "value", n)
+								binding.commit(["opacity", "value"], n)
 							}
 						/>
 					</Field.Root>
 					<Field.Root>
 						<Checkbox
 							checked={value.flipX}
-							onCheckedChange={(c) =>
-								commit(history, value, "flipX", c)
-							}
+							onCheckedChange={(c) => binding.commit(["flipX"], c)}
 						/>
 						<Field.Label>Flip X</Field.Label>
 					</Field.Root>

@@ -84,7 +84,7 @@ Player split (game layer):
 
 Registration in `src/game/scenes/platformer.ts` (producers before consumers):
 `PlayerIntentSystem` → `StateMachineSystem` → `PlayerAnimationSystem` →
-`SpriteAnimationSystem` → `PatrolSystem` → *(M3: `NavAgentSystem`)* →
+`SpriteAnimationSystem` → `PatrolSystem` → _(M3: `NavAgentSystem`)_ →
 `PlayerMovementSystem` → `LocomotionSystem` → `GroundDetectionSystem` →
 `PhysicsSystem` → rest unchanged.
 
@@ -93,22 +93,24 @@ Registration in `src/game/scenes/platformer.ts` (producers before consumers):
 - `nav-surface.ts` — **the walkability seam and one-way anchor**:
 
   ```ts
-  type SupportKind = "none" | "solid";        // later: | "one-way"
-  class NavSurface {                          // snapshots merged solid cells via occupancy.ts
-    supportAt(gx, gy): SupportKind;           // can you stand ON this cell
-    blocksAt(gx, gy): boolean;                // does it block movement THROUGH
-    bounds(): GridBounds | null;
+  type SupportKind = "none" | "solid"; // later: | "one-way"
+  class NavSurface {
+  	// snapshots merged solid cells via occupancy.ts
+  	supportAt(gx, gy): SupportKind; // can you stand ON this cell
+  	blocksAt(gx, gy): boolean; // does it block movement THROUGH
+  	bounds(): GridBounds | null;
   }
   ```
 
   Today the two coincide; all nav code queries only these. The single place
   encoding "full 32px solid square".
+
 - `nav-graph.ts` — `NavNode { id, gx, gy, clearance }` (standing cell = empty
   cell with support below; clearance = empty cells above, capped 4).
   `NavEdgeKind = "walk" | "fall" | "jump"` (later `"drop"`, `"climb"`).
   `NavEdge { to, kind, cost, requiredJumpSpeed, requiredMoveSpeed, dropHeight,
-  requiredClearance }`. `NavGraph { version, nodes, edges(id), nodeAt,
-  nearestNode(worldPos, maxDrop) }`.
+requiredClearance }`. `NavGraph { version, nodes, edges(id), nodeAt,
+nearestNode(worldPos, maxDrop) }`.
 - `nav-graph-builder.ts` — `buildNavGraph(surface, params)`. Deterministic
   against gravity 640 px/s², tile 32:
   - **walk**: adjacent standing cell, same row (1-tile step-up = jump edge;
@@ -125,7 +127,7 @@ Registration in `src/game/scenes/platformer.ts` (producers before consumers):
     penalize jumps over walking.
   - Knobs collected in `NavBuildParams` with defaults — the tuning dial.
 - `astar.ts` — binary-heap A\*; `NavCapability { jumpSpeed, moveSpeed,
-  maxDropHeight, heightCells }`; edge admitted iff capability covers its
+maxDropHeight, heightCells }`; edge admitted iff capability covers its
   requirements. Returns `NavPathStep[] { node, edge }` or null.
 - `nav-graph-component.ts` (runtime-only singleton) + `nav-graph-system.ts` —
   rebuild when the `"entityId:gridVersion|…"` signature changes, the exact

@@ -18,64 +18,58 @@ import { EasingSelect } from "./easing-select";
 import { EntityRefPicker } from "./entity-ref-picker";
 import { Adornment, Field } from "./field";
 import { NumberInput } from "./inputs";
-import { commit } from "./inspector";
 import { PercentInput } from "./percent-input";
 import { registerValueRenderer } from "./value-renderers";
 
-registerValueRenderer(Angle, ({ value, history }) => (
-	<AngleInput value={value} history={history} />
+registerValueRenderer(Angle, ({ value, binding }) => (
+	<AngleInput value={value} binding={binding} />
 ));
 
-registerValueRenderer(Duration, ({ value, history }) => (
-	<DurationInput value={value} history={history} />
+registerValueRenderer(Duration, ({ value, binding }) => (
+	<DurationInput value={value} binding={binding} />
 ));
 
-registerValueRenderer(Percent, ({ value, history }) => (
-	<PercentInput value={value} history={history} />
+registerValueRenderer(Percent, ({ value, binding }) => (
+	<PercentInput value={value} binding={binding} />
 ));
 
-registerValueRenderer(Color, ({ value, history }) => (
-	<ColorField
-		component={value}
-		fieldKey="css"
-		value={value.css}
-		history={history}
-	/>
+registerValueRenderer(Color, ({ value, binding }) => (
+	<ColorField value={value.css} binding={binding} />
 ));
 
-registerValueRenderer(EntityRef, ({ value, history }) => (
-	<EntityRefPicker value={value} history={history} />
+registerValueRenderer(EntityRef, ({ value, binding }) => (
+	<EntityRefPicker value={value} binding={binding} />
 ));
 
-registerValueRenderer(Easing, ({ value, history }) => (
-	<EasingSelect value={value} history={history} />
+registerValueRenderer(Easing, ({ value, binding }) => (
+	<EasingSelect value={value} binding={binding} />
 ));
 
-registerValueRenderer(AssetRef, ({ value, history }) => (
-	<AssetRefInput value={value} history={history} />
+registerValueRenderer(AssetRef, ({ value, binding }) => (
+	<AssetRefInput value={value} binding={binding} />
 ));
 
-registerValueRenderer(Vector2, ({ value, history }) => (
+registerValueRenderer(Vector2, ({ value, binding }) => (
 	<Field.Row>
 		<NumberInput
 			value={value.x}
-			onCommit={(n) => commit(history, value, "x", n)}
+			onCommit={(n) => binding.commit(["x"], n)}
 		>
 			<Adornment>X</Adornment>
 		</NumberInput>
 		<NumberInput
 			value={value.y}
-			onCommit={(n) => commit(history, value, "y", n)}
+			onCommit={(n) => binding.commit(["y"], n)}
 		>
 			<Adornment>Y</Adornment>
 		</NumberInput>
 	</Field.Row>
 ));
 
-registerValueRenderer(FontSettings, ({ value, history }) => (
-	<FontSettingsField value={value} history={history} />
+registerValueRenderer(FontSettings, ({ value, binding }) => (
+	<FontSettingsField value={value} binding={binding} />
 ));
 
-registerValueRenderer(SpriteComponent, ({ value, history }) => (
-	<SpriteField value={value} history={history} />
+registerValueRenderer(SpriteComponent, ({ value, binding }) => (
+	<SpriteField value={value} binding={binding} />
 ));

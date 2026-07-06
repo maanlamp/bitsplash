@@ -7,7 +7,11 @@ import {
 	serializableTypeName,
 } from "../../engine/serialization/registry";
 import type { Scene } from "../../engine/scene/scene";
-import { setField } from "../commands";
+import {
+	entityFieldBinding,
+	type FieldBinding,
+	objectFieldBinding,
+} from "../commands";
 import { componentLabel } from "../component-label";
 import type { EditorState } from "../editor-state";
 import type { History } from "../history";
@@ -25,23 +29,6 @@ import {
 } from "./inputs";
 import { getValueRenderer } from "./value-renderers";
 import type { SceneDocument } from "../scene-document";
-
-export const commit = (
-	history: History,
-	target: object,
-	key: string,
-	after: number | string | boolean | null,
-): void => {
-	const record = target as Record<
-		string,
-		number | string | boolean | null
-	>;
-	const before = record[key];
-	if (before === after) {
-		return;
-	}
-	setField(history, record, key, before!, after);
-};
 
 const isEmptyValue = (value: unknown): boolean =>
 	value === "" ||
@@ -79,17 +66,19 @@ export const FieldControl = ({
 	component,
 	fieldKey,
 	value,
-	history,
+	binding,
 }: Readonly<{
 	component: object;
 	fieldKey: string;
 	value: unknown;
-	history: History;
+	binding: FieldBinding;
 }>) => {
 	if (isValueObject(value)) {
 		const renderer = getValueRenderer(value);
 		if (renderer) {
-			return <>{renderer({ value, history, component, fieldKey })}</>;
+			return (
+				<>{renderer({ value, binding: binding.sub([fieldKey]) })}</>
+			);
 		}
 	}
 
@@ -103,7 +92,7 @@ export const FieldControl = ({
 			<EnumSelect
 				value={value as string | number}
 				options={options.options}
-				onCommit={(v) => commit(history, component, fieldKey, v)}
+				onCommit={(v) => binding.commit([fieldKey], v)}
 			/>
 		);
 	}
@@ -112,7 +101,7 @@ export const FieldControl = ({
 		return (
 			<NumberInput
 				value={value}
-				onCommit={(n) => commit(history, component, fieldKey, n)}
+				onCommit={(n) => binding.commit([fieldKey], n)}
 			/>
 		);
 	}
@@ -120,7 +109,7 @@ export const FieldControl = ({
 	return (
 		<TextInput
 			value={value as string}
-			onCommit={(s) => commit(history, component, fieldKey, s)}
+			onCommit={(s) => binding.commit([fieldKey], s)}
 		/>
 	);
 };
@@ -129,12 +118,12 @@ const GenericField = ({
 	component,
 	fieldKey,
 	value,
-	history,
+	binding,
 }: Readonly<{
 	component: object;
 	fieldKey: string;
 	value: unknown;
-	history: History;
+	binding: FieldBinding;
 }>) => {
 	const label = toSentenceCase(fieldKey);
 	if (typeof value === "boolean") {
@@ -143,7 +132,7 @@ const GenericField = ({
 				<Checkbox
 					checked={value}
 					onCheckedChange={(checked) =>
-						commit(history, component, fieldKey, checked)
+						binding.commit([fieldKey], checked)
 					}
 				/>
 				<Field.Label>{label}</Field.Label>
@@ -162,7 +151,7 @@ const GenericField = ({
 				component={component}
 				fieldKey={fieldKey}
 				value={value}
-				history={history}
+				binding={binding}
 			/>
 			{requiredMissing && <Field.Error match>Required</Field.Error>}
 		</Field.Root>
@@ -172,8 +161,12 @@ const GenericField = ({
 const RowView = ({
 	component,
 	row,
-	history,
-}: Readonly<{ component: object; row: Row; history: History }>) => {
+	binding,
+}: Readonly<{
+	component: object;
+	row: Row;
+	binding: FieldBinding;
+}>) => {
 	const record = component as Record<string, unknown>;
 	if (row.kind === "single") {
 		return (
@@ -181,7 +174,7 @@ const RowView = ({
 				component={component}
 				fieldKey={row.key}
 				value={record[row.key]}
-				history={history}
+				binding={binding}
 			/>
 		);
 	}
@@ -193,7 +186,7 @@ const RowView = ({
 					component={component}
 					fieldKey={key}
 					value={record[key]}
-					history={history}
+					binding={binding}
 				/>
 			))}
 		</Field.Row>
@@ -207,12 +200,12 @@ const ComponentFields = ({
 	component,
 	typeName,
 	keys,
-	history,
+	binding,
 }: Readonly<{
 	component: object;
 	typeName: string | undefined;
 	keys: readonly string[];
-	history: History;
+	binding: FieldBinding;
 }>) => (
 	<div className={styles.fields}>
 		{buildRows(keys, typeName).map((row) => (
@@ -220,7 +213,7 @@ const ComponentFields = ({
 				key={rowKey(row)}
 				component={component}
 				row={row}
-				history={history}
+				binding={binding}
 			/>
 		))}
 	</div>
@@ -228,8 +221,8 @@ const ComponentFields = ({
 
 const ComponentSection = ({
 	component,
-	history,
-}: Readonly<{ component: object; history: History }>) => {
+	binding,
+}: Readonly<{ component: object; binding: FieldBinding }>) => {
 	const renderer = getValueRenderer(component);
 	const typeName = serializableTypeName(component);
 	const fieldKeys = typeName
@@ -259,18 +252,13 @@ const ComponentSection = ({
 				)}
 			</div>
 			{renderer ? (
-				renderer({
-					value: component,
-					history,
-					component,
-					fieldKey: "",
-				})
+				renderer({ value: component, binding })
 			) : (
 				<ComponentFields
 					component={component}
 					typeName={typeName}
 					keys={fieldKeys}
-					history={history}
+					binding={binding}
 				/>
 			)}
 		</section>
@@ -281,14 +269,30 @@ const InspectorBody = ({
 	ecs,
 	selected,
 	history,
-}: Readonly<{ ecs: ECS; selected: EntityId; history: History }>) => (
+	runtime,
+}: Readonly<{
+	ecs: ECS;
+	selected: EntityId;
+	history: History;
+	runtime: boolean;
+}>) => (
 	<InspectorEcsProvider value={ecs}>
 		<div className={styles.inspector}>
+			{runtime && (
+				<div className={styles.runtimeBadge}>
+					Runtime entity — changes won't be saved
+				</div>
+			)}
 			{ecs.componentsOf(selected).map((component) => (
 				<ComponentSection
 					key={component.constructor.name}
 					component={component}
-					history={history}
+					binding={entityFieldBinding(
+						ecs,
+						history,
+						selected,
+						serializableTypeName(component) ?? "",
+					)}
 				/>
 			))}
 		</div>
@@ -299,7 +303,13 @@ const Inspector = ({
 	ecs,
 	store,
 	history,
-}: Readonly<{ ecs: ECS; store: EditorState; history: History }>) => {
+	runtime = false,
+}: Readonly<{
+	ecs: ECS;
+	store: EditorState;
+	history: History;
+	runtime?: boolean;
+}>) => {
 	const selected = useEditorValue(store, (s) => s.selected);
 	const [revision, force] = useReducer((n: number) => n + 1, 0);
 	useEffect(() => {
@@ -321,6 +331,7 @@ const Inspector = ({
 			ecs={ecs}
 			selected={selected}
 			history={history}
+			runtime={runtime}
 		/>
 	);
 };
@@ -354,7 +365,7 @@ export const SceneConfigInspector = ({
 						component={config}
 						typeName={serializableTypeName(config)}
 						keys={Object.keys(config)}
-						history={history}
+						binding={objectFieldBinding(history, config)}
 					/>
 				</div>
 			</section>

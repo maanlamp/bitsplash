@@ -42,6 +42,11 @@ export class SceneView {
 
 	private detachSurface: (() => void) | null = null;
 	private suspended = false;
+	private savedCameraView: Readonly<{
+		x: number;
+		y: number;
+		zoom: number;
+	}> | null = null;
 
 	constructor(
 		readonly id: string,
@@ -79,6 +84,7 @@ export class SceneView {
 			new DebugGridSystem(EditorLayer.DEBUG_GRID),
 		];
 
+		this.history.world = scene.world;
 		this.addSystems();
 		this.camera.ensure(scene.world.ecs);
 
@@ -113,6 +119,7 @@ export class SceneView {
 			return;
 		}
 		this.suspended = true;
+		this.captureCameraView();
 		this.removeSystems();
 		this.camera.setActive(false);
 	}
@@ -123,8 +130,60 @@ export class SceneView {
 		}
 		this.suspended = false;
 		this.addSystems();
-		this.camera.ensure(this.scene.world.ecs);
+		this.restoreCameraView();
 		this.camera.setActive(true);
+	}
+
+	captureCameraView(): void {
+		this.savedCameraView = this.camera.viewState();
+	}
+
+	restoreCameraView(): void {
+		const ecs = this.scene.world.ecs;
+		if (this.savedCameraView) {
+			this.camera.applyView(ecs, this.savedCameraView);
+		} else {
+			this.camera.ensure(ecs);
+		}
+		this.savedCameraView = null;
+	}
+
+	setCameraActive(active: boolean): void {
+		this.camera.setActive(active);
+	}
+
+	runUpdate(
+		dt: Milliseconds,
+		time: Time,
+		editorInput: Input,
+		gameInput: Input,
+	): void {
+		const ecs = this.scene.world.ecs;
+		const base = {
+			dt,
+			time,
+			ecs,
+			world: this.scene.world,
+			assetManager: this.services.assetManager,
+			audio: this.services.audio,
+			events: this.scene.world.events,
+		};
+		ecs.update({ ...base, input: editorInput });
+		this.scene.updateGameplay({ ...base, input: gameInput });
+	}
+
+	stepGameplayOnce(dt: Milliseconds, time: Time, input: Input): void {
+		this.scene.world.requestSingleStep();
+		this.scene.stepGameplay({
+			dt,
+			time,
+			ecs: this.scene.world.ecs,
+			world: this.scene.world,
+			input,
+			assetManager: this.services.assetManager,
+			audio: this.services.audio,
+			events: this.scene.world.events,
+		});
 	}
 
 	attach(node: HTMLElement): void {

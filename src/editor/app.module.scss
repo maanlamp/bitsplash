@@ -44,3 +44,9 @@
 	font: var(--font-body);
 	text-align: center;
 }
+
+.disabled {
+	height: 100%;
+	opacity: 0.4;
+	pointer-events: none;
+}

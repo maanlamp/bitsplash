@@ -1,4 +1,5 @@
 import { TransformComponent } from "../../engine/transform-component";
+import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,
@@ -7,6 +8,7 @@ import {
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
+import { moveEntity } from "../commands";
 import type { EditorState } from "../editor-state";
 import type { History } from "../history";
 import { pickEntityAt } from "../pick";
@@ -81,6 +83,18 @@ export class EntityEditorSystem implements UpdateSystem {
 				const shift = !!input.keyboard.keys.SHIFT;
 				transform.position.x = shift ? snap(nx) : nx;
 				transform.position.y = shift ? snap(ny) : ny;
+				const body = ecs.getComponent(
+					this.dragEntity,
+					PhysicsBodyComponent,
+				)?.body;
+				if (body) {
+					body.setTransform(
+						transform.position,
+						transform.rotation.radians,
+					);
+					body.linearVelocity = { x: 0, y: 0 };
+					body.setAngularVelocity(0);
+				}
 			}
 		} else if (released && this.dragging) {
 			this.finishDrag(ecs);
@@ -104,19 +118,9 @@ export class EntityEditorSystem implements UpdateSystem {
 			return;
 		}
 		const position = transform.position;
-		const after = { x: position.x, y: position.y };
-		if (after.x === origin.x && after.y === origin.y) {
-			return;
-		}
-		this.history.push({
-			undo: () => {
-				position.x = origin.x;
-				position.y = origin.y;
-			},
-			redo: () => {
-				position.x = after.x;
-				position.y = after.y;
-			},
+		moveEntity(ecs, this.history, id, origin, {
+			x: position.x,
+			y: position.y,
 		});
 	}
 }

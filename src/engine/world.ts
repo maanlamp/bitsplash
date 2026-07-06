@@ -23,6 +23,7 @@ export class World {
 	private accumulator = 0;
 	private lastPhysicsTime = 0;
 	private alpha = 0;
+	private pendingSingleStep = false;
 
 	get physicsTime(): number {
 		return this.lastPhysicsTime;
@@ -83,7 +84,16 @@ export class World {
 		this.ecs.reset();
 	}
 
+	requestSingleStep(): void {
+		this.pendingSingleStep = true;
+	}
+
 	step(dt: number): void {
+		if (this.pendingSingleStep) {
+			this.pendingSingleStep = false;
+			this.stepOnce();
+			return;
+		}
 		this.accumulator += Math.min(dt, MAX_FRAME);
 		let stepTime = 0;
 		while (this.accumulator >= FIXED_DT) {
@@ -98,6 +108,18 @@ export class World {
 		}
 		this.lastPhysicsTime = stepTime;
 		this.alpha = this.accumulator / FIXED_DT;
+	}
+
+	stepOnce(): void {
+		for (const [, phys] of this.ecs.query(PhysicsBodyComponent)) {
+			phys.body?.saveSnapshot();
+		}
+		const before = performance.now();
+		this.physics.step(FIXED_DT);
+		this.lastPhysicsTime = performance.now() - before;
+		this.accumulator = 0;
+		this.alpha = 1;
+		this.emitCollisions();
 	}
 
 	private emitCollisions(): void {

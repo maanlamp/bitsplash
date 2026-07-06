@@ -4,14 +4,13 @@ import {
 	fontStyleLabels,
 } from "../../engine/text/font-settings";
 import { useAssetManager } from "../asset-manager-context";
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 import { Adornment, Field } from "../inspector/field";
 import {
 	EnumSelect,
 	FileInput,
 	NumberInput,
 } from "../inspector/inputs";
-import { commit } from "../inspector/inspector";
 import { Preview } from "../inspector/preview";
 import styles from "../inspector/preview.module.scss";
 import {
@@ -26,8 +25,8 @@ const FONT_ACCEPT = ".ttf,.otf,.woff,.woff2,.font.zip";
 
 const FontSettingsField = ({
 	value,
-	history,
-}: Readonly<{ value: FontSettings; history: History }>) => {
+	binding,
+}: Readonly<{ value: FontSettings; binding: FieldBinding }>) => {
 	const assetManager = useAssetManager();
 	const families = useFamilies(
 		assetManager,
@@ -50,7 +49,7 @@ const FontSettingsField = ({
 				<FileInput
 					value={value.fontRef.path}
 					accept={FONT_ACCEPT}
-					onCommit={(s) => commit(history, value.fontRef, "path", s)}
+					onCommit={(s) => binding.commit(["fontRef", "path"], s)}
 				/>
 				{!value.fontRef.path && (
 					<Field.Error match>Required</Field.Error>
@@ -75,7 +74,7 @@ const FontSettingsField = ({
 							<Field.Label>Size</Field.Label>
 							<NumberInput
 								value={value.size}
-								onCommit={(n) => commit(history, value, "size", n)}
+								onCommit={(n) => binding.commit(["size"], n)}
 							>
 								<Adornment>px</Adornment>
 							</NumberInput>
@@ -85,7 +84,7 @@ const FontSettingsField = ({
 							<EnumSelect
 								value={value.variant}
 								options={fontStyleLabels}
-								onCommit={(v) => commit(history, value, "variant", v)}
+								onCommit={(v) => binding.commit(["variant"], v)}
 							/>
 						</Field.Root>
 					</Field.Row>
@@ -94,7 +93,7 @@ const FontSettingsField = ({
 						<EnumSelect
 							value={value.family || (font?.name ?? "")}
 							options={familyNames}
-							onCommit={(v) => commit(history, value, "family", v)}
+							onCommit={(v) => binding.commit(["family"], v)}
 						/>
 					</Field.Root>
 				</Preview.Inputs>

@@ -94,7 +94,9 @@ export class SceneManager {
 		}
 		updatable.reverse();
 		for (const scene of updatable) {
-			scene.world.ecs.update(this.updateContext(scene, frame, input));
+			const ctx = this.updateContext(scene, frame, input);
+			scene.world.ecs.update(ctx);
+			scene.updateGameplay(ctx);
 		}
 	}
 

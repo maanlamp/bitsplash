@@ -7,6 +7,11 @@
 	gap: var(--unit-12);
 }
 
+.top {
+	top: var(--unit-16);
+	bottom: auto;
+}
+
 .bar {
 	display: flex;
 	align-items: center;

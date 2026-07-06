@@ -2,7 +2,7 @@ import { Popover } from "@base-ui/react/popover";
 import classNames from "classnames";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ColorResolver } from "../../engine/render/color-resolver";
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 import surface from "../styles/surface.module.scss";
 import { Subscribable } from "../subscribable";
 import ColorPanel, { swatchBackground } from "./color-panel";
@@ -35,9 +35,8 @@ class FieldColorModel
 	private baseline: string;
 
 	constructor(
-		private readonly target: Record<string, unknown>,
+		private readonly binding: FieldBinding,
 		private readonly key: string,
-		private readonly history: History,
 		initial: string,
 	) {
 		super();
@@ -87,7 +86,10 @@ class FieldColorModel
 		alpha: number,
 	): void {
 		this._color = { l, c: chromaInGamut(l, c, h), h, alpha };
-		this.target[this.key] = oklchCss(this._color);
+		const target = this.binding.resolve([this.key]);
+		if (target) {
+			target.container[target.key] = oklchCss(this._color);
+		}
 		this.notify();
 	}
 
@@ -98,14 +100,7 @@ class FieldColorModel
 		}
 		const before = this.baseline;
 		this.baseline = after;
-		this.history.push({
-			undo: () => {
-				this.target[this.key] = before;
-			},
-			redo: () => {
-				this.target[this.key] = after;
-			},
-		});
+		this.binding.record([this.key], before, after);
 	}
 
 	// Re-seed from an external change (undo/redo, or a different value).
@@ -117,25 +112,15 @@ class FieldColorModel
 }
 
 export const ColorField = ({
-	component,
-	fieldKey,
 	value,
-	history,
+	binding,
 }: Readonly<{
-	component: object;
-	fieldKey: string;
 	value: string;
-	history: History;
+	binding: FieldBinding;
 }>) => {
 	const [open, setOpen] = useState(false);
 	const [model] = useState(
-		() =>
-			new FieldColorModel(
-				component as Record<string, unknown>,
-				fieldKey,
-				history,
-				value,
-			),
+		() => new FieldColorModel(binding, "css", value),
 	);
 	useSyncExternalStore(
 		(listener) => model.subscribe(listener),

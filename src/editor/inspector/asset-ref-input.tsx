@@ -1,15 +1,14 @@
 import type { AssetRef } from "../../engine/asset-ref";
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 import { ImageInput } from "./image-input";
 import { FileInput } from "./inputs";
-import { commit } from "./inspector";
 
 export const AssetRefInput = ({
 	value,
-	history,
-}: Readonly<{ value: AssetRef; history: History }>) => {
+	binding,
+}: Readonly<{ value: AssetRef; binding: FieldBinding }>) => {
 	const onCommit = (path: string): void =>
-		commit(history, value, "path", path);
+		binding.commit(["path"], path);
 	if (/image/i.test(value.accept)) {
 		return (
 			<ImageInput

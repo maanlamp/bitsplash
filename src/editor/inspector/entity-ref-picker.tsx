@@ -1,17 +1,16 @@
 import type { EntityId } from "../../engine/ecs";
 import type { EntityRef } from "../../engine/entity-ref";
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 import type { SelectOption } from "../../engine/serialization/serializable-value";
 import { useInspectorEcs } from "./inspector-ecs-context";
 import { EnumSelect } from "./inputs";
-import { commit } from "./inspector";
 
 const NONE = "";
 
 export const EntityRefPicker = ({
 	value,
-	history,
-}: Readonly<{ value: EntityRef; history: History }>) => {
+	binding,
+}: Readonly<{ value: EntityRef; binding: FieldBinding }>) => {
 	const ecs = useInspectorEcs();
 	const ids = ecs ? [...ecs.entities()] : [];
 	const options: SelectOption[] = [
@@ -23,12 +22,7 @@ export const EntityRefPicker = ({
 			value={value.id ?? NONE}
 			options={options}
 			onCommit={(v) =>
-				commit(
-					history,
-					value,
-					"id",
-					v === NONE ? null : (v as EntityId),
-				)
+				binding.commit(["id"], v === NONE ? null : (v as EntityId))
 			}
 		/>
 	);

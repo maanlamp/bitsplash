@@ -41,7 +41,6 @@ import Inspector, {
 } from "./inspector/inspector";
 import Loading from "./loading";
 import { MODES } from "./modes";
-import PerfMonitor from "./perf-monitor";
 import { Project } from "./project";
 import {
 	getAssetsRoot,
@@ -49,6 +48,8 @@ import {
 	listAssetsDeep,
 	saveLevel,
 } from "./project-io";
+import { RunSession } from "./run-session";
+import { exportSceneJson } from "./level-export";
 import ProjectTree from "./project-tree";
 import "./register-drops";
 import "./inspector/register-renderers";
@@ -103,7 +104,9 @@ const App = ({
 	const [game, setGame] = useState<Game | null>(null);
 	const [addTarget, setAddTarget] = useState<EntityId | null>(null);
 	const [playing, setPlaying] = useState(false);
-	const [playView, setPlayView] = useState<SceneView | null>(null);
+	const [running, setRunning] = useState(false);
+	const [runMode, setRunMode] = useState<"game" | "editor">("game");
+	const [runPaused, setRunPaused] = useState(false);
 	const [, forceStore] = useReducer((n: number) => n + 1, 0);
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
@@ -137,6 +140,7 @@ const App = ({
 	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const activeSceneIdRef = useRef<ViewId | null>(null);
 	const playSessionRef = useRef<PlaySession | null>(null);
+	const runSessionRef = useRef<RunSession | null>(null);
 	const playDetachRef = useRef<(() => void) | null>(null);
 	const playContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -160,7 +164,15 @@ const App = ({
 		sceneId: string,
 		view: SceneView,
 	): Promise<void> => {
-		await saveLevel(sceneId, await view.document.toBlob().text());
+		const session = runSessionRef.current;
+		const json =
+			session && session.view === view
+				? exportSceneJson(
+						view.scene,
+						await session.serializeAuthored(),
+					)
+				: await view.document.toBlob().text();
+		await saveLevel(sceneId, json);
 		view.document.markSaved();
 	};
 
@@ -475,7 +487,6 @@ const App = ({
 		session.view.resume();
 		playSessionRef.current = null;
 		playingRef.current = false;
-		setPlayView(null);
 		setPlaying(false);
 	}, []);
 
@@ -494,8 +505,78 @@ const App = ({
 			paused: { value: false },
 		};
 		playingRef.current = true;
-		setPlayView(view);
 		setPlaying(true);
+	};
+
+	const onRunChange = useCallback((): void => {
+		const session = runSessionRef.current;
+		setRunMode(session ? session.inputMode : "game");
+		setRunPaused(session ? session.paused : false);
+	}, []);
+
+	const focusRunView = (): void => {
+		runSessionRef.current?.view.viewport.element.focus();
+	};
+
+	const startRun = (): void => {
+		if (
+			runSessionRef.current ||
+			playingRef.current ||
+			!gameRef.current
+		) {
+			return;
+		}
+		const view = focusedSceneViewRef.current;
+		if (!view) {
+			return;
+		}
+		runSessionRef.current = new RunSession(view, onRunChange);
+		setRunning(true);
+		setRunMode("game");
+		requestAnimationFrame(focusRunView);
+	};
+
+	const stopRun = (): void => {
+		const session = runSessionRef.current;
+		if (!session) {
+			return;
+		}
+		runSessionRef.current = null;
+		void session.stop().finally(() => {
+			setRunning(false);
+			setRunMode("game");
+			setRunPaused(false);
+		});
+	};
+
+	const setRunInputMode = (mode: "game" | "editor"): void => {
+		const session = runSessionRef.current;
+		if (!session) {
+			return;
+		}
+		session.setMode(mode);
+		if (session.inputMode === "game") {
+			requestAnimationFrame(focusRunView);
+		}
+	};
+
+	const toggleRunMode = (): void => {
+		const session = runSessionRef.current;
+		if (!session) {
+			return;
+		}
+		session.toggleMode();
+		if (session.inputMode === "game") {
+			requestAnimationFrame(focusRunView);
+		}
+	};
+
+	const toggleRunPause = (): void => {
+		runSessionRef.current?.togglePause();
+	};
+
+	const stepRun = (): void => {
+		runSessionRef.current?.step();
 	};
 
 	useEffect(() => {
@@ -541,18 +622,26 @@ const App = ({
 						view.physicsTime = view.scene.world.physicsTime;
 					} else {
 						const focused = focusedSceneViewRef.current;
+						const runSession = runSessionRef.current;
 						for (const view of sceneViewsRef.current.values()) {
-							if (view === focused) {
-								view.update(dt, now);
-							} else {
-								view.rollInput();
-							}
 							const viewBefore = performance.now();
-							view.render(now);
+							if (runSession && view === runSession.view) {
+								runSession.frame(dt, now);
+								view.physicsTime = view.scene.world.physicsTime;
+							} else {
+								if (view === focused && !runSession) {
+									view.update(dt, now);
+								} else {
+									view.rollInput();
+								}
+								view.render(now);
+							}
 							view.frameTime = performance.now() - viewBefore;
 							view.fps = fps;
 						}
-						focused?.scene.world.events.clear();
+						if (!runSession) {
+							focused?.scene.world.events.clear();
+						}
 					}
 					g.events.clear();
 				}
@@ -678,6 +767,35 @@ const App = ({
 		}
 	}, [focusedSceneView, mode]);
 
+	const editorEnabled = !running || runMode === "editor";
+	const editorHotkeysEnabled = !playing && editorEnabled;
+
+	useHotkeys(
+		"tab",
+		(event) => {
+			event.preventDefault();
+			toggleRunMode();
+		},
+		{ enabled: running && !playing, preventDefault: true },
+	);
+	useHotkeys(
+		"period",
+		() => {
+			stepRun();
+		},
+		{ enabled: running && !playing },
+	);
+	useHotkeys(
+		"r",
+		() => {
+			if (assetFocused()) {
+				return;
+			}
+			stopRun();
+		},
+		{ enabled: running && !playing },
+	);
+
 	useHotkeys(
 		MODES.map((m) => m.shortcut).join(","),
 		(_event, handler) => {
@@ -690,7 +808,7 @@ const App = ({
 				focusedSceneViewRef.current?.store.setMode(target.id);
 			}
 		},
-		{ enabled: !playing },
+		{ enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"p",
@@ -698,9 +816,23 @@ const App = ({
 			if (assetFocused()) {
 				return;
 			}
-			play();
+			if (running) {
+				toggleRunPause();
+			} else {
+				startRun();
+			}
 		},
 		{ enabled: !playing },
+	);
+	useHotkeys(
+		"shift+p",
+		() => {
+			if (assetFocused()) {
+				return;
+			}
+			play();
+		},
+		{ enabled: !playing && !running },
 	);
 	useHotkeys(
 		"escape",
@@ -712,7 +844,7 @@ const App = ({
 			}
 			focusedSceneViewRef.current?.store.setSelected(null);
 		},
-		{ enabled: !playing },
+		{ enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"delete,backspace",
@@ -725,7 +857,7 @@ const App = ({
 			deleteEntity(view.scene.world, view.history, selected);
 			view.store.setSelected(null);
 		},
-		{ enabled: !playing },
+		{ enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"mod+d",
@@ -747,7 +879,7 @@ const App = ({
 				}
 			}
 		},
-		{ preventDefault: true, enabled: !playing },
+		{ preventDefault: true, enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"mod+w",
@@ -758,7 +890,7 @@ const App = ({
 				closeView(id);
 			}
 		},
-		{ preventDefault: true, enabled: !playing },
+		{ preventDefault: true, enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"mod+shift+t",
@@ -766,7 +898,7 @@ const App = ({
 			event.preventDefault();
 			reopenClosed();
 		},
-		{ preventDefault: true, enabled: !playing },
+		{ preventDefault: true, enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"mod+s",
@@ -786,7 +918,7 @@ const App = ({
 		},
 		{
 			preventDefault: true,
-			enabled: !playing,
+			enabled: editorHotkeysEnabled,
 			enableOnFormTags: true,
 		},
 	);
@@ -807,7 +939,7 @@ const App = ({
 		},
 		{
 			preventDefault: true,
-			enabled: !playing,
+			enabled: editorHotkeysEnabled,
 			enableOnFormTags: true,
 		},
 	);
@@ -828,7 +960,7 @@ const App = ({
 		},
 		{
 			preventDefault: true,
-			enabled: !playing,
+			enabled: editorHotkeysEnabled,
 			enableOnFormTags: true,
 		},
 	);
@@ -865,20 +997,30 @@ const App = ({
 	const renderInspector = () => {
 		if (focusedScene && focusedSceneView && inspectingWorld) {
 			return (
-				<SceneConfigInspector
-					scene={focusedScene}
-					doc={focusedSceneView.document}
-					history={focusedSceneView.history}
-				/>
+				<div className={editorEnabled ? undefined : styles.disabled}>
+					<SceneConfigInspector
+						scene={focusedScene}
+						doc={focusedSceneView.document}
+						history={focusedSceneView.history}
+					/>
+				</div>
 			);
 		}
 		if (focusedScene && focusedSceneView && selectedEntity) {
+			const runtime = !!(
+				running &&
+				runSessionRef.current?.view === focusedSceneView &&
+				runSessionRef.current.isRuntimeEntity(selectedEntity)
+			);
 			return (
-				<Inspector
-					ecs={focusedScene.ecs}
-					store={focusedSceneView.store}
-					history={focusedSceneView.history}
-				/>
+				<div className={editorEnabled ? undefined : styles.disabled}>
+					<Inspector
+						ecs={focusedScene.ecs}
+						store={focusedSceneView.store}
+						history={focusedSceneView.history}
+						runtime={runtime}
+					/>
+				</div>
 			);
 		}
 		return <div className={styles.placeholder}>Nothing selected</div>;
@@ -926,6 +1068,15 @@ const App = ({
 			<SceneViewPanel
 				view={view}
 				onPlay={play}
+				onRun={startRun}
+				onStop={stopRun}
+				onPause={toggleRunPause}
+				onStep={stepRun}
+				onSetMode={setRunInputMode}
+				inputMode={runMode}
+				paused={runPaused}
+				running={running && runSessionRef.current?.view === view}
+				editorEnabled={editorEnabled}
 				requestAddComponent={(entity) => setAddTarget(entity)}
 				undoShortcut={UNDO_SHORTCUT}
 				redoShortcut={REDO_SHORTCUT}
@@ -979,9 +1130,7 @@ const App = ({
 					{isDesktop() && <TitleBar />}
 					<div className={styles.appBody}>
 						{playing ? (
-							<div className={styles.playSurface} ref={attachPlay}>
-								{playView && <PerfMonitor stats={playView} />}
-							</div>
+							<div className={styles.playSurface} ref={attachPlay} />
 						) : (
 							<Workspace
 								workspace={workspace}

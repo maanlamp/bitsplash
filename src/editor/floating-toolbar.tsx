@@ -1,12 +1,14 @@
+import classNames from "classnames";
 import type { ReactNode } from "react";
 import styles from "./floating-toolbar.module.scss";
 import { TooltipProvider } from "./tooltip";
 
 const FloatingToolbar = ({
 	children,
-}: Readonly<{ children: ReactNode }>) => (
+	align = "bottom",
+}: Readonly<{ children: ReactNode; align?: "top" | "bottom" }>) => (
 	<div
-		className={styles.dock}
+		className={classNames(styles.dock, align === "top" && styles.top)}
 		onMouseDown={(e) => e.stopPropagation()}
 		onContextMenu={(e) => {
 			e.preventDefault();

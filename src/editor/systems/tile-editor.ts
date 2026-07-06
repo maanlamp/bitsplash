@@ -68,7 +68,10 @@ export class TileEditorSystem implements UpdateSystem {
 		}
 		const { layerId, added, removed } = pending;
 		const gridOf = (): TileGrid | undefined =>
-			ecs.getComponent(layerId, TileLayerComponent)?.grid;
+			(this.history.world?.ecs ?? ecs).getComponent(
+				layerId,
+				TileLayerComponent,
+			)?.grid;
 		this.history.push({
 			undo: () => {
 				const grid = gridOf();

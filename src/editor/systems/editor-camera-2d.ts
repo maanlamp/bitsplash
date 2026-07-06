@@ -41,6 +41,30 @@ export class EditorCamera2DSystem implements UpdateSystem {
 		this.ensureCamera(ecs);
 	}
 
+	viewState(): Readonly<{
+		x: number;
+		y: number;
+		zoom: number;
+	}> | null {
+		const camera = this.cameraComponent?.camera;
+		return camera
+			? {
+					x: camera.position.x,
+					y: camera.position.y,
+					zoom: camera.zoom,
+				}
+			: null;
+	}
+
+	applyView(
+		ecs: ECS,
+		view: Readonly<{ x: number; y: number; zoom: number }>,
+	): void {
+		const component = this.ensureCamera(ecs);
+		component.camera.position.set(view.x, view.y);
+		component.camera.zoom = view.zoom;
+	}
+
 	private ensureCamera(ecs: ECS): Camera2DComponent {
 		if (this.cameraId) {
 			const existing = ecs.getComponent(

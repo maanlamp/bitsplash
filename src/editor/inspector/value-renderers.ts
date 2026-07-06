@@ -1,10 +1,8 @@
-import type { History } from "../history";
+import type { FieldBinding } from "../commands";
 
 type ValueRendererProps<T> = {
 	value: T;
-	history: History;
-	component: object;
-	fieldKey: string;
+	binding: FieldBinding;
 };
 
 type ValueRenderer<T> = (

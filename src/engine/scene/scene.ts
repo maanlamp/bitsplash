@@ -4,7 +4,7 @@ import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
 import type { GlobalServices } from "../services";
-import type { UpdateSystem } from "../system";
+import type { UpdateContext, UpdateSystem } from "../system";
 import {
 	serializable,
 	serialize,
@@ -94,6 +94,7 @@ export class Scene {
 	private readonly migrate?: (file: SceneFile) => void;
 
 	private simulating = false;
+	private paused = false;
 	private snapshot: SerializedWorld | null = null;
 
 	constructor(params: SceneParams) {
@@ -123,6 +124,18 @@ export class Scene {
 		return this.simulating;
 	}
 
+	get snapshotData(): SerializedWorld | null {
+		return this.snapshot;
+	}
+
+	get isPaused(): boolean {
+		return this.paused;
+	}
+
+	setPaused(paused: boolean): void {
+		this.paused = paused;
+	}
+
 	defaultEntity(position: Vector2): ReadonlyArray<object> {
 		return this.makeDefaultEntity?.(position) ?? [];
 	}
@@ -132,20 +145,29 @@ export class Scene {
 			return;
 		}
 		this.simulating = enabled;
+		this.paused = false;
 		if (enabled) {
 			this.snapshot = serializeWorld(this.world.ecs);
 			for (const system of this.gameplaySystems) {
-				this.world.ecs.addUpdateSystem(system);
+				(system as { resetRuntime?: () => void }).resetRuntime?.();
 			}
 			this.spawnRuntime?.();
-		} else {
-			for (const system of this.gameplaySystems) {
-				this.world.ecs.removeUpdateSystem(system);
-			}
-			if (this.snapshot) {
-				this.restore(this.snapshot);
-				this.snapshot = null;
-			}
+		} else if (this.snapshot) {
+			this.restore(this.snapshot);
+			this.snapshot = null;
+		}
+	}
+
+	updateGameplay(ctx: UpdateContext): void {
+		if (!this.simulating || this.paused) {
+			return;
+		}
+		this.stepGameplay(ctx);
+	}
+
+	stepGameplay(ctx: UpdateContext): void {
+		for (const system of this.gameplaySystems) {
+			system.update(ctx);
 		}
 	}
 

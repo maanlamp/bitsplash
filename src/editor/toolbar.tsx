@@ -3,7 +3,6 @@ import { ToggleGroup } from "@base-ui/react/toggle-group";
 import {
 	ArrowUUpLeftIcon,
 	ArrowUUpRightIcon,
-	PlayIcon,
 } from "@phosphor-icons/react";
 import Button from "./button";
 import type { DebugFlags } from "./debug-flags";
@@ -17,7 +16,7 @@ import Tooltip from "./tooltip";
 type ToolbarProps = Readonly<{
 	mode: EditorMode;
 	onModeChange: (mode: EditorMode) => void;
-	onPlay: () => void;
+	editorEnabled: boolean;
 	onUndo: () => void;
 	onRedo: () => void;
 	canUndo: boolean;
@@ -30,7 +29,7 @@ type ToolbarProps = Readonly<{
 const Toolbar = ({
 	mode,
 	onModeChange,
-	onPlay,
+	editorEnabled,
 	onUndo,
 	onRedo,
 	canUndo,
@@ -41,21 +40,21 @@ const Toolbar = ({
 }: ToolbarProps) => (
 	<FloatingToolbar>
 		<Tooltip label="Undo" shortcut={undoShortcut}>
-			<Button variant="icon" onClick={onUndo} disabled={!canUndo}>
+			<Button
+				variant="icon"
+				onClick={onUndo}
+				disabled={!canUndo || !editorEnabled}
+			>
 				<ArrowUUpLeftIcon />
 			</Button>
 		</Tooltip>
 		<Tooltip label="Redo" shortcut={redoShortcut}>
-			<Button variant="icon" onClick={onRedo} disabled={!canRedo}>
+			<Button
+				variant="icon"
+				onClick={onRedo}
+				disabled={!canRedo || !editorEnabled}
+			>
 				<ArrowUUpRightIcon />
-			</Button>
-		</Tooltip>
-
-		<div className={controls.toolbarSeparator} />
-
-		<Tooltip label="Play" shortcut="P">
-			<Button variant="icon" onClick={onPlay}>
-				<PlayIcon />
 			</Button>
 		</Tooltip>
 
@@ -63,6 +62,7 @@ const Toolbar = ({
 
 		<ToggleGroup
 			value={[mode]}
+			disabled={!editorEnabled}
 			onValueChange={(value) => {
 				if (value.length > 0) {
 					onModeChange(value[0]!);
