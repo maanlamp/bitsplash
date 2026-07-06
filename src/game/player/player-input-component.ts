@@ -1,3 +1,5 @@
+import { Duration } from "../../engine/duration";
+import { Percent } from "../../engine/percent";
 import {
 	serializable,
 	serialize,
@@ -7,20 +9,24 @@ import { TILE_SIZE } from "../../engine/tilemap/tile";
 @serializable("PlayerInput")
 export class PlayerInputComponent {
 	@serialize() maxSpeed: number;
-	@serialize() acceleration: number;
-	@serialize() deceleration: number;
-	@serialize() airControl: number;
-	@serialize() maxJumpSpeed: number;
-	@serialize() minJumpSpeed: number;
-	@serialize() airJumpSpeed: number;
+	@serialize({ group: "accel" }) acceleration: number;
+	@serialize({ group: "accel" }) deceleration: number;
+	@serialize() airControl: Percent;
+	@serialize({ group: "jump" }) maxJumpSpeed: number;
+	@serialize({ group: "jump" }) minJumpSpeed: number;
+	@serialize({ group: "jump" }) airJumpSpeed: number;
 	@serialize() maxJumps: number;
 	@serialize() wallSlideSpeed: number = 2 * TILE_SIZE;
-	@serialize() canWallSlide: boolean = false;
-	@serialize() canWallJump: boolean = false;
-	@serialize() canDash: boolean = false;
-	@serialize() dashSpeed: number = 9 * TILE_SIZE;
-	@serialize() dashDuration: number = 150;
-	@serialize() dashCooldown: number = 500;
+	@serialize({ group: "abilities" }) canWallSlide: boolean = false;
+	@serialize({ group: "abilities" }) canWallJump: boolean = false;
+	@serialize({ group: "abilities" }) canDash: boolean = false;
+	@serialize({ group: "dash" }) dashSpeed: number = 9 * TILE_SIZE;
+	@serialize({ group: "dash" }) dashDuration: Duration = new Duration(
+		0.15,
+	);
+	@serialize({ group: "dash" }) dashCooldown: Duration = new Duration(
+		0.5,
+	);
 
 	moveDir: number = 0;
 	scriptedMoveDir: number | null = null;
@@ -52,7 +58,7 @@ export class PlayerInputComponent {
 		this.maxSpeed = maxSpeed;
 		this.acceleration = acceleration;
 		this.deceleration = deceleration;
-		this.airControl = airControl;
+		this.airControl = new Percent(airControl);
 		this.maxJumpSpeed = maxJumpSpeed;
 		this.minJumpSpeed = minJumpSpeed;
 		this.airJumpSpeed = airJumpSpeed;

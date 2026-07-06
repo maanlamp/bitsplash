@@ -32,10 +32,14 @@ export const spawnPrefab = (
 	if (!definition) {
 		return null;
 	}
-	const entity = deserializeEntity(world, {
-		id: id ?? crypto.randomUUID(),
-		components: definition.components,
-	});
+	const entity = deserializeEntity(
+		world,
+		{
+			id: id ?? crypto.randomUUID(),
+			components: definition.components,
+		},
+		`prefab "${name}"`,
+	);
 	const transform = world.ecs.getComponent(
 		entity,
 		TransformComponent,

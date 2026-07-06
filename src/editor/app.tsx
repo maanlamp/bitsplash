@@ -36,7 +36,9 @@ import {
 } from "./entity-context-menu";
 import FontPreview from "./font/font-preview";
 import { History } from "./history";
-import Inspector, { SceneConfigInspector } from "./inspector";
+import Inspector, {
+	SceneConfigInspector,
+} from "./inspector/inspector";
 import Loading from "./loading";
 import { MODES } from "./modes";
 import PerfMonitor from "./perf-monitor";
@@ -49,7 +51,7 @@ import {
 } from "./project-io";
 import ProjectTree from "./project-tree";
 import "./register-drops";
-import "./register-renderers";
+import "./inspector/register-renderers";
 import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";

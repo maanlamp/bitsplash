@@ -1,4 +1,8 @@
-import type { Milliseconds, Seconds } from "../duration";
+import {
+	Duration,
+	type Milliseconds,
+	type Seconds,
+} from "../duration";
 import {
 	serializable,
 	serialize,
@@ -15,23 +19,21 @@ export class FadeTimeline implements ValueType {
 		return true;
 	}
 
-	@serialize() fadeIn: Seconds;
-	@serialize() hold: Seconds;
-	@serialize() fadeOut: Seconds;
+	@serialize() fadeIn: Duration;
+	@serialize() hold: Duration;
+	@serialize() fadeOut: Duration;
 	elapsed = 0 as Seconds;
 
-	constructor(
-		fadeIn = 0.5 as Seconds,
-		hold = 1.5 as Seconds,
-		fadeOut = 0.5 as Seconds,
-	) {
-		this.fadeIn = fadeIn;
-		this.hold = hold;
-		this.fadeOut = fadeOut;
+	constructor(fadeIn = 0.5, hold = 1.5, fadeOut = 0.5) {
+		this.fadeIn = new Duration(fadeIn);
+		this.hold = new Duration(hold);
+		this.fadeOut = new Duration(fadeOut);
 	}
 
 	total(): Seconds {
-		return (this.fadeIn + this.hold + this.fadeOut) as Seconds;
+		return (this.fadeIn.seconds +
+			this.hold.seconds +
+			this.fadeOut.seconds) as Seconds;
 	}
 
 	done(): boolean {
@@ -46,7 +48,10 @@ export class FadeTimeline implements ValueType {
 	}
 
 	alpha(): number {
-		const { elapsed, fadeIn, hold, fadeOut } = this;
+		const fadeIn = this.fadeIn.seconds;
+		const hold = this.hold.seconds;
+		const fadeOut = this.fadeOut.seconds;
+		const elapsed = this.elapsed;
 		const ramp = ease("linear");
 		if (elapsed < fadeIn) {
 			return fadeIn > 0 ? ramp(elapsed / fadeIn) : 1;

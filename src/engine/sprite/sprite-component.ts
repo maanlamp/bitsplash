@@ -1,4 +1,6 @@
+import { AssetRef } from "../asset-ref";
 import unknownSrc from "../assets/unknown.png";
+import { Percent } from "../percent";
 import {
 	serializable,
 	serialize,
@@ -27,9 +29,8 @@ export type SpriteSource = Readonly<{
 
 @serializable("Sprite")
 export class SpriteComponent {
-	@serialize({ file: "image/*" })
-	url: string;
-	@serialize() opacity: number;
+	@serialize() urlRef: AssetRef = new AssetRef("image/*");
+	@serialize() opacity: Percent;
 	@serialize() flipX: boolean;
 	@serialize() contentX: number | undefined = undefined;
 	@serialize() contentY: number | undefined = undefined;
@@ -50,8 +51,8 @@ export class SpriteComponent {
 		opacity: number = 1,
 		flipX: boolean = false,
 	) {
-		this.url = url;
-		this.opacity = opacity;
+		this.urlRef = new AssetRef("image/*", url);
+		this.opacity = new Percent(opacity);
 		this.flipX = flipX;
 	}
 }
@@ -75,7 +76,7 @@ export const spriteSource = (
 		sprite.contentHeight !== undefined
 	) {
 		return {
-			url: sprite.url,
+			url: sprite.urlRef.path,
 			x: sprite.contentX ?? 0,
 			y: sprite.contentY ?? 0,
 			width: sprite.contentWidth,
@@ -83,7 +84,7 @@ export const spriteSource = (
 		};
 	}
 	return {
-		url: sprite.url,
+		url: sprite.urlRef.path,
 		x: 0,
 		y: 0,
 		width: image.width,
@@ -93,5 +94,5 @@ export const spriteSource = (
 
 export const spriteImageUrl = (sprite: SpriteComponent): string => {
 	const clip = sprite.clips[sprite.current];
-	return clip ? clip.url : sprite.url;
+	return clip ? clip.url : sprite.urlRef.path;
 };

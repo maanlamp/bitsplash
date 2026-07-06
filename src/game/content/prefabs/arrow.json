@@ -22,25 +22,46 @@
 			"halfHeight": 2,
 			"density": 1,
 			"friction": 0,
-			"restitution": 0,
+			"restitution": {
+				"$type": "Percent",
+				"value": 0
+			},
 			"fixedRotation": true,
 			"linearDamping": 0,
 			"collisionLayer": "projectile"
 		},
 		"Sprite": {
-			"url": "/src/game/content/assets/arrow.png",
-			"opacity": 1,
-			"flipX": false
+			"opacity": {
+				"$type": "Percent",
+				"value": 1
+			},
+			"flipX": false,
+			"urlRef": {
+				"$type": "AssetRef",
+				"path": "/src/game/content/assets/arrow.png"
+			}
 		},
 		"Arrow": {
 			"base": 25,
-			"critChance": 0,
+			"critChance": {
+				"$type": "Percent",
+				"value": 0
+			},
 			"critMultiplier": 2,
 			"flavourSet": "arrow",
 			"speed": 360,
-			"fade": 1,
-			"stuckLifetime": 4,
-			"aimAngle": 0,
+			"fade": {
+				"$type": "Duration",
+				"seconds": 1
+			},
+			"stuckLifetime": {
+				"$type": "Duration",
+				"seconds": 4
+			},
+			"aimAngle": {
+				"$type": "Angle",
+				"radians": 0
+			},
 			"launched": false,
 			"stuck": false,
 			"stuckRemaining": 0,

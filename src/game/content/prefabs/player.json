@@ -22,7 +22,10 @@
 			"halfHeight": 16,
 			"density": 1,
 			"friction": 0,
-			"restitution": 0,
+			"restitution": {
+				"$type": "Percent",
+				"value": 0
+			},
 			"fixedRotation": true,
 			"linearDamping": 0,
 			"collisionLayer": "player",
@@ -32,7 +35,10 @@
 			"maxSpeed": 96,
 			"acceleration": 2560,
 			"deceleration": 3200,
-			"airControl": 0.3,
+			"airControl": {
+				"$type": "Percent",
+				"value": 0.3
+			},
 			"maxJumpSpeed": 320,
 			"minJumpSpeed": 160,
 			"airJumpSpeed": 224,
@@ -41,8 +47,14 @@
 			"canWallSlide": false,
 			"canWallJump": false,
 			"dashSpeed": 288,
-			"dashDuration": 150,
-			"dashCooldown": 500
+			"dashDuration": {
+				"$type": "Duration",
+				"seconds": 0.15
+			},
+			"dashCooldown": {
+				"$type": "Duration",
+				"seconds": 0.5
+			}
 		},
 		"Health": {
 			"hp": 100,
@@ -50,7 +62,6 @@
 		},
 		"HealthBar": {},
 		"Sprite": {
-			"url": "/src/game/content/assets/run.png",
 			"clips": {
 				"idle": {
 					"url": "/src/game/content/assets/idle.png",
@@ -148,14 +159,24 @@
 					"contentWidth": 30,
 					"contentHeight": 31
 				}
+			},
+			"urlRef": {
+				"$type": "AssetRef",
+				"path": "/src/game/content/assets/run.png"
 			}
 		},
 		"StateMachine": {
 			"defId": "player-anim"
 		},
 		"Respawn": {
-			"delay": 6,
-			"spawnPoint": null
+			"delay": {
+				"$type": "Duration",
+				"seconds": 6
+			},
+			"spawnPoint": {
+				"$type": "EntityRef",
+				"id": null
+			}
 		}
 	}
 }

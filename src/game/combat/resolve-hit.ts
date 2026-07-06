@@ -1,6 +1,8 @@
+import type { Percent } from "../../engine/percent";
+
 export type DamageStats = {
 	base: number;
-	critChance: number;
+	critChance: Percent;
 	critMultiplier: number;
 };
 
@@ -23,7 +25,7 @@ export const resolveHit = (
 ): { amount: number; crit: boolean } => {
 	const chance = Math.min(
 		1,
-		Math.max(0, stats.critChance + mods.critChanceBonus),
+		Math.max(0, stats.critChance.value + mods.critChanceBonus),
 	);
 	const crit = rng() < chance;
 	const multiplier = stats.critMultiplier + mods.critMultiplierBonus;

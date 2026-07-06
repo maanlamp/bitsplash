@@ -40,15 +40,17 @@ export class HitsplatRenderSystem implements RenderSystem {
 		)) {
 			const alpha = fadeAlpha(
 				hitsplat.lifetime - hitsplat.age,
-				hitsplat.lifetime * style.fadePortion,
+				hitsplat.lifetime * style.fadePortion.value,
 			);
 			const scale = this.popScale(hitsplat, style);
 			const font = hitsplat.crit ? critFont : normalFont;
-			const fill = hitsplat.incoming
-				? style.incomingColor
-				: hitsplat.crit
-					? style.critColor
-					: style.color;
+			const fill = (
+				hitsplat.incoming
+					? style.incomingColor
+					: hitsplat.crit
+						? style.critColor
+						: style.color
+			).rgba;
 
 			this.draw(
 				renderer,
@@ -60,11 +62,11 @@ export class HitsplatRenderSystem implements RenderSystem {
 				scale,
 				0,
 				withAlpha(fill, alpha),
-				withAlpha(style.outlineColor, alpha),
+				withAlpha(style.outlineColor.rgba, alpha),
 			);
 
 			if (hitsplat.crit && hitsplat.flavour) {
-				const tilt = this.tilt(id) * style.flavourTilt;
+				const tilt = this.tilt(id) * style.flavourTilt.radians;
 				const offset = (style.critFont.size + 2) * scale;
 				this.draw(
 					renderer,
@@ -76,7 +78,7 @@ export class HitsplatRenderSystem implements RenderSystem {
 					scale,
 					tilt,
 					withAlpha(fill, alpha),
-					withAlpha(style.outlineColor, alpha),
+					withAlpha(style.outlineColor.rgba, alpha),
 				);
 			}
 		}
@@ -107,10 +109,10 @@ export class HitsplatRenderSystem implements RenderSystem {
 		hitsplat: HitsplatComponent,
 		style: HitsplatStyleComponent,
 	): number {
-		if (!hitsplat.crit || hitsplat.age >= style.popDuration) {
+		if (!hitsplat.crit || hitsplat.age >= style.popDuration.seconds) {
 			return 1;
 		}
-		const t = hitsplat.age / style.popDuration;
+		const t = hitsplat.age / style.popDuration.seconds;
 		return style.popScale + (1 - style.popScale) * t;
 	}
 

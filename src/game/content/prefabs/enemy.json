@@ -22,16 +22,25 @@
 			"halfHeight": 16,
 			"density": 1,
 			"friction": 0.2,
-			"restitution": 0,
+			"restitution": {
+				"$type": "Percent",
+				"value": 0
+			},
 			"fixedRotation": true,
 			"linearDamping": 0,
 			"collisionLayer": "enemy",
 			"sensor": false
 		},
 		"Sprite": {
-			"url": "/src/engine/assets/unknown.png",
-			"opacity": 1,
-			"flipX": false
+			"opacity": {
+				"$type": "Percent",
+				"value": 1
+			},
+			"flipX": false,
+			"urlRef": {
+				"$type": "AssetRef",
+				"path": "/src/engine/assets/unknown.png"
+			}
 		},
 		"Health": {
 			"hp": 100,
@@ -39,12 +48,21 @@
 		},
 		"HealthBar": {},
 		"Respawn": {
-			"delay": 3,
-			"spawnPoint": null
+			"delay": {
+				"$type": "Duration",
+				"seconds": 3
+			},
+			"spawnPoint": {
+				"$type": "EntityRef",
+				"id": null
+			}
 		},
 		"Patrol": {
 			"speed": 48,
-			"interval": 1.5
+			"interval": {
+				"$type": "Duration",
+				"seconds": 1.5
+			}
 		},
 		"EnemyTag": {},
 		"PatrolTag": {},

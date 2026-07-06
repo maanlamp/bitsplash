@@ -3,6 +3,7 @@ import {
 	serializableType,
 	serializableTypeName,
 } from "./registry";
+import { VALUE_TYPE } from "./serializable-value";
 
 export const walkFields = (
 	type: SerializableType,
@@ -46,13 +47,69 @@ export const encodeValue = (value: unknown): unknown => {
 	return out;
 };
 
+const isValueType = (value: unknown): value is object =>
+	value !== null && typeof value === "object" && VALUE_TYPE in value;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	value !== null &&
+	typeof value === "object" &&
+	!Array.isArray(value);
+
+const describe = (value: unknown): string =>
+	value === null
+		? "null"
+		: Array.isArray(value)
+			? "an array"
+			: typeof value === "object"
+				? JSON.stringify(value)
+				: `${typeof value} ${JSON.stringify(value)}`;
+
+// Fill an existing value-type instance in place from its serialized form.
+// The datum must be an object whose $type matches the instance's registered
+// type; anything else is a hard failure naming the offending path. Nested
+// value-type fields recurse (fill in place) so non-serialized schema state
+// on the default instance survives loading.
+const fillValueType = (
+	target: object,
+	datum: unknown,
+	path: string,
+): void => {
+	const typeName = serializableTypeName(target)!;
+	if (!isRecord(datum) || datum.$type !== typeName) {
+		throw new Error(
+			`${path}: expected a "${typeName}" value ({ "$type": "${typeName}", … }) but got ${describe(datum)}`,
+		);
+	}
+	const type = serializableType(typeName)!;
+	const record = target as Record<string, unknown>;
+	for (const field of type.fields.keys()) {
+		if (!(field in datum)) {
+			continue;
+		}
+		const fieldPath = `${path}.${field}`;
+		const current = record[field];
+		if (isValueType(current)) {
+			fillValueType(current, datum[field], fieldPath);
+		} else {
+			record[field] = decodeValue(datum[field]);
+		}
+	}
+};
+
 export const reconstruct = (
 	type: SerializableType,
 	data: Record<string, unknown>,
+	path: string = type.name,
 ): object => {
 	const instance = new type.ctor() as Record<string, unknown>;
 	for (const field of type.fields.keys()) {
-		if (field in data) {
+		if (!(field in data)) {
+			continue;
+		}
+		const current = instance[field];
+		if (isValueType(current)) {
+			fillValueType(current, data[field], `${path}.${field}`);
+		} else {
 			instance[field] = decodeValue(data[field]);
 		}
 	}

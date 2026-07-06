@@ -9,7 +9,14 @@ export const exportSceneJson = (
 		version: 1,
 		kind: scene.kind,
 		name: scene.name,
-		config: scene.config,
+		config: {
+			gravity: {
+				x: scene.config.gravity.x,
+				y: scene.config.gravity.y,
+			},
+			uiScale: scene.config.uiScale,
+			clearColor: scene.config.clearColor.css,
+		},
 		entities,
 	};
 	return JSON.stringify(file, null, "\t");

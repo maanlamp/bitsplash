@@ -30,7 +30,7 @@ export class SpriteRenderSystem implements RenderSystem {
 				height: source.height * transform.scale.y,
 				rotation: transform.rotation.radians,
 				flipX: sprite.flipX,
-				alpha: sprite.opacity,
+				alpha: sprite.opacity.value,
 				srcX: source.x,
 				srcY: source.y,
 				srcW: source.width,

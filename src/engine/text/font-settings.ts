@@ -1,3 +1,4 @@
+import { AssetRef } from "../asset-ref";
 import {
 	serializable,
 	serialize,
@@ -16,17 +17,17 @@ export const fontStyleLabels = [
 
 export type FontStyleLabel = (typeof fontStyleLabels)[number];
 
+export const FONT_ACCEPT = ".ttf,.otf,.woff,.woff2,.font.zip";
+
 @serializable("FontSettings")
 export class FontSettings implements ValueType {
 	get [VALUE_TYPE](): true {
 		return true;
 	}
 
-	@serialize({
-		required: true,
-		file: ".ttf,.otf,.woff,.woff2,.font.zip",
-	})
-	font: string;
+	@serialize({ required: true }) fontRef: AssetRef = new AssetRef(
+		FONT_ACCEPT,
+	);
 	@serialize() family: string;
 	@serialize() size: number;
 	@serialize({ options: fontStyleLabels }) variant: FontStyleLabel;
@@ -37,7 +38,7 @@ export class FontSettings implements ValueType {
 		variant: FontStyleLabel = "Regular",
 		family: string = "",
 	) {
-		this.font = font;
+		this.fontRef = new AssetRef(FONT_ACCEPT, font);
 		this.size = size;
 		this.variant = variant;
 		this.family = family;

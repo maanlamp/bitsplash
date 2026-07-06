@@ -1,4 +1,7 @@
-import type { Seconds } from "../../engine/duration";
+import Angle from "../../engine/angle";
+import { Color } from "../../engine/color";
+import { Duration } from "../../engine/duration";
+import { Percent } from "../../engine/percent";
 import {
 	serializable,
 	serialize,
@@ -11,23 +14,23 @@ import kapelUrl from "../content/assets/kapel.font.zip?url";
 export class HitsplatStyleComponent {
 	@serialize() font: FontSettings;
 	@serialize() critFont: FontSettings;
-	@serialize({ color: true }) color: string;
-	@serialize({ color: true }) outlineColor: string;
-	@serialize({ color: true }) critColor: string;
-	@serialize({ color: true }) incomingColor: string;
+	@serialize({ group: "fill" }) color: Color;
+	@serialize({ group: "fill" }) outlineColor: Color;
+	@serialize({ group: "critColors" }) critColor: Color;
+	@serialize({ group: "critColors" }) incomingColor: Color;
 	@serialize() launchSpeedMin: number;
 	@serialize() launchSpeedMax: number;
-	@serialize() launchAngleMin: number;
-	@serialize() launchAngleMax: number;
+	@serialize() launchAngleMin: Angle;
+	@serialize() launchAngleMax: Angle;
 	@serialize() gravity: number;
-	@serialize() lifetime: Seconds;
-	@serialize() critLifetimeBonus: Seconds;
-	@serialize() fadePortion: number;
-	@serialize() popScale: number;
-	@serialize() popDuration: Seconds;
-	@serialize() flavourTilt: number;
-	@serialize() traumaPerHp: number;
-	@serialize() critTraumaBonus: number;
+	@serialize({ group: "lifetime" }) lifetime: Duration;
+	@serialize({ group: "lifetime" }) critLifetimeBonus: Duration;
+	@serialize() fadePortion: Percent;
+	@serialize({ group: "pop" }) popScale: number;
+	@serialize({ group: "pop" }) popDuration: Duration;
+	@serialize() flavourTilt: Angle;
+	@serialize({ group: "trauma" }) traumaPerHp: number;
+	@serialize({ group: "trauma" }) critTraumaBonus: number;
 	@serialize() blockedText: string;
 
 	constructor(
@@ -42,11 +45,11 @@ export class HitsplatStyleComponent {
 		launchAngleMin: number = 1,
 		launchAngleMax: number = 1.4,
 		gravity: number = 500,
-		lifetime: Seconds = 0.5 as Seconds,
-		critLifetimeBonus: Seconds = 0.5 as Seconds,
+		lifetime: number = 0.5,
+		critLifetimeBonus: number = 0.5,
 		fadePortion: number = 0.4,
 		popScale: number = 1.6,
-		popDuration: Seconds = 0.15 as Seconds,
+		popDuration: number = 0.15,
 		flavourTilt: number = 0.2,
 		traumaPerHp: number = 0.015,
 		critTraumaBonus: number = 0.15,
@@ -54,21 +57,21 @@ export class HitsplatStyleComponent {
 	) {
 		this.font = font;
 		this.critFont = critFont;
-		this.color = color;
-		this.outlineColor = outlineColor;
-		this.critColor = critColor;
-		this.incomingColor = incomingColor;
+		this.color = new Color(color);
+		this.outlineColor = new Color(outlineColor);
+		this.critColor = new Color(critColor);
+		this.incomingColor = new Color(incomingColor);
 		this.launchSpeedMin = launchSpeedMin;
 		this.launchSpeedMax = launchSpeedMax;
-		this.launchAngleMin = launchAngleMin;
-		this.launchAngleMax = launchAngleMax;
+		this.launchAngleMin = new Angle(launchAngleMin);
+		this.launchAngleMax = new Angle(launchAngleMax);
 		this.gravity = gravity;
-		this.lifetime = lifetime;
-		this.critLifetimeBonus = critLifetimeBonus;
-		this.fadePortion = fadePortion;
+		this.lifetime = new Duration(lifetime);
+		this.critLifetimeBonus = new Duration(critLifetimeBonus);
+		this.fadePortion = new Percent(fadePortion);
 		this.popScale = popScale;
-		this.popDuration = popDuration;
-		this.flavourTilt = flavourTilt;
+		this.popDuration = new Duration(popDuration);
+		this.flavourTilt = new Angle(flavourTilt);
 		this.traumaPerHp = traumaPerHp;
 		this.critTraumaBonus = critTraumaBonus;
 		this.blockedText = blockedText;

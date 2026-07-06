@@ -34,10 +34,13 @@
 					"label": "PAUSED",
 					"font": {
 						"$type": "FontSettings",
-						"font": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip",
 						"family": "",
 						"size": 16,
-						"variant": "Regular"
+						"variant": "Regular",
+						"fontRef": {
+							"$type": "AssetRef",
+							"path": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip"
+						}
 					}
 				}
 			}

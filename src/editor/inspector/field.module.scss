@@ -1,0 +1,58 @@
+.root {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: var(--unit-2);
+
+	&:has(> [role="checkbox"]) {
+		flex-direction: row;
+		align-items: center;
+		gap: var(--unit-8);
+	}
+}
+
+.label {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+}
+
+.error {
+	color: var(--accent-danger);
+	font-size: 0.85em;
+}
+
+.row {
+	display: flex;
+	flex: 1;
+	gap: var(--unit-8);
+	min-width: 0;
+
+	> * {
+		min-width: 0;
+	}
+}
+
+.fieldset {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-2);
+	border: none;
+	margin: 0;
+	padding: 0;
+	min-width: 0;
+}
+
+.legend {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+	padding: 0;
+}
+
+.adornment {
+	display: flex;
+	align-items: center;
+	opacity: 0.33;
+	pointer-events: none;
+	user-select: none;
+}

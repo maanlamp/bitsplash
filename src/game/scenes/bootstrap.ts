@@ -34,7 +34,7 @@ const spawnInitialEntities = (world: World): void => {
 		}
 		const respawn = world.ecs.getComponent(spawned, RespawnComponent);
 		if (respawn) {
-			respawn.spawnPoint = pointId;
+			respawn.spawnPoint.set(pointId);
 		}
 	}
 };

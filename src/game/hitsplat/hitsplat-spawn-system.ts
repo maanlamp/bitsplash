@@ -71,8 +71,8 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 		const { text, flavour } = this.describe(style, event);
 		const lifetime = (
 			event.crit
-				? style.lifetime + style.critLifetimeBonus
-				: style.lifetime
+				? style.lifetime.seconds + style.critLifetimeBonus.seconds
+				: style.lifetime.seconds
 		) as Seconds;
 		const velocity = this.launch(
 			ecs,
@@ -135,8 +135,10 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 		if (event.crit) {
 			speed *= CRIT_LAUNCH_SCALE;
 		}
-		const angleRange = style.launchAngleMax - style.launchAngleMin;
-		const angle = style.launchAngleMin + Math.random() * angleRange;
+		const angleRange =
+			style.launchAngleMax.radians - style.launchAngleMin.radians;
+		const angle =
+			style.launchAngleMin.radians + Math.random() * angleRange;
 		const sign = this.launchSign(ecs, event.source, targetPosition);
 		return new Vector2(
 			Math.cos(angle) * sign * speed,

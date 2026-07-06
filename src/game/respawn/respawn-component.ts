@@ -1,5 +1,6 @@
-import type { Seconds } from "../../engine/duration";
+import { Duration } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
+import { EntityRef } from "../../engine/entity-ref";
 import {
 	serializable,
 	serialize,
@@ -7,14 +8,11 @@ import {
 
 @serializable("Respawn")
 export class RespawnComponent {
-	@serialize() delay: Seconds;
-	@serialize() spawnPoint: EntityId | null;
+	@serialize({ group: "spawn" }) delay: Duration;
+	@serialize({ group: "spawn" }) spawnPoint: EntityRef;
 
-	constructor(
-		delay: Seconds = 6 as Seconds,
-		spawnPoint: EntityId | null = null,
-	) {
-		this.delay = delay;
-		this.spawnPoint = spawnPoint;
+	constructor(delay: number = 6, spawnPoint: EntityId | null = null) {
+		this.delay = new Duration(delay);
+		this.spawnPoint = new EntityRef(spawnPoint);
 	}
 }

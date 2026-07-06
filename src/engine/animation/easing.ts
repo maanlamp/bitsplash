@@ -1,3 +1,12 @@
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../serialization/serializable-value";
+
 export type EasingFn = (t: number) => number;
 
 const BACK = 1.70158;
@@ -15,5 +24,28 @@ const easings = {
 
 export type EasingName = keyof typeof easings;
 
+export const easingNames = Object.keys(easings) as EasingName[];
+
 export const ease = (name: string): EasingFn =>
 	easings[name as EasingName] ?? easings.linear;
+
+@serializable("Easing")
+export class Easing implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() name: string;
+
+	constructor(name: string = "linear") {
+		this.name = name;
+	}
+
+	set(name: string): void {
+		this.name = name;
+	}
+
+	fn(): EasingFn {
+		return ease(this.name);
+	}
+}

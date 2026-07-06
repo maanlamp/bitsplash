@@ -7,14 +7,6 @@
 }
 
 .preview {
-	display: grid;
-	place-items: center;
-	width: 100%;
-	aspect-ratio: 1 / 1;
-	padding: var(--unit-8);
-	overflow: hidden;
-	border-radius: var(--radius-lg);
-	background: var(--surface-inset);
 	border: var(--border-width) solid transparent;
 	cursor: pointer;
 	transition: border-color var(--duration-fast) var(--ease-standard);
@@ -24,13 +16,13 @@
 	}
 }
 
+.full {
+	width: 100%;
+}
+
 .dropping {
 	border-color: var(--accent);
 	background: var(--surface-overlay);
-}
-
-.invalid {
-	border-color: var(--accent-danger);
 }
 
 .image {

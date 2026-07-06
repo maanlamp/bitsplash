@@ -6,7 +6,7 @@ export const resolveFont = (
 	assetManager: AssetManager,
 ) => {
 	const families = assetManager.getFontFamilies(
-		settings.font,
+		settings.fontRef.path,
 		settings.size,
 	);
 	if (!families) {

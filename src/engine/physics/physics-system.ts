@@ -25,7 +25,7 @@ export class PhysicsSystem implements UpdateSystem {
 				},
 				density: phys.density,
 				friction: phys.friction,
-				restitution: phys.restitution,
+				restitution: phys.restitution.value,
 				collisionLayer: phys.collisionLayer,
 				sensor: phys.sensor,
 			});

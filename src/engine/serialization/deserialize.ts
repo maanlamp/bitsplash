@@ -10,6 +10,7 @@ import { reconstruct } from "./value";
 export const deserializeEntity = (
 	world: World,
 	entity: SerializedEntity,
+	source = "entity",
 ): EntityId => {
 	const components: object[] = [];
 	for (const [name, data] of Object.entries(entity.components)) {
@@ -17,7 +18,9 @@ export const deserializeEntity = (
 		if (!type) {
 			continue;
 		}
-		components.push(reconstruct(type, data));
+		components.push(
+			reconstruct(type, data, `${source} ${entity.id} · ${name}`),
+		);
 	}
 	return world.ecs.createEntity(components, entity.id as EntityId);
 };
@@ -25,8 +28,9 @@ export const deserializeEntity = (
 export const deserializeWorld = (
 	world: World,
 	entities: SerializedWorld,
+	source = "entity",
 ): void => {
 	for (const entity of entities) {
-		deserializeEntity(world, entity);
+		deserializeEntity(world, entity, source);
 	}
 };

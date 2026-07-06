@@ -33,7 +33,7 @@ export class SpawnSystem implements UpdateSystem {
 			}
 			const respawn = ecs.getComponent(spawned, RespawnComponent);
 			if (respawn) {
-				respawn.spawnPoint = event.spawnPoint;
+				respawn.spawnPoint.set(event.spawnPoint);
 			}
 		}
 	}

@@ -1,3 +1,4 @@
+import { Color } from "../color";
 import type { ECS } from "../ecs";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
@@ -29,7 +30,7 @@ export class SceneConfig implements ValueType {
 
 	@serialize() gravity: Vector2 = new Vector2(0, 20);
 	@serialize() uiScale = 1;
-	@serialize({ color: true }) clearColor = "transparent";
+	@serialize() clearColor = new Color("transparent");
 }
 
 export const toSceneConfig = (data: SceneConfigData): SceneConfig => {
@@ -39,7 +40,7 @@ export const toSceneConfig = (data: SceneConfigData): SceneConfig => {
 		config.uiScale = data.uiScale;
 	}
 	if (data.clearColor !== undefined) {
-		config.clearColor = data.clearColor;
+		config.clearColor = new Color(data.clearColor);
 	}
 	return config;
 };

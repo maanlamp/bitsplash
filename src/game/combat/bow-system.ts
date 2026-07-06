@@ -88,12 +88,12 @@ export class BowSystem implements UpdateSystem {
 			transform.rotation.radians = shotAngle;
 		}
 		if (arrow) {
-			arrow.aimAngle = shotAngle;
+			arrow.aimAngle.radians = shotAngle;
 			// Snapshot the roll inputs at fire time; the crit roll itself
 			// happens at impact (§10.2). The arrow is self-contained so a
 			// buff expiring mid-flight cannot retroactively weaken it.
 			arrow.base = stats.base;
-			arrow.critChance = stats.critChance;
+			arrow.critChance.set(stats.critChance.value);
 			arrow.critMultiplier = stats.critMultiplier;
 			arrow.flavourSet = stats.flavourSet;
 			arrow.mods = NO_MODIFIERS;

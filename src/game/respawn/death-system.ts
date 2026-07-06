@@ -1,4 +1,5 @@
 import { CameraShakeComponent } from "../../engine/camera/camera-shake-component";
+import type { Seconds } from "../../engine/duration";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -14,11 +15,11 @@ export class DeathSystem implements UpdateSystem {
 		for (const event of events.read(DeathEvent)) {
 			const entity = event.entity;
 			const respawn = ecs.getComponent(entity, RespawnComponent);
-			if (respawn && respawn.spawnPoint) {
+			if (respawn && respawn.spawnPoint.id) {
 				scheduleEvent(
 					ecs,
-					respawn.delay,
-					new SpawnEvent(respawn.spawnPoint, entity),
+					respawn.delay.seconds as Seconds,
+					new SpawnEvent(respawn.spawnPoint.id, entity),
 				);
 			}
 			if (ecs.getComponent(entity, PlayerTagComponent)) {

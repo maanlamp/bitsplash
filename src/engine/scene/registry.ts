@@ -57,7 +57,11 @@ export const createScene = (
 		name: file.name ?? id,
 		services,
 	});
-	deserializeWorld(scene.world, file.entities as SerializedWorld);
+	deserializeWorld(
+		scene.world,
+		file.entities as SerializedWorld,
+		`scene "${file.name ?? id}"`,
+	);
 	seedRenderLayers(scene.world.ecs);
 	scene.migrateFile(file);
 	return scene;

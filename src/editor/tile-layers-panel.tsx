@@ -111,7 +111,11 @@ const LayerRow = ({
 				</Button>
 			</Tooltip>
 			<Tooltip
-				label={layer.tileset ? layer.tileset : "Choose tileset…"}
+				label={
+					layer.tilesetRef.path
+						? layer.tilesetRef.path
+						: "Choose tileset…"
+				}
 			>
 				<button
 					type="button"
@@ -121,9 +125,9 @@ const LayerRow = ({
 						pickTileset();
 					}}
 				>
-					{layer.tileset ? (
+					{layer.tilesetRef.path ? (
 						<img
-							src={layer.tileset}
+							src={layer.tilesetRef.path}
 							alt=""
 							className={styles.tilesetThumb}
 						/>

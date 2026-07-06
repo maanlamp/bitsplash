@@ -12,10 +12,12 @@ export type SerializableValue =
 	| readonly SerializableValue[]
 	| { readonly [key: string]: SerializableValue };
 
+export type SelectOption =
+	| string
+	| Readonly<{ label: string; value: string | number }>;
+
 export type SerializeOptions = Readonly<{
 	required?: boolean;
-	file?: string;
-	options?: readonly string[];
-	multiline?: boolean;
-	color?: boolean;
+	options?: readonly SelectOption[];
+	group?: string;
 }>;

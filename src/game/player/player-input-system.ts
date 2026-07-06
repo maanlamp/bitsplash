@@ -57,7 +57,7 @@ export class PlayerInputSystem implements UpdateSystem {
 			}
 
 			const vel = rb.linearVelocity;
-			const control = player.grounded ? 1 : player.airControl;
+			const control = player.grounded ? 1 : player.airControl.value;
 			const targetVx = dir * player.maxSpeed;
 			const rate =
 				(dir !== 0 ? player.acceleration : player.deceleration) *
@@ -110,7 +110,7 @@ export class PlayerInputSystem implements UpdateSystem {
 			player.dashCooldownRemaining <= 0
 		) {
 			player.dashing = true;
-			player.dashTimeRemaining = player.dashDuration;
+			player.dashTimeRemaining = player.dashDuration.seconds * 1000;
 			player.dashDir = dir !== 0 ? dir : player.facing;
 			rb.body!.linearVelocity = {
 				x: player.dashDir * player.dashSpeed,
@@ -125,7 +125,8 @@ export class PlayerInputSystem implements UpdateSystem {
 		player.dashTimeRemaining -= s * 1000;
 		if (player.dashTimeRemaining <= 0) {
 			player.dashing = false;
-			player.dashCooldownRemaining = player.dashCooldown;
+			player.dashCooldownRemaining =
+				player.dashCooldown.seconds * 1000;
 		}
 		return true;
 	}

@@ -3,6 +3,11 @@
 Status: **planned** (no implementation yet). README has the summary; this is the
 pick-up brief.
 
+Related: [inspector-value-types](inspector-value-types.md) supplies the
+value classes and inspector widget machinery this plan's editor flow builds
+on (`PrefabRef` and the inline prefab panel are specified here, in §4.4,
+because they depend on this plan's engine registry).
+
 ## 1. Goal
 
 Turn the rudimentary prefab into a real authored-template system: engine-level,
@@ -11,13 +16,14 @@ and prefab edits propagate. Keep it single-entity and data-driven; no hierarchy.
 
 ## 2. Where we are today
 
-- `game/prefabs.ts` — glob-loads `game/prefabs/*.json` into a `Map<name, def>`.
+- `game/prefabs.ts` — glob-loads `game/content/prefabs/*.json` into a `Map<name, def>`.
   A prefab def is `{ components: Record<typeName, fields> }` — i.e. **a serialized
   entity without an id**. `spawnPrefab(world, name, position, id?)` runs
   `deserializeEntity`, then overwrites `Transform.position`.
 - Only consumer: `game/systems/spawn.ts` (`SpawnSystem` reads
   `SpawnPointComponent.prefab`).
-- Files: `player.json`, `enemy.json`, `arrow.json` — flat component dicts with
+- Files: `player.json`, `enemy.json`, `arrow.json`, `pickup-tutor.json`,
+  `quest-giver.json` — flat component dicts with
   literal defaults; `$type: "Vector2"` markers for vectors.
 - No inheritance, no overrides, no nesting, no editor authoring, game-layer only.
 
@@ -96,6 +102,26 @@ prefab component on an instance — out of scope initially (flag if needed).
 - **Create prefab:** select an entity → "Save as prefab" → serialize its
   components into a new `*.json`.
 - **Place instance:** placing a prefab creates `{ prefab, overrides:{} }`.
+- **Edit prefab inline (can land right after step 1, before overrides):**
+  - `SpawnPoint.prefab: string` becomes a `PrefabRef` engine value class
+    (`name: string`), following the value-type pattern from
+    [inspector-value-types](inspector-value-types.md).
+  - Its widget: a select fed by the engine prefab registry, and beneath it a
+    collapsible panel rendering the prefab's components — the prefab def
+    deserializes to real component instances, so the inspector's existing
+    `ComponentSection`/`FieldControl` machinery renders them unchanged
+    (value types included, recursively — a prefab's own `PrefabRef` nests).
+  - Backing: a `PrefabDocument` (mirrors `SceneDocument`) — loads the prefab
+    JSON via `project-io`, owns the deserialized instances, tracks dirty,
+    serializes back to the **prefab source file** under
+    `game/content/prefabs/`. Edits go through the same `History` as the
+    scene, so undo/redo is one timeline spanning both.
+  - Edits affect all spawners of that prefab; the panel labels itself
+    accordingly (e.g. "Editing prefab 'enemy' — affects all instances").
+    Exact copy and save flow (explicit save vs saved with the scene) — open
+    UX question, ask before implementing.
+  - This panel is the host for the override mode below; nothing is thrown
+    away when overrides land.
 - **Edit instance:** the inspector compares each edited field to the resolved
   prefab value; differing fields are written to `overrides`; matching fields are
   removed from `overrides`. Per-field **"revert to prefab"** clears an override.
@@ -131,19 +157,23 @@ will be.
 - **Engine:** prefab registry, inheritance resolution, override merge,
   `instantiate`, the instance/bare-entity format in (de)serialization.
 - **Game:** the prefab JSON files + their `import.meta.glob` registration.
-- **Editor:** save-as-prefab, instance override tracking + revert UI, prefab
-  browser.
+- **Editor:** `PrefabRef` widget + inline prefab panel + `PrefabDocument`,
+  save-as-prefab, instance override tracking + revert UI, prefab browser.
 
 ## 6. Migration path
 
 1. Move prefab registry/resolution into the engine; `game/prefabs.ts` becomes
    thin glob-registration. `spawnPrefab` → engine `instantiate` (position as a
    Transform override). No behaviour change.
-2. Add `extends` resolution + cycle detection; add a variant prefab to prove it.
-3. Add the `{prefab, overrides}` instance form to (de)serialization alongside the
+2. Editor: `PrefabRef` value class + inline prefab panel + `PrefabDocument`
+   (see §4.4 "Edit prefab inline") — needs only step 1; writes to the prefab
+   source file.
+3. Add `extends` resolution + cycle detection; add a variant prefab to prove it.
+4. Add the `{prefab, overrides}` instance form to (de)serialization alongside the
    bare-entity form; teach scene-content loading to dispatch.
-4. Editor: instance override tracking + revert; save-as-prefab.
-5. (Optional) introduce a couple of code bundles where factories are verbose.
+5. Editor: instance override tracking + revert (hosted in the step-2 panel);
+   save-as-prefab.
+6. (Optional) introduce a couple of code bundles where factories are verbose.
 
 ## 7. Open sub-decisions / handoffs
 
@@ -158,8 +188,10 @@ will be.
 ## 8. Primary files touched
 
 - New: `engine/prefab/registry.ts`, `engine/prefab/resolve.ts`,
-  `engine/prefab/instantiate.ts`.
+  `engine/prefab/instantiate.ts`, `engine/prefab-ref.ts`,
+  `editor/inspector/prefab-panel.tsx`, `editor/prefab-document.ts`.
 - Changed: `engine/serialization/deserialize.ts` (prefab-aware path),
   `game/prefabs.ts` (→ thin registration), `game/systems/spawn.ts` (use engine
-  `instantiate`), `game/prefabs/*.json` (may adopt `extends`), editor inspector
-  (override tracking).
+  `instantiate`), `game/respawn/spawn-point-component.ts` (`prefab` →
+  `PrefabRef`), `game/content/prefabs/*.json` (may adopt `extends`), editor
+  inspector (override tracking).

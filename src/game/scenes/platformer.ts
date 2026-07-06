@@ -178,7 +178,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 			}
 			const layer = new TileLayerComponent();
 			layer.name = "terrain";
-			layer.tileset = tilesetUrl;
+			layer.tilesetRef.set(tilesetUrl);
 			layer.cells = file.tiles;
 			ecs.createEntity([layer]);
 		},

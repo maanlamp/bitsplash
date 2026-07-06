@@ -1,4 +1,4 @@
-import type { History } from "./history";
+import type { History } from "../history";
 
 type ValueRendererProps<T> = {
 	value: T;

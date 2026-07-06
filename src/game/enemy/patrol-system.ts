@@ -18,7 +18,7 @@ export class PatrolSystem implements UpdateSystem {
 				continue;
 			}
 			sm.params.elapsed = sm.elapsed;
-			sm.params.interval = patrol.interval;
+			sm.params.interval = patrol.interval.seconds;
 
 			const direction = sm.current === "right" ? 1 : -1;
 			rb.linearVelocity = new Vector2(

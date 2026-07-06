@@ -1,9 +1,20 @@
 {
 	"components": {
 		"Transform": {
-			"position": { "$type": "Vector2", "x": 0, "y": 0 },
-			"rotation": { "$type": "Angle", "radians": 0 },
-			"scale": { "$type": "Vector2", "x": 1, "y": 1 }
+			"position": {
+				"$type": "Vector2",
+				"x": 0,
+				"y": 0
+			},
+			"rotation": {
+				"$type": "Angle",
+				"radians": 0
+			},
+			"scale": {
+				"$type": "Vector2",
+				"x": 1,
+				"y": 1
+			}
 		},
 		"PhysicsBody": {
 			"type": "dynamic",
@@ -11,16 +22,25 @@
 			"halfHeight": 16,
 			"density": 1,
 			"friction": 0.2,
-			"restitution": 0,
+			"restitution": {
+				"$type": "Percent",
+				"value": 0
+			},
 			"fixedRotation": true,
 			"linearDamping": 0,
 			"collisionLayer": "npc",
 			"sensor": false
 		},
 		"Sprite": {
-			"url": "/src/engine/assets/unknown.png",
-			"opacity": 1,
-			"flipX": false
+			"opacity": {
+				"$type": "Percent",
+				"value": 1
+			},
+			"flipX": false,
+			"urlRef": {
+				"$type": "AssetRef",
+				"path": "/src/engine/assets/unknown.png"
+			}
 		},
 		"NpcTag": {},
 		"QuestGiverTag": {},
@@ -32,10 +52,13 @@
 			"prompt": "talk",
 			"font": {
 				"$type": "FontSettings",
-				"font": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip",
 				"family": "",
 				"variant": "Regular",
-				"size": 16
+				"size": 16,
+				"fontRef": {
+					"$type": "AssetRef",
+					"path": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip"
+				}
 			}
 		}
 	}

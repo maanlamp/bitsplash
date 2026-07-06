@@ -30,23 +30,23 @@ export class TilemapRenderSystem implements RenderSystem {
 		const seen = new Set<EntityId>();
 		for (const [id, layer] of ecs.query(TileLayerComponent)) {
 			seen.add(id);
-			if (!layer.visible || !layer.tileset) {
+			if (!layer.visible || !layer.tilesetRef.path) {
 				continue;
 			}
-			const image = assetManager.getImage(layer.tileset);
+			const image = assetManager.getImage(layer.tilesetRef.path);
 			if (!image || image.naturalWidth === 0) {
 				continue;
 			}
-			const autotile = isAutotileTileset(layer.tileset);
+			const autotile = isAutotileTileset(layer.tilesetRef.path);
 			const columns = autotile ? SHEET_COLUMNS : 1;
 			const srcSize = image.naturalWidth / columns;
 			const array = renderer.getTileArray(image, columns, srcSize);
 			let entry = this.batches.get(id);
-			if (!entry || entry.tileset !== layer.tileset) {
+			if (!entry || entry.tileset !== layer.tilesetRef.path) {
 				entry = {
 					batch: renderer.createStaticBatch(),
 					version: -1,
-					tileset: layer.tileset,
+					tileset: layer.tilesetRef.path,
 				};
 				this.batches.set(id, entry);
 			}

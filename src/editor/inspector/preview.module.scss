@@ -1,4 +1,4 @@
-.field {
+.root {
 	display: flex;
 	flex: 1;
 	min-width: 0;
@@ -6,13 +6,16 @@
 	gap: var(--unit-4);
 }
 
+// The inputs column defines the row height; the box fills that row and its
+// width follows from the 1:1 ratio (height drives width, not content).
 .body {
 	display: grid;
 	grid-template-columns: auto 1fr;
-	gap: var(--unit-8);
+	column-gap: var(--unit-8);
+	align-items: stretch;
 }
 
-.preview {
+.box {
 	display: grid;
 	place-items: center;
 	min-width: 0;
@@ -23,28 +26,20 @@
 	background: var(--surface-inset);
 }
 
+.body > .box {
+	height: 100%;
+	width: auto;
+}
+
 .previewEmpty {
 	font: var(--font-body);
 	color: var(--on-surface-faint);
 }
 
-.previewImage {
-	max-width: 100%;
-	max-height: 100%;
-	object-fit: contain;
-	image-rendering: pixelated;
-}
-
 .inputs {
-	display: grid;
-	grid-template-columns: max-content 1fr;
-	gap: var(--unit-4) var(--unit-8);
-	align-items: center;
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-8);
 	flex: 1;
 	min-width: 0;
-}
-
-.label {
-	color: var(--on-surface-faint);
-	white-space: nowrap;
 }

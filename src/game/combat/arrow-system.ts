@@ -37,10 +37,10 @@ export class ArrowSystem implements UpdateSystem {
 				continue;
 			}
 			if (!arrow.launched) {
-				rb.linearVelocity = Vector2.fromAngle(arrow.aimAngle).mul(
-					arrow.speed,
-				);
-				rb.body.angle = arrow.aimAngle;
+				rb.linearVelocity = Vector2.fromAngle(
+					arrow.aimAngle.radians,
+				).mul(arrow.speed);
+				rb.body.angle = arrow.aimAngle.radians;
 				arrow.launched = true;
 				continue;
 			}
@@ -62,7 +62,9 @@ export class ArrowSystem implements UpdateSystem {
 				}
 				arrow.stuckRemaining = (arrow.stuckRemaining -
 					dtSeconds) as Seconds;
-				sprite.opacity = fadeAlpha(arrow.stuckRemaining, arrow.fade);
+				sprite.opacity.set(
+					fadeAlpha(arrow.stuckRemaining, arrow.fade.seconds),
+				);
 				if (arrow.stuckRemaining <= 0) {
 					world.scheduleDespawn(id);
 				}
@@ -133,7 +135,7 @@ export class ArrowSystem implements UpdateSystem {
 		const body = rb.body!;
 		arrow.stuck = true;
 		arrow.attachedTo = attachedTo;
-		arrow.stuckRemaining = arrow.stuckLifetime;
+		arrow.stuckRemaining = arrow.stuckLifetime.seconds as Seconds;
 		const center = point
 			.clone()
 			.sub(direction.clone().mul(ARROW_REACH - EMBED_DEPTH));
@@ -153,7 +155,7 @@ export class ArrowSystem implements UpdateSystem {
 	): void {
 		arrow.stuck = false;
 		arrow.attachedTo = null;
-		sprite.opacity = 1;
+		sprite.opacity.set(1);
 		rb.body!.setBodyType("dynamic");
 		rb.body!.setAwake(true);
 	}

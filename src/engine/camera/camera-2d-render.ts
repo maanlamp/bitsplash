@@ -33,7 +33,7 @@ export const renderSceneToTexture = (
 	}
 	target.resize(vw, vh);
 
-	const clearColor = renderer.resolveColor(scene.config.clearColor);
+	const clearColor = scene.config.clearColor.rgba;
 	const camera = pickActiveCamera2D(scene.world.ecs);
 	let drewWorld = false;
 	if (camera && camera.zoom > 0) {

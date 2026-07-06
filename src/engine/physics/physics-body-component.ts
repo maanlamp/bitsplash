@@ -1,3 +1,4 @@
+import { Percent } from "../percent";
 import type { RigidBody } from "../physics/rigid-body";
 import {
 	serializable,
@@ -19,13 +20,13 @@ export class PhysicsBodyComponent {
 	type: RigidBodyType;
 	@serialize() halfWidth: number;
 	@serialize() halfHeight: number;
-	@serialize() density: number;
-	@serialize() friction: number;
-	@serialize() restitution: number;
-	@serialize() fixedRotation: boolean;
-	@serialize() linearDamping: number;
+	@serialize({ group: "material" }) density: number;
+	@serialize({ group: "material" }) friction: number;
+	@serialize({ group: "damping" }) restitution: Percent;
+	@serialize({ group: "flags" }) fixedRotation: boolean;
+	@serialize({ group: "damping" }) linearDamping: number;
 	@serialize() collisionLayer: string;
-	@serialize() sensor: boolean;
+	@serialize({ group: "flags" }) sensor: boolean;
 	@serialize() offsetX: number;
 	@serialize() offsetY: number;
 	@serialize() cornerRadius: number;
@@ -52,7 +53,7 @@ export class PhysicsBodyComponent {
 		this.halfHeight = halfHeight;
 		this.density = density;
 		this.friction = friction;
-		this.restitution = restitution;
+		this.restitution = new Percent(restitution);
 		this.fixedRotation = fixedRotation;
 		this.linearDamping = linearDamping;
 		this.collisionLayer = collisionLayer;

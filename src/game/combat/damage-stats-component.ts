@@ -1,3 +1,4 @@
+import { Percent } from "../../engine/percent";
 import {
 	serializable,
 	serialize,
@@ -6,8 +7,8 @@ import {
 @serializable("DamageStats")
 export class DamageStatsComponent {
 	@serialize() base: number;
-	@serialize() critChance: number;
-	@serialize() critMultiplier: number;
+	@serialize({ group: "crit" }) critChance: Percent;
+	@serialize({ group: "crit" }) critMultiplier: number;
 	@serialize() flavourSet: string;
 
 	constructor(
@@ -17,7 +18,7 @@ export class DamageStatsComponent {
 		flavourSet: string = "default",
 	) {
 		this.base = base;
-		this.critChance = critChance;
+		this.critChance = new Percent(critChance);
 		this.critMultiplier = critMultiplier;
 		this.flavourSet = flavourSet;
 	}

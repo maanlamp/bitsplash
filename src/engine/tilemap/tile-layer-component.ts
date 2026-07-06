@@ -1,3 +1,4 @@
+import { AssetRef } from "../asset-ref";
 import {
 	serializable,
 	serialize,
@@ -10,7 +11,7 @@ export type TileCollisionMode = "none" | "solid";
 @serializable("TileLayer")
 export class TileLayerComponent {
 	@serialize() name = "layer";
-	@serialize({ file: "image/*" }) tileset = "";
+	@serialize() tilesetRef = new AssetRef("image/*");
 	@serialize({ options: ["none", "solid"] })
 	collision: TileCollisionMode = "solid";
 	@serialize() renderLayer = "terrain";
