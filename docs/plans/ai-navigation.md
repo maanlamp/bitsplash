@@ -1,145 +1,255 @@
-# AI & Navigation — Architectural Plan
+# AI Navigation — Pathfinding, Intent, Cutscene Movement
 
-Status: **planned** (no implementation yet). README summary under
-"AI & Navigation". Depends on the generic FSM (`state-machine.md`).
+Status: **planned**. Depends on `play-in-editor.md` (Run mode) landing first —
+nav debugging means watching agents path in the viewport with overlays on
+while the editor stays live. Supersedes the earlier draft of this document;
+the perception/decision-policy pipeline from that draft is retained only as
+future work (§9).
 
 ## 1. Goal
 
-Generic AI infrastructure for a 2D platformer: perception → decision → intent,
-with a pluggable decision policy (FSM first; BT/utility later), unified intent
-actuation shared with the player, and a platformer nav-graph (walk/fall/jump).
+General platformer pathfinding (walk/jump/fall over the tile grid) that NPC AI
+can build on, and a cutscene `moveTo` verb that routes entities properly.
+Today NPCs have exactly one behavior — time-based patrol writing
+`linearVelocity.x` — and the only movement verb, `walkTo`
+(`src/game/cutscene/verbs.ts`), is x-only, obstacle-blind, hangs forever when
+blocked, and has divergent player (`scriptedMoveDir`) vs NPC (raw velocity)
+paths.
 
-## 2. Where we are today
+One-way platforms were prototyped and backed out; nav must accommodate them
+later **additively** (§8), without implementing them now.
 
-- `game/systems/patrol.ts` — the only "AI": a timer flips `direction` and sets
-  `linearVelocity`. No perception, no decisions, drives the body directly.
-- `engine/tilemap/grid.ts` — `TileGrid`, a sparse `Set<"gx,gy">` of solid cells;
-  notifies on change (`onChange`). The nav substrate.
-- `game/systems/player-input.ts` — reads input, applies movement/jump. The
-  actuation AI will share (after factoring into intent + actuation).
-- No FSM, no perception, no pathfinding. Greenfield.
-
-## 3. Locked decisions
-
-1. **Pluggable-policy brain**: perception → blackboard → decision policy →
-   intent → existing actuation. FSM is the first policy; BT + utility are future
-   policies on the same substrate.
-2. **Unified intent**: AI writes the same intent components the player input
-   writes; one actuation path for both.
-3. **Platformer nav-graph, full commit**: walk/fall/jump links; A\* plans;
-   path-execution emits intent.
-4. FSM is the **generic** engine primitive (`state-machine.md`), not AI-specific.
-
-## 4. The pipeline
+## 2. Design overview
 
 ```
-[perception systems] --> Perception/Blackboard --> [decision policy] --> Intent --> [actuation systems]
-        ^ vision/proximity/sound                      ^ FSM (first)        ^ move/jump/aim/fire
+producers: PlayerIntentSystem | PatrolSystem | NavAgentSystem (path execution) | cutscene verbs
+                     \_______________ MovementIntentComponent _______________/
+consumers: PlayerMovementSystem (player feel, game-side) | LocomotionSystem (generic NPC, engine)
 ```
 
-### 4.1 Perception → blackboard
+- **Unified intent, two actuators.** Everyone writes the same
+  `MovementIntentComponent`. The player's actuator stays game-side (the
+  feel-critical variable-jump/multi-jump/wall-jump/dash logic in today's
+  `player-input-system.ts` is preserved verbatim, re-sourced from intent);
+  NPCs get a small generic engine `LocomotionSystem`. One intent truth, no
+  regression risk from genericizing player feel, engine never imports game.
+- **Nav graph in `src/engine/nav/`**, built from the tile grid behind a
+  `NavSurface` seam — nav code never touches `isSolidCell` directly.
+- **Capability-tagged edges**: one graph serves all agents; A\* filters edges
+  by the querying agent's jump/move/drop/height capability.
+- **Path execution emits intent**; the cutscene `moveTo` verb points a
+  `NavAgentComponent` at a target and waits.
 
-- `PerceptionComponent` (data): target entity id, distance, has-line-of-sight,
-  last-known-position, threat level, grounded, etc. Entity refs by id.
-- Perception systems populate it: vision (physics raycast within a cone),
-  proximity (distance query), hearing (consume sound events). Tunable per agent.
-- The blackboard doubles as the FSM's `params` source for code conditions.
+## 3. Milestone 1 — Intent seam (game plays identically after)
 
-### 4.2 Decision policy (FSM first)
+New engine slice `src/engine/locomotion/`:
 
-- A code-condition `StateMachineComponent` per agent: states like
-  `Idle / Patrol / Chase / Attack / Flee`; transitions are code predicates over
-  the blackboard (`hasLineOfSight && distance < aggroRange` → Chase).
-- The policy's job each tick: from `current` state, write **intent** (e.g. Chase →
-  move toward `target` x, jump if blocked; Attack → aim + fire intent).
-- Patrol becomes the trivial `Patrol` state. BT/utility later produce the same
-  intent from the same blackboard.
+- `movement-intent-component.ts` — `@serializable("MovementIntent")`,
+  all-runtime fields: `moveX` (-1..1), `jumpPressed` (edge), `jumpHeld`
+  (level, variable height), `jumpSpeed: number | null` (scripted arc
+  override), `wantDrop` (reserved for one-way drop-through, unused now).
+- `locomotion-component.ts` — NPC tuning: `maxSpeed`, `acceleration`,
+  `deceleration`, `airControl`, `jumpSpeed`; runtime `grounded`, `facing`.
+- `locomotion-system.ts` — queries intent + locomotion +
+  `PhysicsBodyComponent`; same approach-impulse math as the player
+  (`applyImpulse(mass * (newVx - vx))`, air-control factor); grounded jump
+  sets `linearVelocity.y = -(intent.jumpSpeed ?? loco.jumpSpeed)`. No
+  dash/wall/multi-jump. The player never has `LocomotionComponent`, so no
+  double actuation.
+- `src/engine/physics/grounded.ts` — `computeGrounded(body)` extracting the
+  `normal.y > 0.5` contact scan from the (currently player-only)
+  `GroundDetectionSystem`; both it and `LocomotionSystem` use it.
 
-### 4.3 Unified intent + actuation refactor
+Player split (game layer):
 
-- New intent components written by BOTH player input and AI:
-  `MovementIntentComponent` (moveX, wantJump, wantDrop), `AimIntentComponent`
-  (aim vector), `ActionIntentComponent` (fire, interact).
-- **Refactor**: split `PlayerInputSystem` into `PlayerInputSystem` (keyboard/pad →
-  intent) + actuation systems (`MovementSystem`, etc.) that consume intent. AI's
-  policy writes the same intent; actuation is identical for player and AI.
-- This is the prerequisite refactor and the main coupling-reduction win.
+- New `src/game/player/player-intent-system.ts`: keyboard → intent (`moveX`,
+  `jumpPressed`/`jumpHeld` edge detection moves here). Writes nothing while
+  `isCutsceneActive` (zeroing intent on cutscene start) so verbs/nav own
+  intent during cutscenes. Dash key stays in the movement system —
+  actuation-adjacent, accepted impurity rather than inventing
+  `ActionIntentComponent` now.
+- Rename `player-input-system.ts` → `player-movement-system.ts`: identical
+  logic, `dir` from `intent.moveX`, jump from intent; honor `intent.jumpSpeed`
+  (clamped to `maxJumpSpeed`, skipping the min-jump early-release cut so nav
+  arcs aren't truncated). Keeps writing `moveDir`/`facing` (animation
+  untouched). Preserve the `frozen` → `jumpWasHeld` bookkeeping. Delete
+  `scriptedMoveDir` from `PlayerInputComponent`.
+- `PatrolSystem` writes `intent.moveX` instead of velocity;
+  `PatrolComponent.speed` superseded by `Locomotion.maxSpeed` (remove `speed`
+  and the dead `direction` field). Enemy prefab gains `MovementIntent` +
+  `Locomotion` (maxSpeed 48, high accel — visually identical); drop the stale
+  `EnemyTag`/`PatrolTag` keys. Player prefab gains `MovementIntent`.
+- `walkTo`: write `intent.moveX` when the entity has intent; keep the
+  direct-velocity fallback for entities without it.
 
-## 5. Navigation (platformer nav-graph)
+Registration in `src/game/scenes/platformer.ts` (producers before consumers):
+`PlayerIntentSystem` → `StateMachineSystem` → `PlayerAnimationSystem` →
+`SpriteAnimationSystem` → `PatrolSystem` → *(M3: `NavAgentSystem`)* →
+`PlayerMovementSystem` → `LocomotionSystem` → `GroundDetectionSystem` →
+`PhysicsSystem` → rest unchanged.
 
-### 5.1 Graph build (`engine/nav/`)
+## 4. Milestone 2 — Nav surface, graph, A\* (no movement yet)
 
-- From the `TileGrid`: a **walkable cell** = solid tile with empty cell(s) above
-  (standable). Group into surface **spans**; nodes = spans (or per-cell, simpler
-  first).
-- **Edges:**
-  - **walk** — horizontally adjacent walkable cells on the same surface.
-  - **fall** — a walkable cell with a drop to a lower walkable cell within
-    horizontal reach (ballistic fall).
-  - **jump** — a gap/height reachable within a **parametric jump arc** (max jump
-    height + horizontal distance). Edges tagged with the **required capability**
-    (min jump height/distance) so one graph serves many agents.
-- Rebuild on `TileGrid.onChange` (full rebuild first; incremental later). Per
-  scene (each scene's grid → its own graph).
+- `nav-surface.ts` — **the walkability seam and one-way anchor**:
 
-### 5.2 Pathfinding + execution
+  ```ts
+  type SupportKind = "none" | "solid";        // later: | "one-way"
+  class NavSurface {                          // snapshots merged solid cells via occupancy.ts
+    supportAt(gx, gy): SupportKind;           // can you stand ON this cell
+    blocksAt(gx, gy): boolean;                // does it block movement THROUGH
+    bounds(): GridBounds | null;
+  }
+  ```
 
-- A\* over the graph, filtering edges by the **querying agent's capabilities**
-  (its jump height/speed). Result = ordered nodes + edge types.
-- A **path-execution system** turns the current edge into intent: walk → moveX
-  toward next node; jump → wantJump timed at the launch point with the right
-  moveX; fall → walk off the ledge. Re-path on target move / blocked / grid change.
-- Output is intent — so navigation reuses the same actuation as everything else.
+  Today the two coincide; all nav code queries only these. The single place
+  encoding "full 32px solid square".
+- `nav-graph.ts` — `NavNode { id, gx, gy, clearance }` (standing cell = empty
+  cell with support below; clearance = empty cells above, capped 4).
+  `NavEdgeKind = "walk" | "fall" | "jump"` (later `"drop"`, `"climb"`).
+  `NavEdge { to, kind, cost, requiredJumpSpeed, requiredMoveSpeed, dropHeight,
+  requiredClearance }`. `NavGraph { version, nodes, edges(id), nodeAt,
+  nearestNode(worldPos, maxDrop) }`.
+- `nav-graph-builder.ts` — `buildNavGraph(surface, params)`. Deterministic
+  against gravity 640 px/s², tile 32:
+  - **walk**: adjacent standing cell, same row (1-tile step-up = jump edge;
+    step-down = fall edge).
+  - **fall**: off-ledge column scan down to `maxFallTiles` (default 8), fall
+    column non-blocking; `dropHeight = k*32`.
+  - **jump**: for Δx 1..4, Δy -2..+4 to an existing node, solve the exact
+    arc — `apex = max(0, -Δy*32) + apexMargin(16)`,
+    `vJump = sqrt(2·g·apex)`, airtime from the descending root,
+    `vX = |Δx|·32 / T`; reject if `vX` exceeds the build cap (4·TILE_SIZE).
+    **Validate** by sampling the parabola (≤8 px steps) sweeping the agent box
+    (half-width 16 − 1 px skin, height = clearance cells) against `blocksAt`;
+    landing must be from above. Tag the edge with required speeds. Costs
+    penalize jumps over walking.
+  - Knobs collected in `NavBuildParams` with defaults — the tuning dial.
+- `astar.ts` — binary-heap A\*; `NavCapability { jumpSpeed, moveSpeed,
+  maxDropHeight, heightCells }`; edge admitted iff capability covers its
+  requirements. Returns `NavPathStep[] { node, edge }` or null.
+- `nav-graph-component.ts` (runtime-only singleton) + `nav-graph-system.ts` —
+  rebuild when the `"entityId:gridVersion|…"` signature changes, the exact
+  pattern of `TileCollisionSystem` (poll the signature; avoid `grid.onChange`
+  microtask batching). Registered `ecs.addUpdateSystem` next to
+  `TileCollisionSystem` — always-on, so editor overlays work without
+  simulating.
+- **Tests** (project's first): `bun test` over the pure builder/A\* —
+  flat run, step-up, gaps, drops, ceiling-blocked jump, clearance filtering.
 
-## 6. In-editor AI debugger
+## 5. Milestone 3 — NavAgent + path execution
 
-- **Canvas debug-draw** (focused scene viewport): nav-graph nodes/edges colored by
-  type, the selected agent's computed path, vision cones, target line,
-  last-known-pos marker, current FSM state label.
-- **React inspector** (debug chrome): selected agent's blackboard values, FSM
-  `current` + recent transitions, active path. Works in playtest via the
-  profiler's fullscreen debug-overlay (`profiling.md` §6).
+- `nav-agent-component.ts` — `@serializable("NavAgent")`: serialized
+  capability (`jumpSpeed`/`moveSpeed` default 0 = derive from
+  `LocomotionComponent`, `maxDropHeight`, `heightCells`), `arriveTolerance`,
+  `stuckTimeout`; runtime `target: Vector2 | EntityId | null`, `path`,
+  `pathIndex`, `status: "idle" | "moving" | "arrived" | "unreachable"`,
+  stuck-tracking fields.
+- `nav-agent-system.ts` — queries agent + intent + transform + body (no-op
+  until `rb.body` exists and the graph is built):
+  1. Plan/re-plan when: no path, graph version changed, target entity moved to
+     a different goal node, or stuck. `nearestNode` snaps endpoints;
+     `unreachable` after 3 failed attempts.
+  2. Execute the current edge → intent: **walk** — `moveX` toward node,
+     advance on arrive+grounded; **fall** — steer toward the landing column
+     while airborne; **jump** — walk to the launch cell center, then
+     `jumpPressed` + `jumpSpeed = edge.requiredJumpSpeed` + `moveX`, hold
+     `jumpHeld` while ascending, advance on grounded at target.
+  3. Stuck = no distance improvement for `stuckTimeout` → re-path from the
+     current position (handles getting knocked off the path). Repeated stuck →
+     `unreachable`; **the agent itself never teleports** — callers decide.
+  4. `arrived`: zero intent, go inert so other producers (patrol/FSM) flow
+     through — leaves future chase AI free to set `target`.
 
-## 7. Layering
+## 6. Milestone 4 — Cutscene `moveTo` verb
 
-- **Engine:** generic FSM (`state-machine.md`), nav-graph builder + A\*
-  (`engine/nav/`), perception helpers (raycast/cone), intent components, the
-  actuation systems (movement/etc. — these already exist, refactored to read
-  intent), path-execution system.
-- **Game:** concrete enemy FSM defs + transition predicates, perception tuning,
-  enemy archetypes/prefabs, agent capability params.
-- **Editor:** AI debugger overlay + inspector; (optional, later) visual FSM
-  authoring — AI FSMs are code-first, so the debugger is the priority.
+In `src/game/cutscene/verbs.ts`:
 
-## 8. Migration path
+- `moveTo(ctx, entity, target: Vector2 | EntityId, opts?)`: ensure
+  `NavAgentComponent` + `MovementIntentComponent` (attach temporaries, remove
+  on finish; player capability bridged from
+  `PlayerInputComponent.maxJumpSpeed/maxSpeed` — game layer mapping player
+  tuning into engine capability data). `PlayerIntentSystem` is already silent
+  during cutscenes, so nav owns the player's intent — the player can visibly
+  jump gaps in cutscenes.
+- `done()`: `status === "arrived"` → clean up. **Stuck/unreachable → teleport
+  to destination + console warning, then complete** — matches skip semantics
+  and the act1 "teleport-on-stuck" follower note.
+- `complete()` (skip): teleport to the resolved destination, zero vx, clean
+  up — existing convention.
+- Entities with no physics/nav: fall back to `walkTo` semantics so
+  dialogue-prop entities stay movable.
+- Keep `walkTo` as the cheap flat verb, with the same stuck-timeout →
+  teleport+warn so it can no longer hang. `pickup-tour-cutscene.ts` keeps
+  `walkTo` for flat moves; convert one call to `moveTo` as the live demo.
 
-1. Generic FSM (`state-machine.md` step 1); port `PatrolSystem` to a `Patrol`
-   state as the first consumer.
-2. Intent components + the `PlayerInput` → intent + actuation refactor (player
-   still works; now intent-driven).
-3. Perception (vision/proximity) → blackboard; an enemy FSM
-   (Idle/Patrol/Chase/Attack) writing intent. First "real" AI.
-4. Nav-graph build (walk/fall/jump) + A\* + path-execution → intent.
-5. AI debugger (canvas draw + inspector).
-6. Additional policies (behavior tree, then utility AI for social-sim) on the same
-   substrate.
+## 7. Milestone 5 — Editor nav debug overlay
 
-## 9. Open sub-decisions / handoffs
+Depends on Run mode (`play-in-editor.md`) for the live-agent half.
 
-- **Depends on the generic FSM** (`state-machine.md`) and the **Scene system**
-  (per-scene nav-graph, perception within a scene's world).
-- **Capability-tagged edges vs per-agent graphs** — lean capability-tagged (one
-  graph, filter at query); revisit if profiles diverge a lot.
-- **Node granularity** — per-cell first; coalesce into spans as an optimization.
-- **Behavior-tree / utility specifics** — deferred to when a second policy is
-  actually needed; substrate is designed to accept them.
-- **Social Simulation** (README) is the expected first **utility AI** consumer.
+- Add `"navGraph"` and `"navPath"` to `DebugOverlayId`/`DEBUG_OVERLAYS`
+  (`src/editor/debug-flags.ts`, color tokens beside `--debug-collider`).
+- New `src/editor/systems/nav-graph-debug.ts` (RenderSystem modeled on the
+  physics shape debug): node dots at feet positions, edges colored by kind,
+  jump arcs drawn as their parabola. Works in edit mode (`NavGraphSystem` is
+  always-on) — paint tiles and watch the graph rebuild live.
+- `navPath`: each `NavAgentComponent`'s active path highlighted + status
+  label — watched live in a Run session in Editor input mode.
 
-## 10. Primary files
+## 8. Future-proofing (not implemented, must stay additive)
 
-- New: `engine/nav/graph.ts`, `engine/nav/astar.ts`,
-  `engine/nav/path-execution.ts`, `engine/components/perception.ts`,
-  `engine/components/intent.ts`, `engine/systems/movement.ts` (actuation),
-  perception systems, `game/ai/*` (enemy FSM defs), AI debugger (editor).
-- Changed: `game/systems/player-input.ts` (→ intent), `game/systems/patrol.ts`
-  (→ FSM state), enemy prefabs.
+- **One-ways**: later, `TileCollisionMode` gains `"one-way"`;
+  `NavSurface.supportAt` returns `"one-way"` while `blocksAt` returns false —
+  nodes form on top with zero builder changes, and jump arcs correctly pass
+  through. Drop-through = new `"drop"` edge kind where the support is one-way,
+  executed via the reserved `intent.wantDrop`, gated by a capability flag.
+- Slopes = new `SupportKind` + walk-edge rule; ladders = `"climb"` edges. Only
+  `NavSurface` and the builder's arc sweep encode tile-square assumptions.
+  Moving platforms are the one genuinely structural extension (dynamic nodes);
+  nothing here makes them worse.
+
+## 9. Future work (from the superseded draft)
+
+Perception → blackboard → decision policy (FSM first, BT/utility later) →
+intent. The intent seam (§3) is the substrate: a chase FSM writes
+`intent.moveX`/sets `NavAgent.target` exactly like path execution does.
+Deferred until a real AI consumer exists; nothing in this plan blocks it.
+
+## 10. Risks / gotchas
+
+- **M1 player regression is the big risk**: preserve `moveDir`/`facing`
+  writes, frozen `jumpWasHeld` handling, dash interactions. Mandatory manual
+  feel-check before proceeding.
+- Jump launch timing: intent at variable dt vs fixed 1/60 physics → up to
+  ~1.6 px launch drift at 96 px/s; covered by the apex margin + skin, tunable
+  in `NavBuildParams`.
+- NPC body width = tile width (16 half-extents) → arcs through 1-cell gaps
+  correctly fail; if levels need them, narrow NPC colliders in prefabs (don't
+  silently change).
+- Lazy body creation: nav/locomotion systems no-op while `rb.body === null`.
+- Full graph rebuild per grid version bump — fine at current level sizes;
+  incremental rebuild is a later optimization.
+
+## 11. Verification
+
+Every milestone ends `bun check`-clean and runnable.
+
+- **M1**: player feel unchanged (variable jump, multi/wall jump, dash),
+  enemies patrol identically, pickup-tour cutscene walks and skips correctly.
+- **M2**: `bun test src/engine/nav` green; game unchanged.
+- **M3**: give the demo NPC a `NavAgent` target in a Run session and watch it
+  walk/jump/drop to it with the path overlay on.
+- **M4**: pickup-tour runs end-to-end including skipping mid-move; a `moveTo`
+  across a gap makes the entity jump; a blocked target teleports + warns.
+- **M5**: toggle overlays in the editor; paint/erase tiles and watch the graph
+  rebuild; watch a live path during Run.
+
+## 12. Primary files
+
+- New: `src/engine/locomotion/*`, `src/engine/nav/*`,
+  `src/engine/physics/grounded.ts`, `src/game/player/player-intent-system.ts`,
+  `src/editor/systems/nav-graph-debug.ts`.
+- Changed: `src/game/player/player-input-system.ts` (→
+  `player-movement-system.ts`), `src/game/enemy/patrol-system.ts` +
+  `patrol-component.ts`, `src/game/cutscene/verbs.ts`,
+  `src/game/scenes/platformer.ts`, enemy/player prefabs,
+  `src/editor/debug-flags.ts`.
