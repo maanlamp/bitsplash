@@ -380,7 +380,7 @@ export const dialogue = (
 				}
 				return false;
 			}
-			ctx.ecs.destroyEntity(id);
+			ctx.ecs.destroy(id);
 			ctx.events.emit(new DialogueClosedEvent(id, source));
 			return true;
 		},

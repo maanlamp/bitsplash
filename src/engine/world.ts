@@ -1,5 +1,5 @@
 import { PhysicsBodyComponent } from "./physics/physics-body-component";
-import { ECS, type EntityId } from "./ecs";
+import { ECS } from "./ecs";
 import EventBus, { CollisionEvent } from "./events";
 import type { CollisionMatrix } from "./physics/collision";
 import type {
@@ -35,6 +35,12 @@ export class World {
 
 	constructor(gravity: Vec, collisionMatrix?: CollisionMatrix) {
 		this.physics = new RapierPhysics(gravity, collisionMatrix);
+		this.ecs.onDestroy(PhysicsBodyComponent, (c) => {
+			if (c.body) {
+				this.physics.destroyBody(c.body);
+				c.body = null;
+			}
+		});
 	}
 
 	setGravity(gravity: Vec): void {
@@ -65,22 +71,7 @@ export class World {
 		return this.physics.raycast(from, to, filter);
 	}
 
-	scheduleDespawn(id: EntityId): void {
-		setTimeout(() => {
-			const phys = this.ecs.getComponent(id, PhysicsBodyComponent);
-			if (phys?.body) {
-				this.physics.destroyBody(phys.body);
-			}
-			this.ecs.destroyEntity(id);
-		});
-	}
-
 	clear(): void {
-		for (const [, phys] of this.ecs.query(PhysicsBodyComponent)) {
-			if (phys.body) {
-				this.physics.destroyBody(phys.body);
-			}
-		}
 		this.ecs.reset();
 	}
 

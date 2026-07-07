@@ -340,7 +340,7 @@ export class DialogueSystem implements UpdateSystem {
 		id: EntityId,
 		state: DialogueComponent,
 	): void {
-		ecs.destroyEntity(id);
+		ecs.destroy(id);
 		events.emit(new DialogueClosedEvent(id, state.source));
 	}
 }

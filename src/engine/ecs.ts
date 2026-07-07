@@ -15,6 +15,13 @@ export type EntityId = ReturnType<
 	typeof globalThis.crypto.randomUUID
 >;
 
+type CleanupHook<T extends object = object> = (
+	component: T,
+	id: EntityId,
+) => void;
+
+const MAX_FLUSH_ITERATIONS = 1000;
+
 export class ECS {
 	private components = new Map<
 		EntityId,
@@ -23,6 +30,11 @@ export class ECS {
 	private updateSystems: UpdateSystem[] = [];
 	private renderSystems: RenderSystem[] = [];
 	private listeners = new Set<() => void>();
+	private pendingDestroy = new Set<EntityId>();
+	private cleanupHooks = new Map<
+		ConcreteComponentClass,
+		CleanupHook
+	>();
 
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
@@ -74,13 +86,58 @@ export class ECS {
 		this.notify();
 	}
 
-	destroyEntity(entity: EntityId): void {
-		this.components.delete(entity);
-		this.notify();
+	onDestroy<T extends object>(
+		cls: ConcreteComponentClass<T>,
+		hook: CleanupHook<T>,
+	): void {
+		this.cleanupHooks.set(cls, hook as CleanupHook);
+	}
+
+	destroy(entity: EntityId): void {
+		this.pendingDestroy.add(entity);
+	}
+
+	private runCleanupHooks(entity: EntityId): void {
+		for (const component of this.componentsOf(entity)) {
+			this.cleanupHooks.get(
+				component.constructor as ConcreteComponentClass,
+			)?.(component, entity);
+		}
+	}
+
+	flushDestroyed(): void {
+		let anyDeleted = false;
+		let guard = 0;
+		while (this.pendingDestroy.size > 0) {
+			if (++guard > MAX_FLUSH_ITERATIONS) {
+				console.error(
+					`ECS.flushDestroyed exceeded ${MAX_FLUSH_ITERATIONS} iterations; aborting drain`,
+				);
+				this.pendingDestroy.clear();
+				break;
+			}
+			const batch = [...this.pendingDestroy];
+			this.pendingDestroy.clear();
+			for (const id of batch) {
+				if (!this.components.has(id)) {
+					continue;
+				}
+				this.runCleanupHooks(id);
+				this.components.delete(id);
+				anyDeleted = true;
+			}
+		}
+		if (anyDeleted) {
+			this.notify();
+		}
 	}
 
 	reset(): void {
+		for (const id of this.components.keys()) {
+			this.runCleanupHooks(id);
+		}
 		this.components.clear();
+		this.pendingDestroy.clear();
 		this.notify();
 	}
 

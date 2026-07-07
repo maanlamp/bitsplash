@@ -18,9 +18,11 @@ type Rapier = typeof RAPIER_NS;
 
 let RAPIER: Rapier | null = null;
 
-export const loadRapier = async (): Promise<void> => {
+export const loadRapier = async (
+	loader: () => Promise<Rapier> = () => import("@dimforge/rapier2d"),
+): Promise<void> => {
 	if (!RAPIER) {
-		RAPIER = await import("@dimforge/rapier2d");
+		RAPIER = await loader();
 	}
 };
 

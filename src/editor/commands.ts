@@ -1,4 +1,4 @@
-import type { EntityId, ReadonlyECS } from "../engine/ecs";
+import type { ECS, EntityId, ReadonlyECS } from "../engine/ecs";
 import { deserializeEntity } from "../engine/serialization/deserialize";
 import {
 	componentClass,
@@ -20,6 +20,11 @@ import type { History } from "./history";
 const classOf = (component: object): ComponentClass =>
 	component.constructor as ComponentClass;
 
+const destroyNow = (ecs: ECS, id: EntityId): void => {
+	ecs.destroy(id);
+	ecs.flushDestroyed();
+};
+
 const worldOf = (history: History, fallback: World): World =>
 	history.world ?? fallback;
 
@@ -37,7 +42,7 @@ export const createEntity = (
 	history.createdIds.add(id);
 	const data = serializeEntity(worldOf(history, world).ecs, id);
 	history.push({
-		undo: () => worldOf(history, world).ecs.destroyEntity(id),
+		undo: () => destroyNow(worldOf(history, world).ecs, id),
 		redo: () => {
 			const target = worldOf(history, world);
 			if (data) {
@@ -58,12 +63,12 @@ export const deleteEntity = (
 	const components = [
 		...worldOf(history, world).ecs.componentsOf(id),
 	];
-	worldOf(history, world).ecs.destroyEntity(id);
+	destroyNow(worldOf(history, world).ecs, id);
 	history.push({
 		undo: () => {
 			worldOf(history, world).ecs.createEntity(components, id);
 		},
-		redo: () => worldOf(history, world).ecs.destroyEntity(id),
+		redo: () => destroyNow(worldOf(history, world).ecs, id),
 	});
 };
 
@@ -88,7 +93,7 @@ export const duplicateEntity = (
 	history.createdIds.add(newId);
 	deserializeEntity(worldOf(history, world), entity);
 	history.push({
-		undo: () => worldOf(history, world).ecs.destroyEntity(newId),
+		undo: () => destroyNow(worldOf(history, world).ecs, newId),
 		redo: () => {
 			deserializeEntity(worldOf(history, world), entity);
 		},

@@ -9,7 +9,7 @@ export class DeathNoticeSystem implements UpdateSystem {
 		for (const [id, notice] of ecs.query(DeathNoticeComponent)) {
 			notice.fade.tick(dt);
 			if (notice.fade.done()) {
-				ecs.destroyEntity(id);
+				ecs.destroy(id);
 			}
 		}
 	}

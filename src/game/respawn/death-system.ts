@@ -11,7 +11,7 @@ import { RespawnComponent } from "../respawn/respawn-component";
 import { DeathEvent, SpawnEvent } from "../events";
 
 export class DeathSystem implements UpdateSystem {
-	update({ ecs, world, events }: UpdateContext): void {
+	update({ ecs, events }: UpdateContext): void {
 		for (const event of events.read(DeathEvent)) {
 			const entity = event.entity;
 			const respawn = ecs.getComponent(entity, RespawnComponent);
@@ -29,7 +29,7 @@ export class DeathSystem implements UpdateSystem {
 					shake[1].trauma = 1;
 				}
 			}
-			world.scheduleDespawn(entity);
+			ecs.destroy(entity);
 		}
 	}
 }

@@ -74,7 +74,7 @@ export class CutsceneSystem implements UpdateSystem {
 				cutscene.wait = null;
 				cutscene.skipHeldTime = 0;
 			} else {
-				ctx.ecs.destroyEntity(id);
+				ctx.ecs.destroy(id);
 			}
 		}
 	}

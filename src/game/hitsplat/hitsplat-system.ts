@@ -10,7 +10,7 @@ import { HitsplatStyleComponent } from "./hitsplat-style-component";
 const DEFAULT_GRAVITY = 500;
 
 export class HitsplatSystem implements UpdateSystem {
-	update({ dt, ecs, world }: UpdateContext): void {
+	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;
 		const styleEntry = ecs.query(HitsplatStyleComponent)[0];
 		const gravity = styleEntry
@@ -25,7 +25,7 @@ export class HitsplatSystem implements UpdateSystem {
 			transform.position.y += hitsplat.velocity.y * dtSeconds;
 			hitsplat.age = (hitsplat.age + dtSeconds) as Seconds;
 			if (hitsplat.age >= hitsplat.lifetime) {
-				world.scheduleDespawn(id);
+				ecs.destroy(id);
 			}
 		}
 	}

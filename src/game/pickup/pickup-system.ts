@@ -42,7 +42,7 @@ export class PickupSystem implements UpdateSystem {
 		}
 	}
 
-	update({ ecs, world, events }: UpdateContext): void {
+	update({ ecs, events }: UpdateContext): void {
 		const player = ecs.query(
 			PlayerInputComponent,
 			TransformComponent,
@@ -81,7 +81,7 @@ export class PickupSystem implements UpdateSystem {
 			if (pickup) {
 				this.applyPickup(pickup.type, playerInput);
 				events.emit(new PickupCollectedEvent(other, pickup.type));
-				world.scheduleDespawn(other);
+				ecs.destroy(other);
 			}
 		}
 

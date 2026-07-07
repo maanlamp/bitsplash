@@ -17,7 +17,7 @@ export class TimerSystem implements UpdateSystem {
 			timer.remaining = (timer.remaining - time.dt) as Seconds;
 			if (timer.remaining <= 0) {
 				events.emit(timer.event);
-				ecs.destroyEntity(id);
+				ecs.destroy(id);
 			}
 		}
 	}

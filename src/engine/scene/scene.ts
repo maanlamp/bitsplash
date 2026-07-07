@@ -169,6 +169,7 @@ export class Scene {
 		for (const system of this.gameplaySystems) {
 			system.update(ctx);
 		}
+		this.world.ecs.flushDestroyed();
 	}
 
 	restore(snapshot: SerializedWorld): void {

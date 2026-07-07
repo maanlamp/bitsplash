@@ -7,8 +7,7 @@
 		"dev": "bun i --frozen-lockfile && concurrently -k -n vite,app \"vite\" \"electron src/desktop/main.cjs\"",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
-		"test": "bun test",
-		"check": "bun oxlint --fix && bun oxfmt && bun tsc -b"
+		"check": "bun oxlint --fix && bun oxfmt && bun tsc -b && bun test"
 	},
 	"dependencies": {
 		"@base-ui/react": "1.5.0",
@@ -35,6 +34,7 @@
 	"devDependencies": {
 		"@babel/core": "7.29.0",
 		"@babel/plugin-proposal-decorators": "7.29.7",
+		"@dimforge/rapier2d-compat": "0.19.3",
 		"@rolldown/plugin-babel": "0.2.3",
 		"@types/babel__core": "7.20.5",
 		"@types/node": "24.12.3",

@@ -9,7 +9,7 @@ export class QuestNoticeSystem implements UpdateSystem {
 		for (const [id, notice] of ecs.query(QuestNoticeComponent)) {
 			notice.fade.tick(dt);
 			if (notice.fade.done()) {
-				ecs.destroyEntity(id);
+				ecs.destroy(id);
 			}
 		}
 	}

@@ -67,13 +67,13 @@ export class ArrowSystem implements UpdateSystem {
 					fadeAlpha(arrow.stuckRemaining, arrow.fade.seconds),
 				);
 				if (arrow.stuckRemaining <= 0) {
-					world.scheduleDespawn(id);
+					ecs.destroy(id);
 				}
 				continue;
 			}
 
 			if (this.outOfBounds(ecs, transform.position)) {
-				world.scheduleDespawn(id);
+				ecs.destroy(id);
 				continue;
 			}
 
