@@ -68,7 +68,7 @@
 			"viewDistanceTiles": 8,
 			"viewAngle": {
 				"$type": "Angle",
-				"radians": 0.6283185307179586
+				"radians": 1.396263
 			},
 			"detectTime": {
 				"$type": "Duration",
@@ -129,6 +129,10 @@
 			"surpriseDuration": {
 				"$type": "Duration",
 				"seconds": 0.4
+			},
+			"provokeDuration": {
+				"$type": "Duration",
+				"seconds": 5
 			}
 		},
 		"Melee": {

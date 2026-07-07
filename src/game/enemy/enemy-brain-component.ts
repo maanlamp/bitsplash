@@ -11,6 +11,7 @@ export class EnemyBrainComponent {
 	@serialize() bravery: number;
 	@serialize({ group: "timing" }) investigateDuration: Duration;
 	@serialize({ group: "timing" }) surpriseDuration: Duration;
+	@serialize({ group: "timing" }) provokeDuration: Duration;
 
 	prevState: string = "";
 
@@ -20,11 +21,13 @@ export class EnemyBrainComponent {
 		bravery: number = 1,
 		investigateDuration: number = 3,
 		surpriseDuration: number = 0.4,
+		provokeDuration: number = 5,
 	) {
 		this.attackRangeTiles = attackRangeTiles;
 		this.aggroRangeTiles = aggroRangeTiles;
 		this.bravery = bravery;
 		this.investigateDuration = new Duration(investigateDuration);
 		this.surpriseDuration = new Duration(surpriseDuration);
+		this.provokeDuration = new Duration(provokeDuration);
 	}
 }

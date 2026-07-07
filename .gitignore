@@ -2,5 +2,7 @@ node_modules
 dist
 build
 .trash/
+
 docs/storyline.md
 docs/act1-requirements.md
+CLAUDE.md

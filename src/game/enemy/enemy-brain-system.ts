@@ -20,9 +20,11 @@ import { WanderComponent } from "./wander-component";
 const MAX_FLEE_FRACTION = 0.5;
 const HOP_SPEED = 150;
 const FLEE_DISTANCE = 6 * TILE_SIZE;
-const SIGHT_GRACE = 0.5;
-const LOOK_PERIOD = 0.9;
+const RETREAT_DISTANCE = 4 * TILE_SIZE;
+const SIGHT_GRACE = 1;
+const LOOK_PERIOD = 2;
 const TERRITORY_HYSTERESIS = 1.15;
+const ATTACK_HYSTERESIS = 1.4;
 
 export class EnemyBrainSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
@@ -98,25 +100,34 @@ export class EnemyBrainSystem implements UpdateSystem {
 		origin: Vector2,
 		state: string,
 	): void {
-		const aware = perception.timeSinceSeen < SIGHT_GRACE;
+		const seen = perception.timeSinceSeen < SIGHT_GRACE;
+		const provoked =
+			perception.timeSinceDamage < brain.provokeDuration.seconds;
+		const engaged = seen || provoked;
 		const aggro = brain.aggroRangeTiles * TILE_SIZE;
-		const distFromHome = targetPos
-			? origin.distanceTo(targetPos)
+		const pursuit = perception.lastStimulusPos;
+		const distFromHome = pursuit
+			? origin.distanceTo(pursuit)
 			: Infinity;
 		const fleeAt = (1 - brain.bravery) * MAX_FLEE_FRACTION;
+		const attackRange = brain.attackRangeTiles * TILE_SIZE;
+		const attackReach =
+			state === "attack"
+				? attackRange * ATTACK_HYSTERESIS
+				: attackRange;
 
 		const p = sm.params;
 		p.detection = perception.detection;
-		p.aware = aware;
-		p.hasTarget = perception.targetId !== null;
+		p.seen = seen;
+		p.provoked = provoked;
+		p.engaged = engaged;
 		p.inAttackRange =
 			targetPos !== null &&
-			transform.position.distanceTo(targetPos) <=
-				brain.attackRangeTiles * TILE_SIZE;
-		p.inTerritory = aware && distFromHome <= aggro;
-		p.leftTerritory = distFromHome > aggro * TERRITORY_HYSTERESIS;
-		p.reachedGoal =
-			agent.status === "arrived" || agent.status === "unreachable";
+			transform.position.distanceTo(targetPos) <= attackReach;
+		p.leftTerritory =
+			!provoked && distFromHome > aggro * TERRITORY_HYSTERESIS;
+		p.unreachableTarget = agent.status === "unreachable" && engaged;
+		p.reachedGoal = agent.status === "arrived";
 		p.timeSinceSeen = perception.timeSinceSeen;
 		p.targetDead =
 			perception.targetId !== null &&
@@ -127,7 +138,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 			perception.timeSinceStimulus > perception.forgetTime.seconds;
 		p.state = state;
 		p.surpriseDuration = brain.surpriseDuration.seconds;
-		p.investigateDuration = brain.investigateDuration.seconds;
+		p.searchDuration = brain.investigateDuration.seconds;
 	}
 
 	private actuate(
@@ -152,10 +163,6 @@ export class EnemyBrainSystem implements UpdateSystem {
 				agent.target = null;
 				this.face(intent, transform, perception.lastStimulusPos);
 				break;
-			case "stare":
-				agent.target = null;
-				this.face(intent, transform, targetPos);
-				break;
 			case "chase":
 				agent.target = perception.lastStimulusPos;
 				this.face(intent, transform, perception.lastStimulusPos);
@@ -165,7 +172,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 				this.face(intent, transform, targetPos);
 				this.triggerMelee(ecs, id);
 				break;
-			case "investigate":
+			case "search":
 				agent.target = perception.lastStimulusPos;
 				if (
 					agent.status === "arrived" ||
@@ -173,6 +180,13 @@ export class EnemyBrainSystem implements UpdateSystem {
 				) {
 					this.lookAround(intent, elapsed);
 				}
+				break;
+			case "retreat":
+				agent.target = this.retreatPoint(
+					transform,
+					perception.lastStimulusPos,
+					origin,
+				);
 				break;
 			case "flee":
 				agent.target = this.fleePoint(transform, targetPos, origin);
@@ -227,6 +241,24 @@ export class EnemyBrainSystem implements UpdateSystem {
 			.add(transform.position);
 	}
 
+	private retreatPoint(
+		transform: TransformComponent,
+		attackerPos: Vector2 | null,
+		origin: Vector2,
+	): Vector2 {
+		if (!attackerPos) {
+			return origin;
+		}
+		const away = transform.position.clone().sub(attackerPos);
+		if (away.length() === 0) {
+			return origin;
+		}
+		return away
+			.normalize()
+			.mul(RETREAT_DISTANCE)
+			.add(transform.position);
+	}
+
 	private handleTransition(
 		ecs: ECS,
 		id: EntityId,
@@ -248,6 +280,17 @@ export class EnemyBrainSystem implements UpdateSystem {
 		}
 		if (brain.prevState === "surprised") {
 			ecs.removeComponent(id, DebugTagComponent);
+		}
+		if (state === "patrol") {
+			const agent = ecs.getComponent(id, NavAgentComponent);
+			if (agent) {
+				agent.target = null;
+			}
+			const wander = ecs.getComponent(id, WanderComponent);
+			if (wander) {
+				wander.elapsed = 0;
+				wander.nextAt = 0;
+			}
 		}
 		brain.prevState = state;
 	}

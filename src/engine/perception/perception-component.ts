@@ -7,6 +7,12 @@ import {
 } from "../serialization/serializable";
 import type Vector2 from "../vector2";
 
+export type SightSample = {
+	x: number;
+	y: number;
+	blocked: boolean;
+};
+
 @serializable("Perception")
 export class PerceptionComponent {
 	@serialize() viewDistanceTiles: number;
@@ -20,6 +26,8 @@ export class PerceptionComponent {
 	lastStimulusPos: Vector2 | null = null;
 	timeSinceStimulus: number = 0;
 	timeSinceSeen: number = Infinity;
+	timeSinceDamage: number = Infinity;
+	sightSamples: SightSample[] = [];
 
 	constructor(
 		viewDistanceTiles: number = 8,

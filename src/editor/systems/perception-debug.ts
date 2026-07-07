@@ -106,22 +106,28 @@ export class PerceptionDebugSystem implements RenderSystem {
 		zoom: number,
 		width: number,
 	): void {
-		const color = cssVar("--debug-perception-stimulus");
-		if (perception.targetId !== null) {
-			const target = ctx.ecs.getComponent(
-				perception.targetId,
-				TransformComponent,
+		const eye = transform.position;
+		const clear = cssVar("--debug-perception-ray-clear");
+		const blocked = cssVar("--debug-perception-ray-blocked");
+		const dot = 3 / zoom;
+		for (const sample of perception.sightSamples) {
+			const color = sample.blocked ? blocked : clear;
+			this.line(
+				ctx,
+				eye,
+				new Vector2(sample.x, sample.y),
+				color,
+				width,
 			);
-			if (target) {
-				this.line(
-					ctx,
-					transform.position,
-					target.position,
-					color,
-					width,
-				);
-			}
+			ctx.renderer.drawRect(this.layer, {
+				x: sample.x - dot / 2,
+				y: sample.y - dot / 2,
+				width: dot,
+				height: dot,
+				fill: color,
+			});
 		}
+
 		const stimulus = perception.lastStimulusPos;
 		if (stimulus) {
 			const size = 6 / zoom;
@@ -130,7 +136,7 @@ export class PerceptionDebugSystem implements RenderSystem {
 				y: stimulus.y - size / 2,
 				width: size,
 				height: size,
-				fill: color,
+				fill: cssVar("--debug-perception-stimulus"),
 			});
 		}
 	}

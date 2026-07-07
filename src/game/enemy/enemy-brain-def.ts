@@ -9,18 +9,21 @@ import type {
 } from "../../engine/fsm/state-machine";
 
 const SUSPICION = 0.5;
-const PURSUE_TIMEOUT = 6;
+const PURSUE_GIVEUP = 3;
 
 const num = (p: Params, key: string): number => p[key] as number;
 const bool = (p: Params, key: string): boolean => p[key] as boolean;
 
 const detection = (p: Params): number => num(p, "detection");
-const aware = (p: Params): boolean => bool(p, "aware");
+const seen = (p: Params): boolean => bool(p, "seen");
+const provoked = (p: Params): boolean => bool(p, "provoked");
+const engaged = (p: Params): boolean => bool(p, "engaged");
 const inAttackRange = (p: Params): boolean =>
 	bool(p, "inAttackRange");
-const inTerritory = (p: Params): boolean => bool(p, "inTerritory");
 const leftTerritory = (p: Params): boolean =>
 	bool(p, "leftTerritory");
+const unreachableTarget = (p: Params): boolean =>
+	bool(p, "unreachableTarget");
 const reachedGoal = (p: Params): boolean => bool(p, "reachedGoal");
 const state = (p: Params): string => p.state as string;
 
@@ -46,10 +49,10 @@ const anyState: Transition<CodeCondition>[] = [
 const states: Record<string, StateNode<CodeCondition>> = {
 	patrol: {
 		transitions: [
-			{ to: "surprised", cond: (p) => aware(p) },
+			{ to: "surprised", cond: (p) => seen(p) },
 			{
-				to: "investigate",
-				cond: (p) => detection(p) >= SUSPICION && !aware(p),
+				to: "search",
+				cond: (p) => detection(p) >= SUSPICION && !seen(p),
 			},
 		],
 	},
@@ -57,60 +60,48 @@ const states: Record<string, StateNode<CodeCondition>> = {
 		transitions: [
 			{
 				to: "chase",
-				cond: (p) =>
-					num(p, "elapsed") >= num(p, "surpriseDuration") &&
-					inTerritory(p),
+				cond: (p) => num(p, "elapsed") >= num(p, "surpriseDuration"),
 			},
-			{
-				to: "stare",
-				cond: (p) =>
-					num(p, "elapsed") >= num(p, "surpriseDuration") &&
-					aware(p) &&
-					!inTerritory(p),
-			},
-			{
-				to: "patrol",
-				cond: (p) =>
-					num(p, "elapsed") >= num(p, "surpriseDuration") &&
-					!aware(p),
-			},
-		],
-	},
-	stare: {
-		transitions: [
-			{ to: "chase", cond: (p) => inTerritory(p) },
-			{ to: "investigate", cond: (p) => !aware(p) },
 		],
 	},
 	chase: {
 		transitions: [
-			{ to: "attack", cond: (p) => aware(p) && inAttackRange(p) },
-			{ to: "stare", cond: (p) => aware(p) && leftTerritory(p) },
+			{ to: "attack", cond: (p) => inAttackRange(p) },
+			{ to: "retreat", cond: (p) => unreachableTarget(p) },
+			{ to: "patrol", cond: (p) => !seen(p) && leftTerritory(p) },
 			{
-				to: "investigate",
+				to: "search",
 				cond: (p) =>
-					!aware(p) &&
+					!seen(p) &&
 					(reachedGoal(p) ||
-						num(p, "timeSinceSeen") >= PURSUE_TIMEOUT),
+						num(p, "timeSinceSeen") >= PURSUE_GIVEUP),
 			},
 		],
 	},
 	attack: {
+		transitions: [{ to: "chase", cond: (p) => !inAttackRange(p) }],
+	},
+	search: {
 		transitions: [
+			{ to: "attack", cond: (p) => inAttackRange(p) },
+			{ to: "chase", cond: (p) => engaged(p) },
 			{
-				to: "chase",
-				cond: (p) => !inAttackRange(p) || !aware(p),
+				to: "patrol",
+				cond: (p) => num(p, "elapsed") >= num(p, "searchDuration"),
 			},
 		],
 	},
-	investigate: {
+	retreat: {
 		transitions: [
-			{ to: "chase", cond: (p) => inTerritory(p) },
-			{ to: "stare", cond: (p) => aware(p) && !inTerritory(p) },
+			{ to: "attack", cond: (p) => inAttackRange(p) },
+			{
+				to: "chase",
+				cond: (p) => engaged(p) && !unreachableTarget(p),
+			},
+			{ to: "patrol", cond: (p) => !provoked(p) && !seen(p) },
 			{
 				to: "patrol",
-				cond: (p) =>
-					num(p, "elapsed") >= num(p, "investigateDuration"),
+				cond: (p) => num(p, "elapsed") >= num(p, "searchDuration"),
 			},
 		],
 	},
