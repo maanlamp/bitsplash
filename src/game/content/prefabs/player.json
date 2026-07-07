@@ -57,6 +57,12 @@
 			}
 		},
 		"MovementIntent": {},
+		"Facing": {
+			"dir": 1
+		},
+		"Faction": {
+			"faction": "player"
+		},
 		"Health": {
 			"hp": 100,
 			"maxHp": 100

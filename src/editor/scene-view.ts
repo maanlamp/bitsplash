@@ -19,7 +19,9 @@ import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
 import { EntityEditorSystem } from "./systems/entity-editor";
 import { EntityHighlightSystem } from "./systems/entity-highlight";
+import { AiStateDebugSystem } from "./systems/ai-state-debug";
 import { NavGraphDebugSystem } from "./systems/nav-graph-debug";
+import { PerceptionDebugSystem } from "./systems/perception-debug";
 import { PhysicsShapeDebugSystem } from "./systems/physics-shape-debug";
 import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
@@ -85,6 +87,11 @@ export class SceneView {
 				store,
 				EditorLayer.DEBUG_OVERLAY,
 			),
+			new PerceptionDebugSystem(
+				debugFlags,
+				EditorLayer.DEBUG_OVERLAY,
+			),
+			new AiStateDebugSystem(debugFlags, EditorLayer.DEBUG_OVERLAY),
 			new EntityHighlightSystem(store, EditorLayer.EDITOR_PREVIEW),
 			new TileEditorPreviewSystem(EditorLayer.EDITOR_PREVIEW, store),
 			new DebugGridSystem(EditorLayer.DEBUG_GRID),

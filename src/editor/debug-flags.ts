@@ -5,7 +5,9 @@ export type DebugOverlayId =
 	| "sensors"
 	| "transforms"
 	| "navGraph"
-	| "navPath";
+	| "navPath"
+	| "perception"
+	| "aiState";
 
 export type DebugOverlay = Readonly<{
 	id: DebugOverlayId;
@@ -34,6 +36,16 @@ export const DEBUG_OVERLAYS: ReadonlyArray<DebugOverlay> = [
 		id: "navPath",
 		label: "Nav Path",
 		colorToken: "--debug-nav-path",
+	},
+	{
+		id: "perception",
+		label: "Perception",
+		colorToken: "--debug-perception",
+	},
+	{
+		id: "aiState",
+		label: "AI State",
+		colorToken: "--debug-ai-state",
 	},
 ];
 

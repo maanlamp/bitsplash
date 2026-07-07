@@ -58,6 +58,27 @@
 			}
 		},
 		"MovementIntent": {},
+		"Facing": {
+			"dir": 1
+		},
+		"Faction": {
+			"faction": "margrave"
+		},
+		"Perception": {
+			"viewDistanceTiles": 8,
+			"viewAngle": {
+				"$type": "Angle",
+				"radians": 0.6283185307179586
+			},
+			"detectTime": {
+				"$type": "Duration",
+				"seconds": 0.5
+			},
+			"forgetTime": {
+				"$type": "Duration",
+				"seconds": 4
+			}
+		},
 		"Locomotion": {
 			"maxSpeed": 64,
 			"acceleration": 1280,
@@ -93,6 +114,43 @@
 			"questId": "massacre",
 			"stage": "active",
 			"type": "kill"
+		},
+		"StateMachine": {
+			"defId": "enemy-brain"
+		},
+		"EnemyBrain": {
+			"attackRangeTiles": 1.2,
+			"aggroRangeTiles": 10,
+			"bravery": 0.6,
+			"investigateDuration": {
+				"$type": "Duration",
+				"seconds": 3
+			},
+			"surpriseDuration": {
+				"$type": "Duration",
+				"seconds": 0.4
+			}
+		},
+		"Melee": {
+			"rangeTiles": 1.5,
+			"knockback": 180,
+			"windup": {
+				"$type": "Duration",
+				"seconds": 0.4
+			},
+			"recover": {
+				"$type": "Duration",
+				"seconds": 0.6
+			}
+		},
+		"DamageStats": {
+			"base": 10,
+			"critChance": {
+				"$type": "Percent",
+				"value": 0
+			},
+			"critMultiplier": 2,
+			"flavourSet": "melee"
 		}
 	}
 }

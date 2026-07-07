@@ -1,3 +1,4 @@
+import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { NavGraphComponent } from "../../engine/nav/nav-graph-component";
 import { NavGraph, nodeFeet } from "../../engine/nav/nav-graph";
@@ -30,6 +31,10 @@ export class WanderSystem implements UpdateSystem {
 			}
 			if (!wander.origin) {
 				wander.origin = transform.position.clone();
+			}
+			const sm = ecs.getComponent(id, StateMachineComponent);
+			if (sm && sm.current && sm.current !== "patrol") {
+				continue;
 			}
 			if (agent.status === "moving") {
 				continue;

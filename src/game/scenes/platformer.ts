@@ -15,6 +15,7 @@ import {
 	TileDecorations,
 } from "../../engine/decorations/decorations";
 import { DialogueSystem } from "../../engine/dialogue/dialogue-system";
+import { FacingSystem } from "../../engine/locomotion/facing-system";
 import { FontSettings } from "../../engine/text/font-settings";
 import { StateMachineSystem } from "../../engine/fsm/state-machine-system";
 import {
@@ -50,6 +51,7 @@ import { ArrowSystem } from "../combat/arrow-system";
 import { BowSystem } from "../combat/bow-system";
 import { DamageShakeSystem } from "../combat/damage-shake-system";
 import { DamageTriggerSystem } from "../combat/damage-trigger-system";
+import { MeleeSystem } from "../combat/melee-system";
 import { DeathSystem } from "../respawn/death-system";
 import { DeathNoticeSystem } from "../respawn/death-notice-system";
 import { DeathOverlayRenderSystem } from "../respawn/death-overlay-render-system";
@@ -69,6 +71,8 @@ import { LocomotionSystem } from "../../engine/locomotion/locomotion-system";
 import { NavAgentSystem } from "../../engine/nav/nav-agent-system";
 import { NavGraphSystem } from "../../engine/nav/nav-graph-system";
 import { FollowSystem } from "../follow/follow-system";
+import { EnemyBrainSystem } from "../enemy/enemy-brain-system";
+import { PerceptionSystem } from "../enemy/perception-system";
 import { WanderSystem } from "../enemy/wander-system";
 import { PickupSystem } from "../pickup/pickup-system";
 import { PlayerAnimationSystem } from "../player/player-animation-system";
@@ -109,7 +113,9 @@ registerScene("platformer", ({ config, name }): Scene => {
 
 	const gameplaySystems = [
 		new PlayerIntentSystem(),
+		new EnemyBrainSystem(),
 		new StateMachineSystem(),
+		new FacingSystem(),
 		new PlayerAnimationSystem(),
 		new SpriteAnimationSystem(),
 		new WanderSystem(),
@@ -121,12 +127,14 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new PhysicsSystem(),
 		new BowSystem(),
 		new ArrowSystem(),
+		new MeleeSystem(),
 		new PickupSystem(),
 		new InteractionSystem(),
 		new DialogueTriggerSystem(),
 		new DialogueSystem(platformerDialogueBindings),
 		new DamageTriggerSystem(),
 		new HealthSystem(),
+		new PerceptionSystem(),
 		new DamageShakeSystem(),
 		new HitsplatSpawnSystem(),
 		new HitsplatSystem(),

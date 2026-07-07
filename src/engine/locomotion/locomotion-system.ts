@@ -28,10 +28,6 @@ export class LocomotionSystem implements UpdateSystem {
 				continue;
 			}
 			loco.grounded = computeGrounded(rb.body);
-			const dir = Math.sign(intent.moveX);
-			if (dir !== 0) {
-				loco.facing = dir;
-			}
 
 			const vel = rb.linearVelocity;
 			const control = loco.grounded ? 1 : loco.airControl.value;

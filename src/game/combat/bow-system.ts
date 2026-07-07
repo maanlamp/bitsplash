@@ -1,4 +1,5 @@
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
+import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import {
 	type UpdateContext,
@@ -47,6 +48,14 @@ export class BowSystem implements UpdateSystem {
 			transform.rotation.radians = facingLeft
 				? angle + Math.PI
 				: angle;
+
+			const ownerIntent = ecs.getComponent(
+				bow.owner,
+				MovementIntentComponent,
+			);
+			if (ownerIntent) {
+				ownerIntent.faceX = facingLeft ? -1 : 1;
+			}
 
 			const firing = !!input.mouse.buttons.left;
 			if (firing && !bow.wasFiring) {

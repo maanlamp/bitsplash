@@ -1,4 +1,5 @@
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { Input } from "../../engine/input/input";
@@ -30,9 +31,10 @@ export class PlayerMovementSystem implements UpdateSystem {
 		}
 		const s = dt / 1000;
 		const frozen = isCutsceneActive(ecs);
-		for (const [, player, intent, rb] of ecs.query(
+		for (const [, player, intent, facing, rb] of ecs.query(
 			PlayerInputComponent,
 			MovementIntentComponent,
+			FacingComponent,
 			PhysicsBodyComponent,
 		)) {
 			if (!rb.body) {
@@ -40,11 +42,10 @@ export class PlayerMovementSystem implements UpdateSystem {
 			}
 			const dir = intent.moveX;
 			player.moveDir = dir;
-			if (dir !== 0) {
-				player.facing = Math.sign(dir);
-			}
 
-			if (this.handleDash(input, player, rb, dir, frozen, s)) {
+			if (
+				this.handleDash(input, player, facing, rb, dir, frozen, s)
+			) {
 				continue;
 			}
 
@@ -72,6 +73,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 	private handleDash(
 		input: Input,
 		player: PlayerInputComponent,
+		facing: FacingComponent,
 		rb: PhysicsBodyComponent,
 		dir: number,
 		frozen: boolean,
@@ -98,7 +100,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 		) {
 			player.dashing = true;
 			player.dashTimeRemaining = player.dashDuration.seconds * 1000;
-			player.dashDir = dir !== 0 ? Math.sign(dir) : player.facing;
+			player.dashDir = dir !== 0 ? Math.sign(dir) : facing.dir;
 			rb.body!.linearVelocity = {
 				x: player.dashDir * player.dashSpeed,
 				y: 0,

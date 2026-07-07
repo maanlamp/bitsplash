@@ -3,6 +3,7 @@ import { serializable } from "../serialization/serializable";
 @serializable("MovementIntent")
 export class MovementIntentComponent {
 	moveX: number = 0;
+	faceX: number | null = null;
 	jumpPressed: boolean = false;
 	jumpHeld: boolean = false;
 	jumpSpeed: number | null = null;
@@ -10,6 +11,7 @@ export class MovementIntentComponent {
 
 	clear(): void {
 		this.moveX = 0;
+		this.faceX = null;
 		this.jumpPressed = false;
 		this.jumpHeld = false;
 		this.jumpSpeed = null;

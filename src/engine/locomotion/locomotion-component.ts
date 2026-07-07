@@ -14,7 +14,6 @@ export class LocomotionComponent {
 	@serialize({ group: "jump" }) jumpSpeed: number;
 
 	grounded: boolean = false;
-	facing: number = 1;
 
 	constructor(
 		maxSpeed: number = 3 * TILE_SIZE,

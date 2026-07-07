@@ -29,7 +29,6 @@ export class PlayerInputComponent {
 	);
 
 	moveDir: number = 0;
-	facing: number = 1;
 	grounded: boolean = false;
 	jumping: boolean = false;
 	jumpWasHeld: boolean = false;

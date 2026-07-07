@@ -23,6 +23,7 @@ import { fadeAlpha } from "../../engine/render/color-resolver";
 const BOUNDS_MARGIN = 4 * TILE_SIZE;
 const ARROW_REACH = 8;
 const EMBED_DEPTH = 4;
+const STIMULUS_BEARING = 4 * TILE_SIZE;
 
 export class ArrowSystem implements UpdateSystem {
 	update({ dt, ecs, world, events }: UpdateContext): void {
@@ -110,6 +111,9 @@ export class ArrowSystem implements UpdateSystem {
 							arrow.mods,
 							Math.random,
 						);
+						const origin = hit.point
+							.clone()
+							.sub(direction.clone().mul(STIMULUS_BEARING));
 						events.emit(
 							new DamageEvent(
 								victim,
@@ -117,6 +121,7 @@ export class ArrowSystem implements UpdateSystem {
 								crit,
 								arrow.flavourSet,
 								id,
+								origin,
 							),
 						);
 					}

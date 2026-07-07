@@ -1,3 +1,4 @@
+import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { RigidBody } from "../../engine/physics/rigid-body";
 import { Layer } from "../collision";
@@ -15,11 +16,12 @@ const LANDING_LOOKAHEAD = 0.15;
 
 export class PlayerAnimationSystem implements UpdateSystem {
 	update({ ecs, world }: UpdateContext): void {
-		for (const [, player, rb, sm, sprite] of ecs.query(
+		for (const [, player, rb, sm, sprite, facing] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,
 			StateMachineComponent,
 			SpriteComponent,
+			FacingComponent,
 		)) {
 			if (!rb.body) {
 				continue;
@@ -63,6 +65,9 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			sm.params.grounded = player.grounded;
 			sm.params.vy = vy;
 			sm.params.dir = dir;
+			sm.params.facing = facing.dir;
+			sm.params.moveRelFacing =
+				Math.sign(rb.linearVelocity.x) * facing.dir;
 			sm.params.onWall = player.onWall;
 			sm.params.wallJumping = player.wallJumping;
 			sm.params.landing = player.landing;
@@ -70,11 +75,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 
 			sprite.current = sm.current || sm.def?.initial || "idle";
 
-			if (player.dashing) {
-				sprite.flipX = player.dashDir < 0;
-			} else if (dir !== 0) {
-				sprite.flipX = dir < 0;
-			}
+			sprite.flipX = facing.dir < 0;
 		}
 	}
 
