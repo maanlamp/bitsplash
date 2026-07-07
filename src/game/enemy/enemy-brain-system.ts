@@ -1,6 +1,7 @@
+import { AiStateComponent } from "../../engine/debug/ai-state-component";
 import { DebugTagComponent } from "../../engine/debug/debug-tag-component";
+import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
-import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
@@ -15,6 +16,11 @@ import Vector2 from "../../engine/vector2";
 import { MeleeComponent } from "../combat/melee-component";
 import { HealthComponent } from "../health/health-component";
 import { EnemyBrainComponent } from "./enemy-brain-component";
+import {
+	type EnemyCtx,
+	type EnemyState,
+	enemyBrainMachine,
+} from "./enemy-brain-def";
 import { WanderComponent } from "./wander-component";
 
 const MAX_FLEE_FRACTION = 0.5;
@@ -27,10 +33,9 @@ const TERRITORY_HYSTERESIS = 1.15;
 const ATTACK_HYSTERESIS = 1.4;
 
 export class EnemyBrainSystem implements UpdateSystem {
-	update({ ecs }: UpdateContext): void {
+	update({ ecs, dt }: UpdateContext): void {
 		for (const [
 			id,
-			sm,
 			perception,
 			brain,
 			agent,
@@ -38,7 +43,6 @@ export class EnemyBrainSystem implements UpdateSystem {
 			transform,
 			health,
 		] of ecs.query(
-			StateMachineComponent,
 			PerceptionComponent,
 			EnemyBrainComponent,
 			NavAgentComponent,
@@ -46,7 +50,9 @@ export class EnemyBrainSystem implements UpdateSystem {
 			TransformComponent,
 			HealthComponent,
 		)) {
-			const state = sm.current || sm.def?.initial || "patrol";
+			this.applyEffects(ecs, id, brain);
+
+			const state = brain.machine.current as EnemyState;
 			const target =
 				perception.targetId !== null
 					? ecs.getComponent(perception.targetId, TransformComponent)
@@ -60,8 +66,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 				ecs.getComponent(id, WanderComponent)?.origin ??
 				transform.position;
 
-			this.writeParams(
-				sm,
+			const ctx = this.computeCtx(
 				perception,
 				brain,
 				health,
@@ -82,14 +87,36 @@ export class EnemyBrainSystem implements UpdateSystem {
 				transform,
 				targetPos,
 				origin,
-				sm.elapsed,
+				brain.machine.elapsed as Seconds,
 			);
-			this.handleTransition(ecs, id, brain, state);
+
+			const result = enemyBrainMachine.step(
+				{
+					current: state,
+					elapsed: brain.machine.elapsed as Seconds,
+				},
+				ctx,
+				(dt / 1000) as Seconds,
+			);
+			brain.machine.current = result.next.current;
+			brain.machine.elapsed = result.next.elapsed;
+			brain.entered = result.entered;
+			brain.exited = result.exited;
+
+			this.mirrorState(ecs, id, brain.machine.current);
 		}
 	}
 
-	private writeParams(
-		sm: StateMachineComponent,
+	private mirrorState(ecs: ECS, id: EntityId, state: string): void {
+		let debug = ecs.getComponent(id, AiStateComponent);
+		if (!debug) {
+			debug = new AiStateComponent();
+			ecs.addComponent(id, debug);
+		}
+		debug.state = state;
+	}
+
+	private computeCtx(
 		perception: PerceptionComponent,
 		brain: EnemyBrainComponent,
 		health: HealthComponent,
@@ -98,8 +125,8 @@ export class EnemyBrainSystem implements UpdateSystem {
 		transform: TransformComponent,
 		targetPos: Vector2 | null,
 		origin: Vector2,
-		state: string,
-	): void {
+		state: EnemyState,
+	): EnemyCtx {
 		const seen = perception.timeSinceSeen < SIGHT_GRACE;
 		const provoked =
 			perception.timeSinceDamage < brain.provokeDuration.seconds;
@@ -116,35 +143,35 @@ export class EnemyBrainSystem implements UpdateSystem {
 				? attackRange * ATTACK_HYSTERESIS
 				: attackRange;
 
-		const p = sm.params;
-		p.detection = perception.detection;
-		p.seen = seen;
-		p.provoked = provoked;
-		p.engaged = engaged;
-		p.inAttackRange =
-			targetPos !== null &&
-			transform.position.distanceTo(targetPos) <= attackReach;
-		p.leftTerritory =
-			!provoked && distFromHome > aggro * TERRITORY_HYSTERESIS;
-		p.unreachableTarget = agent.status === "unreachable" && engaged;
-		p.reachedGoal = agent.status === "arrived";
-		p.timeSinceSeen = perception.timeSinceSeen;
-		p.targetDead =
-			perception.targetId !== null &&
-			(!targetHealth || targetHealth.hp <= 0);
-		p.lowNerve =
-			health.maxHp > 0 && health.hp / health.maxHp <= fleeAt;
-		p.forgotten =
-			perception.timeSinceStimulus > perception.forgetTime.seconds;
-		p.state = state;
-		p.surpriseDuration = brain.surpriseDuration.seconds;
-		p.searchDuration = brain.investigateDuration.seconds;
+		return {
+			detection: perception.detection,
+			seen,
+			provoked,
+			engaged,
+			inAttackRange:
+				targetPos !== null &&
+				transform.position.distanceTo(targetPos) <= attackReach,
+			leftTerritory:
+				!provoked && distFromHome > aggro * TERRITORY_HYSTERESIS,
+			unreachableTarget: agent.status === "unreachable" && engaged,
+			reachedGoal: agent.status === "arrived",
+			timeSinceSeen: perception.timeSinceSeen,
+			targetDead:
+				perception.targetId !== null &&
+				(!targetHealth || targetHealth.hp <= 0),
+			lowNerve:
+				health.maxHp > 0 && health.hp / health.maxHp <= fleeAt,
+			forgotten:
+				perception.timeSinceStimulus > perception.forgetTime.seconds,
+			surpriseDuration: brain.surpriseDuration.seconds,
+			searchDuration: brain.investigateDuration.seconds,
+		};
 	}
 
 	private actuate(
 		id: EntityId,
 		ecs: ECS,
-		state: string,
+		state: EnemyState,
 		perception: PerceptionComponent,
 		agent: NavAgentComponent,
 		intent: MovementIntentComponent,
@@ -194,6 +221,37 @@ export class EnemyBrainSystem implements UpdateSystem {
 		}
 	}
 
+	private applyEffects(
+		ecs: ECS,
+		id: EntityId,
+		brain: EnemyBrainComponent,
+	): void {
+		if (brain.entered.includes("surprised")) {
+			ecs.addComponent(id, new DebugTagComponent("!"));
+			const rb = ecs.getComponent(id, PhysicsBodyComponent);
+			if (rb?.body) {
+				rb.body.linearVelocity = {
+					x: rb.linearVelocity.x,
+					y: -HOP_SPEED,
+				};
+			}
+		}
+		if (brain.exited.includes("surprised")) {
+			ecs.removeComponent(id, DebugTagComponent);
+		}
+		if (brain.entered.includes("patrol")) {
+			const agent = ecs.getComponent(id, NavAgentComponent);
+			if (agent) {
+				agent.target = null;
+			}
+			const wander = ecs.getComponent(id, WanderComponent);
+			if (wander) {
+				wander.elapsed = 0;
+				wander.nextAt = 0;
+			}
+		}
+	}
+
 	private face(
 		intent: MovementIntentComponent,
 		transform: TransformComponent,
@@ -218,7 +276,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 
 	private triggerMelee(ecs: ECS, id: EntityId): void {
 		const melee = ecs.getComponent(id, MeleeComponent);
-		if (melee && melee.phase === "idle") {
+		if (melee && melee.machine.current === "idle") {
 			melee.triggered = true;
 		}
 	}
@@ -257,41 +315,5 @@ export class EnemyBrainSystem implements UpdateSystem {
 			.normalize()
 			.mul(RETREAT_DISTANCE)
 			.add(transform.position);
-	}
-
-	private handleTransition(
-		ecs: ECS,
-		id: EntityId,
-		brain: EnemyBrainComponent,
-		state: string,
-	): void {
-		if (brain.prevState === state) {
-			return;
-		}
-		if (state === "surprised") {
-			ecs.addComponent(id, new DebugTagComponent("!"));
-			const rb = ecs.getComponent(id, PhysicsBodyComponent);
-			if (rb?.body) {
-				rb.body.linearVelocity = {
-					x: rb.linearVelocity.x,
-					y: -HOP_SPEED,
-				};
-			}
-		}
-		if (brain.prevState === "surprised") {
-			ecs.removeComponent(id, DebugTagComponent);
-		}
-		if (state === "patrol") {
-			const agent = ecs.getComponent(id, NavAgentComponent);
-			if (agent) {
-				agent.target = null;
-			}
-			const wander = ecs.getComponent(id, WanderComponent);
-			if (wander) {
-				wander.elapsed = 0;
-				wander.nextAt = 0;
-			}
-		}
-		brain.prevState = state;
 	}
 }

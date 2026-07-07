@@ -172,9 +172,6 @@
 				"path": "/src/game/content/assets/run.png"
 			}
 		},
-		"StateMachine": {
-			"defId": "player-anim"
-		},
 		"Respawn": {
 			"delay": {
 				"$type": "Duration",

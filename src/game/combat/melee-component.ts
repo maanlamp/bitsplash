@@ -1,4 +1,5 @@
 import { Duration } from "../../engine/duration";
+import { MachineState } from "../../engine/fsm/machine-state";
 import {
 	serializable,
 	serialize,
@@ -13,8 +14,7 @@ export class MeleeComponent {
 	@serialize({ group: "timing" }) windup: Duration;
 	@serialize({ group: "timing" }) recover: Duration;
 
-	phase: MeleePhase = "idle";
-	elapsed: number = 0;
+	machine: MachineState = new MachineState("idle", 0);
 	triggered: boolean = false;
 
 	constructor(

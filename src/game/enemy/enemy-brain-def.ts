@@ -1,124 +1,114 @@
-import type {
-	CodeCondition,
-	Params,
-} from "../../engine/fsm/conditions";
-import { fsm, type FSM } from "../../engine/fsm/define";
-import type {
-	StateNode,
-	Transition,
-} from "../../engine/fsm/state-machine";
+import { defineMachine } from "../../engine/fsm/machine";
 
 const SUSPICION = 0.5;
 const PURSUE_GIVEUP = 3;
 
-const num = (p: Params, key: string): number => p[key] as number;
-const bool = (p: Params, key: string): boolean => p[key] as boolean;
-
-const detection = (p: Params): number => num(p, "detection");
-const seen = (p: Params): boolean => bool(p, "seen");
-const provoked = (p: Params): boolean => bool(p, "provoked");
-const engaged = (p: Params): boolean => bool(p, "engaged");
-const inAttackRange = (p: Params): boolean =>
-	bool(p, "inAttackRange");
-const leftTerritory = (p: Params): boolean =>
-	bool(p, "leftTerritory");
-const unreachableTarget = (p: Params): boolean =>
-	bool(p, "unreachableTarget");
-const reachedGoal = (p: Params): boolean => bool(p, "reachedGoal");
-const state = (p: Params): string => p.state as string;
-
-const anyState: Transition<CodeCondition>[] = [
-	{
-		to: "flee",
-		priority: 100,
-		cond: (p) =>
-			bool(p, "lowNerve") &&
-			!bool(p, "forgotten") &&
-			state(p) !== "flee",
-	},
-	{
-		to: "patrol",
-		priority: 90,
-		cond: (p) =>
-			bool(p, "targetDead") &&
-			state(p) !== "patrol" &&
-			state(p) !== "flee",
-	},
-];
-
-const states: Record<string, StateNode<CodeCondition>> = {
-	patrol: {
-		transitions: [
-			{ to: "surprised", cond: (p) => seen(p) },
-			{
-				to: "search",
-				cond: (p) => detection(p) >= SUSPICION && !seen(p),
-			},
-		],
-	},
-	surprised: {
-		transitions: [
-			{
-				to: "chase",
-				cond: (p) => num(p, "elapsed") >= num(p, "surpriseDuration"),
-			},
-		],
-	},
-	chase: {
-		transitions: [
-			{ to: "attack", cond: (p) => inAttackRange(p) },
-			{ to: "retreat", cond: (p) => unreachableTarget(p) },
-			{ to: "patrol", cond: (p) => !seen(p) && leftTerritory(p) },
-			{
-				to: "search",
-				cond: (p) =>
-					!seen(p) &&
-					(reachedGoal(p) ||
-						num(p, "timeSinceSeen") >= PURSUE_GIVEUP),
-			},
-		],
-	},
-	attack: {
-		transitions: [{ to: "chase", cond: (p) => !inAttackRange(p) }],
-	},
-	search: {
-		transitions: [
-			{ to: "attack", cond: (p) => inAttackRange(p) },
-			{ to: "chase", cond: (p) => engaged(p) },
-			{
-				to: "patrol",
-				cond: (p) => num(p, "elapsed") >= num(p, "searchDuration"),
-			},
-		],
-	},
-	retreat: {
-		transitions: [
-			{ to: "attack", cond: (p) => inAttackRange(p) },
-			{
-				to: "chase",
-				cond: (p) => engaged(p) && !unreachableTarget(p),
-			},
-			{ to: "patrol", cond: (p) => !provoked(p) && !seen(p) },
-			{
-				to: "patrol",
-				cond: (p) => num(p, "elapsed") >= num(p, "searchDuration"),
-			},
-		],
-	},
-	flee: {
-		transitions: [
-			{ to: "patrol", cond: (p) => bool(p, "forgotten") },
-		],
-	},
+export type EnemyCtx = {
+	detection: number;
+	seen: boolean;
+	provoked: boolean;
+	engaged: boolean;
+	inAttackRange: boolean;
+	leftTerritory: boolean;
+	unreachableTarget: boolean;
+	reachedGoal: boolean;
+	timeSinceSeen: number;
+	targetDead: boolean;
+	lowNerve: boolean;
+	forgotten: boolean;
+	surpriseDuration: number;
+	searchDuration: number;
 };
 
-@fsm("enemy-brain")
-export class EnemyBrainDef implements FSM<CodeCondition> {
-	initial = "patrol";
-	states = states;
-	anyState = anyState;
+export type EnemyState =
+	| "patrol"
+	| "surprised"
+	| "combat"
+	| "chase"
+	| "attack"
+	| "retreat"
+	| "search"
+	| "flee";
 
-	evaluate(cond: CodeCondition, params: Params): boolean {
-		return cond(params);
-	}
-}
+export const enemyBrainMachine = defineMachine<EnemyCtx>()({
+	initial: "patrol",
+	root: [
+		{
+			to: "flee",
+			priority: 100,
+			when: (c, m) => c.lowNerve && !c.forgotten && !m.in("flee"),
+		},
+		{
+			to: "patrol",
+			priority: 90,
+			when: (c, m) =>
+				c.targetDead && !m.in("patrol") && !m.in("flee"),
+		},
+	],
+	states: {
+		patrol: {
+			transitions: [
+				{ to: "surprised", when: (c) => c.seen },
+				{
+					to: "search",
+					when: (c) => c.detection >= SUSPICION && !c.seen,
+				},
+			],
+		},
+		surprised: {
+			transitions: [
+				{
+					to: "chase",
+					when: (c, m) => m.elapsed >= c.surpriseDuration,
+				},
+			],
+		},
+		combat: {
+			children: ["chase", "attack", "retreat", "search"],
+			initial: "chase",
+		},
+		chase: {
+			transitions: [
+				{ to: "attack", when: (c) => c.inAttackRange },
+				{ to: "retreat", when: (c) => c.unreachableTarget },
+				{ to: "patrol", when: (c) => !c.seen && c.leftTerritory },
+				{
+					to: "search",
+					when: (c) =>
+						!c.seen &&
+						(c.reachedGoal || c.timeSinceSeen >= PURSUE_GIVEUP),
+				},
+			],
+		},
+		attack: {
+			transitions: [{ to: "chase", when: (c) => !c.inAttackRange }],
+		},
+		search: {
+			transitions: [
+				{ to: "attack", when: (c) => c.inAttackRange },
+				{ to: "chase", when: (c) => c.engaged },
+				{
+					to: "patrol",
+					when: (c, m) => m.elapsed >= c.searchDuration,
+				},
+			],
+		},
+		retreat: {
+			transitions: [
+				{ to: "attack", when: (c) => c.inAttackRange },
+				{
+					to: "chase",
+					when: (c) => c.engaged && !c.unreachableTarget,
+				},
+				{ to: "patrol", when: (c) => !c.provoked && !c.seen },
+				{
+					to: "patrol",
+					when: (c, m) => m.elapsed >= c.searchDuration,
+				},
+			],
+		},
+		flee: {
+			transitions: [{ to: "patrol", when: (c) => c.forgotten }],
+		},
+	},
+});

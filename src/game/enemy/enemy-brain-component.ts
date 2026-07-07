@@ -1,4 +1,5 @@
 import { Duration } from "../../engine/duration";
+import { MachineState } from "../../engine/fsm/machine-state";
 import {
 	serializable,
 	serialize,
@@ -13,7 +14,10 @@ export class EnemyBrainComponent {
 	@serialize({ group: "timing" }) surpriseDuration: Duration;
 	@serialize({ group: "timing" }) provokeDuration: Duration;
 
-	prevState: string = "";
+	@serialize() machine: MachineState = new MachineState("patrol", 0);
+
+	entered: string[] = [];
+	exited: string[] = [];
 
 	constructor(
 		attackRangeTiles: number = 1.2,

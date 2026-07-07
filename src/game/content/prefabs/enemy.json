@@ -115,9 +115,6 @@
 			"stage": "active",
 			"type": "kill"
 		},
-		"StateMachine": {
-			"defId": "enemy-brain"
-		},
 		"EnemyBrain": {
 			"attackRangeTiles": 1.2,
 			"aggroRangeTiles": 10,

@@ -1,4 +1,5 @@
 import { Duration } from "../../engine/duration";
+import { MachineState } from "../../engine/fsm/machine-state";
 import { Percent } from "../../engine/percent";
 import {
 	serializable,
@@ -42,6 +43,8 @@ export class PlayerInputComponent {
 	dashDir: number = 1;
 	dashTimeRemaining: number = 0;
 	dashCooldownRemaining: number = 0;
+	anim: MachineState = new MachineState("idle", 0);
+	@serialize() move: MachineState = new MachineState("idle", 0);
 
 	constructor(
 		maxSpeed: number = 3 * TILE_SIZE,

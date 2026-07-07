@@ -1,8 +1,17 @@
 # Skeletal Animation (Cutout) — Architectural Plan
 
 Status: **planned** (no implementation yet). Builds on `animation.md` (frame
-clips + FSM graph) and the generic FSM (`state-machine.md`). Owns the
-"attachment points / skeletal future" that `animation.md` §7/§10 parked.
+clips + FSM graph). Owns the "attachment points / skeletal future" that
+`animation.md` §7/§10 parked.
+
+> **Superseded premise (2026-07-08):** the "generic FSM" (`state-machine.md`)
+> this plan reused is gone (see the FSM rework, `2026-07-07-refactor-fsm.md`).
+> State→clip selection is now a **code-defined** machine on the `defineMachine`
+> kernel (`engine/fsm/machine`), not editor-authored data-condition graphs.
+> Skeletal does not need hierarchy from the kernel (the bow is a procedural aim
+> bone; layering is parked), so the flat/HFSM kernel unblocks it directly.
+> References to `engine/fsm/*` "generic FSM" / "data-condition" below map to the
+> code-defined kernel.
 
 ## 1. Goal
 

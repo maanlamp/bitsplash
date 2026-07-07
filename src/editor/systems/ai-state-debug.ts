@@ -1,7 +1,7 @@
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
+import { AiStateComponent } from "../../engine/debug/ai-state-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
-import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
 	type RenderContext,
 	RenderSystem,
@@ -28,13 +28,14 @@ export class AiStateDebugSystem implements RenderSystem {
 			return;
 		}
 		const zoom = pickActiveCamera2D(ctx.ecs)?.zoom ?? 1;
-		for (const [id, sm, perception, transform] of ctx.ecs.query(
-			StateMachineComponent,
+		for (const [id, perception, transform] of ctx.ecs.query(
 			PerceptionComponent,
 			TransformComponent,
 		)) {
-			const state = sm.current || sm.def?.initial || "patrol";
+			const state =
+				ctx.ecs.getComponent(id, AiStateComponent)?.state ?? "";
 			const pct = Math.round(perception.detection * 100);
+			const label = state ? `${state} ${pct}%` : `${pct}%`;
 			const phys = ctx.ecs.getComponent(id, PhysicsBodyComponent);
 			const top =
 				transform.position.y -
@@ -43,7 +44,7 @@ export class AiStateDebugSystem implements RenderSystem {
 			ctx.renderer.drawText(
 				this.layer,
 				font,
-				`${state} ${pct}%`,
+				label,
 				transform.position.x,
 				top,
 				{

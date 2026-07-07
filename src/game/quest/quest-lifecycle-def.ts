@@ -1,30 +1,25 @@
-import {
-	type DataCondition,
-	evaluateDataCondition,
-	type Params,
-} from "../../engine/fsm/conditions";
-import { type FSM, fsm } from "../../engine/fsm/define";
+import { defineMachine } from "../../engine/fsm/machine";
 
-@fsm("quest-lifecycle")
-export class QuestLifecycleDef implements FSM<DataCondition> {
-	initial = "offered";
+export type QuestCtx = { pending: string | null };
 
-	states = {
+export const questLifecycleMachine = defineMachine<QuestCtx>()({
+	initial: "offered",
+	states: {
 		offered: {
-			transitions: [{ to: "active", cond: { trigger: "active" } }],
+			transitions: [
+				{ to: "active", when: (c) => c.pending === "active" },
+			],
 		},
 		active: {
-			transitions: [{ to: "return", cond: { trigger: "return" } }],
+			transitions: [
+				{ to: "return", when: (c) => c.pending === "return" },
+			],
 		},
 		return: {
 			transitions: [
-				{ to: "complete", cond: { trigger: "complete" } },
+				{ to: "complete", when: (c) => c.pending === "complete" },
 			],
 		},
-		complete: { transitions: [] },
-	};
-
-	evaluate(cond: DataCondition, params: Params): boolean {
-		return evaluateDataCondition(cond, params);
-	}
-}
+		complete: {},
+	},
+});

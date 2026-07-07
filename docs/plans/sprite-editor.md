@@ -96,10 +96,12 @@ authoring**. Skeletal is parked.
   on the timeline.
 - **Onion skinning** — render previous/next frames at reduced opacity behind the
   current frame in the sprite canvas (toggle, configurable range/opacity).
-- **Animation-graph editor** — a node/graph view editing the data-condition FSM
-  (`state-machine.md`): states (each → a clip), params, transitions with data
-  conditions (`speed > 0.1`, `trigger:attack`). **Live preview** drives the
-  animator against editable param values. This is the biggest new UI piece.
+- **Animation-graph editor** — ~~a node/graph view editing the data-condition FSM
+  (`state-machine.md`)~~. **Void as of the FSM rework (2026-07-08):** animation
+  state→clip selection is now code-defined on the `defineMachine` kernel
+  (`engine/fsm/machine`), not an editor-authored data-condition graph. There is
+  no serializable FSM graph to edit; this UI piece no longer applies. Clip/frame
+  authoring and live preview against a running code machine may still be useful.
 - Output: spritesheet metadata + clip defs + the animation graph (a serialized
   `StateMachineDef`) — all consumed by the engine Animation system.
 

@@ -1,8 +1,15 @@
 # Animation — Architectural Plan
 
 Status: **planned** (no implementation yet). README summary under "Animation".
-Built on the generic FSM (`state-machine.md`); authoring tools handed to
-`sprite-editor.md` (TBD).
+
+> **Superseded premise (2026-07-08):** the FSM rework
+> (`2026-07-07-refactor-fsm.md`, landed) deleted the serializable, editor-authored
+> "generic FSM" (`state-machine.md`) this plan was built on. Animation state→clip
+> selection is now **code-defined** via the `defineMachine` kernel
+> (`engine/fsm/machine`) — see `player-anim-def.ts` for the pattern — not a
+> data-condition graph authored in the sprite editor. The "graph = generic FSM /
+> data-condition evaluator" sections below are void; treat state→clip as a code
+> machine on the new kernel. The clips + frame-events parts still stand.
 
 ## 1. Goal
 

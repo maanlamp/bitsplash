@@ -17,7 +17,6 @@ import {
 import { DialogueSystem } from "../../engine/dialogue/dialogue-system";
 import { FacingSystem } from "../../engine/locomotion/facing-system";
 import { FontSettings } from "../../engine/text/font-settings";
-import { StateMachineSystem } from "../../engine/fsm/state-machine-system";
 import {
 	registerScene,
 	registerSceneFile,
@@ -114,7 +113,6 @@ registerScene("platformer", ({ config, name }): Scene => {
 	const gameplaySystems = [
 		new PlayerIntentSystem(),
 		new EnemyBrainSystem(),
-		new StateMachineSystem(),
 		new FacingSystem(),
 		new PlayerAnimationSystem(),
 		new SpriteAnimationSystem(),

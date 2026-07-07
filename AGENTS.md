@@ -96,7 +96,8 @@ Violating these boundaries is never acceptable, regardless of convenience.
 
 - Behavior lives in **systems**, not in component classes or object hierarchies.
 - **No entity hierarchy, ever.** No parent/child relationships, no scene graph trees. Entities relate by id-references stored in components; multi-entity constructs are spawned and wired by id from a system.
-- Use the established decorator/registry patterns: `@serializable("Name")` on the class (components _and_ value types) + `@serialize(options?)` to opt a field into persistence; `@fsm` for state machines. No inline `instanceof` special-casing.
+- Use the established decorator/registry patterns: `@serializable("Name")` on the class (components _and_ value types) + `@serialize(options?)` to opt a field into persistence. No inline `instanceof` special-casing.
+- State machines are **code-defined** with `defineMachine<Ctx>()({ … })` from `engine/fsm/machine` (a pure, hierarchical kernel — no decorator, no registry). Each feature owns its run-state via an embedded `MachineState` value type (`engine/fsm/machine-state`) on its own component, statically imports its machine const, and calls `step()` itself; the kernel reports `entered`/`exited` and the feature system performs the side-effects. The guard context is transient — rebuilt each frame from real components, never serialized.
 - Prefer **data-driven** content (JSON scenes, prefab files, metadata-in-assets) over imperative code for anything that is authored content.
 
 ## Conventions

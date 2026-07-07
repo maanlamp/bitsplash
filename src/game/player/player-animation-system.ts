@@ -1,25 +1,28 @@
+import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import type { RigidBody } from "../../engine/physics/rigid-body";
 import { Layer } from "../collision";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
-import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
 import type { World } from "../../engine/world";
+import {
+	type AnimState,
+	playerAnimMachine,
+} from "../player/player-anim-def";
 import { PlayerInputComponent } from "../player/player-input-component";
 
 const AIRBORNE = new Set(["fall", "jump", "walljump", "wallslide"]);
 const LANDING_LOOKAHEAD = 0.15;
 
 export class PlayerAnimationSystem implements UpdateSystem {
-	update({ ecs, world }: UpdateContext): void {
-		for (const [, player, rb, sm, sprite, facing] of ecs.query(
+	update({ ecs, dt, world }: UpdateContext): void {
+		for (const [, player, rb, sprite, facing] of ecs.query(
 			PlayerInputComponent,
 			PhysicsBodyComponent,
-			StateMachineComponent,
 			SpriteComponent,
 			FacingComponent,
 		)) {
@@ -46,7 +49,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			}
 			if (
 				(player.canLand && nearGround) ||
-				(player.grounded && AIRBORNE.has(sm.current))
+				(player.grounded && AIRBORNE.has(player.anim.current))
 			) {
 				player.landing = true;
 				player.canLand = false;
@@ -55,27 +58,34 @@ export class PlayerAnimationSystem implements UpdateSystem {
 				player.landing = false;
 			} else if (
 				player.landing &&
-				sm.current === "land" &&
+				player.anim.current === "land" &&
 				sprite.finished &&
 				(player.grounded || !nearGround)
 			) {
 				player.landing = false;
 			}
 
-			sm.params.grounded = player.grounded;
-			sm.params.vy = vy;
-			sm.params.dir = dir;
-			sm.params.facing = facing.dir;
-			sm.params.moveRelFacing =
-				Math.sign(rb.linearVelocity.x) * facing.dir;
-			sm.params.onWall = player.onWall;
-			sm.params.wallJumping = player.wallJumping;
-			sm.params.landing = player.landing;
-			sm.params.dashing = player.dashing;
-
-			sprite.current = sm.current || sm.def?.initial || "idle";
-
+			sprite.current = player.anim.current;
 			sprite.flipX = facing.dir < 0;
+
+			const result = playerAnimMachine.step(
+				{
+					current: player.anim.current as AnimState,
+					elapsed: player.anim.elapsed as Seconds,
+				},
+				{
+					grounded: player.grounded,
+					onWall: player.onWall,
+					wallJumping: player.wallJumping,
+					landing: player.landing,
+					dashing: player.dashing,
+					dir,
+					vy,
+				},
+				(dt / 1000) as Seconds,
+			);
+			player.anim.current = result.next.current;
+			player.anim.elapsed = result.next.elapsed;
 		}
 	}
 

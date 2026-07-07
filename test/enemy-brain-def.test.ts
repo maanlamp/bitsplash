@@ -1,31 +1,25 @@
 import { expect, test } from "bun:test";
 
-import type { Params } from "../src/engine/fsm/conditions";
-import { EnemyBrainDef } from "../src/game/enemy/enemy-brain-def";
+import type { Seconds } from "../src/engine/duration";
+import {
+	type EnemyCtx,
+	type EnemyState,
+	enemyBrainMachine,
+} from "../src/game/enemy/enemy-brain-def";
 
-const def = new EnemyBrainDef();
-
-// Mirror of StateMachineSystem's candidate selection (priority desc, stable).
 function transition(
-	current: string,
+	current: EnemyState,
 	elapsed: number,
-	p: Params,
-): string {
-	const node = def.states[current]!;
-	const params: Params = { ...p, elapsed };
-	const candidates = [
-		...(def.anyState ?? []),
-		...node.transitions,
-	].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
-	for (const t of candidates) {
-		if (def.evaluate(t.cond, params)) {
-			return t.to;
-		}
-	}
-	return current;
+	ctx: EnemyCtx,
+): EnemyState {
+	return enemyBrainMachine.step(
+		{ current, elapsed: elapsed as Seconds },
+		ctx,
+		0 as Seconds,
+	).next.current;
 }
 
-const calm = (): Params => ({
+const calm = (): EnemyCtx => ({
 	detection: 0,
 	seen: false,
 	provoked: false,
@@ -38,13 +32,12 @@ const calm = (): Params => ({
 	targetDead: false,
 	lowNerve: false,
 	forgotten: false,
-	state: "patrol",
 	surpriseDuration: 0.4,
 	searchDuration: 3,
 });
 
 const cases: Array<
-	[string, string, number, Partial<Params>, string]
+	[string, EnemyState, number, Partial<EnemyCtx>, EnemyState]
 > = [
 	[
 		"brief LOS loss keeps chasing",
@@ -170,37 +163,32 @@ const cases: Array<
 for (const [name, from, elapsed, overrides, want] of cases) {
 	test(name, () => {
 		expect(
-			transition(from, elapsed, {
-				...calm(),
-				state: from,
-				...overrides,
-			}),
+			transition(from, elapsed, { ...calm(), ...overrides }),
 		).toBe(want);
 	});
 }
 
 // Invariant: no engaged state is a dead-end. Once the target is gone, every
-// state must reach patrol on its own. (This is the check the leashReturn
-// deadlock violated.)
+// state must reach patrol on its own.
 test("every state reaches patrol once the target is gone", () => {
-	for (const start of [
+	const starts: EnemyState[] = [
 		"surprised",
 		"chase",
 		"attack",
 		"search",
 		"retreat",
 		"flee",
-	]) {
-		let cur = start;
-		const gone: Params = {
+	];
+	for (const start of starts) {
+		let cur: EnemyState = start;
+		const gone: EnemyCtx = {
 			...calm(),
 			forgotten: true,
 			reachedGoal: true,
-			navDone: true,
 		};
 		let landed = false;
 		for (let i = 0; i < 50; i++) {
-			cur = transition(cur, 100, { ...gone, state: cur });
+			cur = transition(cur, 100, gone);
 			if (cur === "patrol") {
 				landed = true;
 				break;

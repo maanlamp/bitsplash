@@ -1,4 +1,5 @@
 import type { ECS, EntityId } from "../../engine/ecs";
+import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import {
@@ -13,38 +14,37 @@ import { FactionComponent } from "../faction/faction-component";
 import { getReaction } from "../faction/reaction";
 import { HealthComponent } from "../health/health-component";
 import { DamageStatsComponent } from "./damage-stats-component";
-import { MeleeComponent } from "./melee-component";
+import { type MeleePhase, MeleeComponent } from "./melee-component";
+import { meleeMachine } from "./melee-def";
 import { NO_MODIFIERS, resolveHit } from "./resolve-hit";
 import { DamageEvent } from "../events";
 
 export class MeleeSystem implements UpdateSystem {
 	update({ dt, ecs, events }: UpdateContext): void {
-		const s = dt / 1000;
 		for (const [id, melee, transform, facing] of ecs.query(
 			MeleeComponent,
 			TransformComponent,
 			FacingComponent,
 		)) {
-			if (melee.phase === "idle") {
-				if (melee.triggered) {
-					melee.triggered = false;
-					melee.phase = "windup";
-					melee.elapsed = 0;
-				}
-				continue;
-			}
+			const result = meleeMachine.step(
+				{
+					current: melee.machine.current as MeleePhase,
+					elapsed: melee.machine.elapsed as Seconds,
+				},
+				{
+					triggered: melee.triggered,
+					windup: melee.windup.seconds as Seconds,
+					recover: melee.recover.seconds as Seconds,
+				},
+				(dt / 1000) as Seconds,
+			);
 
+			melee.machine.current = result.next.current;
+			melee.machine.elapsed = result.next.elapsed;
 			melee.triggered = false;
-			melee.elapsed += s;
-			if (melee.phase === "windup") {
-				if (melee.elapsed >= melee.windup.seconds) {
-					this.strike(ecs, events, id, melee, transform, facing);
-					melee.phase = "recover";
-					melee.elapsed = 0;
-				}
-			} else if (melee.elapsed >= melee.recover.seconds) {
-				melee.phase = "idle";
-				melee.elapsed = 0;
+
+			if (result.entered.includes("recover")) {
+				this.strike(ecs, events, id, melee, transform, facing);
 			}
 		}
 	}

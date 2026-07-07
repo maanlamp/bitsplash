@@ -1,4 +1,5 @@
 import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
@@ -8,6 +9,10 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import Vector2 from "../../engine/vector2";
+import {
+	type MoveState,
+	playerMoveMachine,
+} from "../player/player-movement-def";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { InputBindings } from "../input-bindings";
 
@@ -43,30 +48,64 @@ export class PlayerMovementSystem implements UpdateSystem {
 			const dir = intent.moveX;
 			player.moveDir = dir;
 
-			if (
-				this.handleDash(input, player, facing, rb, dir, frozen, s)
-			) {
-				continue;
+			const dashing = this.handleDash(
+				input,
+				player,
+				facing,
+				rb,
+				dir,
+				frozen,
+				s,
+			);
+			let jumpType: "wall" | "normal" | null = null;
+			if (!dashing) {
+				const vel = rb.linearVelocity;
+				const control = player.grounded ? 1 : player.airControl.value;
+				const targetVx = dir * player.maxSpeed;
+				const rate =
+					(dir !== 0 ? player.acceleration : player.deceleration) *
+					control;
+				const newVx = approach(vel.x, targetVx, rate * s);
+				rb.applyImpulse(
+					new Vector2(rb.body.mass * (newVx - vel.x), 0),
+				);
+
+				const onWall =
+					!player.grounded && dir !== 0 && this.touchingWall(rb, dir);
+				player.onWall = onWall && player.canWallSlide;
+
+				jumpType = this.handleJump(
+					intent,
+					player,
+					rb,
+					newVx,
+					onWall,
+					dir,
+				);
+				this.handleWallSlide(player, rb, onWall);
 			}
 
-			const vel = rb.linearVelocity;
-			const control = player.grounded ? 1 : player.airControl.value;
-			const targetVx = dir * player.maxSpeed;
-			const rate =
-				(dir !== 0 ? player.acceleration : player.deceleration) *
-				control;
-			const newVx = approach(vel.x, targetVx, rate * s);
-			rb.applyImpulse(new Vector2(rb.body.mass * (newVx - vel.x), 0));
-
-			const onWall =
-				!player.grounded && dir !== 0 && this.touchingWall(rb, dir);
-			player.onWall = onWall && player.canWallSlide;
-			if (player.grounded || onWall) {
-				player.wallJumping = false;
-			}
-
-			this.handleJump(intent, player, rb, newVx, onWall, dir);
-			this.handleWallSlide(player, rb, onWall);
+			const vy = rb.linearVelocity.y;
+			const result = playerMoveMachine.step(
+				{
+					current: player.move.current as MoveState,
+					elapsed: player.move.elapsed as Seconds,
+				},
+				{
+					grounded: player.grounded,
+					dir,
+					vy,
+					onWall: player.onWall,
+					dashActive: player.dashTimeRemaining > 0,
+					jumpWall: jumpType === "wall",
+					jumpNormal: jumpType === "normal",
+				},
+				s as Seconds,
+			);
+			player.move.current = result.next.current;
+			player.move.elapsed = result.next.elapsed;
+			player.dashing = player.move.current === "dash";
+			player.wallJumping = player.move.current === "walljump";
 		}
 	}
 
@@ -95,10 +134,9 @@ export class PlayerMovementSystem implements UpdateSystem {
 
 		if (
 			dashPressed &&
-			!player.dashing &&
+			player.dashTimeRemaining <= 0 &&
 			player.dashCooldownRemaining <= 0
 		) {
-			player.dashing = true;
 			player.dashTimeRemaining = player.dashDuration.seconds * 1000;
 			player.dashDir = dir !== 0 ? Math.sign(dir) : facing.dir;
 			rb.body!.linearVelocity = {
@@ -107,13 +145,12 @@ export class PlayerMovementSystem implements UpdateSystem {
 			};
 		}
 
-		if (!player.dashing) {
+		if (player.dashTimeRemaining <= 0) {
 			return false;
 		}
 
 		player.dashTimeRemaining -= s * 1000;
 		if (player.dashTimeRemaining <= 0) {
-			player.dashing = false;
 			player.dashCooldownRemaining =
 				player.dashCooldown.seconds * 1000;
 		}
@@ -157,7 +194,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 		vx: number,
 		onWall: boolean,
 		dir: number,
-	): void {
+	): "wall" | "normal" | null {
 		if (
 			player.grounded &&
 			!player.jumping &&
@@ -187,17 +224,16 @@ export class PlayerMovementSystem implements UpdateSystem {
 						: player.airJumpSpeed;
 			const launchVx = wallJump ? -dir * player.maxSpeed : vx;
 			rb.body!.linearVelocity = { x: launchVx, y: -speed };
-			if (wallJump) {
-				player.wallJumping = true;
-			} else {
-				player.jumpsRemaining -= 1;
-			}
 			player.jumping = player.grounded;
-			return;
+			if (wallJump) {
+				return "wall";
+			}
+			player.jumpsRemaining -= 1;
+			return "normal";
 		}
 
 		if (!player.jumping) {
-			return;
+			return null;
 		}
 
 		const vy = rb.linearVelocity.y;
@@ -211,5 +247,6 @@ export class PlayerMovementSystem implements UpdateSystem {
 			rb.body!.linearVelocity = { x: vx, y: -player.minJumpSpeed };
 			player.jumping = false;
 		}
+		return null;
 	}
 }

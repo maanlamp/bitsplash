@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
 import { ECS, type EntityId } from "../src/engine/ecs";
 import EventBus from "../src/engine/events";
-import { StateMachineComponent } from "../src/engine/fsm/state-machine-component";
-import { StateMachineSystem } from "../src/engine/fsm/state-machine-system";
 import { MovementIntentComponent } from "../src/engine/locomotion/movement-intent-component";
 import { NavAgentComponent } from "../src/engine/nav/nav-agent-component";
 import { PerceptionComponent } from "../src/engine/perception/perception-component";
@@ -11,22 +9,20 @@ import { TILE_SIZE } from "../src/engine/tilemap/tile";
 import { TransformComponent } from "../src/engine/transform-component";
 import Vector2 from "../src/engine/vector2";
 import { EnemyBrainComponent } from "../src/game/enemy/enemy-brain-component";
-import "../src/game/enemy/enemy-brain-def";
 import { EnemyBrainSystem } from "../src/game/enemy/enemy-brain-system";
 import { WanderComponent } from "../src/game/enemy/wander-component";
 import { HealthComponent } from "../src/game/health/health-component";
 
-// Drives the REAL EnemyBrainSystem + StateMachineSystem over a constructed
-// world. Perception and nav status are scripted (the systems that produce them
-// are exercised elsewhere), so these tests cover writeParams + the FSM + actuate
-// as one unit -- the seam where the pursuit/leash bugs actually lived.
+// Drives the REAL EnemyBrainSystem over a constructed world. Perception and nav
+// status are scripted (the systems that produce them are exercised elsewhere),
+// so these tests cover context derivation + the FSM + actuate as one unit --
+// the seam where the pursuit/leash bugs actually lived.
 
 const HOME = new Vector2(0, 0);
 
 function makeWorld() {
 	const ecs = new ECS();
 	const events = new EventBus();
-	const sm = new StateMachineSystem();
 	const brain = new EnemyBrainSystem();
 
 	const perception = new PerceptionComponent();
@@ -34,18 +30,17 @@ function makeWorld() {
 	const transform = new TransformComponent(HOME.clone());
 	const wander = new WanderComponent();
 	wander.origin = HOME.clone();
+	const brainComponent = new EnemyBrainComponent();
 
-	const enemy = ecs.createEntity([
-		new StateMachineComponent(null, "enemy-brain"),
+	ecs.createEntity([
 		perception,
-		new EnemyBrainComponent(),
+		brainComponent,
 		agent,
 		new MovementIntentComponent(),
 		transform,
 		new HealthComponent(100, 100),
 		wander,
 	]);
-	const smc = ecs.getComponent(enemy, StateMachineComponent)!;
 
 	const target = ecs.createEntity([
 		new TransformComponent(new Vector2(0, 0)),
@@ -59,7 +54,6 @@ function makeWorld() {
 	const step = (dt = 16): void => {
 		const ctx = { dt, ecs, events } as unknown as UpdateContext;
 		brain.update(ctx);
-		sm.update(ctx);
 		events.clear();
 	};
 
@@ -79,7 +73,7 @@ function makeWorld() {
 		perception.timeSinceStimulus = seconds;
 		perception.detection = 0;
 	};
-	const state = (): string => smc.current;
+	const state = (): string => brainComponent.machine.current;
 
 	return {
 		ecs,

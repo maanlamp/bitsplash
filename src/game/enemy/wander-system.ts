@@ -1,4 +1,3 @@
-import { StateMachineComponent } from "../../engine/fsm/state-machine-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { NavGraphComponent } from "../../engine/nav/nav-graph-component";
 import { NavGraph, nodeFeet } from "../../engine/nav/nav-graph";
@@ -11,6 +10,7 @@ import {
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
+import { EnemyBrainComponent } from "./enemy-brain-component";
 import { WanderComponent } from "./wander-component";
 
 export class WanderSystem implements UpdateSystem {
@@ -32,8 +32,8 @@ export class WanderSystem implements UpdateSystem {
 			if (!wander.origin) {
 				wander.origin = transform.position.clone();
 			}
-			const sm = ecs.getComponent(id, StateMachineComponent);
-			if (sm && sm.current && sm.current !== "patrol") {
+			const brain = ecs.getComponent(id, EnemyBrainComponent);
+			if (brain && brain.machine.current !== "patrol") {
 				continue;
 			}
 			if (agent.status === "moving") {
