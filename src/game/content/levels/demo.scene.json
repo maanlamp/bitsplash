@@ -167,9 +167,20 @@
 			"id": "f1a2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
 			"components": {
 				"Transform": {
-					"position": { "$type": "Vector2", "x": 304, "y": 144 },
-					"rotation": { "$type": "Angle", "radians": 0 },
-					"scale": { "$type": "Vector2", "x": 1, "y": 1 }
+					"position": {
+						"$type": "Vector2",
+						"x": 304,
+						"y": 144
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
 				},
 				"SpawnPoint": {
 					"prefab": "quickfoot",
@@ -3085,6 +3096,286 @@
 					},
 					"collision": "none",
 					"renderLayer": "background",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "8edb81d2-4699-4419-9398-fddd6fa7c006",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -784,
+						"y": 377
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": true,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "df9809de-cfe5-4fbb-8202-45c655b0794d",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 798,
+						"y": 153
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": false,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "7df84017-239e-4042-88bf-b7541823c06a",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 1671,
+						"y": -71
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": false,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "d3ed1d47-0182-4571-901c-8070a4a6e876",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -77,
+						"y": 24
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": true,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "d47b7926-0e27-45f6-b69f-aa9c5e7f8fc8",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -434,
+						"y": 345
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": false,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "a040a013-8842-4776-a448-79a76d8f53f9",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -781,
+						"y": -39
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": false,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "182cb2ce-f495-442c-8c7d-d13d24d768ea",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 523,
+						"y": -70
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": true,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "65ba38f3-3870-4e1c-9f76-4a0023bd7bea",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 1421,
+						"y": -71
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": true,
+					"clips": {},
+					"renderLayer": "entities",
 					"order": 0
 				}
 			}
