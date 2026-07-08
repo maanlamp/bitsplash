@@ -445,14 +445,17 @@ export default class Renderer2D {
 	private whiteTex: WebGLTexture;
 	private colors = new ColorResolver();
 	private sceneTargets = new Map<object, RenderTarget>();
+	private presentTarget: RenderTarget | null = null;
 
-	constructor(viewport: Viewport) {
+	constructor(viewport: Viewport, vsync = false) {
 		this.viewport = viewport;
 		const gl = viewport.element.getContext("webgl2", {
 			alpha: false,
 			antialias: false,
 			depth: false,
 			stencil: false,
+			desynchronized: !vsync,
+			preserveDrawingBuffer: !vsync,
 		});
 		if (!gl) {
 			throw new Error("WebGL2 not supported.");
@@ -1359,6 +1362,8 @@ export default class Renderer2D {
 			target.dispose();
 		}
 		this.sceneTargets.clear();
+		this.presentTarget?.dispose();
+		this.presentTarget = null;
 		for (const layer of this.layers.values()) {
 			layer.scratch.dispose();
 		}
@@ -1501,7 +1506,11 @@ export default class Renderer2D {
 		if (vw <= 0 || vh <= 0) {
 			return;
 		}
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+		const present = (this.presentTarget ??= new RenderTarget(gl));
+		present.resize(vw, vh);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, present.fbo);
 		gl.viewport(0, 0, vw, vh);
 		gl.clearColor(0, 0, 0, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
@@ -1513,6 +1522,11 @@ export default class Renderer2D {
 		for (const target of targets) {
 			this.drawBlit(target.tex, 1, left, top, right, bottom);
 		}
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.viewport(0, 0, vw, vh);
+		applyCompositeBlend(gl, BlendMode.NORMAL);
+		this.drawBlit(present.tex, 1, -1, 1, 1, -1);
 	}
 
 	endFrame(): void {

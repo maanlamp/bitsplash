@@ -29,9 +29,7 @@ Always run `bun check` before declaring a task complete.
 Tests run on Bun's built-in runner (`bun test`). Test files live in `test/`
 (outside `src/`), named `*.test.ts`. They are typechecked by `tsc -b` via a
 dedicated `tsconfig.test.json` (referenced from the root `tsconfig.json`) that
-includes `test/` and pulls in `@types/bun` for the `bun:test` module. They are
-excluded from oxlint (`ignorePatterns` in `.oxlintrc.json`), since tests follow
-different conventions (a runner import, descriptive comments).
+includes `test/` and pulls in `@types/bun` for the `bun:test` module.
 
 Write tests for **stateful / simulation logic** — AI, FSMs, anything whose
 behavior emerges over many frames and can't be trusted by reading the code

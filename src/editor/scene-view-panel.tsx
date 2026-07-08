@@ -1,5 +1,6 @@
 import {
 	useCallback,
+	useEffect,
 	useRef,
 	useState,
 	useSyncExternalStore,
@@ -71,6 +72,14 @@ const SceneViewPanel = ({
 	);
 	const createPosRef = useRef<Vector2 | null>(null);
 	const [menuEntity, setMenuEntity] = useState<EntityId | null>(null);
+	const [vsync, setVsync] = useState(view.vsync);
+	useEffect(() => {
+		setVsync(view.vsync);
+	}, [view]);
+	const toggleVsync = (enabled: boolean): void => {
+		view.setVsync(enabled);
+		setVsync(view.vsync);
+	};
 
 	const deps: MenuDeps = {
 		ecs,
@@ -149,7 +158,11 @@ const SceneViewPanel = ({
 				>
 					{mount}
 				</EntityContextMenu>
-				<PerfMonitor stats={view} />
+				<PerfMonitor
+					stats={view}
+					vsync={vsync}
+					onVsyncChange={toggleVsync}
+				/>
 				<PlaybackBar
 					onPlaytest={onPlay}
 					onRun={onRun}

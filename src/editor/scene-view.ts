@@ -27,16 +27,25 @@ import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
 import { TransformGizmoDebugSystem } from "./systems/transform-gizmo-debug";
 
+type RenderSurface = Readonly<{
+	viewport: Viewport;
+	renderer: Renderer2D;
+	input: Input;
+}>;
+
 export class SceneView {
-	readonly viewport = new Viewport();
-	readonly renderer = new Renderer2D(this.viewport);
-	readonly input = new Input(this.viewport.element);
 	readonly history = new History();
 	readonly document: SceneDocument;
 
 	frameTime = 0;
 	fps = 0;
 	physicsTime = 0;
+
+	private vsyncEnabled = false;
+	private surface: RenderSurface = this.createSurface(
+		this.vsyncEnabled,
+	);
+	private attachedNode: HTMLElement | null = null;
 
 	private readonly camera: EditorCamera2DSystem;
 	private readonly updateSystems: ReadonlyArray<UpdateSystem>;
@@ -105,6 +114,44 @@ export class SceneView {
 		this.historyUnsub = this.history.subscribe(() =>
 			this.document.markDirty(),
 		);
+	}
+
+	get viewport(): Viewport {
+		return this.surface.viewport;
+	}
+
+	get renderer(): Renderer2D {
+		return this.surface.renderer;
+	}
+
+	get input(): Input {
+		return this.surface.input;
+	}
+
+	get vsync(): boolean {
+		return this.vsyncEnabled;
+	}
+
+	private createSurface(vsync: boolean): RenderSurface {
+		const viewport = new Viewport();
+		const renderer = new Renderer2D(viewport, vsync);
+		const input = new Input(viewport.element);
+		return { viewport, renderer, input };
+	}
+
+	setVsync(enabled: boolean): void {
+		if (this.vsyncEnabled === enabled) {
+			return;
+		}
+		this.vsyncEnabled = enabled;
+		const node = this.attachedNode;
+		this.detach();
+		this.surface.input.dispose();
+		this.surface.renderer.dispose();
+		this.surface = this.createSurface(enabled);
+		if (node) {
+			this.attach(node);
+		}
 	}
 
 	private addSystems(): void {
@@ -201,6 +248,7 @@ export class SceneView {
 
 	attach(node: HTMLElement): void {
 		this.detachSurface?.();
+		this.attachedNode = node;
 		this.viewport.element.style.outline = "none";
 		this.detachSurface = this.viewport.attach(node);
 	}
@@ -208,6 +256,7 @@ export class SceneView {
 	detach(): void {
 		this.detachSurface?.();
 		this.detachSurface = null;
+		this.attachedNode = null;
 	}
 
 	rollInput(): void {

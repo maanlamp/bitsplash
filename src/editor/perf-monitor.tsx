@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { Checkbox } from "./inspector/inputs";
 import styles from "./perf-monitor.module.scss";
 
 export type FrameStats = Readonly<{
@@ -21,7 +22,15 @@ const PHYS_COLOR = "#8fb8e0";
 const SPIKE_COLOR = "#e0795f";
 const REFERENCE_COLOR = "rgba(255, 255, 255, 0.18)";
 
-const PerfMonitor = ({ stats }: { stats: FrameStats }) => {
+const PerfMonitor = ({
+	stats,
+	vsync,
+	onVsyncChange,
+}: Readonly<{
+	stats: FrameStats;
+	vsync: boolean;
+	onVsyncChange: (enabled: boolean) => void;
+}>) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	useEffect(() => {
@@ -165,11 +174,17 @@ const PerfMonitor = ({ stats }: { stats: FrameStats }) => {
 	}, [stats]);
 
 	return (
-		<canvas
-			ref={canvasRef}
-			className={styles.perfMonitor}
-			style={{ width: CSS_WIDTH, height: CSS_HEIGHT }}
-		/>
+		<div className={styles.container}>
+			<canvas
+				ref={canvasRef}
+				className={styles.perfMonitor}
+				style={{ width: CSS_WIDTH, height: CSS_HEIGHT }}
+			/>
+			<label className={styles.vsyncToggle}>
+				<Checkbox checked={vsync} onCheckedChange={onVsyncChange} />
+				vsync
+			</label>
+		</div>
 	);
 };
 
