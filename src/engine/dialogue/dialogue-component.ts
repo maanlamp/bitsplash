@@ -14,8 +14,11 @@ export class DialogueComponent {
 	text = "";
 	paginated = false;
 	pages: RichLine[][] = [];
+	pausesByPage: number[][] = [];
+	speedsByPage: number[][] = [];
 	pageIndex = 0;
 	revealed = 0;
+	cps = 0;
 	pause = 0 as Seconds;
 	complete = false;
 

@@ -9,7 +9,9 @@ export const platformerDialogueBindings: DialogueBindings = {
 	maxLines: DIALOGUE_UI.maxTextLines,
 	charactersPerSecond: 24,
 	commaPauseChars: 8,
+	midPauseChars: 13,
 	stopPauseChars: 20,
+	ellipsisPauseChars: 26,
 	slideIn: 0.35 as Seconds,
 	slideOut: 0.25 as Seconds,
 	advancePressed: ({ ecs }) =>

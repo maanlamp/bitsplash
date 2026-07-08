@@ -118,12 +118,12 @@ const intro: CutsceneScene = function* (ctx) {
 				quartermaster,
 				new Vector2(dest, position.y),
 			),
-			dialogue(ctx, "pickup_tutor.pt_intro_walk"),
+			dialogue(ctx, "pickup_tutor.pt_intro_walk", quartermaster),
 		);
 	} else {
 		yield parallel(
 			walkTo(ctx, quartermaster, dest),
-			dialogue(ctx, "pickup_tutor.pt_intro_walk"),
+			dialogue(ctx, "pickup_tutor.pt_intro_walk", quartermaster),
 		);
 	}
 	yield cameraTo(ctx, {
@@ -133,7 +133,7 @@ const intro: CutsceneScene = function* (ctx) {
 		duration: 1.5 as Seconds,
 		followAfter: [quartermaster],
 	});
-	yield dialogue(ctx, "pickup_tutor.pt_intro");
+	yield dialogue(ctx, "pickup_tutor.pt_intro", quartermaster);
 };
 
 const stop = (type: PickupType): CutsceneScene =>
@@ -143,7 +143,7 @@ const stop = (type: PickupType): CutsceneScene =>
 			return;
 		}
 		yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
-		yield dialogue(ctx, lineFor(type));
+		yield dialogue(ctx, lineFor(type), quartermasterId(ctx.ecs));
 	};
 
 const stopWallJump: CutsceneScene = function* (ctx) {
@@ -154,7 +154,7 @@ const stopWallJump: CutsceneScene = function* (ctx) {
 	}
 	yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
 	yield parallel(
-		dialogue(ctx, lineFor("wall-jump")),
+		dialogue(ctx, lineFor("wall-jump"), quartermasterId(ctx.ecs)),
 		cameraTo(ctx, {
 			target: new Vector2(
 				position.x,
@@ -175,7 +175,7 @@ const stopDash: CutsceneScene = function* (ctx) {
 	}
 	yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
 	yield parallel(
-		dialogue(ctx, lineFor("dash")),
+		dialogue(ctx, lineFor("dash"), quartermasterId(ctx.ecs)),
 		cameraTo(ctx, {
 			target: new Vector2(
 				position.x - ROAD_SWEEP_TILES * TILE_SIZE,
@@ -200,7 +200,7 @@ const wrapUp: CutsceneScene = function* (ctx) {
 			zoom: WRAP_ZOOM,
 		});
 	}
-	yield dialogue(ctx, "pickup_tutor.pt_wrap");
+	yield dialogue(ctx, "pickup_tutor.pt_wrap", quartermaster);
 	yield cameraTo(ctx, {
 		target: player,
 		zoom: DEFAULT_FOLLOW_ZOOM,

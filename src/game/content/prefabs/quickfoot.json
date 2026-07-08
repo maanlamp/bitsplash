@@ -43,9 +43,8 @@
 			}
 		},
 		"NpcTag": {},
-		"QuestGiverTag": {},
 		"DialogueSource": {
-			"knot": "pickup_tutor"
+			"knot": "speed_test"
 		},
 		"Interactable": {
 			"radius": 48,
@@ -62,9 +61,9 @@
 			}
 		},
 		"Voice": {
-			"bank": "grunt",
-			"basePitchSemitones": -1,
-			"detuneSemitones": 1.5,
+			"bank": "silly",
+			"basePitchSemitones": 1,
+			"detuneSemitones": 3,
 			"overlap": 2
 		}
 	}

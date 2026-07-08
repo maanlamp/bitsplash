@@ -22,6 +22,7 @@ export type Style = Readonly<{
 	color: string | null;
 	wave: Wave | null;
 	link: string | null;
+	speed: number;
 }>;
 
 export type StyledChar = Readonly<{ char: string; style: Style }>;
@@ -33,6 +34,7 @@ export type RichGlyph = Readonly<{
 	char: string;
 	color: string | null;
 	wave: Wave | null;
+	speed: number;
 }>;
 
 export type RichLine = Readonly<{ glyphs: RichGlyph[] }>;
@@ -43,6 +45,7 @@ const BASE_STYLE: Style = {
 	color: null,
 	wave: null,
 	link: null,
+	speed: 1,
 };
 
 const decodeEntities = (text: string): string =>
@@ -131,6 +134,14 @@ const applyTag = (current: Style, tag: Tag): Style => {
 					tag.attrs.get("target") ??
 					current.link,
 			};
+		case "speed": {
+			const factor = parseNumber(
+				tag.shorthand ?? tag.attrs.get("value") ?? undefined,
+			);
+			return factor === null || factor <= 0
+				? current
+				: { ...current, speed: current.speed * factor };
+		}
 		default:
 			return current;
 	}
@@ -274,6 +285,7 @@ export const wrapRichText = (
 				char: g.styled.char,
 				color: g.styled.style.color,
 				wave: g.styled.style.wave,
+				speed: g.styled.style.speed,
 			});
 			cursorX += g.advance;
 		};

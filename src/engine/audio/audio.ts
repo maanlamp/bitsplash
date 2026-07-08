@@ -12,6 +12,8 @@ type PlayOptions = Readonly<{
 
 type PlayBufferOptions = Readonly<{
 	offset?: number;
+	duration?: number;
+	detune?: number;
 	gain?: number;
 	onEnded?: () => void;
 }>;
@@ -31,6 +33,7 @@ const RESUME_EVENTS = [
 export default class AudioManager {
 	private ctx = new AudioContext();
 	private sources: Map<string, Cached<AudioBuffer>> = new Map();
+	private buffers: Map<string, Promise<AudioBuffer>> = new Map();
 	private workletLoaded = false;
 	private resumed = false;
 
@@ -53,6 +56,18 @@ export default class AudioManager {
 		return this.ctx.decodeAudioData(data);
 	}
 
+	load(url: string): Promise<AudioBuffer> {
+		const existing = this.buffers.get(url);
+		if (existing) {
+			return existing;
+		}
+		const pending = fetch(url)
+			.then((response) => response.arrayBuffer())
+			.then((data) => this.ctx.decodeAudioData(data));
+		this.buffers.set(url, pending);
+		return pending;
+	}
+
 	playBuffer(
 		buffer: AudioBuffer,
 		opts?: PlayBufferOptions,
@@ -63,6 +78,9 @@ export default class AudioManager {
 			Math.min(opts?.offset ?? 0, buffer.duration),
 		);
 		const source = new AudioBufferSourceNode(this.ctx, { buffer });
+		if (opts?.detune !== undefined) {
+			source.detune.value = opts.detune;
+		}
 		const gain = new GainNode(this.ctx, { gain: opts?.gain ?? 1 });
 		source.connect(gain).connect(this.ctx.destination);
 		let stopped = false;
@@ -74,7 +92,18 @@ export default class AudioManager {
 			gain.disconnect();
 		};
 		const startedAt = this.ctx.currentTime;
-		source.start(0, offset);
+		const duration =
+			opts?.duration !== undefined
+				? Math.max(
+						0,
+						Math.min(opts.duration, buffer.duration - offset),
+					)
+				: undefined;
+		if (duration !== undefined) {
+			source.start(0, offset, duration);
+		} else {
+			source.start(0, offset);
+		}
 		return {
 			duration: buffer.duration,
 			stop: () => {

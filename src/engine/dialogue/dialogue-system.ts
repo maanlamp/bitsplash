@@ -25,7 +25,9 @@ export type DialogueBindings = Readonly<{
 	maxLines: number;
 	charactersPerSecond: number;
 	commaPauseChars: number;
+	midPauseChars: number;
 	stopPauseChars: number;
+	ellipsisPauseChars: number;
 	slideIn: Seconds;
 	slideOut: Seconds;
 	advancePressed: (ctx: UpdateContext) => boolean;
@@ -34,20 +36,47 @@ export type DialogueBindings = Readonly<{
 	navDownHeld: (ctx: UpdateContext) => boolean;
 }>;
 
-const punctuationPause = (
-	char: string | undefined,
+const COMMA_MARKS = new Set([",", "–", "—"]);
+const MID_MARKS = new Set([";", ":"]);
+const STOP_MARKS = new Set([".", "!", "?"]);
+
+export const computePauses = (
+	chars: string[],
 	bindings: DialogueBindings,
-): number => {
-	if (char === ",") {
-		return bindings.commaPauseChars;
+): number[] => {
+	const pauses = Array.from<number>({ length: chars.length }).fill(0);
+	let i = 0;
+	while (i < chars.length) {
+		const char = chars[i]!;
+		if (STOP_MARKS.has(char)) {
+			let j = i;
+			while (j + 1 < chars.length && STOP_MARKS.has(chars[j + 1]!)) {
+				j++;
+			}
+			const run = chars.slice(i, j + 1);
+			const ellipsis = run.length >= 2 && run.every((c) => c === ".");
+			pauses[j] = ellipsis
+				? bindings.ellipsisPauseChars
+				: bindings.stopPauseChars;
+			i = j + 1;
+		} else if (MID_MARKS.has(char)) {
+			pauses[i] = bindings.midPauseChars;
+			i++;
+		} else if (COMMA_MARKS.has(char)) {
+			let j = i;
+			while (j + 1 < chars.length && COMMA_MARKS.has(chars[j + 1]!)) {
+				j++;
+			}
+			pauses[j] = bindings.commaPauseChars;
+			i = j + 1;
+		} else {
+			i++;
+		}
 	}
-	if (char === "." || char === "!" || char === "?") {
-		return bindings.stopPauseChars;
-	}
-	return 0;
+	return pauses;
 };
 
-const SENTENCE_END = new Set([".", "!", "?"]);
+const SENTENCE_END = STOP_MARKS;
 
 const splitSentences = (chars: StyledChar[]): StyledChar[][] => {
 	const sentences: StyledChar[][] = [];
@@ -113,6 +142,16 @@ const pageChars = (page: RichLine[]): string[] => {
 		}
 	}
 	return chars;
+};
+
+const pageSpeeds = (page: RichLine[]): number[] => {
+	const speeds: number[] = [];
+	for (const line of page) {
+		for (const g of line.glyphs) {
+			speeds.push(g.speed);
+		}
+	}
+	return speeds;
 };
 
 export class DialogueSystem implements UpdateSystem {
@@ -181,6 +220,8 @@ export class DialogueSystem implements UpdateSystem {
 		const page = state.pages[state.pageIndex] ?? [];
 		const chars = pageChars(page);
 		const total = chars.length;
+		const speeds = state.speedsByPage[state.pageIndex] ?? [];
+		const pauses = state.pausesByPage[state.pageIndex] ?? [];
 
 		if (!state.complete) {
 			if (pressed) {
@@ -190,7 +231,9 @@ export class DialogueSystem implements UpdateSystem {
 			} else if (state.pause > 0) {
 				state.pause = Math.max(0, state.pause - dt / 1000) as Seconds;
 			} else {
-				const cps = this.bindings.charactersPerSecond;
+				const speed = speeds[Math.floor(state.revealed)] ?? 1;
+				const cps = this.bindings.charactersPerSecond * speed;
+				state.cps = cps;
 				const prev = Math.floor(state.revealed);
 				state.revealed = Math.min(
 					total,
@@ -204,7 +247,7 @@ export class DialogueSystem implements UpdateSystem {
 							new CharacterRevealedEvent(id, char, now - 1),
 						);
 					}
-					const extra = punctuationPause(char, this.bindings);
+					const extra = pauses[now - 1] ?? 0;
 					if (extra > 0) {
 						state.pause = (extra / cps) as Seconds;
 					}
@@ -296,6 +339,10 @@ export class DialogueSystem implements UpdateSystem {
 						this.bindings.maxLines,
 					)
 				: [[]];
+		state.pausesByPage = state.pages.map((page) =>
+			computePauses(pageChars(page), this.bindings),
+		);
+		state.speedsByPage = state.pages.map((page) => pageSpeeds(page));
 		state.pageIndex = 0;
 		state.revealed = 0;
 		state.pause = 0 as Seconds;

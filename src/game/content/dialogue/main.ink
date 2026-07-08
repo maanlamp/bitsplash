@@ -2,6 +2,7 @@ INCLUDE quest-giver.ink
 INCLUDE pickup-tutor.ink
 INCLUDE signpost.ink
 INCLUDE trap.ink
+INCLUDE speed-test.ink
 
 VAR quest_massacre = "none"
 VAR quest_pickup_tour = "none"

@@ -181,6 +181,12 @@
 				"$type": "EntityRef",
 				"id": null
 			}
+		},
+		"Voice": {
+			"bank": "child",
+			"basePitchSemitones": 0,
+			"detuneSemitones": 2,
+			"overlap": 2
 		}
 	}
 }

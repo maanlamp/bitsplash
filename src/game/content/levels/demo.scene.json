@@ -164,6 +164,20 @@
 			}
 		},
 		{
+			"id": "f1a2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
+			"components": {
+				"Transform": {
+					"position": { "$type": "Vector2", "x": 304, "y": 144 },
+					"rotation": { "$type": "Angle", "radians": 0 },
+					"scale": { "$type": "Vector2", "x": 1, "y": 1 }
+				},
+				"SpawnPoint": {
+					"prefab": "quickfoot",
+					"spawnOnLoad": true
+				}
+			}
+		},
+		{
 			"id": "d0a1b2c3-4d5e-6f70-8190-a1b2c3d4e5f6",
 			"components": {
 				"Transform": {
@@ -242,6 +256,12 @@
 				},
 				"DialogueSource": {
 					"knot": "trap"
+				},
+				"Voice": {
+					"bank": "brute",
+					"basePitchSemitones": -3,
+					"detuneSemitones": 1.5,
+					"overlap": 2
 				},
 				"Interactable": {
 					"radius": 48,

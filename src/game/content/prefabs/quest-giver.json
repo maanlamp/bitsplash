@@ -60,6 +60,12 @@
 					"path": "/src/game/content/assets/fs-pixel-sans-unicode.font.zip"
 				}
 			}
+		},
+		"Voice": {
+			"bank": "smooth",
+			"basePitchSemitones": -2,
+			"detuneSemitones": 1,
+			"overlap": 2
 		}
 	}
 }
