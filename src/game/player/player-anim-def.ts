@@ -9,6 +9,7 @@ export type AnimCtx = {
 	landing: boolean;
 	dashing: boolean;
 	dir: number;
+	facing: number;
 	vy: number;
 };
 
@@ -18,6 +19,7 @@ export type AnimState =
 	| "dash"
 	| "idle"
 	| "run"
+	| "runbackwards"
 	| "land"
 	| "wallslide"
 	| "walljump"
@@ -34,7 +36,19 @@ export const playerAnimMachine = defineMachine<AnimCtx>()({
 		},
 		{
 			to: "run",
-			when: (c) => c.grounded && !c.landing && c.dir !== 0,
+			when: (c) =>
+				c.grounded &&
+				!c.landing &&
+				c.dir !== 0 &&
+				Math.sign(c.dir) === c.facing,
+		},
+		{
+			to: "runbackwards",
+			when: (c) =>
+				c.grounded &&
+				!c.landing &&
+				c.dir !== 0 &&
+				Math.sign(c.dir) !== c.facing,
 		},
 		{ to: "land", when: (c) => c.landing },
 		{
@@ -69,6 +83,7 @@ export const playerAnimMachine = defineMachine<AnimCtx>()({
 		dash: {},
 		idle: {},
 		run: {},
+		runbackwards: {},
 		land: {},
 		wallslide: {},
 		walljump: {},

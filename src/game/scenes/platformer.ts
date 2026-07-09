@@ -74,6 +74,7 @@ import { EnemyBrainSystem } from "../enemy/enemy-brain-system";
 import { PerceptionSystem } from "../enemy/perception-system";
 import { WanderSystem } from "../enemy/wander-system";
 import { PickupSystem } from "../pickup/pickup-system";
+import { NpcAnimationSystem } from "../npc/npc-animation-system";
 import { PlayerAnimationSystem } from "../player/player-animation-system";
 import { PlayerIntentSystem } from "../player/player-intent-system";
 import { PlayerMovementSystem } from "../player/player-movement-system";
@@ -115,6 +116,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new EnemyBrainSystem(),
 		new FacingSystem(),
 		new PlayerAnimationSystem(),
+		new NpcAnimationSystem(),
 		new SpriteAnimationSystem(),
 		new WanderSystem(),
 		new FollowSystem(),

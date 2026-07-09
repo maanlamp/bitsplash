@@ -7,8 +7,8 @@ import {
 	serialize,
 } from "../../engine/serialization/serializable";
 import { FontSettings } from "../../engine/text/font-settings";
-import doubleHomicideUrl from "../content/assets/doublehomicide.font.zip?url";
-import kapelUrl from "../content/assets/kapel.font.zip?url";
+import normalHitFont from "../content/assets/comicoro.font.zip?url";
+import critHitFont from "../content/assets/doublehomicide.font.zip?url";
 
 @serializable("HitsplatStyle")
 export class HitsplatStyleComponent {
@@ -34,8 +34,8 @@ export class HitsplatStyleComponent {
 	@serialize() blockedText: string;
 
 	constructor(
-		font: FontSettings = new FontSettings(kapelUrl, 16),
-		critFont: FontSettings = new FontSettings(doubleHomicideUrl, 20),
+		font: FontSettings = new FontSettings(normalHitFont, 16),
+		critFont: FontSettings = new FontSettings(critHitFont, 20),
 		color: string = "#ffe066",
 		outlineColor: string = "#1a1a1a",
 		critColor: string = "#ff5252",

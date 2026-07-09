@@ -80,6 +80,7 @@ export class PlayerAnimationSystem implements UpdateSystem {
 					landing: player.landing,
 					dashing: player.dashing,
 					dir,
+					facing: facing.dir,
 					vy,
 				},
 				(dt / 1000) as Seconds,

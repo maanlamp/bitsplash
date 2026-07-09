@@ -94,6 +94,18 @@
 					"contentWidth": 33,
 					"contentHeight": 30
 				},
+				"runbackwards": {
+					"url": "/src/game/content/assets/run-backwards.png",
+					"frameWidth": 55,
+					"frameHeight": 55,
+					"frameCount": 8,
+					"fps": 13,
+					"loop": true,
+					"contentX": 15,
+					"contentY": 13,
+					"contentWidth": 24,
+					"contentHeight": 36
+				},
 				"jump": {
 					"url": "/src/game/content/assets/jump.png",
 					"frameWidth": 55,

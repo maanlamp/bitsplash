@@ -1,7 +1,7 @@
 import { FontSettings } from "../../engine/text/font-settings";
-import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
+import uiFontUrl from "../content/assets/grapesoda_2.font.zip?url";
 
-export const UI_FONT = new FontSettings(fsPixelSansUrl);
+export const UI_FONT = new FontSettings(uiFontUrl);
 
 export const DIALOGUE_UI = {
 	panelWidth: 280,

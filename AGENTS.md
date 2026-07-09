@@ -105,3 +105,16 @@ Violating these boundaries is never acceptable, regardless of convenience.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
 - **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in this file (AGENTS.md), not in memory.
 - **UX decisions are not yours to make**: Never make a user-experience decision without asking the user first. This applies to anything that shapes how a user (game author or player) experiences a flow: error handling and where/how failures surface, field interaction, validation behavior, when/whether something blocks an action, notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems obvious, and even mid-task. This applies across all parts of the project (editor, game runtime, serialization, save/load). Exception: trivial, conventional accessibility/correctness choices (e.g. "a clickable element should be a `<button>`") are fine to make without asking.
+- **No sliders in player-facing game UI.** This rule is scoped to the **game
+  runtime's** player-facing settings/options; the **editor UI is exempt** —
+  sliders there are fine when appropriate. In the game, any player-configurable
+  numeric value (sensitivities, input thresholds, timings, rates) is entered as a
+  raw number input with an explicit unit label, and — where the raw value is an
+  opaque
+  coefficient — a live preview and/or a meaningful derived unit (e.g. `cm/360°`
+  for aim sensitivity, `ms` for input timings, with a "hold/tap here to feel it"
+  test affordance). Validate only against the invalid domain (e.g. `> 0`); never
+  clamp to arbitrary min/max ranges. Arbitrary floors/caps (the classic
+  can't-go-below-0.1 sensitivity slider) exclude users for no reason. Irreversible
+  or accident-prone actions triggered by a hold surface a visible progress fill
+  rather than firing silently.

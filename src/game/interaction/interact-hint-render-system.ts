@@ -60,6 +60,11 @@ export class InteractHintRenderSystem implements RenderSystem {
 						width: source.width * transform.scale.x,
 						height,
 						rotation: transform.rotation.radians,
+						flipX: sprite.flipX,
+						srcX: source.x,
+						srcY: source.y,
+						srcW: source.width,
+						srcH: source.height,
 					},
 				);
 				spriteHalfHeight = height / 2;
