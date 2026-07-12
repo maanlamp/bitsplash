@@ -9,10 +9,8 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import Vector2 from "../../engine/vector2";
-import {
-	type MoveState,
-	playerMoveMachine,
-} from "../player/player-movement-def";
+import { stepMachine } from "../../engine/fsm/step-machine";
+import { playerMoveMachine } from "../player/player-movement-def";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { InputBindings } from "../input-bindings";
 
@@ -86,11 +84,9 @@ export class PlayerMovementSystem implements UpdateSystem {
 			}
 
 			const vy = rb.linearVelocity.y;
-			const result = playerMoveMachine.step(
-				{
-					current: player.move.current as MoveState,
-					elapsed: player.move.elapsed as Seconds,
-				},
+			stepMachine(
+				playerMoveMachine,
+				player.move,
 				{
 					grounded: player.grounded,
 					dir,
@@ -102,8 +98,6 @@ export class PlayerMovementSystem implements UpdateSystem {
 				},
 				s as Seconds,
 			);
-			player.move.current = result.next.current;
-			player.move.elapsed = result.next.elapsed;
 			player.dashing = player.move.current === "dash";
 			player.wallJumping = player.move.current === "walljump";
 		}

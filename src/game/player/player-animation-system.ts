@@ -9,10 +9,8 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import type { World } from "../../engine/world";
-import {
-	type AnimState,
-	playerAnimMachine,
-} from "../player/player-anim-def";
+import { stepMachine } from "../../engine/fsm/step-machine";
+import { playerAnimMachine } from "../player/player-anim-def";
 import { PlayerInputComponent } from "../player/player-input-component";
 
 const AIRBORNE = new Set(["fall", "jump", "walljump", "wallslide"]);
@@ -68,11 +66,9 @@ export class PlayerAnimationSystem implements UpdateSystem {
 			sprite.current = player.anim.current;
 			sprite.flipX = facing.dir < 0;
 
-			const result = playerAnimMachine.step(
-				{
-					current: player.anim.current as AnimState,
-					elapsed: player.anim.elapsed as Seconds,
-				},
+			stepMachine(
+				playerAnimMachine,
+				player.anim,
 				{
 					grounded: player.grounded,
 					onWall: player.onWall,
@@ -85,8 +81,6 @@ export class PlayerAnimationSystem implements UpdateSystem {
 				},
 				(dt / 1000) as Seconds,
 			);
-			player.anim.current = result.next.current;
-			player.anim.elapsed = result.next.elapsed;
 		}
 	}
 

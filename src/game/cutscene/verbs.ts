@@ -1,19 +1,18 @@
-import type {
-	CutsceneContext,
-	CutsceneWait,
-} from "../../engine/cutscene/cutscene";
 import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-component";
+import type {
+	CutsceneApi,
+	CutsceneVerb,
+} from "../../engine/cutscene/cutscene";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
 import type { Seconds } from "../../engine/duration";
-import type { EntityId } from "../../engine/ecs";
+import type { ECS, EntityId } from "../../engine/ecs";
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
-import type { ECS } from "../../engine/ecs";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
-import { TransformComponent } from "../../engine/transform-component";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
+import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
 import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
 import { ensureStory } from "../dialogue/ink-bindings";
@@ -57,23 +56,16 @@ const ensureNavActuation = (
 };
 
 export const walkTo = (
-	ctx: CutsceneContext,
 	entity: EntityId,
 	x: number,
 	speed = 2 * TILE_SIZE,
-): CutsceneWait => {
+): CutsceneVerb => {
 	let lastX: number | null = null;
 	let stalled = 0;
-	const teleport = (): void => {
-		const transform = ctx.ecs.getComponent(
-			entity,
-			TransformComponent,
-		);
-		const intent = ctx.ecs.getComponent(
-			entity,
-			MovementIntentComponent,
-		);
-		const body = ctx.ecs.getComponent(entity, PhysicsBodyComponent);
+	const teleport = (ecs: ECS): void => {
+		const transform = ecs.getComponent(entity, TransformComponent);
+		const intent = ecs.getComponent(entity, MovementIntentComponent);
+		const body = ecs.getComponent(entity, PhysicsBodyComponent);
 		if (intent) {
 			intent.moveX = 0;
 		}
@@ -86,16 +78,10 @@ export const walkTo = (
 			body.linearVelocity = new Vector2(0, body.linearVelocity.y);
 		}
 	};
-	const drive = (dtMs: number): boolean => {
-		const transform = ctx.ecs.getComponent(
-			entity,
-			TransformComponent,
-		);
-		const intent = ctx.ecs.getComponent(
-			entity,
-			MovementIntentComponent,
-		);
-		const body = ctx.ecs.getComponent(entity, PhysicsBodyComponent);
+	const drive = (ecs: ECS, dt: number): boolean => {
+		const transform = ecs.getComponent(entity, TransformComponent);
+		const intent = ecs.getComponent(entity, MovementIntentComponent);
+		const body = ecs.getComponent(entity, PhysicsBodyComponent);
 		if (!transform) {
 			return true;
 		}
@@ -112,7 +98,7 @@ export const walkTo = (
 			lastX !== null &&
 			Math.abs(transform.position.x - lastX) < 0.5
 		) {
-			stalled += dtMs / 1000;
+			stalled += dt;
 		} else {
 			stalled = 0;
 		}
@@ -121,7 +107,7 @@ export const walkTo = (
 			console.warn(
 				`walkTo: entity ${entity} stuck; teleporting to ${x}`,
 			);
-			teleport();
+			teleport(ecs);
 			return true;
 		}
 		const dir = Math.sign(dx);
@@ -138,25 +124,21 @@ export const walkTo = (
 		return false;
 	};
 	return {
-		done: (c) => drive(c.dt),
-		complete: () => {
-			teleport();
+		poll: (ctx, tick) => drive(ctx.ecs, tick.dt),
+		complete: (ctx) => {
+			teleport(ctx.ecs);
 			return true;
 		},
 	};
 };
 
 export const moveTo = (
-	ctx: CutsceneContext,
+	api: CutsceneApi,
 	entity: EntityId,
 	target: Vector2 | EntityId,
 	opts: { arriveTolerance?: number } = {},
-): CutsceneWait => {
-	const ecs = ctx.ecs;
-	const transform = ecs.getComponent(entity, TransformComponent);
-	const body = ecs.getComponent(entity, PhysicsBodyComponent);
-
-	const destVec = (): Vector2 | null => {
+): CutsceneVerb => {
+	const destVec = (ecs: ECS): Vector2 | null => {
 		if (target instanceof Vector2) {
 			return target.clone();
 		}
@@ -164,24 +146,24 @@ export const moveTo = (
 		return tr ? tr.position.clone() : null;
 	};
 
-	if (!transform || !body?.body) {
-		const dest = destVec();
-		if (!dest) {
-			return { done: () => true, complete: () => true };
+	const actuated = api.read((ctx) => {
+		const transform = ctx.ecs.getComponent(
+			entity,
+			TransformComponent,
+		);
+		const body = ctx.ecs.getComponent(entity, PhysicsBodyComponent);
+		return !!transform && !!body?.body;
+	});
+
+	if (!actuated) {
+		const destX = api.read((ctx) => destVec(ctx.ecs)?.x);
+		if (destX === undefined) {
+			return { poll: () => true, complete: () => true };
 		}
-		return walkTo(ctx, entity, dest.x);
+		return walkTo(entity, destX);
 	}
 
-	const attach = ensureNavActuation(ecs, entity);
-	const agent = attach.agent;
-	if (opts.arriveTolerance !== undefined) {
-		agent.arriveTolerance = opts.arriveTolerance;
-	}
-	agent.target = target;
-	agent.status = "idle";
-	agent.path = [];
-
-	const cleanup = (): void => {
+	const cleanup = (ecs: ECS): void => {
 		const a = ecs.getComponent(entity, NavAgentComponent);
 		if (a) {
 			a.target = null;
@@ -189,16 +171,16 @@ export const moveTo = (
 			a.path = [];
 		}
 		ecs.getComponent(entity, MovementIntentComponent)?.clear();
-		if (attach.addedAgent) {
+		if (api.recall("addedAgent")) {
 			ecs.removeComponent(entity, NavAgentComponent);
 		}
-		if (attach.addedIntent) {
+		if (api.recall("addedIntent")) {
 			ecs.removeComponent(entity, MovementIntentComponent);
 		}
 	};
 
-	const teleport = (): void => {
-		const dest = destVec();
+	const teleport = (ecs: ECS): void => {
+		const dest = destVec(ecs);
 		const t = ecs.getComponent(entity, TransformComponent);
 		const b = ecs.getComponent(entity, PhysicsBodyComponent);
 		if (dest && t) {
@@ -211,67 +193,74 @@ export const moveTo = (
 	};
 
 	return {
-		done: () => {
+		setup: () =>
+			api.effect((ctx) => {
+				const attach = ensureNavActuation(ctx.ecs, entity);
+				api.remember("addedAgent", attach.addedAgent);
+				api.remember("addedIntent", attach.addedIntent);
+				if (opts.arriveTolerance !== undefined) {
+					attach.agent.arriveTolerance = opts.arriveTolerance;
+				}
+				attach.agent.target = target;
+				attach.agent.status = "idle";
+				attach.agent.path = [];
+			}),
+		poll: (ctx) => {
+			const ecs = ctx.ecs;
 			const a = ecs.getComponent(entity, NavAgentComponent);
 			if (!a) {
 				return true;
 			}
 			if (a.status === "arrived") {
-				cleanup();
+				cleanup(ecs);
 				return true;
 			}
 			if (a.status === "unreachable") {
 				console.warn(
 					`moveTo: entity ${entity} unreachable; teleporting.`,
 				);
-				teleport();
-				cleanup();
+				teleport(ecs);
+				cleanup(ecs);
 				return true;
+			}
+			if (a.target === null) {
+				a.target = target;
+				a.status = "idle";
+				a.path = [];
 			}
 			return false;
 		},
-		complete: () => {
-			teleport();
-			cleanup();
+		complete: (ctx) => {
+			teleport(ctx.ecs);
+			cleanup(ctx.ecs);
 			return true;
 		},
 	};
 };
 
 export const escort = (
-	ctx: CutsceneContext,
+	api: CutsceneApi,
 	follower: EntityId,
 	leader: EntityId,
 	dest: Vector2,
-): CutsceneWait => {
-	const ecs = ctx.ecs;
-	const leaderWait = walkTo(ctx, leader, dest.x);
-	const attach = ensureNavActuation(ecs, follower);
-	attach.agent.target = null;
-	attach.agent.status = "idle";
-	attach.agent.path = [];
+): CutsceneVerb => {
+	const leaderWalk = walkTo(leader, dest.x);
+	let leaderDone = false;
 
-	let addedFollow = false;
-	let followComp = ecs.getComponent(follower, FollowComponent);
-	if (!followComp) {
-		followComp = new FollowComponent();
-		ecs.addComponent(follower, followComp);
-		addedFollow = true;
-	}
-	followComp.leader = leader;
-
-	const closeEnough = (): boolean => {
+	const closeEnough = (ecs: ECS): boolean => {
+		const follow = ecs.getComponent(follower, FollowComponent);
 		const fp = ecs.getComponent(follower, TransformComponent);
 		const lp = ecs.getComponent(leader, TransformComponent);
 		return (
+			!!follow &&
 			!!fp &&
 			!!lp &&
 			fp.position.distanceTo(lp.position) <=
-				followComp!.followDistance + ARRIVE_TOLERANCE
+				follow.followDistance + ARRIVE_TOLERANCE
 		);
 	};
 
-	const cleanup = (): void => {
+	const cleanup = (ecs: ECS): void => {
 		const a = ecs.getComponent(follower, NavAgentComponent);
 		if (a) {
 			a.target = null;
@@ -279,33 +268,53 @@ export const escort = (
 			a.path = [];
 		}
 		ecs.getComponent(follower, MovementIntentComponent)?.clear();
-		if (addedFollow) {
+		const follow = ecs.getComponent(follower, FollowComponent);
+		if (api.recall("addedFollow")) {
 			ecs.removeComponent(follower, FollowComponent);
-		} else {
-			followComp!.leader = null;
+		} else if (follow) {
+			follow.leader = null;
 		}
-		if (attach.addedAgent) {
+		if (api.recall("addedAgent")) {
 			ecs.removeComponent(follower, NavAgentComponent);
 		}
-		if (attach.addedIntent) {
+		if (api.recall("addedIntent")) {
 			ecs.removeComponent(follower, MovementIntentComponent);
 		}
 	};
 
-	let leaderDone = false;
 	return {
-		done: (c) => {
+		setup: () =>
+			api.effect((ctx) => {
+				const ecs = ctx.ecs;
+				const attach = ensureNavActuation(ecs, follower);
+				attach.agent.target = null;
+				attach.agent.status = "idle";
+				attach.agent.path = [];
+				api.remember("addedAgent", attach.addedAgent);
+				api.remember("addedIntent", attach.addedIntent);
+				let follow = ecs.getComponent(follower, FollowComponent);
+				let addedFollow = false;
+				if (!follow) {
+					follow = new FollowComponent();
+					ecs.addComponent(follower, follow);
+					addedFollow = true;
+				}
+				follow.leader = leader;
+				api.remember("addedFollow", addedFollow);
+			}),
+		poll: (ctx, tick) => {
 			if (!leaderDone) {
-				leaderDone = leaderWait.done(c);
+				leaderDone = leaderWalk.poll(ctx, tick);
 			}
-			if (leaderDone && closeEnough()) {
-				cleanup();
+			if (leaderDone && closeEnough(ctx.ecs)) {
+				cleanup(ctx.ecs);
 				return true;
 			}
 			return false;
 		},
-		complete: (c) => {
-			leaderWait.complete(c);
+		complete: (ctx) => {
+			leaderWalk.complete?.(ctx);
+			const ecs = ctx.ecs;
 			const lp = ecs.getComponent(leader, TransformComponent);
 			const fp = ecs.getComponent(follower, TransformComponent);
 			const body = ecs.getComponent(follower, PhysicsBodyComponent);
@@ -316,17 +325,17 @@ export const escort = (
 					body.linearVelocity = new Vector2(0, 0);
 				}
 			}
-			cleanup();
+			cleanup(ecs);
 			return true;
 		},
 	};
 };
 
 export const follow = (
-	ctx: CutsceneContext,
+	ecs: ECS,
 	targets: ReadonlyArray<EntityId | null>,
 ): void => {
-	const entry = ctx.ecs.query(Camera2DFollowComponent)[0];
+	const entry = ecs.query(Camera2DFollowComponent)[0];
 	if (!entry) {
 		return;
 	}
@@ -336,53 +345,69 @@ export const follow = (
 };
 
 export const dialogue = (
-	ctx: CutsceneContext,
+	api: CutsceneApi,
 	knot: string,
 	source: EntityId | null = null,
-): CutsceneWait => {
-	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
-	if (!inkEntry) {
-		return { done: () => true, complete: () => true };
-	}
-	const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
-	const tags = story.TagsForContentAtPath(knot);
-	const knotTags = knot.includes(".")
-		? story.TagsForContentAtPath(knot.split(".")[0]!)
-		: tags;
-	const font = fontForTag(
-		tagValue(tags, "font") ?? tagValue(knotTags, "font"),
-	);
-	const panel = panelForTag(
-		tagValue(tags, "panel") ?? tagValue(knotTags, "panel"),
-	);
-	story.ChoosePathString(knot);
-	const dialogueComponent = new DialogueComponent(source, font);
-	dialogueComponent.speaker =
-		tagValue(tags, "speaker") ?? tagValue(knotTags, "speaker") ?? "";
-	const id = ctx.ecs.createEntity([
-		dialogueComponent,
-		new DialoguePanelComponent(panel),
-	]);
-	return {
-		done: () =>
-			ctx.ecs.getComponent(id, DialogueComponent) === undefined,
-		complete: () => {
-			const state = ctx.ecs.getComponent(id, DialogueComponent);
-			if (!state) {
-				return true;
-			}
-			if (state.choices.length > 0) {
-				if (state.paginated) {
-					state.pageIndex = state.pages.length - 1;
-					state.revealed = Infinity;
-					state.pause = 0 as Seconds;
-					state.complete = true;
-				}
-				return false;
-			}
-			ctx.ecs.destroy(id);
-			ctx.events.emit(new DialogueClosedEvent(id, source));
+): CutsceneVerb => ({
+	setup: () => {
+		const hasInk = api.read(
+			(ctx) => ctx.ecs.query(InkStoryComponent).length > 0,
+		);
+		if (!hasInk) {
+			return;
+		}
+		api.spawn("dialogue", (ctx) => {
+			const inkEntry = ctx.ecs.query(InkStoryComponent)[0]!;
+			const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
+			const tags = story.TagsForContentAtPath(knot);
+			const knotTags = knot.includes(".")
+				? story.TagsForContentAtPath(knot.split(".")[0]!)
+				: tags;
+			const font = fontForTag(
+				tagValue(tags, "font") ?? tagValue(knotTags, "font"),
+			);
+			const panel = panelForTag(
+				tagValue(tags, "panel") ?? tagValue(knotTags, "panel"),
+			);
+			story.ChoosePathString(knot);
+			const component = new DialogueComponent(source, font);
+			component.speaker =
+				tagValue(tags, "speaker") ??
+				tagValue(knotTags, "speaker") ??
+				"";
+			return ctx.ecs.createEntity([
+				component,
+				new DialoguePanelComponent(panel),
+			]);
+		});
+	},
+	poll: (ctx) => {
+		const id = api.ref("dialogue");
+		if (id === undefined) {
 			return true;
-		},
-	};
-};
+		}
+		return ctx.ecs.getComponent(id, DialogueComponent) === undefined;
+	},
+	complete: (ctx) => {
+		const id = api.ref("dialogue");
+		if (id === undefined) {
+			return true;
+		}
+		const state = ctx.ecs.getComponent(id, DialogueComponent);
+		if (!state) {
+			return true;
+		}
+		if (state.choices.length > 0) {
+			if (state.paginated) {
+				state.pageIndex = state.pages.length - 1;
+				state.revealed = Infinity;
+				state.pause = 0 as Seconds;
+				state.complete = true;
+			}
+			return false;
+		}
+		ctx.ecs.destroy(id);
+		ctx.events.emit(new DialogueClosedEvent(id, source));
+		return true;
+	},
+});

@@ -117,6 +117,7 @@ export class SceneManager {
 				ecs: scene.world.ecs,
 				input,
 				assetManager: this.services.assetManager,
+				uiScale: scene.config.uiScale ?? 1,
 			});
 			const target = renderer.sceneTarget(scene);
 			renderSceneToTexture(renderer, scene, target);

@@ -30,6 +30,7 @@ export class PhysicsSystem implements UpdateSystem {
 				sensor: phys.sensor,
 			});
 			phys.body.userData = id;
+			phys.body.linearVelocity = phys.velocity;
 		}
 
 		world.step(dt / 1000);
@@ -46,6 +47,7 @@ export class PhysicsSystem implements UpdateSystem {
 			transform.position.x = pos.x;
 			transform.position.y = pos.y;
 			transform.rotation.radians = phys.body.interpolatedAngle(alpha);
+			phys.velocity.copy(phys.body.linearVelocity);
 		}
 	}
 }

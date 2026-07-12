@@ -1,12 +1,13 @@
 import type { Seconds } from "../duration";
 import type { ECS } from "../ecs";
+import type { ValueType } from "../serialization/serializable-value";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { TimerComponent } from "../timer/timer-component";
 
 export const scheduleEvent = (
 	ecs: ECS,
 	delay: Seconds,
-	event: object,
+	event: ValueType,
 ): void => {
 	ecs.createEntity([new TimerComponent(delay, event)]);
 };
@@ -16,7 +17,9 @@ export class TimerSystem implements UpdateSystem {
 		for (const [id, timer] of ecs.query(TimerComponent)) {
 			timer.remaining = (timer.remaining - time.dt) as Seconds;
 			if (timer.remaining <= 0) {
-				events.emit(timer.event);
+				if (timer.event) {
+					events.emit(timer.event);
+				}
 				ecs.destroy(id);
 			}
 		}

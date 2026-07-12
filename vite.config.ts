@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
@@ -27,5 +28,15 @@ export default defineConfig({
 		}),
 	],
 	assetsInclude: ["**/*.zip"],
-	build: { target: "esnext" },
+	build: {
+		target: "esnext",
+		rollupOptions: {
+			input: {
+				editor: fileURLToPath(
+					new URL("./index.html", import.meta.url),
+				),
+				game: fileURLToPath(new URL("./game.html", import.meta.url)),
+			},
+		},
+	},
 });

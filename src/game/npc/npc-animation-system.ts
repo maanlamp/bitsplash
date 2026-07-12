@@ -8,10 +8,8 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import {
-	type AnimState,
-	playerAnimMachine,
-} from "../player/player-anim-def";
+import { stepMachine } from "../../engine/fsm/step-machine";
+import { playerAnimMachine } from "../player/player-anim-def";
 import { NpcAnimationComponent } from "./npc-animation-component";
 
 export class NpcAnimationSystem implements UpdateSystem {
@@ -33,11 +31,9 @@ export class NpcAnimationSystem implements UpdateSystem {
 			sprite.current = npc.anim.current;
 			sprite.flipX = facing.dir < 0;
 
-			const result = playerAnimMachine.step(
-				{
-					current: npc.anim.current as AnimState,
-					elapsed: npc.anim.elapsed as Seconds,
-				},
+			stepMachine(
+				playerAnimMachine,
+				npc.anim,
 				{
 					grounded: loco.grounded,
 					onWall: false,
@@ -50,8 +46,6 @@ export class NpcAnimationSystem implements UpdateSystem {
 				},
 				(dt / 1000) as Seconds,
 			);
-			npc.anim.current = result.next.current;
-			npc.anim.elapsed = result.next.elapsed;
 		}
 	}
 }

@@ -65,7 +65,10 @@
 			"launched": false,
 			"stuck": false,
 			"stuckRemaining": 0,
-			"attachedTo": null,
+			"attachedTo": {
+				"$type": "EntityRef",
+				"id": null
+			},
 			"attachOffsetX": 0,
 			"attachOffsetY": 0
 		}

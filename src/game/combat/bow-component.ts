@@ -1,22 +1,27 @@
-import type { EntityId } from "../../engine/ecs";
+import {
+	serializable,
+	serialize,
+} from "../../engine/serialization/serializable";
+import Vector2 from "../../engine/vector2";
 
+@serializable("Bow")
 export class BowComponent {
-	owner: EntityId;
-	offset: number;
-	arrowSpeed: number;
-	spawnDistance: number;
-	wasFiring: boolean;
+	@serialize() offset: number = 10;
+	@serialize() arrowSpeed: number = 360;
+	@serialize() spawnDistance: number = 8;
+	wasFiring: boolean = false;
+	readonly renderPosition: Vector2 = new Vector2(0, 0);
+	renderAngle: number = 0;
+	flipX: boolean = false;
+	visible: boolean = false;
 
 	constructor(
-		owner: EntityId,
 		offset: number = 10,
 		arrowSpeed: number = 360,
 		spawnDistance: number = 8,
 	) {
-		this.owner = owner;
 		this.offset = offset;
 		this.arrowSpeed = arrowSpeed;
 		this.spawnDistance = spawnDistance;
-		this.wasFiring = false;
 	}
 }

@@ -8,12 +8,16 @@ import {
 	QuestDeclinedEvent,
 	StartQuestEvent,
 } from "../events";
-import { startCutscene } from "../../engine/cutscene/cutscene-system";
+import {
+	registerCutscene,
+	startCutscene,
+} from "../../engine/cutscene/cutscene-system";
 import type { CutsceneDef } from "../../engine/cutscene/cutscene";
 import {
 	pickupTourCutscene,
 	pickupTourKissCutscene,
 } from "../quest/pickup-tour-cutscene";
+import { bindSetChronicle } from "../chronicle/chronicle-ink-external";
 import { createStory } from "./ink-loader";
 
 const cutscenes = new Map<string, CutsceneDef>(
@@ -22,6 +26,10 @@ const cutscenes = new Map<string, CutsceneDef>(
 		def,
 	]),
 );
+
+for (const def of cutscenes.values()) {
+	registerCutscene(def);
+}
 
 const bindExternals = (
 	story: Story,
@@ -64,6 +72,7 @@ const bindExternals = (
 		},
 		false,
 	);
+	bindSetChronicle(story, ecs);
 };
 
 export const ensureStory = (

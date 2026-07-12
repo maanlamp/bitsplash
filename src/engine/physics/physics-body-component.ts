@@ -4,7 +4,7 @@ import {
 	serializable,
 	serialize,
 } from "../serialization/serializable";
-import type Vector2 from "../vector2";
+import Vector2 from "../vector2";
 
 export const RIGID_BODY_TYPES = [
 	"static",
@@ -30,6 +30,7 @@ export class PhysicsBodyComponent {
 	@serialize() offsetX: number;
 	@serialize() offsetY: number;
 	@serialize() cornerRadius: number;
+	@serialize() velocity: Vector2 = new Vector2();
 
 	body: RigidBody | null = null;
 

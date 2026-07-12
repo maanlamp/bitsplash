@@ -20,7 +20,7 @@ import { HealthComponent } from "../src/game/health/health-component";
 
 const HOME = new Vector2(0, 0);
 
-function makeWorld() {
+const makeWorld = () => {
 	const ecs = new ECS();
 	const events = new EventBus();
 	const brain = new EnemyBrainSystem();
@@ -87,14 +87,14 @@ function makeWorld() {
 		transform,
 		targetTransform,
 	};
-}
+};
 
-function runUntil(
+const runUntil = (
 	w: ReturnType<typeof makeWorld>,
 	predicate: () => boolean,
 	maxFrames = 600,
 	between?: () => void,
-): boolean {
+): boolean => {
 	for (let i = 0; i < maxFrames; i++) {
 		between?.();
 		w.step();
@@ -103,7 +103,7 @@ function runUntil(
 		}
 	}
 	return false;
-}
+};
 
 test("spots a hostile in front and escalates patrol -> chase -> attack", () => {
 	const w = makeWorld();

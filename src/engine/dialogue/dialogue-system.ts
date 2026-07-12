@@ -6,6 +6,7 @@ import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type EventBus from "../events";
 import type { LoadedFont } from "../load";
+import { mirrorInkState } from "../ink/story";
 import { resolveFont } from "../text/resolve-font";
 import {
 	parseRichText,
@@ -170,8 +171,9 @@ export class DialogueSystem implements UpdateSystem {
 		const [id, state] = entry;
 
 		const inkEntry = ecs.query(InkStoryComponent)[0];
-		const story = inkEntry ? inkEntry[1].story : null;
-		if (!story) {
+		const inkComponent = inkEntry ? inkEntry[1] : null;
+		const story = inkComponent ? inkComponent.story : null;
+		if (!inkComponent || !story) {
 			return;
 		}
 
@@ -191,6 +193,7 @@ export class DialogueSystem implements UpdateSystem {
 			);
 			events.emit(new DialogueOpenedEvent(id));
 			this.gatherBlock(story, state, assetManager);
+			mirrorInkState(inkComponent);
 		}
 
 		state.slide.tick(dt);
@@ -288,7 +291,9 @@ export class DialogueSystem implements UpdateSystem {
 		if (pressed) {
 			consume();
 			story.ChooseChoiceIndex(state.selectedOption);
-			if (!this.gatherBlock(story, state, assetManager)) {
+			const advanced = this.gatherBlock(story, state, assetManager);
+			mirrorInkState(inkComponent);
+			if (!advanced) {
 				this.beginClose(state);
 			}
 		}
@@ -388,6 +393,6 @@ export class DialogueSystem implements UpdateSystem {
 		state: DialogueComponent,
 	): void {
 		ecs.destroy(id);
-		events.emit(new DialogueClosedEvent(id, state.source));
+		events.emit(new DialogueClosedEvent(id, state.source.id));
 	}
 }

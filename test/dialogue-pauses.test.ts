@@ -12,7 +12,7 @@ const bindings = {
 } as unknown as DialogueBindings;
 
 const pausesOf = (text: string): number[] =>
-	computePauses([...text], bindings);
+	computePauses(Array.from(text), bindings);
 
 describe("computePauses", () => {
 	test("comma, mid, and stop tiers pause after their mark", () => {

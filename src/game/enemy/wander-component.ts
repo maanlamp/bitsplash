@@ -11,7 +11,7 @@ export class WanderComponent {
 	@serialize({ group: "interval" }) minInterval: Duration;
 	@serialize({ group: "interval" }) maxInterval: Duration;
 
-	origin: Vector2 | null = null;
+	@serialize() origin: Vector2 | null = null;
 	elapsed: number = 0;
 	nextAt: number = 0;
 

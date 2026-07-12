@@ -21,7 +21,25 @@ export const walkFields = (
 	return out;
 };
 
+const NON_FINITE: Record<string, number> = {
+	Infinity: Infinity,
+	"-Infinity": -Infinity,
+	NaN: Number.NaN,
+};
+
+const encodeNonFinite = (value: number): { $number: string } => ({
+	$number:
+		value === Infinity
+			? "Infinity"
+			: value === -Infinity
+				? "-Infinity"
+				: "NaN",
+});
+
 export const encodeValue = (value: unknown): unknown => {
+	if (typeof value === "number" && !Number.isFinite(value)) {
+		return encodeNonFinite(value);
+	}
 	if (value === null || typeof value !== "object") {
 		return typeof value === "function" ? undefined : value;
 	}
@@ -124,6 +142,12 @@ export const decodeValue = (value: unknown): unknown => {
 		return value.map(decodeValue);
 	}
 	const record = value as Record<string, unknown>;
+	if (
+		typeof record.$number === "string" &&
+		record.$number in NON_FINITE
+	) {
+		return NON_FINITE[record.$number];
+	}
 	if (typeof record.$type === "string") {
 		const type = serializableType(record.$type);
 		if (type) {

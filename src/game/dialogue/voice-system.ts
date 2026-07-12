@@ -46,8 +46,8 @@ export class VoiceSystem implements UpdateSystem {
 			}
 
 			const voice =
-				(dialogue.source !== null
-					? ecs.getComponent(dialogue.source, VoiceComponent)
+				(dialogue.source.id !== null
+					? ecs.getComponent(dialogue.source.id, VoiceComponent)
 					: null) ?? DEFAULT_VOICE;
 			const bank =
 				this.ensureBank(audio, voice.bank) ??

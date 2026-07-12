@@ -24,6 +24,7 @@ export class World {
 	private lastPhysicsTime = 0;
 	private alpha = 0;
 	private pendingSingleStep = false;
+	private disposed = false;
 
 	get physicsTime(): number {
 		return this.lastPhysicsTime;
@@ -73,6 +74,14 @@ export class World {
 
 	clear(): void {
 		this.ecs.reset();
+	}
+
+	dispose(): void {
+		if (this.disposed) {
+			return;
+		}
+		this.disposed = true;
+		this.physics.dispose();
 	}
 
 	requestSingleStep(): void {

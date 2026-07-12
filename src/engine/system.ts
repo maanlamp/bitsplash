@@ -25,7 +25,23 @@ export type RenderContext = Readonly<{
 	ecs: ReadonlyECS;
 	input: Input;
 	assetManager: AssetManager;
+	uiScale: number;
 }>;
+
+export type ScreenMetrics = Readonly<{
+	scale: number;
+	width: number;
+	height: number;
+}>;
+
+export const screenMetrics = (ctx: RenderContext): ScreenMetrics => {
+	const scale = ctx.uiScale;
+	return {
+		scale,
+		width: ctx.renderer.width / scale,
+		height: ctx.renderer.height / scale,
+	};
+};
 
 export abstract class UpdateSystem {
 	abstract update(ctx: UpdateContext): void;

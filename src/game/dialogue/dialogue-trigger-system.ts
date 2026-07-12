@@ -3,6 +3,7 @@ import {
 	isCutsceneActive,
 	startCutscene,
 } from "../../engine/cutscene/cutscene-system";
+import { step } from "../../engine/cutscene/verbs";
 import type { EntityId } from "../../engine/ecs";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import {
@@ -35,12 +36,14 @@ export class DialogueTriggerSystem implements UpdateSystem {
 			const def: CutsceneDef = {
 				id: `dialogue:${knot}`,
 				scenes: [
-					function* (ctx) {
-						const player =
-							ctx.ecs.query(PlayerInputComponent)[0]?.[0] ?? null;
-						follow(ctx, [player, npc]);
-						yield dialogue(ctx, knot, npc);
-						follow(ctx, [player]);
+					function* (api) {
+						const player = api.read(
+							(ctx) =>
+								ctx.ecs.query(PlayerInputComponent)[0]?.[0] ?? null,
+						);
+						api.effect((ctx) => follow(ctx.ecs, [player, npc]));
+						yield* step(api, "line", (a) => dialogue(a, knot, npc));
+						api.effect((ctx) => follow(ctx.ecs, [player]));
 					},
 				],
 			};

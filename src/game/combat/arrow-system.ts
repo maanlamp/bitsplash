@@ -47,11 +47,9 @@ export class ArrowSystem implements UpdateSystem {
 			}
 
 			if (arrow.stuck) {
-				if (arrow.attachedTo) {
-					const host = ecs.getComponent(
-						arrow.attachedTo,
-						TransformComponent,
-					);
+				const hostId = arrow.attachedTo.id;
+				if (hostId) {
+					const host = ecs.getComponent(hostId, TransformComponent);
 					if (!host) {
 						this.resume(arrow, rb, sprite);
 						continue;
@@ -139,7 +137,7 @@ export class ArrowSystem implements UpdateSystem {
 	): void {
 		const body = rb.body!;
 		arrow.stuck = true;
-		arrow.attachedTo = attachedTo;
+		arrow.attachedTo.set(attachedTo);
 		arrow.stuckRemaining = arrow.stuckLifetime.seconds as Seconds;
 		const center = point
 			.clone()
@@ -151,6 +149,7 @@ export class ArrowSystem implements UpdateSystem {
 		body.linearVelocity = { x: 0, y: 0 };
 		body.setAngularVelocity(0);
 		body.setBodyType("static");
+		rb.type = "static";
 	}
 
 	private resume(
@@ -159,8 +158,9 @@ export class ArrowSystem implements UpdateSystem {
 		sprite: SpriteComponent,
 	): void {
 		arrow.stuck = false;
-		arrow.attachedTo = null;
+		arrow.attachedTo.set(null);
 		sprite.opacity.set(1);
+		rb.type = "dynamic";
 		rb.body!.setBodyType("dynamic");
 		rb.body!.setAwake(true);
 	}

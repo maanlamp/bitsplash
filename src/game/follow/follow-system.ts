@@ -19,8 +19,12 @@ export class FollowSystem implements UpdateSystem {
 			}
 			const leader = ecs.getComponent(leaderId, TransformComponent);
 			if (!leader) {
+				follow.leader = null;
+				follow.leaderRef.set(null);
 				continue;
 			}
+			follow.leader = leaderId;
+			follow.leaderRef.set(leaderId);
 			const dist = transform.position.distanceTo(leader.position);
 			if (dist <= follow.stopDistance) {
 				if (agent.target !== null) {

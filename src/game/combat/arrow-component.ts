@@ -1,6 +1,7 @@
 import Angle from "../../engine/angle";
 import { Duration, type Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
+import { EntityRef } from "../../engine/entity-ref";
 import { Percent } from "../../engine/percent";
 import {
 	serializable,
@@ -19,12 +20,12 @@ export class ArrowComponent {
 	@serialize({ group: "lifetime" }) stuckLifetime: Duration;
 	@serialize({ group: "motion" }) aimAngle: Angle;
 	mods: HitModifiers;
-	launched: boolean;
-	stuck: boolean;
-	stuckRemaining: Seconds;
-	attachedTo: EntityId | null;
-	attachOffsetX: number;
-	attachOffsetY: number;
+	@serialize() launched: boolean;
+	@serialize() stuck: boolean;
+	@serialize() stuckRemaining: Seconds;
+	@serialize() attachedTo: EntityRef;
+	@serialize() attachOffsetX: number;
+	@serialize() attachOffsetY: number;
 
 	constructor(
 		base: number = 25,
@@ -39,7 +40,7 @@ export class ArrowComponent {
 		launched = false,
 		stuck = false,
 		stuckRemaining: Seconds = 0 as Seconds,
-		attachedTo = null,
+		attachedTo: EntityId | null = null,
 		attachOffsetX = 0,
 		attachOffsetY = 0,
 	) {
@@ -55,7 +56,7 @@ export class ArrowComponent {
 		this.launched = launched;
 		this.stuck = stuck;
 		this.stuckRemaining = stuckRemaining;
-		this.attachedTo = attachedTo;
+		this.attachedTo = new EntityRef(attachedTo);
 		this.attachOffsetX = attachOffsetX;
 		this.attachOffsetY = attachOffsetY;
 	}

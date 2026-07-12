@@ -14,8 +14,9 @@ import { FactionComponent } from "../faction/faction-component";
 import { getReaction } from "../faction/reaction";
 import { HealthComponent } from "../health/health-component";
 import { DamageStatsComponent } from "./damage-stats-component";
-import { type MeleePhase, MeleeComponent } from "./melee-component";
+import { MeleeComponent } from "./melee-component";
 import { meleeMachine } from "./melee-def";
+import { stepMachine } from "../../engine/fsm/step-machine";
 import { NO_MODIFIERS, resolveHit } from "./resolve-hit";
 import { DamageEvent } from "../events";
 
@@ -26,11 +27,9 @@ export class MeleeSystem implements UpdateSystem {
 			TransformComponent,
 			FacingComponent,
 		)) {
-			const result = meleeMachine.step(
-				{
-					current: melee.machine.current as MeleePhase,
-					elapsed: melee.machine.elapsed as Seconds,
-				},
+			const result = stepMachine(
+				meleeMachine,
+				melee.machine,
 				{
 					triggered: melee.triggered,
 					windup: melee.windup.seconds as Seconds,
@@ -39,8 +38,6 @@ export class MeleeSystem implements UpdateSystem {
 				(dt / 1000) as Seconds,
 			);
 
-			melee.machine.current = result.next.current;
-			melee.machine.elapsed = result.next.elapsed;
 			melee.triggered = false;
 
 			if (result.entered.includes("recover")) {

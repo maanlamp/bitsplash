@@ -35,3 +35,11 @@ export const ensureStory = (
 	}
 	return component.story;
 };
+
+export const mirrorInkState = (
+	component: InkStoryComponent,
+): void => {
+	if (component.story) {
+		component.state = component.story.state.ToJson();
+	}
+};

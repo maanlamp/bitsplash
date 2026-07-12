@@ -39,6 +39,7 @@ export class RapierPhysics extends Physics {
 	private readonly matrix?: CollisionMatrix;
 	private readonly queue: RAPIER_NS.EventQueue;
 	private collisions: CollisionPair[] = [];
+	private disposed = false;
 
 	constructor(gravity: Vec, matrix?: CollisionMatrix) {
 		super();
@@ -56,6 +57,15 @@ export class RapierPhysics extends Physics {
 
 	setGravity(gravity: Vec): void {
 		this.world.gravity = { x: gravity.x, y: gravity.y };
+	}
+
+	dispose(): void {
+		if (this.disposed) {
+			return;
+		}
+		this.disposed = true;
+		this.queue.free();
+		this.world.free();
 	}
 
 	step(dt: number): void {

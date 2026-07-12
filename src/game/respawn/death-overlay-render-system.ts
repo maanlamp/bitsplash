@@ -2,16 +2,17 @@ import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
+	screenMetrics,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import { DeathNoticeComponent } from "../respawn/death-notice-component";
 import { withAlpha } from "../../engine/render/color-resolver";
-import { UI_SCALE } from "../settings";
 
 const PADDING = 8;
 
 export class DeathOverlayRenderSystem implements RenderSystem {
-	render({ renderer, ecs, assetManager }: RenderContext): void {
+	render(ctx: RenderContext): void {
+		const { renderer, ecs, assetManager } = ctx;
 		const [, notice] = ecs.query(DeathNoticeComponent)[0] ?? [];
 		if (!notice) {
 			return;
@@ -22,8 +23,7 @@ export class DeathOverlayRenderSystem implements RenderSystem {
 		}
 		const alpha = notice.fade.alpha();
 
-		const screenW = renderer.width / UI_SCALE;
-		const screenH = renderer.height / UI_SCALE;
+		const { width: screenW, height: screenH } = screenMetrics(ctx);
 		const barHeight = font.lineHeight + PADDING * 2;
 		const barY = (screenH - barHeight) / 2;
 

@@ -1,11 +1,12 @@
 import type {
-	CutsceneContext,
+	CutsceneApi,
 	CutsceneDef,
 	CutsceneScene,
 } from "../../engine/cutscene/cutscene";
 import {
 	cameraTo,
 	parallel,
+	step,
 	wait,
 } from "../../engine/cutscene/verbs";
 import type { Seconds } from "../../engine/duration";
@@ -94,143 +95,172 @@ const setupQuest = (ecs: ECS): void => {
 	}
 };
 
-const intro: CutsceneScene = function* (ctx) {
-	setupQuest(ctx.ecs);
-	const quartermaster = quartermasterId(ctx.ecs);
-	const player = playerId(ctx.ecs);
-	const position = quartermaster
-		? positionOf(ctx.ecs, quartermaster)
-		: null;
-	if (!quartermaster || !position) {
+const intro: CutsceneScene = function* (api) {
+	api.effect((ctx) => setupQuest(ctx.ecs));
+	const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
+	const player = api.read((ctx) => playerId(ctx.ecs));
+	const position = api.read((ctx) =>
+		quartermaster ? positionOf(ctx.ecs, quartermaster) : null,
+	);
+	if (quartermaster === null || !position) {
 		return;
 	}
-	yield cameraTo(ctx, {
-		target: quartermaster,
-		zoom: INTRO_ZOOM,
-		followAfter: [quartermaster],
-	});
+	yield* step(api, "camera", (a) =>
+		cameraTo(a, {
+			target: quartermaster,
+			zoom: INTRO_ZOOM,
+			followAfter: [quartermaster],
+		}),
+	);
 	const dest = position.x + 5.5 * TILE_SIZE;
-	if (player !== null) {
-		yield parallel(
-			escort(
-				ctx,
-				player,
-				quartermaster,
-				new Vector2(dest, position.y),
-			),
-			dialogue(ctx, "pickup_tutor.pt_intro_walk", quartermaster),
-		);
-	} else {
-		yield parallel(
-			walkTo(ctx, quartermaster, dest),
-			dialogue(ctx, "pickup_tutor.pt_intro_walk", quartermaster),
-		);
-	}
-	yield cameraTo(ctx, {
-		target: quartermaster,
-		zoom: EDGE_ZOOM,
-		mode: "glide",
-		duration: 1.5 as Seconds,
-		followAfter: [quartermaster],
-	});
-	yield dialogue(ctx, "pickup_tutor.pt_intro", quartermaster);
+	yield* step(api, "walk", (a) =>
+		parallel(
+			player !== null
+				? escort(
+						a,
+						player,
+						quartermaster,
+						new Vector2(dest, position.y),
+					)
+				: walkTo(quartermaster, dest),
+			dialogue(a, "pickup_tutor.pt_intro_walk", quartermaster),
+		),
+	);
+	yield* step(api, "edge", (a) =>
+		cameraTo(a, {
+			target: quartermaster,
+			zoom: EDGE_ZOOM,
+			mode: "glide",
+			duration: 1.5 as Seconds,
+			followAfter: [quartermaster],
+		}),
+	);
+	yield* step(api, "talk", (a) =>
+		dialogue(a, "pickup_tutor.pt_intro", quartermaster),
+	);
 };
 
 const stop = (type: PickupType): CutsceneScene =>
-	function* (ctx: CutsceneContext) {
-		const pickup = pickupOf(ctx.ecs, type);
+	function* (api: CutsceneApi) {
+		const pickup = api.read((ctx) => pickupOf(ctx.ecs, type));
 		if (pickup === null) {
 			return;
 		}
-		yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
-		yield dialogue(ctx, lineFor(type), quartermasterId(ctx.ecs));
+		const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
+		yield* step(api, "focus", (a) =>
+			cameraTo(a, { target: pickup, zoom: FOCUS_ZOOM }),
+		);
+		yield* step(api, "line", (a) =>
+			dialogue(a, lineFor(type), quartermaster),
+		);
 	};
 
-const stopWallJump: CutsceneScene = function* (ctx) {
-	const pickup = pickupOf(ctx.ecs, "wall-jump");
-	const position = pickup ? positionOf(ctx.ecs, pickup) : null;
+const stopWallJump: CutsceneScene = function* (api) {
+	const pickup = api.read((ctx) => pickupOf(ctx.ecs, "wall-jump"));
+	const position = api.read((ctx) =>
+		pickup ? positionOf(ctx.ecs, pickup) : null,
+	);
 	if (pickup === null || !position) {
 		return;
 	}
-	yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
-	yield parallel(
-		dialogue(ctx, lineFor("wall-jump"), quartermasterId(ctx.ecs)),
-		cameraTo(ctx, {
-			target: new Vector2(
-				position.x,
-				position.y - SHAFT_PAN_TILES * TILE_SIZE,
-			),
-			zoom: SHAFT_ZOOM,
-			mode: "glide",
-			duration: 2 as Seconds,
-		}),
+	const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
+	yield* step(api, "focus", (a) =>
+		cameraTo(a, { target: pickup, zoom: FOCUS_ZOOM }),
+	);
+	yield* step(api, "line", (a) =>
+		parallel(
+			dialogue(a, lineFor("wall-jump"), quartermaster),
+			cameraTo(a, {
+				target: new Vector2(
+					position.x,
+					position.y - SHAFT_PAN_TILES * TILE_SIZE,
+				),
+				zoom: SHAFT_ZOOM,
+				mode: "glide",
+				duration: 2 as Seconds,
+			}),
+		),
 	);
 };
 
-const stopDash: CutsceneScene = function* (ctx) {
-	const pickup = pickupOf(ctx.ecs, "dash");
-	const position = pickup ? positionOf(ctx.ecs, pickup) : null;
+const stopDash: CutsceneScene = function* (api) {
+	const pickup = api.read((ctx) => pickupOf(ctx.ecs, "dash"));
+	const position = api.read((ctx) =>
+		pickup ? positionOf(ctx.ecs, pickup) : null,
+	);
 	if (pickup === null || !position) {
 		return;
 	}
-	yield cameraTo(ctx, { target: pickup, zoom: FOCUS_ZOOM });
-	yield parallel(
-		dialogue(ctx, lineFor("dash"), quartermasterId(ctx.ecs)),
-		cameraTo(ctx, {
-			target: new Vector2(
-				position.x - ROAD_SWEEP_TILES * TILE_SIZE,
-				position.y,
-			),
-			zoom: FOCUS_ZOOM,
-			mode: "glide",
-			duration: 2.5 as Seconds,
-		}),
+	const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
+	yield* step(api, "focus", (a) =>
+		cameraTo(a, { target: pickup, zoom: FOCUS_ZOOM }),
+	);
+	yield* step(api, "line", (a) =>
+		parallel(
+			dialogue(a, lineFor("dash"), quartermaster),
+			cameraTo(a, {
+				target: new Vector2(
+					position.x - ROAD_SWEEP_TILES * TILE_SIZE,
+					position.y,
+				),
+				zoom: FOCUS_ZOOM,
+				mode: "glide",
+				duration: 2.5 as Seconds,
+			}),
+		),
 	);
 };
 
-const wrapUp: CutsceneScene = function* (ctx) {
-	const player = playerId(ctx.ecs);
-	const quartermaster = quartermasterId(ctx.ecs);
+const wrapUp: CutsceneScene = function* (api) {
+	const player = api.read((ctx) => playerId(ctx.ecs));
+	const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
 	if (player === null) {
 		return;
 	}
 	if (quartermaster !== null) {
-		yield cameraTo(ctx, {
-			target: quartermaster,
-			zoom: WRAP_ZOOM,
-		});
+		yield* step(api, "focus", (a) =>
+			cameraTo(a, { target: quartermaster, zoom: WRAP_ZOOM }),
+		);
 	}
-	yield dialogue(ctx, "pickup_tutor.pt_wrap", quartermaster);
-	yield cameraTo(ctx, {
-		target: player,
-		zoom: DEFAULT_FOLLOW_ZOOM,
-		followAfter: [player],
-	});
+	yield* step(api, "talk", (a) =>
+		dialogue(a, "pickup_tutor.pt_wrap", quartermaster),
+	);
+	yield* step(api, "release", (a) =>
+		cameraTo(a, {
+			target: player,
+			zoom: DEFAULT_FOLLOW_ZOOM,
+			followAfter: [player],
+		}),
+	);
 };
 
-const smooch: CutsceneScene = function* (ctx) {
-	const player = playerId(ctx.ecs);
-	const quartermaster = quartermasterId(ctx.ecs);
-	const target = quartermaster
-		? positionOf(ctx.ecs, quartermaster)
-		: null;
-	const from = player ? positionOf(ctx.ecs, player) : null;
+const smooch: CutsceneScene = function* (api) {
+	const player = api.read((ctx) => playerId(ctx.ecs));
+	const quartermaster = api.read((ctx) => quartermasterId(ctx.ecs));
+	const target = api.read((ctx) =>
+		quartermaster ? positionOf(ctx.ecs, quartermaster) : null,
+	);
+	const from = api.read((ctx) =>
+		player ? positionOf(ctx.ecs, player) : null,
+	);
 	if (player === null || !target || !from) {
 		return;
 	}
 	const side = Math.sign(from.x - target.x) || -1;
-	yield moveTo(
-		ctx,
-		player,
-		new Vector2(target.x + side * 28, target.y),
+	yield* step(api, "approach", (a) =>
+		moveTo(a, player, new Vector2(target.x + side * 28, target.y)),
 	);
-	yield wait(0.5 as Seconds);
-	yield dialogue(ctx, "pickup_tutor.pt_smooch", player);
-	yield cameraTo(ctx, {
-		target: player,
-		zoom: DEFAULT_FOLLOW_ZOOM,
-		followAfter: [player],
-	});
+	yield* step(api, "beat", () => wait(0.5 as Seconds));
+	yield* step(api, "kiss", (a) =>
+		dialogue(a, "pickup_tutor.pt_smooch", player),
+	);
+	yield* step(api, "release", (a) =>
+		cameraTo(a, {
+			target: player,
+			zoom: DEFAULT_FOLLOW_ZOOM,
+			followAfter: [player],
+		}),
+	);
 };
 
 export const pickupTourCutscene: CutsceneDef = {

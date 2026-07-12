@@ -14,7 +14,7 @@ export class MeleeComponent {
 	@serialize({ group: "timing" }) windup: Duration;
 	@serialize({ group: "timing" }) recover: Duration;
 
-	machine: MachineState = new MachineState("idle", 0);
+	@serialize() machine: MachineState = new MachineState("idle", 0);
 	triggered: boolean = false;
 
 	constructor(

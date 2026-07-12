@@ -46,8 +46,10 @@ import tileDecorationsUrl from "../content/assets/tile-decorations.png";
 import { InputBindings } from "../input-bindings";
 import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
 import { spawnRuntimeEntities } from "./bootstrap";
+import "../register-prefabs";
 import { ArrowSystem } from "../combat/arrow-system";
 import { BowSystem } from "../combat/bow-system";
+import { BowRenderSystem } from "../combat/bow-render-system";
 import { DamageShakeSystem } from "../combat/damage-shake-system";
 import { DamageTriggerSystem } from "../combat/damage-trigger-system";
 import { MeleeSystem } from "../combat/melee-system";
@@ -78,6 +80,7 @@ import { NpcAnimationSystem } from "../npc/npc-animation-system";
 import { PlayerAnimationSystem } from "../player/player-animation-system";
 import { PlayerIntentSystem } from "../player/player-intent-system";
 import { PlayerMovementSystem } from "../player/player-movement-system";
+import { ChronicleInkMirrorSystem } from "../chronicle/chronicle-ink-mirror-system";
 import { QuestSystem } from "../quest/quest-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
 import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
@@ -140,6 +143,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new HitsplatSystem(),
 		new DeathSystem(),
 		new QuestSystem(),
+		new ChronicleInkMirrorSystem(),
 		new CutsceneSystem({
 			skipHeld: ({ input }) =>
 				!!input.keyboard.keys[InputBindings.interact],
@@ -167,6 +171,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 	ecs.addRenderSystem(new DialogueRenderSystem());
 	ecs.addRenderSystem(new SpriteRenderSystem());
+	ecs.addRenderSystem(new BowRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());
 	ecs.addRenderSystem(new HealthRenderSystem("terrain"));
 	ecs.addRenderSystem(new HitsplatRenderSystem("terrain"));

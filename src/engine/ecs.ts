@@ -53,6 +53,11 @@ export class ECS {
 		components: ReadonlyArray<object> = [],
 		id: EntityId = crypto.randomUUID(),
 	): EntityId {
+		if (this.components.has(id)) {
+			throw new Error(
+				`ECS.createEntity: entity id "${id}" already exists; refusing to silently overwrite it. Despawn/destroy (and flush) the existing entity, or reset the world, before recreating it with this id.`,
+			);
+		}
 		this.components.set(id, new Map());
 		for (const component of components) {
 			this.addComponent(id, component);

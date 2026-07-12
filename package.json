@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bun i --frozen-lockfile && concurrently -k -n vite,app \"vite\" \"electron src/desktop/main.cjs\"",
+		"game": "bun i --frozen-lockfile && vite build && electron src/desktop/game.cjs",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
 		"check": "bun oxlint --fix && bun oxfmt && bun tsc -b && bun test"

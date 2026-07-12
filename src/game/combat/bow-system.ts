@@ -1,6 +1,5 @@
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
-import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -23,15 +22,10 @@ export class BowSystem implements UpdateSystem {
 		}
 		const mouseWorld = camera.screenToWorld(input.mouse.position);
 
-		for (const [id, bow, transform, sprite] of ecs.query(
+		for (const [id, bow, owner] of ecs.query(
 			BowComponent,
 			TransformComponent,
-			SpriteComponent,
 		)) {
-			const owner = ecs.getComponent(bow.owner, TransformComponent);
-			if (!owner) {
-				continue;
-			}
 			const stats = ecs.getComponent(id, DamageStatsComponent);
 			if (!stats) {
 				continue;
@@ -39,18 +33,17 @@ export class BowSystem implements UpdateSystem {
 			const angle = mouseWorld.clone().sub(owner.position).angle();
 			const direction = Vector2.fromAngle(angle);
 
-			transform.position
+			bow.renderPosition
 				.copy(owner.position)
 				.add(direction.clone().mul(bow.offset));
 
 			const facingLeft = Math.cos(angle) < 0;
-			sprite.flipX = facingLeft;
-			transform.rotation.radians = facingLeft
-				? angle + Math.PI
-				: angle;
+			bow.flipX = facingLeft;
+			bow.renderAngle = facingLeft ? angle + Math.PI : angle;
+			bow.visible = true;
 
 			const ownerIntent = ecs.getComponent(
-				bow.owner,
+				id,
 				MovementIntentComponent,
 			);
 			if (ownerIntent) {
@@ -63,7 +56,7 @@ export class BowSystem implements UpdateSystem {
 					world,
 					bow,
 					stats,
-					transform.position,
+					bow.renderPosition,
 					direction,
 					angle,
 				);

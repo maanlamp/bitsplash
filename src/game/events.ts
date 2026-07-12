@@ -1,4 +1,13 @@
 import type { EntityId } from "../engine/ecs";
+import { EntityRef } from "../engine/entity-ref";
+import {
+	serializable,
+	serialize,
+} from "../engine/serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../engine/serialization/serializable-value";
 import type Vector2 from "../engine/vector2";
 
 export class InteractEvent {
@@ -23,11 +32,22 @@ export class DeathEvent {
 	constructor(public entity: EntityId) {}
 }
 
-export class SpawnEvent {
+@serializable("SpawnEvent")
+export class SpawnEvent implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() spawnPoint: EntityRef;
+	@serialize() id: EntityRef;
+
 	constructor(
-		public spawnPoint: EntityId,
-		public id: EntityId,
-	) {}
+		spawnPoint: EntityId | null = null,
+		id: EntityId | null = null,
+	) {
+		this.spawnPoint = new EntityRef(spawnPoint);
+		this.id = new EntityRef(id);
+	}
 }
 
 export class PickupCollectedEvent {

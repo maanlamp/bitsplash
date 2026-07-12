@@ -9,12 +9,12 @@ import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
+	screenMetrics,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
 import { DIALOGUE_UI, UI_FONT } from "../dialogue/dialogue-ui";
 import { withAlpha } from "../../engine/render/color-resolver";
-import { UI_SCALE } from "../settings";
 
 const FALLBACK_INSETS: NineSliceInsets = {
 	left: 6,
@@ -50,7 +50,8 @@ const metricsOf = (font: LoadedFont): Metrics => {
 };
 
 export class DialogueRenderSystem implements RenderSystem {
-	render({ renderer, ecs, assetManager, time }: RenderContext): void {
+	render(ctx: RenderContext): void {
+		const { renderer, ecs, assetManager, time } = ctx;
 		const entry = ecs.query(DialogueComponent)[0];
 		if (!entry) {
 			return;
@@ -92,8 +93,7 @@ export class DialogueRenderSystem implements RenderSystem {
 		const topInset = Math.max(DIALOGUE_UI.padding, tm.above);
 		const bottomInset = Math.max(DIALOGUE_UI.padding, lastBelow);
 
-		const screenW = renderer.width / UI_SCALE;
-		const screenH = renderer.height / UI_SCALE;
+		const { width: screenW, height: screenH } = screenMetrics(ctx);
 		const panelW = DIALOGUE_UI.panelWidth;
 		const panelH = Math.round(topInset + contentBottom + bottomInset);
 		const panelX = Math.round((screenW - panelW) / 2);

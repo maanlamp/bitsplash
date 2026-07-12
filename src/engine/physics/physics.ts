@@ -38,6 +38,7 @@ export type RaycastFilter = (body: RigidBody) => boolean;
 export abstract class Physics {
 	abstract setGravity(gravity: Vec): void;
 	abstract step(dt: number): void;
+	abstract dispose(): void;
 	abstract createBody(def: BodyDef): RigidBody;
 	abstract createStaticChain(
 		points: ReadonlyArray<Vec>,

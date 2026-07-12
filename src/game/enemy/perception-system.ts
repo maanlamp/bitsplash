@@ -28,6 +28,13 @@ export class PerceptionSystem implements UpdateSystem {
 			TransformComponent,
 			FacingComponent,
 		)) {
+			if (
+				perception.targetId !== null &&
+				ecs.getComponent(perception.targetId, TransformComponent) ===
+					undefined
+			) {
+				perception.targetId = null;
+			}
 			perception.timeSinceDamage += s;
 			this.sight(ecs, world, id, perception, transform, facing, s);
 			this.stimuli(ecs, id, perception, transform, damage);

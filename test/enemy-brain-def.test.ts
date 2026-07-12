@@ -7,17 +7,16 @@ import {
 	enemyBrainMachine,
 } from "../src/game/enemy/enemy-brain-def";
 
-function transition(
+const transition = (
 	current: EnemyState,
 	elapsed: number,
 	ctx: EnemyCtx,
-): EnemyState {
-	return enemyBrainMachine.step(
+): EnemyState =>
+	enemyBrainMachine.step(
 		{ current, elapsed: elapsed as Seconds },
 		ctx,
 		0 as Seconds,
 	).next.current;
-}
 
 const calm = (): EnemyCtx => ({
 	detection: 0,

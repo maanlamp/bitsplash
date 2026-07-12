@@ -289,6 +289,7 @@ export class SceneView {
 			ecs: this.scene.world.ecs,
 			input: this.input,
 			assetManager: this.services.assetManager,
+			uiScale: this.scene.config.uiScale ?? 1,
 		});
 		const target = renderer.sceneTarget(this.scene);
 		renderSceneToTexture(renderer, this.scene, target);

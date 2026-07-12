@@ -12,6 +12,7 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { pathToFileURL } = require("node:url");
+const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
 
 const DEV_URL = "https://localhost:5173";
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
@@ -257,7 +258,13 @@ app.on(
 	},
 );
 
-void app.whenReady().then(createWindow);
+void app.whenReady().then(() => {
+	registerSaveStoreIpc(
+		ipcMain,
+		path.join(app.getPath("userData"), "saves"),
+	);
+	return createWindow();
+});
 
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") {

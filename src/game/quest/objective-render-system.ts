@@ -3,12 +3,12 @@ import { resolveFont } from "../../engine/text/resolve-font";
 import {
 	type RenderContext,
 	RenderSystem,
+	screenMetrics,
 } from "../../engine/system";
 import { UI_LAYER_MIN } from "../../engine/ui";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 import { QuestComponent } from "../quest/quest-component";
 import { getQuest } from "../quest/loader";
-import { UI_SCALE } from "../settings";
 
 const MARGIN = 8;
 const MAX_VISIBLE_QUESTS = 3;
@@ -29,7 +29,8 @@ const substitute = (
 export class ObjectiveRenderSystem implements RenderSystem {
 	private font = new FontSettings(fsPixelSansUrl, 16);
 
-	render({ renderer, ecs, assetManager }: RenderContext): void {
+	render(ctx: RenderContext): void {
+		const { renderer, ecs, assetManager } = ctx;
 		const lines = this.activeLines(ecs);
 		if (lines.length === 0) {
 			return;
@@ -38,7 +39,7 @@ export class ObjectiveRenderSystem implements RenderSystem {
 		if (!font) {
 			return;
 		}
-		const screenW = renderer.width / UI_SCALE;
+		const { width: screenW } = screenMetrics(ctx);
 		let y = MARGIN + font.ascent;
 		for (const line of lines) {
 			renderer.drawText(

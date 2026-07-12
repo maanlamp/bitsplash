@@ -25,8 +25,12 @@ export const serializeEntity = (
 	return any ? { id, components } : null;
 };
 
-export const serializeWorld = (ecs: ReadonlyECS): SerializedWorld =>
+export const serializeWorld = (
+	ecs: ReadonlyECS,
+	predicate?: (id: EntityId) => boolean,
+): SerializedWorld =>
 	ecs
 		.entities()
+		.filter((id) => !predicate || predicate(id))
 		.map((id) => serializeEntity(ecs, id))
 		.filter((entity): entity is SerializedEntity => entity !== null);

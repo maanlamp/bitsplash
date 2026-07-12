@@ -25,22 +25,24 @@ export class Camera2D {
 		this.maxZoom = maxZoom;
 	}
 
-	screenToWorld(screen: Vector2): Vector2 {
-		return new Vector2(
+	screenToWorld(screen: Vector2, out?: Vector2): Vector2 {
+		const x =
 			(screen.x - this.viewportWidth / 2) / this.zoom +
-				this.position.x,
+			this.position.x;
+		const y =
 			(screen.y - this.viewportHeight / 2) / this.zoom +
-				this.position.y,
-		);
+			this.position.y;
+		return out ? out.set(x, y) : new Vector2(x, y);
 	}
 
-	worldToScreen(world: Vector2): Vector2 {
-		return new Vector2(
+	worldToScreen(world: Vector2, out?: Vector2): Vector2 {
+		const x =
 			(world.x - this.position.x) * this.zoom +
-				this.viewportWidth / 2,
+			this.viewportWidth / 2;
+		const y =
 			(world.y - this.position.y) * this.zoom +
-				this.viewportHeight / 2,
-		);
+			this.viewportHeight / 2;
+		return out ? out.set(x, y) : new Vector2(x, y);
 	}
 
 	visibleBounds(): Bounds {

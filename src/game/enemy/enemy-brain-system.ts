@@ -2,6 +2,7 @@ import { AiStateComponent } from "../../engine/debug/ai-state-component";
 import { DebugTagComponent } from "../../engine/debug/debug-tag-component";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
+import { stepMachine } from "../../engine/fsm/step-machine";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
@@ -90,16 +91,12 @@ export class EnemyBrainSystem implements UpdateSystem {
 				brain.machine.elapsed as Seconds,
 			);
 
-			const result = enemyBrainMachine.step(
-				{
-					current: state,
-					elapsed: brain.machine.elapsed as Seconds,
-				},
+			const result = stepMachine(
+				enemyBrainMachine,
+				brain.machine,
 				ctx,
 				(dt / 1000) as Seconds,
 			);
-			brain.machine.current = result.next.current;
-			brain.machine.elapsed = result.next.elapsed;
 			brain.entered = result.entered;
 			brain.exited = result.exited;
 

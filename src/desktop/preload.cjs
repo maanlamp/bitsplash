@@ -16,3 +16,11 @@ contextBridge.exposeInMainWorld("bitsplashDesktop", {
 	openFileDialog: (payload) =>
 		ipcRenderer.invoke("openFileDialog", payload),
 });
+
+contextBridge.exposeInMainWorld("saveStore", {
+	list: () => ipcRenderer.invoke("saveStore:list"),
+	read: (slot) => ipcRenderer.invoke("saveStore:read", { slot }),
+	write: (slot, blob) =>
+		ipcRenderer.invoke("saveStore:write", { slot, blob }),
+	delete: (slot) => ipcRenderer.invoke("saveStore:delete", { slot }),
+});

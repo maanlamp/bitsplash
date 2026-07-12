@@ -20,13 +20,13 @@ export class PerceptionComponent {
 	@serialize({ group: "timing" }) detectTime: Duration;
 	@serialize({ group: "timing" }) forgetTime: Duration;
 
-	targetId: EntityId | null = null;
-	detection: number = 0;
+	@serialize() targetId: EntityId | null = null;
+	@serialize() detection: number = 0;
 	canSeeTarget: boolean = false;
-	lastStimulusPos: Vector2 | null = null;
-	timeSinceStimulus: number = 0;
-	timeSinceSeen: number = Infinity;
-	timeSinceDamage: number = Infinity;
+	@serialize() lastStimulusPos: Vector2 | null = null;
+	@serialize() timeSinceStimulus: number = 0;
+	@serialize() timeSinceSeen: number = Infinity;
+	@serialize() timeSinceDamage: number = Infinity;
 	sightSamples: SightSample[] = [];
 
 	constructor(

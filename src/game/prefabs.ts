@@ -5,22 +5,18 @@ import type { SerializedComponent } from "../engine/serialization/registry";
 import type Vector2 from "../engine/vector2";
 import type { World } from "../engine/world";
 
-type PrefabDefinition = Readonly<{
+export type PrefabDefinition = Readonly<{
 	components: Record<string, SerializedComponent>;
 }>;
 
-const modules = import.meta.glob("./content/prefabs/*.json", {
-	eager: true,
-}) as Record<string, { default: PrefabDefinition }>;
-
 const prefabs = new Map<string, PrefabDefinition>();
-for (const [path, mod] of Object.entries(modules)) {
-	const name = path
-		.split("/")
-		.pop()!
-		.replace(/\.json$/, "");
-	prefabs.set(name, mod.default);
-}
+
+export const registerPrefab = (
+	name: string,
+	definition: PrefabDefinition,
+): void => {
+	prefabs.set(name, definition);
+};
 
 export const spawnPrefab = (
 	world: World,
