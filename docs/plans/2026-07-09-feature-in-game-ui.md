@@ -87,7 +87,7 @@ first-class part of the design. The spine:
    selectors, or cascade. Shared "classes" are exported style constants;
    interactive states are conditional style objects.
 
-5. **World-anchored widgets are a first-class node *kind*.** Health bars,
+5. **World-anchored widgets are a first-class node _kind_.** Health bars,
    nameplates, markers, hints, hitsplats are the same declarative components but
    skip Yoga flex and the focus tree; their screen position is computed per-frame
    by an **anchor system** off a non-allocating camera projection, with
@@ -114,10 +114,10 @@ first-class part of the design. The spine:
    everything unconsumed **falls through** to gameplay via a **masked Input view**.
    Clicking a UI element never reaches the world; a focused floating widget eats
    its nav/confirm keys but WASD still moves the player. **Modal** UI is focus-trap
-   + consume-all (the whole-`Input` mask is the modal special case). Whether
-   gameplay `update()` runs at all behind open non-modal UI (freeze-behind) is an
-   **independent, deferred design toggle** the architecture must support, not
-   decide.
+   - consume-all (the whole-`Input` mask is the modal special case). Whether
+     gameplay `update()` runs at all behind open non-modal UI (freeze-behind) is an
+     **independent, deferred design toggle** the architecture must support, not
+     decide.
 
 9. **One synchronous commit per frame via `flushSyncFromReconciler`.** The game
    root is a sync `LegacyRoot`. The per-frame UI mutation phase — event dispatch
@@ -165,7 +165,7 @@ live-previews the UI (hot-reload); it gets no visual drag-and-drop authoring.
   before a `pointer` event that should then hit it). The UI event buffer is a
   **different, simpler structure** (a single ordered array with a per-entry
   `consumed` flag), owned by `engine/ui`; `EventBus` is left untouched for
-  gameplay. This reuses the *pattern*, copies no code, and keeps a genuinely
+  gameplay. This reuses the _pattern_, copies no code, and keeps a genuinely
   separate concern separate.
 - **`unstable_batchedUpdates` for the per-frame flush** — rejected as the
   mechanism. A spike (§Research findings) showed React 19.2 does not sync-flush a
@@ -234,6 +234,7 @@ loss). Sampling happens at the top of the tick so dispatch is **same-frame** (no
 **§4.3 Dispatch, focus, pointer.** `engine/ui/input/event-dispatcher.ts` resolves
 targets and runs **capture → target → bubble** with `stopPropagation`/consumption,
 invoking node handlers (`onClick`/`onFocus`/`onKeyDown`/…).
+
 - `engine/ui/input/pointer-router.ts` transforms `Mouse.position` into UI space
   (÷ uiScale, matching paint) and hit-tests **top-most** against Yoga rects (from
   the previous frame's committed layout) → hover/press/click; a pointer hit also
@@ -325,6 +326,7 @@ color/wave/style via the bypass), `<Overlay>` (full-screen, bypass alpha).
 ### §8 Delivery phases
 
 **Phase 1 — Foundation (front-load the risky, bespoke seams).**
+
 1. Reconciler host + node model + keyed-write `commitUpdate`; the
    `flushSyncFromReconciler` frame slot (§4.5) + intent queue; paint render system
    (merged field-read).
@@ -352,19 +354,31 @@ run before any migration.
 **Phase 2 — Incremental migration** (new system alongside old; delete each old
 system as its replacement ships):
 
-| Element | Today | New | Improvement |
-|---|---|---|---|
-| Screen fade | full-screen rect | `<Overlay>`, bypass alpha | trivial; shake-out target first |
-| Death overlay | full-screen | `<Overlay>` + focusable Respawn | gamepad-navigable |
-| Dialogue box | nine-slice + rich text, typewriter, per-glyph wave; keyboard-only choice nav | `<Panel>`+`<RichText>`; choices are focusables with `onClick`/`confirm` | validates RichText + focus + event dispatch; choices gamepad- and pointer-navigable |
-| Quest tracker | manual y-stacked text | `<QuestTracker>` (flex) | add/remove animates via bypass |
-| Quest notices | popup | `<Notice>` w/ enter/exit transition | transition via bypass |
-| Health bars | world `drawRect` | anchored `<HealthBar>` | fill + pos via bypass |
-| Quest markers | bobbing chevron, no projection | anchored `<Marker>` | **edge-clamp + point-toward off-screen entity** |
-| Interaction hints | world | anchored `<Hint>` | overflow-aware placement |
-| Hitsplats | per-hit spawn/draw | anchored, **pooled** | zero-reconcile/zero-GC in combat |
-| Pause / main menus | (none) | new screens | full focus/nav |
-| Inventory / toolbar | (none) | grid screens | grid + clip + pointer/focus + passthrough |
+| Element             | Today                                                                        | New                                                                                                                | Improvement                                                                         |
+| ------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Screen fade         | full-screen rect                                                             | `<Overlay>`, bypass alpha                                                                                          | trivial; shake-out target first                                                     |
+| Death overlay       | full-screen                                                                  | `<Overlay>` + focusable Respawn                                                                                    | gamepad-navigable                                                                   |
+| Dialogue box        | nine-slice + rich text, typewriter, per-glyph wave; keyboard-only choice nav | `<Panel>`+`<RichText>`; choices are focusables with `onClick`/`confirm`                                            | validates RichText + focus + event dispatch; choices gamepad- and pointer-navigable |
+| Quest tracker       | manual y-stacked text                                                        | `<QuestTracker>` (flex)                                                                                            | add/remove animates via bypass                                                      |
+| Quest notices       | popup                                                                        | `<Notice>` w/ enter/exit transition                                                                                | transition via bypass                                                               |
+| Health bars         | world `drawRect`                                                             | anchored `<HealthBar>`                                                                                             | fill + pos via bypass                                                               |
+| Quest markers       | bobbing chevron, no projection                                               | anchored `<Marker>`                                                                                                | **edge-clamp + point-toward off-screen entity**                                     |
+| Interaction hints   | world                                                                        | anchored `<Hint>`                                                                                                  | overflow-aware placement                                                            |
+| Hitsplats           | per-hit spawn/draw                                                           | anchored, **pooled**                                                                                               | zero-reconcile/zero-GC in combat                                                    |
+| Pause / main menus  | (none)                                                                       | new screens                                                                                                        | full focus/nav                                                                      |
+| Save / load menus   | **React/react-dom (base-ui) DOM stopgap** shipped by the Phase-5 game shell  | `engine/ui` screens: main menu (New Game/Continue/Load), in-game save/load slot list, quicksave/quickload feedback | pixel-crisp, gamepad-navigable, no DOM overlay                                      |
+| Inventory / toolbar | (none)                                                                       | grid screens                                                                                                       | grid + clip + pointer/focus + passthrough                                           |
+
+**Added 2026-07-12 (persistence/save foundation).** The standalone game shell
+(`2026-07-12-feature-persistence-save-foundation.md`, Phase 5) shipped its save/load/
+main-menu UI as **React + react-dom (base-ui) DOM elements** — a deliberate **stopgap**,
+and a violation of this plan's core "no DOM/React-DOM overlay" decision (its anti-aliased
+DOM text clashes with the pixel-art canvas, and it re-introduces the DOM overlay this layer
+exists to remove). It must be re-authored as `engine/ui` screens once this foundation lands:
+the main menu (New Game / Continue / Load), the in-game save/load slot list, and
+quicksave/quickload feedback. The underlying `SaveDriver` API is UI-agnostic, so only the
+view layer is replaced — no save-logic change. Track it as part of the Phase-2 migration
+(row above). Do not build further game menus on react-dom.
 
 Suggested order: screen fade → death overlay (shake-out) → dialogue (richest;
 first real event-driven interaction) → quest tracker/notices → world-anchored
@@ -380,6 +394,7 @@ source where sensible.
 ## Research findings that drove this
 
 **Codebase precedents.**
+
 - `engine/events.ts` is a broadcast, non-consuming, per-frame buffer with multiple
   readers per event type (`DamageEvent` ×4, `DeathEvent` ×2) — wrong contract for
   input routing; drove the UI-owned ordered/consumed buffer (Alternatives).
@@ -397,6 +412,7 @@ source where sensible.
 
 **Spike evidence (spikes were run to validate; the throwaway code has since been
 removed — the findings are recorded here, no code to point at).**
+
 - **Reconcile throughput** (React, 250-node UI, prod build): full-rerender p99
   1.68ms; realistic one-cell p99 0.17ms; idle bailout ~0.03ms; zero frames over
   8.33ms.

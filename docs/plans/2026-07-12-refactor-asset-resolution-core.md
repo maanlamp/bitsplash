@@ -1,0 +1,91 @@
+# Asset Resolution & Placeholder Core
+
+- **Type:** refactor
+- **Date:** 2026-07-12
+- **Status:** draft
+
+## Goal
+
+Make data-referenced assets resolve in the **packaged** game (the original bug), and clean the two worst asset smells while we're in there — the engine-bundled fallback image and the split/dead audio caches. Deliver a small, low-risk, verifiable core. Explicitly **do not** build the identity/registry/lifecycle system yet; this plan lays the ground it will sit on.
+
+## Context & problem
+
+Scene/prefab JSON references assets by literal path (`"/src/game/content/assets/arrow.png"` in `AssetRef.path`, bare `SpriteComponent.clips[*].url`, `TileLayerComponent.tilesetRef`, `FontSettings.fontRef`). At runtime the stored string is used **verbatim as a URL**: `sprite-render-system.ts:16` → `assetManager.getImage(spriteImageUrl(sprite))` → `image.src = url` (`load.ts:64`); tilemap, dialogue, hitsplat, quest, font systems do the same (~11 sites: 9 `getImage`, 1 `getImageMetadata`, plus font consumers).
+
+- In **dev** those `/src/...` paths resolve because the Vite dev server serves the source tree.
+- In the **packaged** game they resolve **only** via a hack: `src/desktop/game.cjs:57` routes any request path starting with `src/` to `PROJECT_ROOT` (the source tree) instead of `DIST_DIR`. A shipped binary has no source tree → data-referenced assets 404. This is the bug.
+
+Two adjacent smells worth clearing in the same pass:
+- `src/engine/sprite/sprite-component.ts:2,50` imports `unknown.png` from `src/engine/assets/` and uses it as the constructor default so an unassigned sprite renders *something*. An engine shipping an art asset; the fallback belongs in the asset system as a procedural placeholder, not a bundled file. (5 entities in `demo.scene.json` have this path serialized into their data.)
+- `src/engine/audio/audio.ts` keeps **two** caches for one decoded type (`buffers` promise-cache behind `load()`, `sources` poll-cache behind the dead `play()`/granular-worklet path) and owns its own `AudioContext`, entirely outside `AssetManager`.
+
+Constraints that shaped the decision (see Research findings): the packaged game serves **local** files via the `app://` protocol — there is no HTTP/CDN cache, so **content-hashing buys nothing and actively breaks** filename-suffix detection (`isAutotileTileset` matches `.tileset.png`; a hash would make it `.tileset-<hash>.png`). Therefore: no hashing, stable paths.
+
+## Decision
+
+Three independent pieces:
+
+1. **Resolve data-referenced assets in the build via a stable, mirrored copy — no hashing, no rewriting.** A build step copies the data-referenced asset tree into `dist` preserving its source-relative path, and `game.cjs` serves those paths from `DIST_DIR` instead of reaching into `PROJECT_ROOT`. No runtime resolver is introduced — the stored path is identity in both dev (Vite dev server) and prod (the dist copy). (The `id → url` resolution seam is a concern of the deferred id plan, not this one.)
+
+2. **Make the placeholder a systemic concern of `AssetManager`.** Empty / missing / failed resolve to a procedural magenta checkerboard **inside the manager** — no per-consumer guards (this was a locked correction: empty-string handling is the manager's job). Keep **loading** distinct from **missing** so in-flight loads stay invisible and self-heal instead of flashing the checkerboard. Delete `unknown.png` and the engine assets dir.
+
+3. **Consolidate audio decode/cache into `AssetManager`.** One buffer cache; delete `AudioManager`'s `buffers`/`sources` duplication and the dead granular/`play`/worklet path; share the one `AudioContext`. DSP (`LoadedBank`) and playback stay in `AudioManager`/`VoiceSystem`.
+
+Everything identity-related is deferred (see Risks / follow-up).
+
+## Alternatives considered
+
+- **`import.meta.glob` eager `?url` manifest** (bundle + emit via Vite). Rejected for this plan: with hashing dropped it adds a path→url rewrite and the <4KB **data-URI inlining** back, reintroducing a resolver two-hop for no benefit in a local Electron app. The plain copy keeps paths stable and identity-simple.
+- **Opaque ids + sidecars / embedded-in-bytes + registry + keep-set + eviction.** The ambitious target. Deferred: adversarial review showed sidecars don't deliver out-of-editor robustness (id lives in the `.meta`, not the bytes), unifying code/name-keyed assets is largely churn, `never-void` breaks the tile path, and eviction is large net-new machinery — none of it needed to fix the actual bug. Becomes a follow-up plan on top of this base, carrier re-picked as embedded-in-bytes.
+- **Content hashing.** Rejected: `app://` serves local files (no cache to bust) and hashing breaks `.tileset.png`/`.font.zip`/`.9slice` suffix detection.
+- **Blind `never-void get()`** (always return a placeholder, incl. while loading). Rejected: converts keep-set/eviction misses into *silent magenta*, and feeding an `OffscreenCanvas` placeholder into the tilemap path slips past `tilemap-render-system.ts:37`'s `naturalWidth===0` skip → `NaN` tile size at `:42`. Loading must stay distinct from missing.
+
+## Approach / steps
+
+### Piece 1 — Packaging & resolution (fixes the bug; ship first)
+
+1. **Build-time copy.** Add a step that copies the data-referenced asset tree `src/game/content/assets/**` into `dist/src/game/content/assets/**` (mirrored path). Implement as a small Vite plugin (`closeBundle`/`writeBundle` hook) or a post-`build` script in `package.json`; wire into the `game` build in `vite.config.ts`. Exclude code-imported-only types already emitted by Vite (`.wav` voice banks are `?url` imports → already in `dist/assets/`); copy images and `.font.zip`. Log the copied count + total size.
+2. **Serve from dist.** In `src/desktop/game.cjs`, delete the `rel.startsWith("src/") ? PROJECT_ROOT : DIST_DIR` branch (line ~57); `root = DIST_DIR` unconditionally. The stored `/src/game/content/assets/x.png` now resolves to `DIST_DIR/src/game/content/assets/x.png` (created in step 1). Keep the `startsWith(root)` traversal guard.
+3. **No resolver.** Deliberately omitted — the stored path resolves identically in dev and prod after steps 1–2, so a `resolveAssetUrl` seam would be a no-op. The `id → url` choke point is introduced by the follow-up id plan, not bolted on speculatively here.
+4. **Delete the editor's inverse hack** only if it becomes dead: `resolveToWebPath` in `src/editor/project-io.ts` still mints `/src/game/content/assets/...` on import — that stays (it authors the stored path); just confirm it stays consistent with the copy layout. (No id migration in this plan, so `AssetRef.path` values are unchanged.)
+5. **Verify:** run the packaged build and confirm a data-referenced sprite/tileset/font that previously 404'd now loads. Dev unchanged.
+
+### Piece 2 — Systemic placeholder + empty-string in the manager
+
+6. **Placeholder asset.** New `src/engine/placeholder.ts`: build a single magenta/black checkerboard `OffscreenCanvas` (32×32, matching the old `unknown.png`) lazily, memoized. Exported as a **stable singleton** so consumers can identity-compare (`img === MISSING_PLACEHOLDER`) to tell "systemic placeholder" from a real decoded image (needed by step 9). Also exposed via `AssetManager.isPlaceholder(img)`.
+7. **`AssetManager` contract** (`src/engine/assets.ts`):
+   - `getImage(url)`: **empty/blank url → return `undefined`** ("no asset requested"; never call `loadImage("")`, which hangs — `image.src=""` fires neither handler). **Non-empty url that errors/404s → return the placeholder.** **Loading → `undefined`** as today (transient; render skips; self-heals on ready). This is additive: existing `if (!image) continue` consumers skip on empty/loading and draw a placeholder only for a genuinely broken reference. **NOTE — this reverses the earlier "empty sprite also shows the placeholder" pick**, because `DialoguePanelComponent.panel` defaults to `""` and uses empty to mean "no panel" (`dialogue-render-system.ts:60-61,106`) — blanket empty→placeholder would render a magenta nine-slice behind every panel-less dialogue. See open question. Under empty→`undefined`, an *unassigned* sprite draws nothing at runtime; editor visibility of unassigned entities is an editor concern, not a runtime placeholder.
+   - Placeholder is an `OffscreenCanvas`, drawable by `renderer.drawImage` (`DrawImageOpts` carries rotation/flipX/alpha; `sourceWidth` helper at `renderer-2d.ts:114` already handles canvas) — inherits scale/rotation/opacity/layer for free.
+8. **Sprite default** (`src/engine/sprite/sprite-component.ts`): drop `import unknownSrc`; constructor default `url = ""`. Empty flows to the manager placeholder (step 7).
+9. **Tilemap path fix** (`src/engine/tilemap/tilemap-render-system.ts`): a placeholder canvas must **not** reach the tile-slicing path. The current guard at `:37` (`if (!image || image.naturalWidth === 0) continue`) does **not** skip an `OffscreenCanvas` (`naturalWidth` is `undefined`, so `undefined === 0` is false), and `:42` (`srcSize = image.naturalWidth / columns`) then yields `NaN` → garbage `texStorage3D`. Fix: before `:37`, test `assetManager.isPlaceholder(img)` (step 6); when true (or the getter returned `undefined` while loading), draw a single placeholder quad and `continue` past the `getTileArray`/`drawStaticBatch` slicing. Do **not** store a batch for the placeholder — the per-entity batch cache (`Map<EntityId, LayerBatch>`, `:22`; invalidated by comparing the stored `tileset` path + `version` at `:45`/`:53`) must miss so it re-bakes when the real tileset loads.
+10. **Delete** `src/engine/assets/unknown.png` and the now-empty `src/engine/assets/` dir.
+11. **Migrate** `src/game/content/levels/demo.scene.json`: the 5 `Sprite.urlRef.path` values `/src/engine/assets/unknown.png` (entities 7–11) → `""`. They render the systemic placeholder (they were always unassigned sprites).
+12. **Verify:** an unassigned sprite shows the checkerboard; a broken path shows it; a valid path is unaffected; a loading sprite doesn't flash; tiles with a missing tileset show a clean placeholder, not garbage, and recover when it loads.
+
+### Piece 3 — Audio decode/cache consolidation
+
+13. **Shared context + construction order** (`src/engine/game.ts`): `assetManager` is a `readonly` field initializer (`:23`) that runs *before* `this.audio = new AudioManager()` (`:40`). Convert it to a declared field assigned in the constructor body **after** `audio` (verified safe: the only `this.assetManager` use is at `:44`, and no surviving field initializer references it; `new AssetManager` occurs only at `:23`). `AudioManager.ctx` is **private** (`audio.ts:34`), so share decoding via a public `decode(bytes) → Promise<AudioBuffer>` callback passed into `AssetManager` — *not* the context directly — so `AssetManager` never owns a second context. Both `game-shell.ts` and the editor's `preview-game.ts` construct through this one `Game` constructor.
+14. **`AssetManager.getAudioBuffer(url): Promise<AudioBuffer>`** — resolver → `fetch` → `decodeAudioData`, memoized in its cache (own key namespace, e.g. `audio@`). Promise-based (audio is preload/await, not per-frame poll); the poll getters stay poll.
+15. **Repoint** `src/game/dialogue/voice-bank.ts:131` from `audio.load(url)` to `assetManager.getAudioBuffer(url)`. `loadBank`'s DSP (`downmixToMono`, `detectVoicedSegments`, `normalizedGain` → `LoadedBank`) and `VoiceSystem.ensureBank/warm/playBuffer` are unchanged.
+16. **Delete dead audio code** (`src/engine/audio/audio.ts`): `buffers`, `sources`, `load`, `getSource`, `play`, the `granular-shifter` worklet + `workletLoaded` (no live callers — grep confirms only `VoiceSystem`'s own private `play` shadows it; `docs/2026-07-11-architecture-audit.md:264` flags it). Keep `ctx`, `decode`, `playBuffer`, auto-resume. Confirm `editor/audio/audio-document.ts:40` (`audio.decode`) still resolves.
+17. **Verify:** voices play; no regression; one buffer cache; dead path gone (typecheck + grep).
+
+## Research findings that drove this
+
+- **Local `app://` delivery ⇒ hashing is pointless and harmful.** Packaged assets load from disk via the custom protocol (`game.cjs`), not HTTP — nothing to cache-bust, and hashing breaks filename-suffix semantics (`autotile.ts:86`). Hence copy-at-stable-path, no hash. (Because paths are preserved, `isAutotileTileset` keeps working with **no change** — moving semantics off filenames is deferred to the id plan.)
+- **The stored string is used verbatim as a URL everywhere** (`sprite-component.ts:79/87/97`, `tilemap-render-system.ts:36`, editor `<img src={path}>`). So the cheapest correct fix is "make that path exist in the packaged tree," not a rewrite — and a single `resolveAssetUrl` seam future-proofs it.
+- **Placeholder belongs in the asset system** (Unity's magenta error shader; Phaser `__MISSING`; the fundamentals' "absence/failure are first-class systemic states"). Consumers must not each guard empty/missing.
+- **`never-void` is an anti-pattern here** (immediate-mode + the tilemap `naturalWidth` guard): loading and missing must be distinguishable, or in-flight loads flash and tiles render `NaN`-sliced garbage.
+- **Audio libraries are anti-fits** (howler/tone/@pixi-sound hide the raw `AudioBuffer` the DSP needs); keep hand-written, but collapse the accidental dual cache and route decode through the one manager. Prior deleted `asset-lifecycle.md` already intended "in-game audio buffers go through the asset manager."
+- **The ambitious identity/lifecycle design was descoped** after adversarial review: sidecars don't deliver out-of-editor robustness, unifying code/name-keyed assets (fonts/voices/`parchment` panel) is churn, and keep-set/eviction is large net-new machinery blind to code-imported (`bow-render-system.ts:6`, a `?url` import — served from `DIST_DIR` fine, so Piece 1 doesn't break it) and string-literal-spawned (`bow-system.ts:79`) assets. None of it is needed to fix the packaged-game bug.
+
+## Risks & open questions
+
+- **Dist size / duplication.** Copying `content/assets` into `dist` ships assets unhashed at readable paths; a png referenced *both* in code (`?url`) and in data resolves via two dist locations (Vite's hashed copy + the mirrored copy). Harmless but duplicated — mitigate by copying only data-referenced types (images, `.font.zip`), excluding the `?url`-imported `.wav`s.
+- **Dev/prod parity.** Dev serves `/src/…` via the Vite dev server; prod serves the same path from the dist copy. The resolver is identity in both, but the packaged build is the only place the copy path is exercised — **must be verified in the packaged build**, not just dev.
+- **Placeholder sprite footprint.** `spriteSource` falls back to `image.width/height` when no content dims are set (`sprite-component.ts:60-93`; e.g. `arrow.json` has none). A 32×32 placeholder gives a 32×32 world footprint for a genuinely-missing asset — acceptable (there's no "real" size to honor), but document that a *loading* sprite stays invisible (no footprint) until ready rather than sizing to the placeholder.
+- **Empty-string semantics (OPEN — needs your call).** Verification caught that a blanket "empty → placeholder" (an earlier pick) would regress the dialogue panel, whose `panel` defaults to `""` = "no panel". Step 7 currently resolves it as **empty → nothing, only non-empty-missing → placeholder** (recommended). Alternative: keep empty → placeholder for `getImage` and add a feature-presence check (`panel.path !== ""`) in the one panel consumer. Pick before implementation.
+- **`getImageMetadata("")`** (`dialogue-render-system.ts:79`, same `panelUrl`) still does `fetch("")` → resolves the page HTML → `readPngMetadata` returns null → `FALLBACK_INSETS`. Tolerated today and unchanged; under empty→nothing the panel consumer won't call it with `""` anyway. Left as-is; noted so it isn't a surprise.
+- **`getFont` (`assets.ts:63`) is dead** (no callers; only `getFontFamilies` is used). Not touched here; cleanup candidate for the follow-up.
+- **`decorations.ts:32` bypasses `AssetManager`** (self-cached atlas via the deprecated `loadImage`). Out of scope; still works. Flag for the follow-up.
+- **Follow-up plan (explicitly not this plan):** stable ids with an **embedded-in-bytes** carrier (not sidecars), a registry, `id → url` via the `resolveAssetUrl` seam, runtime reachability keep-set (incl. declared spawnable-prefab deps), eviction/budget, moving autotile/type/insets into metadata, and end-to-end id carrying. Each lands on the verified base this plan establishes.

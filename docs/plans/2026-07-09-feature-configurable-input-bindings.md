@@ -31,14 +31,14 @@ advance is consumed by a shared mutable field: `interaction-system` writes
 and clears it — an ordering-based handshake that must be preserved.
 
 **The anti-pattern is live in the code.** `platformer.ts:142` wires cutscene
-`skipHeld` to `InputBindings.interact` — skip *is* interact today. Cutscene skip
+`skipHeld` to `InputBindings.interact` — skip _is_ interact today. Cutscene skip
 already implements hold-to-activate ad hoc with a hardcoded
 `SKIP_HOLD_SECONDS = 0.6` (`cutscene-system.ts:10`).
 
 **A clean seam already exists.** Engine systems that need input do **not** read
 `InputBindings` — they take a `Bindings` object of predicate closures
 `(ctx) => boolean` (`DialogueBindings` at `dialogue-system.ts:23-37`,
-`CutsceneBindings` at `cutscene-system.ts:6-8`), and the *game* supplies them
+`CutsceneBindings` at `cutscene-system.ts:6-8`), and the _game_ supplies them
 (`platformer.ts:132,141-144`). This keeps Engine ignorant of game concepts and
 is exactly where a binding system plugs in.
 
@@ -54,7 +54,7 @@ prerequisites):
   `rapier-physics.ts:61`).
 - **No settings persistence.** `game/settings.ts` is `export const UI_SCALE = 3;`.
   `@serializable` is ECS scene content only; `save.md` deliberately rejects
-  `localStorage`/IndexedDB *for saves*.
+  `localStorage`/IndexedDB _for saves_.
 - **Allocation already bleeds** in the aim path: `gamepad.update()` news a
   `Vector2` per stick/frame; `Camera2D.screenToWorld`/`worldToScreen` allocate
   per call; `bow-system` does a `screenToWorld` + several `.clone()` per frame.
@@ -77,8 +77,8 @@ data-driven **action-map** plus a sibling **axis-binding** family, resolved once
 per frame and read by every consumer through a live action API. The spine:
 
 1. **Actions are semantic outcomes** with one authored, intrinsic property:
-   `discrete` (emits a one-frame *fired* pulse) or `continuous` (active/inactive
-   state). Kind reflects *what signal the action emits* (what the consumer
+   `discrete` (emits a one-frame _fired_ pulse) or `continuous` (active/inactive
+   state). Kind reflects _what signal the action emits_ (what the consumer
    reads), never what input is allowed. Consumers read `actions.fired(id)` /
    `actions.active(id)` only — never raw keys, never their own edge detection.
 
@@ -106,7 +106,7 @@ per frame and read by every consumer through a live action API. The spine:
    **at edit time** (canonical DFS back-edge, `actionId`-ordered), with a
    resolve-time edge-drop backstop, re-validated on load.
 
-5. **Two-scope resolver.** (1) Per physical token, decide once what the key *did*
+5. **Two-scope resolver.** (1) Per physical token, decide once what the key _did_
    this frame (tap / crossed-hold-threshold / double / repeat), on shared
    engine-level edge detection. (2) Fan that decision out to every action bound to
    the token (direct or ref-expanded) as equal peers — `press` takes the
@@ -125,8 +125,8 @@ per frame and read by every consumer through a live action API. The spine:
    `cutscene`, `menu`). The resolver runs per active context in a registered
    order (topmost consumes first). **Conflict detection and the can-coexist
    graph are scoped to the deferred rebind-UI phase** (no screens exist yet;
-   freeze-behind is deferred). The now-phase registers contexts for *resolution
-   ordering* only.
+   freeze-behind is deferred). The now-phase registers contexts for _resolution
+   ordering_ only.
 
 8. **One global hold threshold, player-configurable.** A hold is inherently
    deliberate, so a hold is accident-proof by nature; the single global duration
@@ -153,8 +153,8 @@ per frame and read by every consumer through a live action API. The spine:
 11. **Aim is a separate axis-binding family, angle-based.** Not a third action
     kind (it has no activation/consumption/`fired`/`active`; it answers
     `sample()`). Aim state is **one persistent angle** (`AimComponent`): a mouse
-    source *sets* it from the cursor; a stick source *integrates angular
-    velocity* into it; on device switch the incoming source **seeds from the
+    source _sets_ it from the cursor; a stick source _integrates angular
+    velocity_ into it; on device switch the incoming source **seeds from the
     current angle** (no teleport). Sensitivity is a **single scalar in rad/s**
     (no H/V split — there's one angle; cm/360 is dropped as an FPS category
     error). Axis bindings declare accepted source kinds; digital→axis and
@@ -167,16 +167,16 @@ per frame and read by every consumer through a live action API. The spine:
     threshold + sustain, lower release; mouse "meaningful" = accumulated delta;
     switch-deadzone > aim-deadzone) and exposes **`promptDevice`** and
     **`aimOwner`** separately: `promptDevice` (drives glyphs) may flip on any
-    input; `aimOwner` is sticky to the last device that produced *aim-axis* input
+    input; `aimOwner` is sticky to the last device that produced _aim-axis_ input
     — so moving with WASD flips glyphs but never yanks stick-aim to the idle
     cursor (kbd-move + stick-aim is a first-class hybrid). No manual lock.
 
 13. **Ownership split via an opaque registration API.** Engine owns the
-    *mechanism* only (resolver, activation kinds, `fired`/`active`/`consume`,
+    _mechanism_ only (resolver, activation kinds, `fired`/`active`/`consume`,
     axis sampling, `activeDevice`, `SettingsStore`) and stores everything as
     opaque strings — it never string-literals a game id. Game owns the
     `ActionCatalog` — `{ actions:[{id, kind, essential}], contexts:[ordered ids],
-    defaults, coexist }` — and hands it to the scene-owned resolver at
+defaults, coexist }` — and hands it to the scene-owned resolver at
     construction.
 
 14. **Persistence via an injected `SettingsStore`.** A dumb, namespaced
@@ -190,8 +190,8 @@ per frame and read by every consumer through a live action API. The spine:
     clobbers real saved bindings.
 
 15. **Delivery: mechanism → migrate behind closures → aim → deferred UI.** The
-    resolver lands first; consumers migrate one token at a time *behind the
-    existing predicate closures* (behavior-preserving) with parity tests; aim
+    resolver lands first; consumers migrate one token at a time _behind the
+    existing predicate closures_ (behavior-preserving) with parity tests; aim
     follows; the polished rebind screen is deferred to the in-game-UI layer.
 
 **Placement.** `engine/input/bindings/` (resolver, catalog types, activations,
@@ -206,16 +206,16 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
 - **Two-layer logical-inputs (actions → named logical keys → physical).**
   Rejected for a flat action-map; "separately configurable" is the primary
   requirement, and a reference source covers "follow another action."
-- **Live reference *chains* as the primary/unbreakable model** (the original
+- **Live reference _chains_ as the primary/unbreakable model** (the original
   `FF=Hold(SkipFF)=Interact` idea). Rejected as posed (unbreakable, multi-level,
   illegible), then re-admitted in a disciplined form: `REF` is a first-class,
   overridable, keys-only source with cycle detection and terminal-resolved
   display.
 - **`REF` mirrors whole bindings (keys + activation), with an optional override.**
   Rejected: "advance is the same as interact, but actually it's holding not
-  pressing" is confusing in code and UI. Making activation *always explicit* and
+  pressing" is confusing in code and UI. Making activation _always explicit_ and
   `REF` keys-only is cleaner and kills the multi-binding activation surprise.
-- **Per-action hold thresholds; two hold *types* (`hold` + `holdConfirm`).**
+- **Per-action hold thresholds; two hold _types_ (`hold` + `holdConfirm`).**
   Rejected twice by the user: a hold is a hold; one global player-configurable
   threshold, no types.
 - **Positional (free-floating) crosshair for aim.** Rejected for angle-based aim:
@@ -229,7 +229,7 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
   edge semantics; forcing it into the action union makes every consumer handle a
   kind that answers `fired`/`active` with nonsense. It's a separate axis family.
 - **Big-bang rewrite of all consumers.** Rejected for incremental migration
-  *behind the predicate closures* with per-token atomic cutover + parity tests.
+  _behind the predicate closures_ with per-token atomic cutover + parity tests.
 - **Raw `localStorage` / Electron-only disk file / FS-Access mirroring saves.**
   Rejected for an injected `SettingsStore` abstraction (works web + Electron,
   backend swappable, settings ≠ saves).
@@ -249,7 +249,7 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
    integration would send into orbit on any alt-tab/GC hitch; also steadies
    physics.
 2. **Export a `DeviceSnapshot` readonly interface** (`{ keyboard:{keys}, mouse:{
-   buttons, position, wheel }, gamepads }`) that `Input` structurally implements,
+buttons, position, wheel }, gamepads }`) that `Input` structurally implements,
    so the resolver depends on the interface, not the DOM-attached `Input` class.
 3. **Non-allocating projection:** add `Camera2D.screenToWorld(screen, out)` /
    `worldToScreen(world, out)` out-param variants; make `gamepad.update` mutate
@@ -259,8 +259,8 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
 
 4. **Catalog types + registration API.** `action-catalog.ts`:
    `{ actions:[{id, kind:'discrete'|'continuous', essential}], contexts:[ordered
-   ids], defaults: Binding[], coexist }`. `Binding = { action, source, activation
-   }`; `Source = Tokens | Chord | Ref`. Engine stores/iterates opaque strings.
+ids], defaults: Binding[], coexist }`. `Binding = { action, source, activation
+}`; `Source = Tokens | Chord | Ref`. Engine stores/iterates opaque strings.
 5. **Expansion pre-pass** (`ref-expansion.ts`): resolve `REF`/chains to terminal
    physical sources; memoized; **whole memo nuked on any edit**; edit-time cycle
    rejection (canonical `actionId`-ordered back-edge) + resolve-time edge-drop
@@ -285,7 +285,7 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
 9. **Wire into the loop.** Resolver is scene-owned, constructed with the catalog
    (like `platformerDialogueBindings` is injected at `platformer.ts:132`); place
    `actions` on `UpdateContext` in `SceneManager.updateContext`, derived from
-   `ctx.input`; snapshot token *values*, reset edges on identity change (editor
+   `ctx.input`; snapshot token _values_, reset edges on identity change (editor
    swap). Resolution runs once per step before gameplay reads it.
 10. **Tests** (`test/action-resolver*.test.ts`): scripted per-frame
     `DeviceSnapshot`s (the enemy-brain pattern) asserting fired/active/toggle/DAS/
@@ -340,6 +340,7 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
 ## Research findings that drove this
 
 **Prior art (external).**
+
 - **Press-vs-hold on the same key bound to two different player-facing actions is
   genuinely rare** — only Steam Input "activators" (an external overlay) expose
   it; almost no shipped game's own menu does. Shipping it natively beats
@@ -348,7 +349,7 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
   Start/Release), Unity Interactions (Tap/Hold/SlowTap/MultiTap).
 - **Hold↔toggle is the single most-praised motor-accessibility feature** (TLOU2
   converts every hold→toggle). The Game/Xbox Accessibility Guidelines state the
-  hold *duration itself* is the barrier — remapping the key alone doesn't fix it;
+  hold _duration itself_ is the barrier — remapping the key alone doesn't fix it;
   the player must be able to convert to toggle and tune the duration.
 - **Player-facing conflict detection is never free from an engine** and must be
   hand-built; Rewired's category-selective conflict checking is the model for
@@ -362,10 +363,11 @@ and the aim sample are placed on `UpdateContext` next to `input`, derived from
   exact pattern at `platformer.ts:142` today.
 
 **Codebase precedents.**
+
 - The `DialogueBindings`/`CutsceneBindings` predicate-closure seam
   (`dialogue-system.ts:23-37`, `cutscene-system.ts:6-8`, wired at
   `platformer.ts:132,141-144`) keeps Engine ignorant of game concepts and is the
-  migration seam — actions adopt *behind* the closures with zero engine-signature
+  migration seam — actions adopt _behind_ the closures with zero engine-signature
   churn.
 - The `pressedThisFrame`/`consumeAdvance` shared-field handshake
   (`interaction-system.ts:21-22,50-52`, `dialogue-bindings.ts:20-25`) is the
@@ -397,7 +399,7 @@ deferral; per-token atomic migration; and the `activation(source)` + keys-only
   exemption, linked chips) but they must be implemented and tested together.
 - **Conflict detection / can-coexist graph is inert until the UI phase** — no
   screens exist and freeze-behind is deferred. Acceptable because conflict
-  *surfacing* is a rebind-UI concern; the now-phase registers contexts for
+  _surfacing_ is a rebind-UI concern; the now-phase registers contexts for
   ordering only. If the plan ever needs conflict logic sooner, the can-coexist
   substrate must be built early.
 - **Migration parity** — the old prev-frame flags and the resolver must never
