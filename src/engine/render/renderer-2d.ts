@@ -18,7 +18,9 @@ import {
 } from "../render/color-resolver";
 import {
 	type BlitProgram,
+	type ConicOutlineProgram,
 	createBlitProgram,
+	createQuadConicOutlineProgram,
 	createQuadOutlineProgram,
 	createQuadProgram,
 	createTextProgram,
@@ -26,6 +28,10 @@ import {
 	type OutlineProgram,
 	type WorldProgram,
 } from "../render/programs";
+import {
+	type NineSliceInsets,
+	nineSliceCells,
+} from "../render/nine-slice";
 import { RenderTarget } from "../render/render-target";
 import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
 
@@ -73,6 +79,20 @@ export type DrawRectOpts = Readonly<{
 	fill?: ColorInput;
 	stroke?: ColorInput;
 	lineWidth?: number;
+	alpha?: number;
+}>;
+
+export type DrawHoldRingOpts = Readonly<{
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	frame: TileSource;
+	insets: NineSliceInsets;
+	progress: number;
+	inner: ColorInput;
+	fill: ColorInput;
+	outer: ColorInput;
 }>;
 
 export type DrawTextOpts = Readonly<{
@@ -83,6 +103,14 @@ export type DrawTextOpts = Readonly<{
 	italic?: boolean;
 	scale?: number;
 	rotation?: number;
+	alpha?: number;
+}>;
+
+export type ClipRect = Readonly<{
+	x: number;
+	y: number;
+	w: number;
+	h: number;
 }>;
 
 export type RawLayerContext = Readonly<{
@@ -262,6 +290,17 @@ const rotateCorners = (
 	return { px, py };
 };
 
+const intersectScissor = (
+	a: { x: number; y: number; w: number; h: number },
+	b: { x: number; y: number; w: number; h: number },
+): { x: number; y: number; w: number; h: number } => {
+	const x = Math.max(a.x, b.x);
+	const y = Math.max(a.y, b.y);
+	const right = Math.min(a.x + a.w, b.x + b.w);
+	const top = Math.min(a.y + a.h, b.y + b.h);
+	return { x, y, w: Math.max(0, right - x), h: Math.max(0, top - y) };
+};
+
 const writeTile = (
 	out: Float32Array,
 	o: number,
@@ -391,10 +430,31 @@ type Batch = {
 	count: number;
 };
 
+type ScissorBox = { x: number; y: number; w: number; h: number };
+
+type HoldRingCommand = {
+	kind: "holdRing";
+	frameTex: WebGLTexture;
+	iw: number;
+	ih: number;
+	insets: NineSliceInsets;
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+	progress: number;
+	inner: RGBA;
+	fill: RGBA;
+	outer: RGBA;
+};
+
 type LayerCommand =
 	| Batch
 	| { kind: "static"; batch: StaticBatch; texture: WebGLTexture }
-	| { kind: "raw"; fn: RawLayerFn };
+	| { kind: "raw"; fn: RawLayerFn }
+	| { kind: "pushClip"; rect: ClipRect }
+	| { kind: "popClip" }
+	| HoldRingCommand;
 
 type LayerState = {
 	commands: LayerCommand[];
@@ -406,6 +466,7 @@ type LayerState = {
 };
 
 const MAX_IDLE = 2;
+const RING_PAD = 2;
 
 export default class Renderer2D {
 	private viewport: Viewport;
@@ -415,6 +476,7 @@ export default class Renderer2D {
 	private text: WorldProgram;
 	private tile: WorldProgram;
 	private quadOutline: OutlineProgram;
+	private quadConicOutline: ConicOutlineProgram;
 	private blit: BlitProgram;
 
 	private quadVbo: WebGLBuffer;
@@ -424,6 +486,12 @@ export default class Renderer2D {
 	private blitVbo: WebGLBuffer;
 	private blitVao: WebGLVertexArrayObject;
 	private blitData = new Float32Array(24);
+	private immediateVbo: WebGLBuffer | null = null;
+	private immediateVao: WebGLVertexArrayObject | null = null;
+	private immediateData = new Float32Array(
+		QUAD_FLOATS * VERTS_PER_QUAD,
+	);
+	private holdRingTarget: RenderTarget | null = null;
 
 	private quadData = new Float32Array(
 		QUAD_FLOATS * VERTS_PER_QUAD * 1024,
@@ -446,6 +514,7 @@ export default class Renderer2D {
 	private colors = new ColorResolver();
 	private sceneTargets = new Map<object, RenderTarget>();
 	private presentTarget: RenderTarget | null = null;
+	private clipStack: ScissorBox[] = [];
 
 	constructor(viewport: Viewport, vsync = false) {
 		this.viewport = viewport;
@@ -468,6 +537,7 @@ export default class Renderer2D {
 		this.text = createTextProgram(gl);
 		this.tile = createTileProgram(gl);
 		this.quadOutline = createQuadOutlineProgram(gl);
+		this.quadConicOutline = createQuadConicOutlineProgram(gl);
 		this.blit = createBlitProgram(gl);
 
 		this.quadVbo = gl.createBuffer()!;
@@ -910,6 +980,31 @@ export default class Renderer2D {
 		);
 	}
 
+	drawHoldRing(id: number, opts: DrawHoldRingOpts): void {
+		if (opts.width <= 0 || opts.height <= 0) {
+			return;
+		}
+		if (sourceWidth(opts.frame) === 0) {
+			return;
+		}
+		const layer = this.getLayer(id);
+		layer.commands.push({
+			kind: "holdRing",
+			frameTex: this.getTexture(opts.frame),
+			iw: sourceWidth(opts.frame),
+			ih: sourceHeight(opts.frame),
+			insets: opts.insets,
+			x: opts.x,
+			y: opts.y,
+			width: opts.width,
+			height: opts.height,
+			progress: Math.max(0, Math.min(1, opts.progress)),
+			inner: this.colors.resolve(opts.inner),
+			fill: this.colors.resolve(opts.fill),
+			outer: this.colors.resolve(opts.outer),
+		});
+	}
+
 	drawTile(id: number, opts: DrawTileOpts): void {
 		if (opts.tileset.naturalWidth === 0) {
 			return;
@@ -993,7 +1088,7 @@ export default class Renderer2D {
 				opts.width,
 				opts.height,
 				rotation,
-				this.colors.resolve(opts.fill),
+				this.withAlpha(this.colors.resolve(opts.fill), opts.alpha),
 			);
 		}
 		if (opts.stroke) {
@@ -1012,7 +1107,10 @@ export default class Renderer2D {
 				opts.y + opts.height - cy,
 			];
 			const { px, py } = rotateCorners(cx, cy, lx, ly, rotation);
-			const color = this.colors.resolve(opts.stroke);
+			const color = this.withAlpha(
+				this.colors.resolve(opts.stroke),
+				opts.alpha,
+			);
 			const w = opts.lineWidth ?? 1;
 			for (let i = 0; i < 4; i++) {
 				const j = (i + 1) % 4;
@@ -1097,6 +1195,19 @@ export default class Renderer2D {
 		layer.commands.push({ kind: "raw", fn });
 	}
 
+	pushClip(id: number, rect: ClipRect): void {
+		const layer = this.getLayer(id);
+		layer.commands.push({
+			kind: "pushClip",
+			rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+		});
+	}
+
+	popClip(id: number): void {
+		const layer = this.getLayer(id);
+		layer.commands.push({ kind: "popClip" });
+	}
+
 	drawText(
 		id: number,
 		font: LoadedFont,
@@ -1115,14 +1226,18 @@ export default class Renderer2D {
 			opts.align ?? "left",
 			style,
 		);
-		const color = opts.color
-			? this.colors.resolve(opts.color)
-			: WHITE;
+		const color = this.withAlpha(
+			opts.color ? this.colors.resolve(opts.color) : WHITE,
+			opts.alpha,
+		);
 		const scale = opts.scale ?? 1;
 		const rotation = opts.rotation ?? 0;
 		const texture = atlas.texture;
 		if (opts.outline) {
-			const outline = this.colors.resolve(opts.outline);
+			const outline = this.withAlpha(
+				this.colors.resolve(opts.outline),
+				opts.alpha,
+			);
 			for (const [ox, oy] of OUTLINE_OFFSETS) {
 				for (const q of quads) {
 					this.pushGlyphQuad(
@@ -1298,6 +1413,8 @@ export default class Renderer2D {
 			gl.viewport(0, 0, texW, texH);
 			gl.clearColor(0, 0, 0, 0);
 			gl.clear(gl.COLOR_BUFFER_BIT);
+			this.clipStack.length = 0;
+			gl.disable(gl.SCISSOR_TEST);
 			for (const cmd of layer.commands) {
 				this.runCommand(
 					cmd,
@@ -1308,7 +1425,9 @@ export default class Renderer2D {
 					layer.scratch.fbo,
 				);
 			}
+			gl.disable(gl.SCISSOR_TEST);
 		}
+		this.clipStack.length = 0;
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 		gl.viewport(0, 0, texW, texH);
@@ -1364,6 +1483,8 @@ export default class Renderer2D {
 		this.sceneTargets.clear();
 		this.presentTarget?.dispose();
 		this.presentTarget = null;
+		this.holdRingTarget?.dispose();
+		this.holdRingTarget = null;
 		for (const layer of this.layers.values()) {
 			layer.scratch.dispose();
 		}
@@ -1379,12 +1500,40 @@ export default class Renderer2D {
 		gl.deleteVertexArray(this.tileVao);
 		gl.deleteBuffer(this.blitVbo);
 		gl.deleteVertexArray(this.blitVao);
+		if (this.immediateVbo) {
+			gl.deleteBuffer(this.immediateVbo);
+		}
+		if (this.immediateVao) {
+			gl.deleteVertexArray(this.immediateVao);
+		}
 		gl.deleteProgram(this.quad.program);
 		gl.deleteProgram(this.text.program);
 		gl.deleteProgram(this.tile.program);
 		gl.deleteProgram(this.quadOutline.program);
+		gl.deleteProgram(this.quadConicOutline.program);
 		gl.deleteProgram(this.blit.program);
 		gl.getExtension("WEBGL_lose_context")?.loseContext();
+	}
+
+	private clipToScissor(
+		rect: ClipRect,
+		target: RenderTarget,
+		texW: number,
+		texH: number,
+	): ScissorBox {
+		const spanX = target.spanX || texW;
+		const spanY = target.spanY || texH;
+		const left = ((rect.x - target.originX) / spanX) * texW;
+		const right = ((rect.x + rect.w - target.originX) / spanX) * texW;
+		const topPx = ((rect.y - target.originY) / spanY) * texH;
+		const bottomPx =
+			((rect.y + rect.h - target.originY) / spanY) * texH;
+		const x = Math.round(left);
+		const w = Math.max(0, Math.round(right) - x);
+		const yTop = Math.round(topPx);
+		const yBottom = Math.round(bottomPx);
+		const h = Math.max(0, yBottom - yTop);
+		return { x, y: texH - yBottom, w, h };
 	}
 
 	private runCommand(
@@ -1400,6 +1549,30 @@ export default class Renderer2D {
 			cmd.fn(gl, rawCtx);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, scratchFbo);
 			gl.viewport(0, 0, texW, texH);
+			return;
+		}
+		if (cmd.kind === "pushClip") {
+			const box = this.clipToScissor(cmd.rect, target, texW, texH);
+			const top = this.clipStack[this.clipStack.length - 1];
+			const next = top ? intersectScissor(top, box) : box;
+			this.clipStack.push(next);
+			gl.enable(gl.SCISSOR_TEST);
+			gl.scissor(next.x, next.y, next.w, next.h);
+			return;
+		}
+		if (cmd.kind === "popClip") {
+			this.clipStack.pop();
+			const top = this.clipStack[this.clipStack.length - 1];
+			if (top) {
+				gl.enable(gl.SCISSOR_TEST);
+				gl.scissor(top.x, top.y, top.w, top.h);
+			} else {
+				gl.disable(gl.SCISSOR_TEST);
+			}
+			return;
+		}
+		if (cmd.kind === "holdRing") {
+			this.paintHoldRing(cmd, target, texW, texH, scratchFbo);
 			return;
 		}
 		applyLayerBlend(gl);
@@ -1446,6 +1619,123 @@ export default class Renderer2D {
 		}
 		gl.drawArrays(gl.TRIANGLES, cmd.start, cmd.count);
 		gl.bindVertexArray(null);
+	}
+
+	private ensureImmediate(): {
+		vbo: WebGLBuffer;
+		vao: WebGLVertexArrayObject;
+	} {
+		if (!this.immediateVbo || !this.immediateVao) {
+			this.immediateVbo = this.gl.createBuffer()!;
+			this.immediateVao = this.setupQuadVao(this.immediateVbo);
+		}
+		return { vbo: this.immediateVbo, vao: this.immediateVao };
+	}
+
+	private drawImmediateQuad(
+		program: WebGLProgram,
+		texture: WebGLTexture,
+		px: ReadonlyArray<number>,
+		py: ReadonlyArray<number>,
+		uv: ReadonlyArray<number>,
+	): void {
+		const gl = this.gl;
+		const { vbo, vao } = this.ensureImmediate();
+		writeQuad(this.immediateData, 0, px, py, uv, WHITE);
+		gl.useProgram(program);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.bindVertexArray(vao);
+		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+		gl.bufferData(
+			gl.ARRAY_BUFFER,
+			this.immediateData,
+			gl.DYNAMIC_DRAW,
+		);
+		gl.drawArrays(gl.TRIANGLES, 0, VERTS_PER_QUAD);
+		gl.bindVertexArray(null);
+	}
+
+	private paintHoldRing(
+		cmd: HoldRingCommand,
+		target: RenderTarget,
+		texW: number,
+		texH: number,
+		scratchFbo: WebGLFramebuffer,
+	): void {
+		const gl = this.gl;
+		const rtW = Math.max(1, Math.round(cmd.width));
+		const rtH = Math.max(1, Math.round(cmd.height));
+		const rt = (this.holdRingTarget ??= new RenderTarget(gl));
+		rt.resize(rtW, rtH);
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo);
+		gl.viewport(0, 0, rtW, rtH);
+		gl.clearColor(0, 0, 0, 0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+		applyLayerBlend(gl);
+		const quadProg = this.quad;
+		gl.useProgram(quadProg.program);
+		gl.uniform2f(quadProg.uResolution, cmd.width, cmd.height);
+		gl.uniform2f(quadProg.uOrigin, 0, 0);
+		gl.uniform1i(quadProg.uSampler, 0);
+		const cells = nineSliceCells(cmd.iw, cmd.ih, {
+			x: 0,
+			y: 0,
+			width: cmd.width,
+			height: cmd.height,
+			insets: cmd.insets,
+		});
+		for (const cell of cells) {
+			const u0 = cell.srcX / cmd.iw;
+			const u1 = (cell.srcX + cell.srcW) / cmd.iw;
+			const v0 = cell.srcY / cmd.ih;
+			const v1 = (cell.srcY + cell.srcH) / cmd.ih;
+			this.drawImmediateQuad(
+				quadProg.program,
+				cmd.frameTex,
+				[
+					cell.dstX,
+					cell.dstX + cell.dstW,
+					cell.dstX + cell.dstW,
+					cell.dstX,
+				],
+				[
+					cell.dstY,
+					cell.dstY,
+					cell.dstY + cell.dstH,
+					cell.dstY + cell.dstH,
+				],
+				[u0, v0, u1, v0, u1, v1, u0, v1],
+			);
+		}
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, scratchFbo);
+		gl.viewport(0, 0, texW, texH);
+		applyLayerBlend(gl);
+		const prog = this.quadConicOutline;
+		gl.useProgram(prog.program);
+		gl.uniform2f(prog.uResolution, target.spanX, target.spanY);
+		gl.uniform2f(prog.uOrigin, target.originX, target.originY);
+		gl.uniform1i(prog.uSampler, 0);
+		gl.uniform2f(prog.uTexel, 1 / cmd.width, 1 / cmd.height);
+		gl.uniform1f(prog.uProgress, cmd.progress);
+		gl.uniform4fv(prog.uInner, cmd.inner);
+		gl.uniform4fv(prog.uFill, cmd.fill);
+		gl.uniform4fv(prog.uOuter, cmd.outer);
+		const x0 = cmd.x - RING_PAD;
+		const x1 = cmd.x + cmd.width + RING_PAD;
+		const y0 = cmd.y - RING_PAD;
+		const y1 = cmd.y + cmd.height + RING_PAD;
+		const ou = RING_PAD / cmd.width;
+		const ov = RING_PAD / cmd.height;
+		this.drawImmediateQuad(
+			prog.program,
+			rt.tex,
+			[x0, x1, x1, x0],
+			[y0, y0, y1, y1],
+			[-ou, 1 + ov, 1 + ou, 1 + ov, 1 + ou, -ov, -ou, -ov],
+		);
 	}
 
 	private drawBlit(

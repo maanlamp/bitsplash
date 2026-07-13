@@ -1,5 +1,6 @@
 import type { Time } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
+import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import { Input } from "../engine/input/input";
 import Renderer2D from "../engine/render/renderer-2d";
 import type { Scene } from "../engine/scene/scene";
@@ -219,6 +220,8 @@ export class SceneView {
 		gameInput: Input,
 	): void {
 		const ecs = this.scene.world.ecs;
+		const actions = this.scene.actions ?? NULL_ACTIONS;
+		actions.step(gameInput, dt);
 		const base = {
 			dt,
 			time,
@@ -228,18 +231,25 @@ export class SceneView {
 			audio: this.services.audio,
 			events: this.scene.world.events,
 		};
-		ecs.update({ ...base, input: editorInput });
-		this.scene.updateGameplay({ ...base, input: gameInput });
+		ecs.update({
+			...base,
+			input: editorInput,
+			actions: NULL_ACTIONS,
+		});
+		this.scene.updateGameplay({ ...base, input: gameInput, actions });
 	}
 
 	stepGameplayOnce(dt: Milliseconds, time: Time, input: Input): void {
 		this.scene.world.requestSingleStep();
+		const actions = this.scene.actions ?? NULL_ACTIONS;
+		actions.step(input, dt);
 		this.scene.stepGameplay({
 			dt,
 			time,
 			ecs: this.scene.world.ecs,
 			world: this.scene.world,
 			input,
+			actions,
 			assetManager: this.services.assetManager,
 			audio: this.services.audio,
 			events: this.scene.world.events,
@@ -271,6 +281,7 @@ export class SceneView {
 			ecs: this.scene.world.ecs,
 			world: this.scene.world,
 			input: this.input,
+			actions: NULL_ACTIONS,
 			assetManager: this.services.assetManager,
 			audio: this.services.audio,
 			events: this.scene.world.events,

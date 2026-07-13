@@ -75,6 +75,58 @@ void main() {
 }
 `;
 
+const QUAD_CONIC_OUTLINE_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec2 u_texel;
+uniform float u_progress;
+uniform vec4 u_inner;
+uniform vec4 u_fill;
+uniform vec4 u_outer;
+in vec2 v_uv;
+in vec4 v_color;
+out vec4 out_color;
+const float TWO_PI = 6.2831853;
+float alphaAt(vec2 uv) {
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+    return 0.0;
+  }
+  return texture(u_tex, uv).a;
+}
+float ringAt(vec2 uv, float scale) {
+  float tx = u_texel.x * scale;
+  float ty = u_texel.y * scale;
+  float m = 0.0;
+  m = max(m, alphaAt(uv + vec2(-tx, 0.0)));
+  m = max(m, alphaAt(uv + vec2(tx, 0.0)));
+  m = max(m, alphaAt(uv + vec2(0.0, -ty)));
+  m = max(m, alphaAt(uv + vec2(0.0, ty)));
+  m = max(m, alphaAt(uv + vec2(-tx, -ty)));
+  m = max(m, alphaAt(uv + vec2(tx, -ty)));
+  m = max(m, alphaAt(uv + vec2(-tx, ty)));
+  m = max(m, alphaAt(uv + vec2(tx, ty)));
+  return m;
+}
+void main() {
+  if (alphaAt(v_uv) > 0.5) {
+    discard;
+  }
+  if (ringAt(v_uv, 1.0) > 0.5) {
+    float t = atan(v_uv.x - 0.5, v_uv.y - 0.5) / TWO_PI;
+    if (t < 0.0) {
+      t += 1.0;
+    }
+    out_color = t <= u_progress ? u_fill : u_inner;
+    return;
+  }
+  if (ringAt(v_uv, 2.0) > 0.5) {
+    out_color = u_outer;
+    return;
+  }
+  discard;
+}
+`;
+
 const TILE_VS = `#version 300 es
 precision mediump float;
 layout(location=0) in vec2 a_position;
@@ -189,6 +241,15 @@ export type BlitProgram = Readonly<{
 export type OutlineProgram = WorldProgram &
 	Readonly<{ uTexel: WebGLUniformLocation }>;
 
+export type ConicOutlineProgram = WorldProgram &
+	Readonly<{
+		uTexel: WebGLUniformLocation;
+		uProgress: WebGLUniformLocation;
+		uInner: WebGLUniformLocation;
+		uFill: WebGLUniformLocation;
+		uOuter: WebGLUniformLocation;
+	}>;
+
 const worldProgram = (
 	gl: WebGL2RenderingContext,
 	fs: string,
@@ -218,6 +279,20 @@ export const createQuadOutlineProgram = (
 	return {
 		...base,
 		uTexel: gl.getUniformLocation(base.program, "u_texel")!,
+	};
+};
+
+export const createQuadConicOutlineProgram = (
+	gl: WebGL2RenderingContext,
+): ConicOutlineProgram => {
+	const base = worldProgram(gl, QUAD_CONIC_OUTLINE_FS, "u_tex");
+	return {
+		...base,
+		uTexel: gl.getUniformLocation(base.program, "u_texel")!,
+		uProgress: gl.getUniformLocation(base.program, "u_progress")!,
+		uInner: gl.getUniformLocation(base.program, "u_inner")!,
+		uFill: gl.getUniformLocation(base.program, "u_fill")!,
+		uOuter: gl.getUniformLocation(base.program, "u_outer")!,
 	};
 };
 

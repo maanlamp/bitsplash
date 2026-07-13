@@ -1,6 +1,4 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { GameApp } from "./game/shell/game-app";
+import { GameShell } from "./game/shell/game-shell";
 import "./style/main.scss";
 
 const ready = (async (): Promise<void> => {
@@ -11,8 +9,12 @@ const ready = (async (): Promise<void> => {
 	await rapier.loadRapier();
 })();
 
-createRoot(document.getElementById("root")!).render(
-	<StrictMode>
-		<GameApp ready={ready} />
-	</StrictMode>,
-);
+const root = document.getElementById("root")!;
+root.textContent = "Loading…";
+
+void ready.then(() => {
+	root.textContent = "";
+	const shell = new GameShell();
+	shell.attach(root);
+	shell.start();
+});

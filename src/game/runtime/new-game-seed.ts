@@ -3,7 +3,6 @@ import { PersistentComponent } from "../../engine/scene/persistent-component";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
 import { ChronicleComponent } from "../chronicle/chronicle-component";
-import { attachBow } from "../combat/attach-bow";
 import { HitsplatStyleComponent } from "../hitsplat/hitsplat-style-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { spawnPrefab } from "../prefabs";
@@ -14,7 +13,6 @@ export const newGameSeed = (world: World): void => {
 	const player = spawnPrefab(world, PLAYER_PREFAB, Vector2.zero());
 	if (player !== null) {
 		world.ecs.addComponent(player, new PersistentComponent());
-		attachBow(world, player);
 	}
 
 	const narrative = [

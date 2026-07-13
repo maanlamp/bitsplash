@@ -8,6 +8,8 @@ import Vector2 from "../vector2";
 export type GamepadState = Readonly<{
 	buttons: Record<string, boolean>;
 	axes: Record<string, Vector2>;
+	id: string;
+	mapping: string;
 }>;
 
 /**
@@ -15,38 +17,59 @@ export type GamepadState = Readonly<{
  * state keyed by the slot index. No listeners are needed — disconnected pads
  * simply stop appearing in `navigator.getGamepads()` and drop from the record.
  */
+export const stickScratch = new Vector2(0, 0);
+
 export class Gamepads {
 	private current: Record<string, GamepadState> = {};
+	private seen = new Set<string>();
 
 	get states(): Record<string, GamepadState> {
 		return this.current;
 	}
 
 	update(): void {
-		const next: Record<string, GamepadState> = {};
+		this.seen.clear();
 		for (const pad of navigator.getGamepads()) {
 			if (!pad) {
 				continue;
 			}
+			const key = String(pad.index);
+			this.seen.add(key);
 
-			const buttons: Record<string, boolean> = {};
+			let state = this.current[key];
+			if (!state || state.id !== pad.id) {
+				state = {
+					buttons: {},
+					axes: {},
+					id: pad.id,
+					mapping: pad.mapping,
+				};
+				this.current[key] = state;
+			}
+
+			const buttons = state.buttons as Record<string, boolean>;
+			for (const held of Object.keys(buttons)) {
+				delete buttons[held];
+			}
 			pad.buttons.forEach((button, i) => {
 				if (button.pressed) {
 					buttons[String(i)] = true;
 				}
 			});
 
-			const axes: Record<string, Vector2> = {};
+			const axes = state.axes as Record<string, Vector2>;
 			for (let i = 0; i < pad.axes.length; i += 2) {
-				axes[String(i / 2)] = new Vector2(
-					pad.axes[i] ?? 0,
-					pad.axes[i + 1] ?? 0,
-				);
+				const pair = String(i / 2);
+				const vec = (axes[pair] ??= new Vector2(0, 0));
+				vec.set(pad.axes[i] ?? 0, pad.axes[i + 1] ?? 0);
 			}
-
-			next[String(pad.index)] = { buttons, axes };
 		}
-		this.current = next;
+
+		for (const key of Object.keys(this.current)) {
+			if (!this.seen.has(key)) {
+				delete this.current[key];
+			}
+		}
 	}
 
 	dispose(): void {}

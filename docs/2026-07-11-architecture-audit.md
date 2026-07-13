@@ -10,11 +10,19 @@
   **never committed** to this repo — `git log --all -- docs/act1-requirements.md` is empty —
   so the _Corrections_ section refutes a draft that cannot be verified from source control.
   The refutations still hold against current code; only the premise is unauditable.
-- **Not superseded:** `docs/storyline.md` (canonical story) and the two **dated** plans
-  `docs/plans/2026-07-09-feature-in-game-ui.md` and
-  `docs/plans/2026-07-09-feature-configurable-input-bindings.md` — current, rigorous, and the
-  action/UI layer several findings here build on. Findings that overlap them must be _seeded
-  into_ those plans, not treated as independent designs (see **Part III §1**).
+- **Not superseded:** `docs/storyline.md` (canonical story).
+- **Delivered & retired (2026-07-13):** the two `2026-07-09` plans
+  (`feature-in-game-ui`, `feature-configurable-input-bindings`) and the consolidating
+  `2026-07-13-in-game-ui-handoff.md` are **delivered and deleted**. Shipped (`bun check` green):
+  the `engine/ui` migration of all HUD/menus; the action-catalog/resolver + DOM-free
+  `DeviceSnapshot` + masked-input (`U-P1-input`, `U-P0-1` done); `KeyCap` + "Skip" hint + hold
+  progress (shader conic-outline ring); and the input-glyph subsystem (keyboard/mouse/gamepad
+  glyphs, gamepad-family detection, last-used-device switching, branded atlases). **Residual OPEN
+  audit items** (non-blocking): fade/notice unification `U-P1-fade-a`/`-b` + `U-P2-banner` +
+  `U-P2-fademodels`; `U-P1-anchor` part (1) (`entityTopAnchor` helper) + the off-screen
+  quest-marker edge-clamp arrow; and **editor UI hosting** — the editor mounts no `UiRuntime`, so
+  migrated screens don't preview in playtest (blocked on an engine/editor↛game seam, e.g. a
+  scene-supplied UI-root factory the runtime mounts).
 - **Removed 2026-07-12:** the seven **undated** `docs/plans/*` briefs (animation, skeletal,
   sprite-editor, save, prefabs, asset-lifecycle, profiling) were stale — superseded FSM
   premise, banned type-bucket paths (`engine/components/`, `engine/systems/`), memory
@@ -584,6 +592,12 @@ persistence/inventory/reputation spine (`M-P0-1`, `M-P1-1`, `M-P1-2`).
 > non-allocating projection both this finding and the in-game-ui plan need. Still TODO: part (1),
 > the `entityTopAnchor(ecs, assetManager, id, margin)` helper unifying the five divergent anchor
 > bases, and rewiring the widgets to it.
+>
+> **Note (2026-07-13, in-game-ui):** the world-anchored widgets (health bars, quest markers,
+> interaction key-cap hint, pooled hitsplats) have been **re-rendered** through `engine/ui`
+> (world-layer paint + `dyn.worldX/worldY`, reusing the non-allocating `worldToScreen`). This is
+> the _rendering_ migration only — the `entityTopAnchor` helper is still NOT extracted, so the
+> per-widget anchor bases remain divergent. Item stays OPEN.
 
 - **What.** "sprite source height × scale ÷ 2, offset from `transform.position.y`" is copy-pasted
   across every floating widget, inconsistently: hitsplat and health use different bases, so widgets
@@ -601,6 +615,13 @@ persistence/inventory/reputation spine (`M-P0-1`, `M-P1-1`, `M-P1-2`).
   marks); only the positioning math unifies.
 
 ### `U-P1-fade` [UNIFY] Duplicate "tick FadeTimeline → destroy when done" + no notice/toast queue _(engine + game · Act 1/2)_
+
+> **Note (2026-07-13, in-game-ui): RENDERING migrated, unification OPEN.** The death-overlay and
+> quest-notice **render systems** are deleted; both banners now paint through `engine/ui` React
+> (`game/ui/banner.tsx` + `hud-*`). But the **component-level unification is NOT done**:
+> `DeathNoticeSystem`/`QuestNoticeSystem` (fade-a), the two separate components, and the missing
+> stackable **NoticeComponent + queue** (fade-b) all still stand. `U-P1-fade-a`, `-b`,
+> `U-P2-banner`, `U-P2-fademodels` remain OPEN.
 
 - **`U-P1-fade-a` Byte-identical lifecycle systems.** `DeathNoticeSystem` and `QuestNoticeSystem`
   are the same `fade.tick(dt); if (fade.done()) ecs.destroy(id)` loop
@@ -629,7 +650,19 @@ persistence/inventory/reputation spine (`M-P0-1`, `M-P1-1`, `M-P1-2`).
 
 ## Input
 
-### `U-P1-input` [UNIFY/MISSING] One engine action-resolver + edge primitive replaces six hand-rolled input patterns _(engine · Act 1)_
+### ✅ `U-P1-input` [UNIFY/MISSING] One engine action-resolver + edge primitive replaces six hand-rolled input patterns _(engine · Act 1)_ — **DONE 2026-07-13**
+
+**Landed 2026-07-13** (full `configurable-input-bindings` plan, Phases 0–3): engine
+`engine/input/bindings/` action-map (two-scope resolver, ref-expansion, activations,
+toggle latches, token-level consume, DAS/repeat, diagnostics) + shared `EdgeDetector` +
+DOM-free `DeviceSnapshot` seam + `SettingsStore`; the aim axis family
+(`engine/input/aim/`, angle-based, rad/s, two-signal `ActiveDevice` hysteresis); `dt`
+clamp. Game grew `game/input/` `ActionCatalog`; all six edge/consume sites (`a`–`d`)
+migrated off raw keys/prev-frame flags to `ctx.actions`, the `pressedThisFrame` handshake
+replaced by token-level `consume`, cutscene skip moved off `interact` to `Escape`-hold,
+bow aim/fire routed through the resolver + `AimComponent`. `actions` on `UpdateContext`,
+resolver scene-owned and stepped before gameplay in all three loop drivers. `input-bindings.ts`
+deleted. Sub-items `a`–`f` all resolved. The plan doc has been removed.
 
 All six converge on the single indirection both `docs/plans/*` already specify.
 

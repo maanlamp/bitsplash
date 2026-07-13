@@ -8,19 +8,15 @@ import { InteractableComponent } from "../interaction/interactable-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { InteractEvent } from "../events";
-import { InputBindings } from "../input-bindings";
+import { ACTION_IDS } from "../input/action-ids";
 
 export class InteractionSystem implements UpdateSystem {
-	update({ ecs, input, events }: UpdateContext): void {
+	update({ ecs, actions, events }: UpdateContext): void {
 		const stateEntry = ecs.query(InteractionStateComponent)[0];
 		if (!stateEntry) {
 			return;
 		}
 		const state = stateEntry[1];
-
-		const held = !!input.keyboard.keys[InputBindings.interact];
-		state.pressedThisFrame = held && !state.interactWasHeld;
-		state.interactWasHeld = held;
 
 		const playerEntry = ecs.query(
 			PlayerInputComponent,
@@ -47,7 +43,7 @@ export class InteractionSystem implements UpdateSystem {
 		}
 		state.inRange = nearest;
 
-		if (state.pressedThisFrame && nearest) {
+		if (actions.fired(ACTION_IDS.interact) && nearest) {
 			events.emit(new InteractEvent(nearest, playerId));
 		}
 	}

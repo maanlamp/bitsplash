@@ -1,3 +1,4 @@
+import type { DeviceSnapshot } from "./device-snapshot";
 import { type GamepadState, Gamepads } from "./gamepad";
 import { Keyboard } from "./keyboard";
 import { Mouse } from "./mouse";
@@ -8,7 +9,7 @@ import { Mouse } from "./mouse";
  * the device state each frame; `update` must be ticked once per frame (it rolls
  * the per-frame wheel delta and polls gamepads).
  */
-export class Input {
+export class Input implements DeviceSnapshot {
 	readonly keyboard: Keyboard;
 	readonly mouse: Mouse;
 

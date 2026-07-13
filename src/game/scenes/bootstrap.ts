@@ -6,7 +6,6 @@ import { PlayerInputComponent } from "../player/player-input-component";
 import { RespawnComponent } from "../respawn/respawn-component";
 import { SpawnPointComponent } from "../respawn/spawn-point-component";
 import { HitsplatStyleComponent } from "../hitsplat/hitsplat-style-component";
-import { attachBow } from "../combat/attach-bow";
 import { spawnCamera2D } from "../spawn-camera-2d";
 import { spawnPrefab } from "../prefabs";
 
@@ -46,7 +45,6 @@ export const spawnRuntimeEntities = (
 	const player = deps.world.ecs.query(PlayerInputComponent)[0];
 	if (player) {
 		spawnCamera2D(deps.world, { target: player[0] });
-		attachBow(deps.world, player[0]);
 	}
 	const ecs = deps.world.ecs;
 	if (!ecs.query(InteractionStateComponent)[0]) {

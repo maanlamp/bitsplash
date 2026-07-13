@@ -178,6 +178,8 @@ export class DialogueSystem implements UpdateSystem {
 		}
 
 		const pressed = this.bindings.advancePressed(ctx);
+		const uiConfirm = state.pendingConfirm;
+		state.pendingConfirm = false;
 		const consume = (): void => {
 			this.bindings.consumeAdvance(ctx);
 		};
@@ -288,7 +290,7 @@ export class DialogueSystem implements UpdateSystem {
 		);
 		this.handleNavigation(ctx, state);
 
-		if (pressed) {
+		if (pressed || uiConfirm) {
 			consume();
 			story.ChooseChoiceIndex(state.selectedOption);
 			const advanced = this.gatherBlock(story, state, assetManager);

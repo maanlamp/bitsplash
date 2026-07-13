@@ -18,7 +18,7 @@
 		},
 		"PhysicsBody": {
 			"type": "dynamic",
-			"halfWidth": 16,
+			"halfWidth": 8,
 			"halfHeight": 16,
 			"density": 1,
 			"friction": 0.2,

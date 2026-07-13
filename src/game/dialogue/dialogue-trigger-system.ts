@@ -13,12 +13,12 @@ import {
 import { TransformComponent } from "../../engine/transform-component";
 import { dialogue, follow } from "../cutscene/verbs";
 import { DialogueSourceComponent } from "../dialogue/dialogue-source-component";
-import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { InteractEvent } from "../events";
+import { ACTION_IDS } from "../input/action-ids";
 import { PlayerInputComponent } from "../player/player-input-component";
 
 export class DialogueTriggerSystem implements UpdateSystem {
-	update({ ecs, events }: UpdateContext): void {
+	update({ ecs, events, actions }: UpdateContext): void {
 		if (isCutsceneActive(ecs)) {
 			return;
 		}
@@ -48,10 +48,7 @@ export class DialogueTriggerSystem implements UpdateSystem {
 				],
 			};
 			startCutscene(ecs, def);
-			const stateEntry = ecs.query(InteractionStateComponent)[0];
-			if (stateEntry) {
-				stateEntry[1].pressedThisFrame = false;
-			}
+			actions.consume(ACTION_IDS.interact);
 			return;
 		}
 	}

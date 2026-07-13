@@ -1,4 +1,3 @@
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import {
 	type UpdateContext,
@@ -6,6 +5,7 @@ import {
 } from "../../engine/system";
 import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
+import { AimComponent } from "../aim/aim-component";
 import { ArrowComponent } from "../combat/arrow-component";
 import { BowComponent } from "../combat/bow-component";
 import { DamageStatsComponent } from "../combat/damage-stats-component";
@@ -13,24 +13,22 @@ import { NO_MODIFIERS } from "../combat/resolve-hit";
 import { spawnPrefab } from "../prefabs";
 
 const SHOT_SPREAD = 0.04;
+const FIRE_ACTION = "attack.primary";
 
 export class BowSystem implements UpdateSystem {
-	update({ ecs, input, world }: UpdateContext): void {
-		const camera = pickActiveCamera2D(ecs);
-		if (!camera) {
-			return;
-		}
-		const mouseWorld = camera.screenToWorld(input.mouse.position);
+	update({ ecs, actions, world }: UpdateContext): void {
+		const firing = actions.active(FIRE_ACTION);
 
-		for (const [id, bow, owner] of ecs.query(
+		for (const [id, bow, owner, aimComponent] of ecs.query(
 			BowComponent,
 			TransformComponent,
+			AimComponent,
 		)) {
 			const stats = ecs.getComponent(id, DamageStatsComponent);
 			if (!stats) {
 				continue;
 			}
-			const angle = mouseWorld.clone().sub(owner.position).angle();
+			const angle = aimComponent.aim.sample();
 			const direction = Vector2.fromAngle(angle);
 
 			bow.renderPosition
@@ -50,7 +48,6 @@ export class BowSystem implements UpdateSystem {
 				ownerIntent.faceX = facingLeft ? -1 : 1;
 			}
 
-			const firing = !!input.mouse.buttons.left;
 			if (firing && !bow.wasFiring) {
 				this.fire(
 					world,

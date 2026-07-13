@@ -1,7 +1,7 @@
 import { Camera2D } from "../../engine/camera/camera-2d";
 import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
 import type { ECS, EntityId } from "../../engine/ecs";
-import type { Input } from "../../engine/input/input";
+import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -94,14 +94,14 @@ export class EditorCamera2DSystem implements UpdateSystem {
 		return component;
 	}
 
-	private panActive(input: Input): boolean {
+	private panActive(input: DeviceSnapshot): boolean {
 		if (input.mouse.buttons.middle) {
 			return true;
 		}
 		return this.editor.mode === "pan" && !!input.mouse.buttons.left;
 	}
 
-	private pan(input: Input, camera: Camera2D): void {
+	private pan(input: DeviceSnapshot, camera: Camera2D): void {
 		if (!this.panActive(input)) {
 			this.lastDragScreen = null;
 			return;
@@ -113,10 +113,10 @@ export class EditorCamera2DSystem implements UpdateSystem {
 			camera.position.y -=
 				(current.y - this.lastDragScreen.y) / camera.zoom;
 		}
-		this.lastDragScreen = current.clone();
+		this.lastDragScreen = new Vector2(current.x, current.y);
 	}
 
-	private zoom(input: Input, camera: Camera2D): void {
+	private zoom(input: DeviceSnapshot, camera: Camera2D): void {
 		if (input.mouse.wheel.y === 0) {
 			return;
 		}

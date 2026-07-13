@@ -1,5 +1,7 @@
 import type { Time } from "../clock";
 import type { Milliseconds } from "../duration";
+import { NULL_ACTIONS } from "../input/bindings/action-provider";
+import type { DeviceSnapshot } from "../input/device-snapshot";
 import type { Input } from "../input/input";
 import type Renderer2D from "../render/renderer-2d";
 import type { GlobalServices } from "../services";
@@ -29,6 +31,7 @@ const BASE_FLAGS: SceneFlags = {
 export class SceneManager {
 	private readonly services: GlobalServices;
 	private stack: ActiveScene[] = [];
+	private lastSource: DeviceSnapshot | null = null;
 
 	constructor(services: GlobalServices) {
 		this.services = services;
@@ -80,8 +83,11 @@ export class SceneManager {
 
 	update(
 		frame: FrameUpdate,
-		input: Input = this.services.input,
+		input: DeviceSnapshot = this.services.input,
+		source: DeviceSnapshot = input,
 	): void {
+		const inputChanged = source !== this.lastSource;
+		this.lastSource = source;
 		const updatable: Scene[] = [];
 		for (let i = this.stack.length - 1; i >= 0; i--) {
 			const entry = this.stack[i]!;
@@ -94,9 +100,15 @@ export class SceneManager {
 		}
 		updatable.reverse();
 		for (const scene of updatable) {
-			const ctx = this.updateContext(scene, frame, input);
+			const ctx = this.updateContext(
+				scene,
+				frame,
+				input,
+				inputChanged,
+			);
 			scene.world.ecs.update(ctx);
 			scene.updateGameplay(ctx);
+			scene.world.ecs.flushDestroyed();
 		}
 	}
 
@@ -141,14 +153,21 @@ export class SceneManager {
 	private updateContext(
 		scene: Scene,
 		frame: FrameUpdate,
-		input: Input,
+		input: DeviceSnapshot,
+		inputChanged: boolean,
 	): UpdateContext {
+		const actions = scene.actions ?? NULL_ACTIONS;
+		if (inputChanged) {
+			actions.resetEdges();
+		}
+		actions.step(input, frame.dt);
 		return {
 			dt: frame.dt,
 			time: frame.time,
 			ecs: scene.world.ecs,
 			world: scene.world,
 			input,
+			actions,
 			assetManager: this.services.assetManager,
 			audio: this.services.audio,
 			events: scene.world.events,

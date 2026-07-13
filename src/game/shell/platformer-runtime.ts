@@ -9,7 +9,6 @@ import {
 } from "../../engine/decorations/decorations";
 import { DecorationsRenderSystem } from "../../engine/decorations/decorations-render-system";
 import { DialogueSystem } from "../../engine/dialogue/dialogue-system";
-import { ScreenFadeRenderSystem } from "../../engine/fade/screen-fade-render-system";
 import { ScreenFadeSystem } from "../../engine/fade/screen-fade-system";
 import { FacingSystem } from "../../engine/locomotion/facing-system";
 import { LocomotionSystem } from "../../engine/locomotion/locomotion-system";
@@ -44,7 +43,6 @@ import {
 import knickKnacksUrl from "../content/assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "../content/assets/tile-decorations.png";
 import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
-import { DialogueRenderSystem } from "../dialogue/dialogue-render-system";
 import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
 import { VoiceSystem } from "../dialogue/voice-system";
 import { EnemyBrainSystem } from "../enemy/enemy-brain-system";
@@ -52,13 +50,12 @@ import { PerceptionSystem } from "../enemy/perception-system";
 import { WanderSystem } from "../enemy/wander-system";
 import { FollowSystem } from "../follow/follow-system";
 import { HealthBarSystem } from "../health/health-bar-system";
-import { HealthRenderSystem } from "../health/health-render-system";
 import { HealthSystem } from "../health/health-system";
-import { HitsplatRenderSystem } from "../hitsplat/hitsplat-render-system";
 import { HitsplatSpawnSystem } from "../hitsplat/hitsplat-spawn-system";
 import { HitsplatSystem } from "../hitsplat/hitsplat-system";
-import { InputBindings } from "../input-bindings";
-import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
+import { ACTION_IDS } from "../input/action-ids";
+import { AimSystem } from "../aim/aim-system";
+import { InteractOutlineRenderSystem } from "../interaction/interact-outline-render-system";
 import { InteractionSystem } from "../interaction/interaction-system";
 import { NpcAnimationSystem } from "../npc/npc-animation-system";
 import { GroundDetectionSystem } from "../player/ground-detection-system";
@@ -67,13 +64,9 @@ import { PlayerIntentSystem } from "../player/player-intent-system";
 import { PlayerMovementSystem } from "../player/player-movement-system";
 import { PickupSystem } from "../pickup/pickup-system";
 import { bootGame } from "../runtime/boot-game";
-import { ObjectiveRenderSystem } from "../quest/objective-render-system";
-import { QuestMarkerRenderSystem } from "../quest/quest-marker-render-system";
-import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
 import { QuestSystem } from "../quest/quest-system";
 import { DeathNoticeSystem } from "../respawn/death-notice-system";
-import { DeathOverlayRenderSystem } from "../respawn/death-overlay-render-system";
 import { DeathSystem } from "../respawn/death-system";
 import { SpawnSystem } from "../respawn/spawn-system";
 import { newGameSeed } from "../runtime/new-game-seed";
@@ -132,6 +125,7 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 	const updateSystems = [
 		new TileCollisionSystem(Layer.Terrain),
 		new NavGraphSystem(Math.abs(config.gravity.y)),
+		new AimSystem(),
 		new PlayerIntentSystem(),
 		new EnemyBrainSystem(),
 		new FacingSystem(),
@@ -162,8 +156,8 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 		new QuestSystem(),
 		new ChronicleInkMirrorSystem(),
 		new CutsceneSystem({
-			skipHeld: ({ input }) =>
-				!!input.keyboard.keys[InputBindings.interact],
+			skipHeld: ({ actions }) =>
+				actions.active(ACTION_IDS.cutsceneSkip),
 		}),
 		new TimerSystem(),
 		new SpawnSystem(),
@@ -185,20 +179,10 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 	);
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem("overlay"));
-	ecs.addRenderSystem(new QuestMarkerRenderSystem("overlay"));
-	ecs.addRenderSystem(
-		new InteractHintRenderSystem("overlay", "entities"),
-	);
-	ecs.addRenderSystem(new DialogueRenderSystem());
+	ecs.addRenderSystem(new InteractOutlineRenderSystem("entities"));
 	ecs.addRenderSystem(new SpriteRenderSystem());
 	ecs.addRenderSystem(new BowRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());
-	ecs.addRenderSystem(new HealthRenderSystem("terrain"));
-	ecs.addRenderSystem(new HitsplatRenderSystem("terrain"));
-	ecs.addRenderSystem(new DeathOverlayRenderSystem());
-	ecs.addRenderSystem(new QuestNoticeRenderSystem());
-	ecs.addRenderSystem(new ObjectiveRenderSystem());
-	ecs.addRenderSystem(new ScreenFadeRenderSystem());
 };
 
 export const createFreshRuntime = (): Runtime => {

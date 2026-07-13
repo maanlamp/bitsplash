@@ -1,11 +1,35 @@
+import { createElement } from "react";
 import { Game } from "../../engine/game";
+import type { ECS } from "../../engine/ecs";
+import { LastUsedDevice } from "../../engine/input/last-used-device";
+import { LastUsedDeviceSystem } from "../../engine/input/last-used-device-system";
+import { resolveFont } from "../../engine/text/resolve-font";
 import type { Runtime } from "../../engine/runtime/runtime";
 import { SaveDriver } from "../../engine/save/save-driver";
-import type { SaveMetadata } from "../../engine/save/save-driver";
 import { FsSaveStore } from "../../engine/save/fs-save-store";
 import { SaveManager } from "../../engine/save/save-manager";
 import { Scene, SceneConfig } from "../../engine/scene/scene";
-import type Viewport from "../../engine/camera/viewport";
+import { createPlatformerActions } from "../input/platformer-actions";
+import { UI_FONT } from "../dialogue/dialogue-ui";
+import { DialogueHudState } from "../dialogue/dialogue-hud-state";
+import { DialogueHudDynSystem } from "../dialogue/dialogue-hud-dyn-system";
+import { DialogueHudSyncSystem } from "../dialogue/dialogue-hud-sync-system";
+import { HealthBarHudState } from "../health/health-bar-hud-state";
+import { HealthBarHudSystem } from "../health/health-bar-hud-system";
+import { InteractHintHudState } from "../interaction/interact-hint-hud-state";
+import { InteractHintHudSystem } from "../interaction/interact-hint-hud-system";
+import { HitsplatHudSystem } from "../hitsplat/hitsplat-hud-system";
+import { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
+import { QuestMarkerHudSystem } from "../quest/quest-marker-hud-system";
+import type { GameUiActions } from "../ui/game-ui-actions";
+import { GameUiState } from "../ui/game-ui-state";
+import { GameUI } from "../ui/game-ui";
+import { HudState } from "../ui/hud-state";
+import { HudDynSystem } from "../ui/hud-dyn-system";
+import { HudSyncSystem } from "../ui/hud-sync-system";
+import { ScreenFadeHudSystem } from "../ui/screen-fade-hud-system";
+import { SkipHintState } from "../ui/skip-hint-state";
+import { SkipHintSyncSystem } from "../ui/skip-hint-system";
 import {
 	createFreshRuntime,
 	startNewRuntime,
@@ -13,14 +37,33 @@ import {
 
 const AUTOSAVE_INTERVAL_MS = 60_000;
 
+const TOAST_STEPS: ReadonlyArray<Readonly<[number, number | null]>> =
+	[
+		[1000, 0.8],
+		[1150, 0.55],
+		[1300, 0.3],
+		[1450, 0.1],
+		[1550, null],
+	];
+
 export class GameShell {
 	private readonly game: Game;
 	private readonly manager = new SaveManager();
 	private readonly store = new FsSaveStore();
+	private readonly uiState = new GameUiState();
+	private readonly hudState = new HudState();
+	private readonly dialogueHud = new DialogueHudState();
+	private readonly healthBars = new HealthBarHudState();
+	private readonly interactHint = new InteractHintHudState();
+	private readonly questMarkers = new QuestMarkerHudState();
+	private readonly skipHint = new SkipHintState();
+	private readonly lastUsedDevice = new LastUsedDevice();
 
 	private driver: SaveDriver;
 	private scene: Scene | null = null;
 	private started = false;
+	private paintEcs: ECS | null = null;
+	private toastSeq = 0;
 
 	constructor() {
 		this.game = new Game({
@@ -31,89 +74,191 @@ export class GameShell {
 			},
 		});
 		this.driver = this.makeDriver(createFreshRuntime());
+		this.game.mountUI(
+			createElement(GameUI, {
+				state: this.uiState,
+				actions: this.actions,
+				hud: this.hudState,
+				dialogue: this.dialogueHud,
+				healthBars: this.healthBars,
+				interactHint: this.interactHint,
+				questMarkers: this.questMarkers,
+				skipHint: this.skipHint,
+			}),
+			{
+				resolveFont: (font) =>
+					resolveFont(font ?? UI_FONT, this.game.assetManager),
+				font: (ctx) => resolveFont(UI_FONT, ctx.assetManager),
+			},
+		);
 	}
 
-	get viewport(): Viewport {
-		return this.game.viewport;
+	attach(node: HTMLElement): () => void {
+		return this.game.viewport.attach(node);
 	}
 
-	canSave(): boolean {
-		return this.driver.canSave();
-	}
-
-	newGame(): void {
-		this.beginWith(startNewRuntime());
-	}
-
-	async continueLatest(): Promise<boolean> {
-		const ok = await this.driver.continueLatest();
-		if (ok) {
-			this.resume();
+	start(): void {
+		if (this.started) {
+			return;
 		}
-		return ok;
-	}
-
-	async load(slot: string): Promise<boolean> {
-		const ok = await this.driver.load(slot);
-		if (ok) {
-			this.resume();
-		}
-		return ok;
-	}
-
-	async quickSave(): Promise<boolean> {
-		return this.driver.quickSave();
-	}
-
-	async quickLoad(): Promise<boolean> {
-		return this.driver.quickLoad();
-	}
-
-	async manualSave(name: string): Promise<string> {
-		return this.driver.manualSave(name);
-	}
-
-	async listSaves(): Promise<ReadonlyArray<SaveMetadata>> {
-		return this.driver.listSaves();
-	}
-
-	async deleteSave(slot: string): Promise<void> {
-		await this.driver.deleteSave(slot);
-	}
-
-	async goToScene(id: string): Promise<void> {
-		this.driver.runtime.goToScene(id);
+		this.started = true;
 		this.mount(this.driver.runtime);
-		await this.driver.onSceneTransition();
+		this.game.setPaused(true);
+		this.uiState.setPhase("menu");
+		this.uiState.setView("root");
+		void this.refreshSaves();
+		window.addEventListener("keydown", this.onKeyDown, {
+			capture: true,
+		});
+		this.game.start();
 	}
 
-	setPaused(paused: boolean): void {
-		this.game.setPaused(paused);
+	private readonly actions: GameUiActions = {
+		newGame: () => this.beginPlaying(startNewRuntime()),
+		continueLatest: () => void this.continueLatest(),
+		openLoad: () => void this.openLoad(),
+		closeLoad: () => this.uiState.setView("root"),
+		loadSlot: (slot) => void this.loadSlot(slot),
+		deleteSlot: (slot) => void this.deleteSlot(slot),
+		resume: () => this.closePause(),
+		saveGame: () => void this.saveGame(),
+		quit: () => this.quitToMenu(),
+	};
+
+	private readonly onKeyDown = (event: KeyboardEvent): void => {
+		const snap = this.uiState.getSnapshot();
+		if (snap.phase !== "playing") {
+			return;
+		}
+		if (event.code === "Escape") {
+			event.preventDefault();
+			if (snap.paused) {
+				this.closePause();
+			} else {
+				this.openPause();
+			}
+		} else if (event.code === "F5") {
+			event.preventDefault();
+			void this.quickSave();
+		} else if (event.code === "F9") {
+			event.preventDefault();
+			void this.quickLoad();
+		}
+	};
+
+	private openPause(): void {
+		this.uiState.setView("root");
+		this.uiState.setPaused(true);
+		this.game.setPaused(true);
+		void this.refreshSaves();
 	}
 
-	quitToMenu(): void {
+	private closePause(): void {
+		this.uiState.setPaused(false);
+		this.uiState.setView("root");
+		this.game.setPaused(false);
+		this.game.viewport.element.focus();
+	}
+
+	private beginPlaying(runtime: Runtime): void {
+		const previous = this.driver.runtime;
+		this.driver = this.makeDriver(runtime);
+		this.mount(runtime);
+		previous.dispose();
+		if (!this.started) {
+			this.started = true;
+			this.game.start();
+		}
+		this.uiState.setPaused(false);
+		this.uiState.setView("root");
+		this.uiState.setPhase("playing");
+		this.game.setPaused(false);
+	}
+
+	private async continueLatest(): Promise<void> {
+		this.uiState.setBusy(true);
+		const ok = await this.driver.continueLatest();
+		this.uiState.setBusy(false);
+		if (ok) {
+			this.enterPlaying();
+		}
+	}
+
+	private async loadSlot(slot: string): Promise<void> {
+		this.uiState.setBusy(true);
+		const ok = await this.driver.load(slot);
+		this.uiState.setBusy(false);
+		if (ok) {
+			this.enterPlaying();
+		}
+	}
+
+	private enterPlaying(): void {
+		this.uiState.setPaused(false);
+		this.uiState.setView("root");
+		this.uiState.setPhase("playing");
+		this.game.setPaused(false);
+	}
+
+	private async deleteSlot(slot: string): Promise<void> {
+		await this.driver.deleteSave(slot);
+		await this.refreshSaves();
+	}
+
+	private async openLoad(): Promise<void> {
+		await this.refreshSaves();
+		this.uiState.setView("load");
+	}
+
+	private async saveGame(): Promise<void> {
+		this.uiState.setBusy(true);
+		const saves = await this.driver.listSaves();
+		const count = saves.filter((s) => s.kind === "manual").length;
+		await this.driver.manualSave(`Save ${count + 1}`);
+		await this.refreshSaves();
+		this.uiState.setBusy(false);
+	}
+
+	private async quickSave(): Promise<void> {
+		const ok = await this.driver.quickSave();
+		this.showToast(ok ? "Quicksaved" : "Save unavailable");
+	}
+
+	private async quickLoad(): Promise<void> {
+		const ok = await this.driver.quickLoad();
+		this.showToast(ok ? "Quickloaded" : "No quicksave");
+	}
+
+	private quitToMenu(): void {
 		const menu = createFreshRuntime();
 		const previous = this.driver.runtime;
 		this.driver = this.makeDriver(menu);
 		this.mount(menu);
 		previous.dispose();
+		this.uiState.setPaused(false);
+		this.uiState.setView("root");
+		this.uiState.setPhase("menu");
 		this.game.setPaused(true);
+		void this.refreshSaves();
 	}
 
-	private beginWith(runtime: Runtime): void {
-		const previous = this.driver.runtime;
-		this.driver = this.makeDriver(runtime);
-		this.mount(runtime);
-		previous.dispose();
-		this.resume();
+	private async refreshSaves(): Promise<void> {
+		this.uiState.setSaves(await this.driver.listSaves());
 	}
 
-	private resume(): void {
-		if (!this.started) {
-			this.started = true;
-			this.game.start();
+	private showToast(text: string): void {
+		const seq = ++this.toastSeq;
+		this.uiState.setToast({ text, alpha: 1 });
+		for (const [delay, alpha] of TOAST_STEPS) {
+			setTimeout(() => {
+				if (this.toastSeq !== seq) {
+					return;
+				}
+				this.uiState.setToast(
+					alpha === null ? null : { text, alpha },
+				);
+			}, delay);
 		}
-		this.game.setPaused(false);
 	}
 
 	private makeDriver(runtime: Runtime): SaveDriver {
@@ -135,11 +280,63 @@ export class GameShell {
 			name: runtime.activeScene ?? "game",
 			config: runtime.config ?? new SceneConfig(),
 			world: runtime.world,
+			actions: createPlatformerActions(this.game.services.settings),
 			gameplaySystems: [],
 		});
 		this.game.sceneManager.setBase(this.scene);
 		if (previous) {
 			this.game.renderer.releaseSceneTarget(previous);
+		}
+
+		const ecs = runtime.world.ecs;
+		if (this.paintEcs !== ecs) {
+			const ui = this.game.uiRuntime;
+			if (ui) {
+				ecs.addUpdateSystem(
+					new LastUsedDeviceSystem(this.lastUsedDevice),
+				);
+				ecs.addUpdateSystem(new HudSyncSystem(this.hudState));
+				ecs.addUpdateSystem(
+					new DialogueHudSyncSystem(
+						this.dialogueHud,
+						this.lastUsedDevice,
+					),
+				);
+				ecs.addUpdateSystem(
+					new HealthBarHudSystem(this.healthBars, ui.root, ui.dyn),
+				);
+				ecs.addUpdateSystem(
+					new InteractHintHudSystem(
+						this.interactHint,
+						ui.root,
+						ui.dyn,
+						this.lastUsedDevice,
+					),
+				);
+				ecs.addUpdateSystem(
+					new QuestMarkerHudSystem(
+						this.questMarkers,
+						ui.root,
+						ui.dyn,
+					),
+				);
+				ecs.addUpdateSystem(new HitsplatHudSystem(ui.root, ui.dyn));
+				ecs.addUpdateSystem(
+					new SkipHintSyncSystem(
+						this.skipHint,
+						ui.root,
+						ui.dyn,
+						this.lastUsedDevice,
+					),
+				);
+				ecs.addRenderSystem(new HudDynSystem(ui.root, ui.dyn));
+				ecs.addRenderSystem(
+					new DialogueHudDynSystem(ui.root, ui.dyn),
+				);
+				ecs.addRenderSystem(new ScreenFadeHudSystem(ui.root, ui.dyn));
+				ecs.addRenderSystem(ui.paintSystem);
+			}
+			this.paintEcs = ecs;
 		}
 	}
 }

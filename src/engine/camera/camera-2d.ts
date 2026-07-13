@@ -1,5 +1,5 @@
 import type { RenderTarget } from "../render/render-target";
-import Vector2 from "../vector2";
+import Vector2, { type ReadonlyVector2 } from "../vector2";
 
 export type Bounds = Readonly<{ min: Vector2; max: Vector2 }>;
 
@@ -25,7 +25,7 @@ export class Camera2D {
 		this.maxZoom = maxZoom;
 	}
 
-	screenToWorld(screen: Vector2, out?: Vector2): Vector2 {
+	screenToWorld(screen: ReadonlyVector2, out?: Vector2): Vector2 {
 		const x =
 			(screen.x - this.viewportWidth / 2) / this.zoom +
 			this.position.x;
@@ -43,6 +43,16 @@ export class Camera2D {
 			(world.y - this.position.y) * this.zoom +
 			this.viewportHeight / 2;
 		return out ? out.set(x, y) : new Vector2(x, y);
+	}
+
+	worldToScreenX(x: number): number {
+		return (x - this.position.x) * this.zoom + this.viewportWidth / 2;
+	}
+
+	worldToScreenY(y: number): number {
+		return (
+			(y - this.position.y) * this.zoom + this.viewportHeight / 2
+		);
 	}
 
 	visibleBounds(): Bounds {

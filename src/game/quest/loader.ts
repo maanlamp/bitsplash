@@ -25,9 +25,14 @@ export type QuestDef = Readonly<{
 	stageNotices?: Record<string, string>;
 }>;
 
-const modules = import.meta.glob("../content/quests/*.json", {
-	eager: true,
-}) as Record<string, { default: QuestDef }>;
+let modules: Record<string, { default: QuestDef }> = {};
+try {
+	modules = import.meta.glob("../content/quests/*.json", {
+		eager: true,
+	}) as Record<string, { default: QuestDef }>;
+} catch {
+	modules = {};
+}
 
 const quests = new Map<string, QuestDef>();
 for (const mod of Object.values(modules)) {

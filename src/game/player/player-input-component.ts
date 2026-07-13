@@ -32,14 +32,12 @@ export class PlayerInputComponent {
 	moveDir: number = 0;
 	grounded: boolean = false;
 	jumping: boolean = false;
-	jumpWasHeld: boolean = false;
 	onWall: boolean = false;
 	wallJumping: boolean = false;
 	landing: boolean = false;
 	canLand: boolean = true;
 	jumpsRemaining: number = 0;
 	dashing: boolean = false;
-	dashWasHeld: boolean = false;
 	dashDir: number = 1;
 	dashTimeRemaining: number = 0;
 	dashCooldownRemaining: number = 0;

@@ -3,6 +3,7 @@ import type { ECS } from "../ecs";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
+import type { ActionProvider } from "../input/bindings/action-provider";
 import type { GlobalServices } from "../services";
 import type { UpdateContext, UpdateSystem } from "../system";
 import {
@@ -75,6 +76,7 @@ export type SceneParams = Readonly<{
 	config: SceneConfig;
 	world: World;
 	gameplaySystems: ReadonlyArray<UpdateSystem>;
+	actions?: ActionProvider;
 	spawnRuntimeEntities?: () => void;
 	defaultEntity?: (position: Vector2) => ReadonlyArray<object>;
 	migrateFile?: (file: SceneFile) => void;
@@ -85,6 +87,7 @@ export class Scene {
 	readonly name: string;
 	readonly config: SceneConfig;
 	readonly world: World;
+	readonly actions: ActionProvider | null;
 
 	private readonly gameplaySystems: ReadonlyArray<UpdateSystem>;
 	private readonly spawnRuntime?: () => void;
@@ -102,6 +105,7 @@ export class Scene {
 		this.name = params.name;
 		this.config = params.config;
 		this.world = params.world;
+		this.actions = params.actions ?? null;
 		this.gameplaySystems = params.gameplaySystems;
 		this.spawnRuntime = params.spawnRuntimeEntities;
 		this.makeDefaultEntity = params.defaultEntity;

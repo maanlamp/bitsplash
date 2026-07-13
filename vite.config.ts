@@ -21,9 +21,14 @@ export default defineConfig({
 		suppressSceneHmr(),
 		react(),
 		babel({
-			presets: [reactCompilerPreset()],
 			plugins: [
 				["@babel/plugin-proposal-decorators", { version: "2023-11" }],
+			],
+			overrides: [
+				{
+					exclude: /[\\/]src[\\/]engine[\\/]ui[\\/]/,
+					presets: [reactCompilerPreset()],
+				},
 			],
 		}),
 	],

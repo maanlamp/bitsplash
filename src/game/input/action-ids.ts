@@ -1,0 +1,30 @@
+export const ACTION_IDS = {
+	moveLeft: "move.left",
+	moveRight: "move.right",
+	moveUp: "move.up",
+	moveDown: "move.down",
+	jump: "jump",
+	jumpHold: "jump.hold",
+	dash: "dash",
+	interact: "interact",
+	attackPrimary: "attack.primary",
+	dialogueAdvance: "dialogue.advance",
+	dialogueFastForward: "dialogue.fastforward",
+	dialogueNavUp: "dialogue.navUp",
+	dialogueNavDown: "dialogue.navDown",
+	cutsceneSkip: "cutscene.skip",
+	menuConfirm: "menu.confirm",
+	menuCancel: "menu.cancel",
+	menuUp: "menu.up",
+	menuDown: "menu.down",
+	menuLeft: "menu.left",
+	menuRight: "menu.right",
+	pause: "pause",
+} as const;
+
+export const CONTEXT_IDS = {
+	menu: "menu",
+	cutscene: "cutscene",
+	dialogue: "dialogue",
+	gameplay: "gameplay",
+} as const;

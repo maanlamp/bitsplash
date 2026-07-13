@@ -230,15 +230,10 @@ test("a world-state branch re-evaluates identically across a save at a post-bran
 	expect(probe(restored.ecs).effectCount).toBe(101);
 
 	// Divergence: flip the branch condition in the restored world; the replay
-	// can no longer reach the saved post-branch step and surfaces an error
-	// rather than silently taking the wrong path.
+	// can no longer reach the saved post-branch step, so the seek fails and the
+	// cutscene system throws rather than silently taking the wrong path.
 	const divergent = roundTrip(source);
 	probe(divergent.ecs).open = false;
 	const divergentSys = system();
-	divergentSys.update(ctxFor(divergent));
-	expect(cutsceneOf(divergent) === undefined).toBe(false);
-	// The failed seek dropped the scene; the branch step never resumed.
-	expect(cutsceneOf(divergent).sequence.stepId).not.toBe(
-		"after-open",
-	);
+	expect(() => divergentSys.update(ctxFor(divergent))).toThrow();
 });

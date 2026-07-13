@@ -285,3 +285,5 @@ export default class Vector2 implements ValueType {
 		return this;
 	}
 }
+
+export type ReadonlyVector2 = Readonly<Pick<Vector2, "x" | "y">>;

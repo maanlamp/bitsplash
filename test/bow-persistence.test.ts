@@ -91,6 +91,12 @@ const fireCtx = (world: World, left: boolean): UpdateContext =>
 		ecs: world.ecs,
 		world,
 		events: world.events,
+		actions: {
+			fired: () => false,
+			firedCount: () => 0,
+			active: () => left,
+			consume: () => {},
+		},
 		input: {
 			mouse: {
 				position: new Vector2(400, 300),

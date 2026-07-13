@@ -34,6 +34,7 @@ export class DialogueComponent {
 	@serialize() opened = false;
 	navUpHeld = false;
 	navDownHeld = false;
+	pendingConfirm = false;
 
 	@serialize() phase: DialoguePhase = "entering";
 	slide = new Tween();

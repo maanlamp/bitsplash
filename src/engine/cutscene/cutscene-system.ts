@@ -10,7 +10,7 @@ export type CutsceneBindings = Readonly<{
 	skipHeld(ctx: UpdateContext): boolean;
 }>;
 
-const SKIP_HOLD_SECONDS = 0.6;
+export const SKIP_HOLD_SECONDS = 0.6;
 const SKIP_GUARD = 10000;
 
 const registry = new Map<string, CutsceneDef>();
@@ -57,11 +57,9 @@ export class CutsceneSystem implements UpdateSystem {
 		const [id, cutscene] = entry;
 
 		if (!this.resolveDef(cutscene)) {
-			console.error(
-				`cutscene "${cutscene.defId}" is not registered; dropping it.`,
+			throw new Error(
+				`cutscene "${cutscene.defId}" is not registered`,
 			);
-			ctx.ecs.destroy(id);
-			return;
 		}
 
 		const skip = this.pollSkip(ctx, cutscene);
@@ -80,12 +78,12 @@ export class CutsceneSystem implements UpdateSystem {
 		this.drive(runner, context, ctx.time.dt, skip, cutscene);
 
 		if (runner.status === "error") {
-			console.error(
-				`cutscene "${cutscene.defId}" failed in scene ${cutscene.sceneIndex}:`,
-				runner.error,
+			throw (
+				runner.error ??
+				new Error(
+					`cutscene "${cutscene.defId}" failed in scene ${cutscene.sceneIndex}`,
+				)
 			);
-			this.nextScene(ctx, id, cutscene);
-			return;
 		}
 		if (runner.done) {
 			this.nextScene(ctx, id, cutscene);

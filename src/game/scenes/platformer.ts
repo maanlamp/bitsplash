@@ -26,7 +26,6 @@ import { Camera2DFollowSystem } from "../../engine/camera/camera-2d-follow-syste
 import { CameraShakeSystem } from "../../engine/camera/camera-shake-system";
 import { CameraTransitionSystem } from "../../engine/camera/camera-transition-system";
 import { CutsceneSystem } from "../../engine/cutscene/cutscene-system";
-import { ScreenFadeRenderSystem } from "../../engine/fade/screen-fade-render-system";
 import { ScreenFadeSystem } from "../../engine/fade/screen-fade-system";
 import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
 import { DecorationsRenderSystem } from "../../engine/decorations/decorations-render-system";
@@ -43,7 +42,9 @@ import tilesetUrl from "../content/assets/dirt.tileset.png";
 import fsPixelSansUrl from "../content/assets/fs-pixel-sans-unicode.font.zip?url";
 import knickKnacksUrl from "../content/assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "../content/assets/tile-decorations.png";
-import { InputBindings } from "../input-bindings";
+import { createPlatformerActions } from "../input/platformer-actions";
+import { ACTION_IDS } from "../input/action-ids";
+import { AimSystem } from "../aim/aim-system";
 import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
 import { spawnRuntimeEntities } from "./bootstrap";
 import "../register-prefabs";
@@ -55,19 +56,14 @@ import { DamageTriggerSystem } from "../combat/damage-trigger-system";
 import { MeleeSystem } from "../combat/melee-system";
 import { DeathSystem } from "../respawn/death-system";
 import { DeathNoticeSystem } from "../respawn/death-notice-system";
-import { DeathOverlayRenderSystem } from "../respawn/death-overlay-render-system";
-import { DialogueRenderSystem } from "../dialogue/dialogue-render-system";
 import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
 import { GroundDetectionSystem } from "../player/ground-detection-system";
 import { HealthSystem } from "../health/health-system";
 import { HealthBarSystem } from "../health/health-bar-system";
-import { HealthRenderSystem } from "../health/health-render-system";
 import { HitsplatSpawnSystem } from "../hitsplat/hitsplat-spawn-system";
 import { HitsplatSystem } from "../hitsplat/hitsplat-system";
-import { HitsplatRenderSystem } from "../hitsplat/hitsplat-render-system";
-import { InteractHintRenderSystem } from "../interaction/interact-hint-render-system";
+import { InteractOutlineRenderSystem } from "../interaction/interact-outline-render-system";
 import { InteractionSystem } from "../interaction/interaction-system";
-import { ObjectiveRenderSystem } from "../quest/objective-render-system";
 import { LocomotionSystem } from "../../engine/locomotion/locomotion-system";
 import { NavAgentSystem } from "../../engine/nav/nav-agent-system";
 import { NavGraphSystem } from "../../engine/nav/nav-graph-system";
@@ -83,8 +79,6 @@ import { PlayerMovementSystem } from "../player/player-movement-system";
 import { ChronicleInkMirrorSystem } from "../chronicle/chronicle-ink-mirror-system";
 import { QuestSystem } from "../quest/quest-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
-import { QuestNoticeRenderSystem } from "../quest/quest-notice-render-system";
-import { QuestMarkerRenderSystem } from "../quest/quest-marker-render-system";
 import { SpawnSystem } from "../respawn/spawn-system";
 import { VoiceSystem } from "../dialogue/voice-system";
 
@@ -92,9 +86,10 @@ import "./pause";
 
 import.meta.glob("../*/*-def.ts", { eager: true });
 
-registerScene("platformer", ({ config, name }): Scene => {
+registerScene("platformer", ({ config, name, services }): Scene => {
 	const world = new World(config.gravity, collisionMatrix);
 	const ecs = world.ecs;
+	const actions = createPlatformerActions(services.settings);
 
 	ecs.addUpdateSystem(
 		new TileCollisionSystem(CollisionLayer.Terrain),
@@ -115,6 +110,7 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 
 	const gameplaySystems = [
+		new AimSystem(services.settings),
 		new PlayerIntentSystem(),
 		new EnemyBrainSystem(),
 		new FacingSystem(),
@@ -145,8 +141,8 @@ registerScene("platformer", ({ config, name }): Scene => {
 		new QuestSystem(),
 		new ChronicleInkMirrorSystem(),
 		new CutsceneSystem({
-			skipHeld: ({ input }) =>
-				!!input.keyboard.keys[InputBindings.interact],
+			skipHeld: ({ actions }) =>
+				actions.active(ACTION_IDS.cutsceneSkip),
 		}),
 		new TimerSystem(),
 		new SpawnSystem(),
@@ -165,26 +161,17 @@ registerScene("platformer", ({ config, name }): Scene => {
 	);
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem("overlay"));
-	ecs.addRenderSystem(new QuestMarkerRenderSystem("overlay"));
-	ecs.addRenderSystem(
-		new InteractHintRenderSystem("overlay", "entities"),
-	);
-	ecs.addRenderSystem(new DialogueRenderSystem());
+	ecs.addRenderSystem(new InteractOutlineRenderSystem("entities"));
 	ecs.addRenderSystem(new SpriteRenderSystem());
 	ecs.addRenderSystem(new BowRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());
-	ecs.addRenderSystem(new HealthRenderSystem("terrain"));
-	ecs.addRenderSystem(new HitsplatRenderSystem("terrain"));
-	ecs.addRenderSystem(new DeathOverlayRenderSystem());
-	ecs.addRenderSystem(new QuestNoticeRenderSystem());
-	ecs.addRenderSystem(new ObjectiveRenderSystem());
-	ecs.addRenderSystem(new ScreenFadeRenderSystem());
 
 	return new Scene({
 		kind: "platformer",
 		name,
 		config,
 		world,
+		actions,
 		gameplaySystems,
 		spawnRuntimeEntities: () => spawnRuntimeEntities({ world }),
 		defaultEntity: (position: Vector2) => [

@@ -1,8 +1,7 @@
 import type { DialogueBindings } from "../../engine/dialogue/dialogue-system";
 import type { Seconds } from "../../engine/duration";
-import { InteractionStateComponent } from "../interaction/interaction-state-component";
+import { ACTION_IDS } from "../input/action-ids";
 import { DIALOGUE_UI, dialogueTextWidth } from "./dialogue-ui";
-import { InputBindings } from "../input-bindings";
 
 export const platformerDialogueBindings: DialogueBindings = {
 	textWidth: dialogueTextWidth,
@@ -14,16 +13,11 @@ export const platformerDialogueBindings: DialogueBindings = {
 	ellipsisPauseChars: 26,
 	slideIn: 0.35 as Seconds,
 	slideOut: 0.25 as Seconds,
-	advancePressed: ({ ecs }) =>
-		ecs.query(InteractionStateComponent)[0]?.[1].pressedThisFrame ??
-		false,
-	consumeAdvance: ({ ecs }) => {
-		const entry = ecs.query(InteractionStateComponent)[0];
-		if (entry) {
-			entry[1].pressedThisFrame = false;
-		}
-	},
-	navUpHeld: ({ input }) => !!input.keyboard.keys[InputBindings.up],
-	navDownHeld: ({ input }) =>
-		!!input.keyboard.keys[InputBindings.down],
+	advancePressed: ({ actions }) =>
+		actions.fired(ACTION_IDS.dialogueAdvance),
+	consumeAdvance: ({ actions }) =>
+		actions.consume(ACTION_IDS.dialogueAdvance),
+	navUpHeld: ({ actions }) => actions.fired(ACTION_IDS.dialogueNavUp),
+	navDownHeld: ({ actions }) =>
+		actions.fired(ACTION_IDS.dialogueNavDown),
 };

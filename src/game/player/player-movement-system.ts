@@ -3,7 +3,6 @@ import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
-import type { Input } from "../../engine/input/input";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -12,7 +11,7 @@ import Vector2 from "../../engine/vector2";
 import { stepMachine } from "../../engine/fsm/step-machine";
 import { playerMoveMachine } from "../player/player-movement-def";
 import { PlayerInputComponent } from "../player/player-input-component";
-import { InputBindings } from "../input-bindings";
+import { ACTION_IDS } from "../input/action-ids";
 
 const approach = (
 	current: number,
@@ -28,7 +27,7 @@ const approach = (
 export class PlayerMovementSystem implements UpdateSystem {
 	enabled = true;
 
-	update({ dt, ecs, input }: UpdateContext): void {
+	update({ dt, ecs, actions }: UpdateContext): void {
 		if (!this.enabled) {
 			return;
 		}
@@ -47,7 +46,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 			player.moveDir = dir;
 
 			const dashing = this.handleDash(
-				input,
+				actions.active(ACTION_IDS.dash),
 				player,
 				facing,
 				rb,
@@ -104,7 +103,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 	}
 
 	private handleDash(
-		input: Input,
+		dashActive: boolean,
 		player: PlayerInputComponent,
 		facing: FacingComponent,
 		rb: PhysicsBodyComponent,
@@ -119,15 +118,10 @@ export class PlayerMovementSystem implements UpdateSystem {
 			);
 		}
 
-		const dashHeld =
-			player.canDash &&
-			!frozen &&
-			!!input.keyboard.keys[InputBindings.dash];
-		const dashPressed = dashHeld && !player.dashWasHeld;
-		player.dashWasHeld = dashHeld;
+		const dashHeld = player.canDash && !frozen && dashActive;
 
 		if (
-			dashPressed &&
+			dashHeld &&
 			player.dashTimeRemaining <= 0 &&
 			player.dashCooldownRemaining <= 0
 		) {

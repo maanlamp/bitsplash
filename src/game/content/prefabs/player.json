@@ -199,6 +199,17 @@
 			"basePitchSemitones": 0,
 			"detuneSemitones": 2,
 			"overlap": 2
+		},
+		"Aim": {},
+		"Bow": {},
+		"DamageStats": {
+			"base": 25,
+			"critChance": {
+				"$type": "Percent",
+				"value": 0.1
+			},
+			"critMultiplier": 2,
+			"flavourSet": "arrow"
 		}
 	}
 }
