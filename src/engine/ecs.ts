@@ -146,6 +146,31 @@ export class ECS {
 		this.notify();
 	}
 
+	first<T extends object>(
+		cls: ComponentClass<T>,
+	): readonly [EntityId, T] | undefined {
+		for (const [id, map] of this.components) {
+			const component = map.get(cls) as T | undefined;
+			if (component) {
+				return [id, component];
+			}
+		}
+		return undefined;
+	}
+
+	find<T extends object>(
+		cls: ComponentClass<T>,
+		predicate: (value: T) => boolean,
+	): readonly [EntityId, T] | undefined {
+		for (const [id, map] of this.components) {
+			const component = map.get(cls) as T | undefined;
+			if (component && predicate(component)) {
+				return [id, component];
+			}
+		}
+		return undefined;
+	}
+
 	query<T extends ComponentClass[]>(
 		...classes: T
 	): ReadonlyArray<
@@ -225,5 +250,10 @@ export class ECS {
 
 export type ReadonlyECS = Pick<
 	ECS,
-	"query" | "getComponent" | "entities" | "componentsOf"
+	| "query"
+	| "getComponent"
+	| "entities"
+	| "componentsOf"
+	| "first"
+	| "find"
 >;

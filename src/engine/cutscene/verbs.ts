@@ -1,10 +1,14 @@
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import type { CameraTransitionConfig } from "../camera/camera-transition-component";
 import { startCameraTransition } from "../camera/camera-transition-system";
+import type { Framing } from "../camera/framing";
 import type { Seconds } from "../duration";
+import type { EntityId } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
 import { startFade } from "../fade/screen-fade-system";
+import { TILE_SIZE } from "../tilemap/tile";
 import { TransformComponent } from "../transform-component";
+import Vector2 from "../vector2";
 import type {
 	CutsceneApi,
 	CutsceneContext,
@@ -34,12 +38,16 @@ export const step = function* (
 ): Generator<CutsceneStep, void, void> {
 	const verb = make(scope(api, id));
 	verb.setup?.();
-	yield api.step(id, (ctx, tick) => {
-		if (ctx.skip) {
-			return verb.complete ? verb.complete(ctx) : true;
-		}
-		return verb.poll(ctx, tick);
-	});
+	yield api.step(
+		id,
+		(ctx, tick) => {
+			if (ctx.skip && (verb.skippable?.(ctx) ?? true)) {
+				return verb.complete ? verb.complete(ctx) : true;
+			}
+			return verb.poll(ctx, tick);
+		},
+		(ctx) => verb.skippable?.(ctx) ?? true,
+	);
 };
 
 export const wait = (seconds: Seconds): CutsceneVerb => ({
@@ -57,13 +65,30 @@ const runEffect = (
 	start: (ctx: CutsceneContext) => EffectHandle,
 ): CutsceneVerb => {
 	let handle: EffectHandle | null = null;
+	let issued = false;
+	const issueAndSnap = (ctx: CutsceneContext): void => {
+		handle = start(ctx);
+		handle.complete();
+		issued = true;
+	};
 	return {
 		setup: () =>
 			api.effect((ctx) => {
 				handle = start(ctx);
+				issued = true;
 			}),
-		poll: () => handle === null || handle.done(),
-		complete: () => {
+		poll: (ctx) => {
+			if (issued) {
+				return handle === null || handle.done();
+			}
+			issueAndSnap(ctx);
+			return true;
+		},
+		complete: (ctx) => {
+			if (!issued) {
+				issueAndSnap(ctx);
+				return true;
+			}
 			handle?.complete();
 			return true;
 		},
@@ -98,58 +123,83 @@ export const cameraTo = (
 		return startCameraTransition(ctx.ecs, { ...config, mode });
 	});
 
-export const sequence = (
-	...verbs: ReadonlyArray<CutsceneVerb>
-): CutsceneVerb => {
-	let index = 0;
-	let started = false;
-	const start = (): void => {
-		if (!started) {
-			verbs[index]?.setup?.();
-			started = true;
-		}
-	};
-	return {
-		poll: (ctx, tick) => {
-			while (index < verbs.length) {
-				start();
-				if (!verbs[index]!.poll(ctx, tick)) {
-					return false;
-				}
-				index += 1;
-				started = false;
-			}
-			return true;
-		},
-		complete: (ctx) => {
-			while (index < verbs.length) {
-				start();
-				if (!(verbs[index]!.complete?.(ctx) ?? true)) {
-					return false;
-				}
-				index += 1;
-				started = false;
-			}
-			return true;
-		},
-	};
+const framingTarget = (
+	api: CutsceneApi,
+	target: EntityId | Vector2,
+	framing: Framing,
+): EntityId | Vector2 => {
+	if (!framing.offsetTiles || typeof target !== "string") {
+		return target;
+	}
+	const offset = framing.offsetTiles;
+	const base = api.read((ctx) => {
+		const transform = ctx.ecs.getComponent(
+			target,
+			TransformComponent,
+		);
+		return transform ? transform.position.clone() : null;
+	});
+	if (!base) {
+		return target;
+	}
+	return base.add(
+		new Vector2(offset.x * TILE_SIZE, offset.y * TILE_SIZE),
+	);
 };
 
+export const focusOn = (
+	api: CutsceneApi,
+	target: EntityId | Vector2,
+	framing: Framing,
+): CutsceneVerb =>
+	cameraTo(api, {
+		target: framingTarget(api, target, framing),
+		zoom: framing.zoom,
+		mode: framing.mode,
+		duration: framing.duration,
+		followAfter:
+			framing.follow && typeof target === "string"
+				? [target]
+				: undefined,
+	});
+
+export const beat = (seconds: Seconds): CutsceneVerb => wait(seconds);
+
 export const parallel = (
-	...verbs: ReadonlyArray<CutsceneVerb>
+	api: CutsceneApi,
+	...makes: ReadonlyArray<(a: CutsceneApi) => CutsceneVerb>
 ): CutsceneVerb => {
+	const verbs = makes.map((make, i) => make(scope(api, String(i))));
 	const finished = verbs.map(() => false);
+	let seeded = false;
+	const ensureSeeded = (): void => {
+		if (seeded) {
+			return;
+		}
+		verbs.forEach((_, i) => {
+			finished[i] = api.recall(`done:${i}`) === true;
+		});
+		seeded = true;
+	};
+	const settle = (i: number): void => {
+		finished[i] = true;
+		api.remember(`done:${i}`, true);
+	};
 	return {
 		setup: () => {
-			for (const verb of verbs) {
-				verb.setup?.();
-			}
-		},
-		poll: (ctx, tick) => {
-			let all = true;
+			ensureSeeded();
 			verbs.forEach((verb, i) => {
 				if (!finished[i]) {
-					finished[i] = verb.poll(ctx, tick);
+					verb.setup?.();
+				}
+			});
+		},
+		poll: (ctx, tick) => {
+			ensureSeeded();
+			let all = true;
+			verbs.forEach((verb, i) => {
+				if (!finished[i] && verb.poll(ctx, tick)) {
+					settle(i);
 				}
 				if (!finished[i]) {
 					all = false;
@@ -158,10 +208,11 @@ export const parallel = (
 			return all;
 		},
 		complete: (ctx) => {
+			ensureSeeded();
 			let all = true;
 			verbs.forEach((verb, i) => {
-				if (!finished[i]) {
-					finished[i] = verb.complete?.(ctx) ?? true;
+				if (!finished[i] && (verb.complete?.(ctx) ?? true)) {
+					settle(i);
 				}
 				if (!finished[i]) {
 					all = false;
@@ -169,6 +220,10 @@ export const parallel = (
 			});
 			return all;
 		},
+		skippable: (ctx) =>
+			verbs.every(
+				(verb, i) => finished[i] || (verb.skippable?.(ctx) ?? true),
+			),
 	};
 };
 

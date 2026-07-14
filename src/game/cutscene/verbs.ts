@@ -1,8 +1,12 @@
+import type { Story } from "inkjs/full";
 import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-component";
+import type { Framing } from "../../engine/camera/framing";
 import type {
 	CutsceneApi,
 	CutsceneVerb,
 } from "../../engine/cutscene/cutscene";
+import { focusOn, parallel } from "../../engine/cutscene/verbs";
+import type { Knot } from "../../engine/ink/knot";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
 import type { Seconds } from "../../engine/duration";
@@ -344,9 +348,26 @@ export const follow = (
 	);
 };
 
+const assertKnotResolves = (story: Story, knot: string): void => {
+	const [knotName, stitch] = knot.split(".");
+	const container = knotName
+		? story.KnotContainerWithName(knotName)
+		: null;
+	if (!container) {
+		throw new Error(
+			`dialogue: ink knot "${knotName}" does not exist (from "${knot}")`,
+		);
+	}
+	if (stitch !== undefined && !container.namedContent.has(stitch)) {
+		throw new Error(
+			`dialogue: ink stitch "${stitch}" does not exist in knot "${knotName}" (from "${knot}"); inkjs would silently resolve it to the parent knot`,
+		);
+	}
+};
+
 export const dialogue = (
 	api: CutsceneApi,
-	knot: string,
+	knot: Knot,
 	source: EntityId | null = null,
 ): CutsceneVerb => ({
 	setup: () => {
@@ -359,6 +380,7 @@ export const dialogue = (
 		api.spawn("dialogue", (ctx) => {
 			const inkEntry = ctx.ecs.query(InkStoryComponent)[0]!;
 			const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
+			assertKnotResolves(story, knot);
 			const tags = story.TagsForContentAtPath(knot);
 			const knotTags = knot.includes(".")
 				? story.TagsForContentAtPath(knot.split(".")[0]!)
@@ -388,6 +410,14 @@ export const dialogue = (
 		}
 		return ctx.ecs.getComponent(id, DialogueComponent) === undefined;
 	},
+	skippable: (ctx) => {
+		const id = api.ref("dialogue");
+		if (id === undefined) {
+			return true;
+		}
+		const state = ctx.ecs.getComponent(id, DialogueComponent);
+		return !state || state.choices.length === 0;
+	},
 	complete: (ctx) => {
 		const id = api.ref("dialogue");
 		if (id === undefined) {
@@ -411,3 +441,28 @@ export const dialogue = (
 		return true;
 	},
 });
+
+export type Pan = Readonly<{
+	target: EntityId | Vector2;
+	framing: Framing;
+}>;
+
+export const say = (
+	api: CutsceneApi,
+	source: EntityId | null,
+	knot: Knot,
+	pan?: Pan,
+): CutsceneVerb =>
+	pan
+		? parallel(
+				api,
+				(a) => dialogue(a, knot, source),
+				(a) => focusOn(a, pan.target, pan.framing),
+			)
+		: dialogue(api, knot, source);
+
+export const release = (
+	api: CutsceneApi,
+	actor: EntityId,
+	framing: Framing,
+): CutsceneVerb => focusOn(api, actor, framing);

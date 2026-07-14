@@ -11,12 +11,14 @@ export type SequenceTick = Readonly<{
 export type Step<Ctx> = Readonly<{
 	id: string;
 	poll: (world: Ctx, tick: SequenceTick) => boolean;
+	skippable?: (world: Ctx) => boolean;
 }>;
 
 export type SequenceApi<Ctx> = Readonly<{
 	step(
 		id: string,
 		poll: (world: Ctx, tick: SequenceTick) => boolean,
+		skippable?: (world: Ctx) => boolean,
 	): Step<Ctx>;
 	effect(fn: (world: Ctx) => void): void;
 	read<T>(fn: (world: Ctx) => T): T;
@@ -45,6 +47,7 @@ export class ResumableSequence<Ctx> {
 	private world: Ctx | null = null;
 	private statusValue: SequenceStatus = "running";
 	private errorValue: Error | null = null;
+	private seenIds = new Set<string>();
 
 	constructor(
 		factory: SequenceFactory<Ctx>,
@@ -54,6 +57,10 @@ export class ResumableSequence<Ctx> {
 		this.state = state;
 		this.api = this.makeApi();
 		this.generator = factory(this.api);
+	}
+
+	currentSkippable(world: Ctx): boolean {
+		return this.current?.skippable?.(world) ?? true;
 	}
 
 	get status(): SequenceStatus {
@@ -100,6 +107,7 @@ export class ResumableSequence<Ctx> {
 	seek(target: SequenceState, world: Ctx): void {
 		this.world = world;
 		this.generator = this.factory(this.api);
+		this.seenIds.clear();
 		this.current = null;
 		this.statusValue = "running";
 		this.errorValue = null;
@@ -139,8 +147,15 @@ export class ResumableSequence<Ctx> {
 			this.statusValue = "done";
 			return null;
 		}
+		const id = result.value.id;
+		if (this.seenIds.has(id)) {
+			throw new Error(
+				`duplicate step id "${id}" within a single sequence run; step ids must be unique so resume/seek is unambiguous`,
+			);
+		}
+		this.seenIds.add(id);
 		this.current = result.value;
-		this.state.stepId = result.value.id;
+		this.state.stepId = id;
 		this.state.elapsedInStep = 0;
 		return result.value;
 	}
@@ -161,7 +176,7 @@ export class ResumableSequence<Ctx> {
 
 	private makeApi(): SequenceApi<Ctx> {
 		return {
-			step: (id, poll) => ({ id, poll }),
+			step: (id, poll, skippable) => ({ id, poll, skippable }),
 			effect: (fn) => {
 				if (!this.replaying) {
 					fn(this.ctx());

@@ -6,9 +6,11 @@
 	"scripts": {
 		"dev": "bun i --frozen-lockfile && concurrently -k -n vite,app \"vite\" \"electron src/desktop/main.cjs\"",
 		"game": "bun i --frozen-lockfile && vite build && electron src/desktop/game.cjs",
-		"build": "tsc -b && vite build",
+		"gen": "bun run scripts/gen-ink.ts",
+		"build": "bun run gen && tsc -b && vite build",
 		"preview": "vite preview",
-		"check": "bun oxlint --fix && bun oxfmt && bun tsc -b && bun test"
+		"check": "bun oxlint --fix && bun oxfmt && bun run gen && bun tsc -b && bun test",
+		"pretest": "bun run gen"
 	},
 	"dependencies": {
 		"@base-ui/react": "1.5.0",

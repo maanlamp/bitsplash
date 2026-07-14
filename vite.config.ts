@@ -4,6 +4,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import wasm from "vite-plugin-wasm";
+import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
 
 const suppressSceneHmr = (): Plugin => ({
 	name: "suppress-scene-hmr",
@@ -18,6 +19,7 @@ export default defineConfig({
 	plugins: [
 		mkcert(),
 		wasm(),
+		inkCodegen(),
 		suppressSceneHmr(),
 		react(),
 		babel({

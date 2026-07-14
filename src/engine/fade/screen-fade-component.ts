@@ -1,7 +1,12 @@
 import type { Tween } from "../animation/tween";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 
+@serializable("ScreenFade")
 export class ScreenFadeComponent {
-	alpha: number;
+	@serialize() alpha: number;
 	tween: Tween | null = null;
 
 	constructor(alpha = 0) {

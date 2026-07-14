@@ -20,7 +20,7 @@ import {
 import { bindSetChronicle } from "../chronicle/chronicle-ink-external";
 import { createStory } from "./ink-loader";
 
-const cutscenes = new Map<string, CutsceneDef>(
+const cutscenes = new Map<string, CutsceneDef<any>>(
 	[pickupTourCutscene, pickupTourKissCutscene].map((def) => [
 		def.id,
 		def,

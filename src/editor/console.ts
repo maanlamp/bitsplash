@@ -45,9 +45,9 @@ const emit = (level: keyof Console, args: any[]) => {
 };
 
 Object.keys(originalConsole).forEach((key) => {
-	const level = key as keyof Console;
-	console[level] = (...args: any[]) => {
+	const level = key as keyof typeof console;
+	console[level] = ((...args: any[]) => {
 		emit(level, args);
 		(originalConsole[level] as any).apply(originalConsole, args);
-	};
+	}) as any;
 });

@@ -14,7 +14,7 @@ export type DialoguePhase = "entering" | "open" | "closing";
 @serializable("Dialogue")
 export class DialogueComponent {
 	@serialize() source: EntityRef;
-	font: FontSettings;
+	@serialize() font: FontSettings;
 	@serialize() speaker = "";
 
 	@serialize() text = "";

@@ -331,6 +331,9 @@ export class DialogueSystem implements UpdateSystem {
 		assetManager: AssetManager,
 	): void {
 		if (state.paginated) {
+			if (state.speedsByPage.length !== state.pages.length) {
+				this.rehydratePages(state);
+			}
 			return;
 		}
 		const font = resolveFont(state.font, assetManager);
@@ -355,6 +358,17 @@ export class DialogueSystem implements UpdateSystem {
 		state.pause = 0 as Seconds;
 		state.complete = state.text.length === 0;
 		state.paginated = true;
+	}
+
+	private rehydratePages(state: DialogueComponent): void {
+		state.pausesByPage = state.pages.map((page) =>
+			computePauses(pageChars(page), this.bindings),
+		);
+		state.speedsByPage = state.pages.map((page) => pageSpeeds(page));
+		const page = state.pages[state.pageIndex] ?? [];
+		state.revealed = pageChars(page).length;
+		state.pause = 0 as Seconds;
+		state.complete = true;
 	}
 
 	private handleNavigation(

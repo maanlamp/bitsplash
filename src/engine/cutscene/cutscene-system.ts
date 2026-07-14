@@ -1,9 +1,16 @@
 import type { Seconds } from "../duration";
 import type { ECS, EntityId, ReadonlyECS } from "../ecs";
-import { ResumableSequence } from "../sequence/resumable-sequence";
+import {
+	ResumableSequence,
+	type SequenceFactory,
+} from "../sequence/resumable-sequence";
 import { SequenceState } from "../sequence/sequence-state";
 import { type UpdateContext, UpdateSystem } from "../system";
-import type { CutsceneContext, CutsceneDef } from "./cutscene";
+import {
+	type CutsceneContext,
+	type CutsceneDef,
+	MISSING_REQUIRED,
+} from "./cutscene";
 import { CutsceneComponent } from "./cutscene-component";
 
 export type CutsceneBindings = Readonly<{
@@ -13,16 +20,20 @@ export type CutsceneBindings = Readonly<{
 export const SKIP_HOLD_SECONDS = 0.6;
 const SKIP_GUARD = 10000;
 
-const registry = new Map<string, CutsceneDef>();
+const registry = new Map<string, CutsceneDef<any>>();
 
-export const registerCutscene = (def: CutsceneDef): void => {
+export const registerCutscene = (def: CutsceneDef<any>): void => {
 	registry.set(def.id, def);
 };
 
-export const cutsceneDef = (id: string): CutsceneDef | undefined =>
-	registry.get(id);
+export const cutsceneDef = (
+	id: string,
+): CutsceneDef<any> | undefined => registry.get(id);
 
-export const startCutscene = (ecs: ECS, def: CutsceneDef): void => {
+export const startCutscene = (
+	ecs: ECS,
+	def: CutsceneDef<any>,
+): void => {
 	registerCutscene(def);
 	const entry = ecs.query(CutsceneComponent)[0];
 	if (!entry) {
@@ -62,6 +73,8 @@ export class CutsceneSystem implements UpdateSystem {
 			);
 		}
 
+		this.resolveCast(ctx, cutscene);
+
 		const skip = this.pollSkip(ctx, cutscene);
 		const context = this.buildContext(ctx, skip);
 
@@ -76,6 +89,7 @@ export class CutsceneSystem implements UpdateSystem {
 		const runner = cutscene.runner!;
 
 		this.drive(runner, context, ctx.time.dt, skip, cutscene);
+		cutscene.currentSkippable = runner.currentSkippable(context);
 
 		if (runner.status === "error") {
 			throw (
@@ -95,6 +109,31 @@ export class CutsceneSystem implements UpdateSystem {
 			cutscene.def = cutsceneDef(cutscene.defId) ?? null;
 		}
 		return cutscene.def !== null;
+	}
+
+	private resolveCast(
+		ctx: UpdateContext,
+		cutscene: CutsceneComponent,
+	): void {
+		const resolver = cutscene.def!.cast;
+		if (!resolver || Object.keys(cutscene.cast).length > 0) {
+			return;
+		}
+		const resolved = resolver(ctx.ecs);
+		if (resolved === MISSING_REQUIRED) {
+			throw new Error(
+				`cutscene "${cutscene.defId}" could not resolve a required cast member`,
+			);
+		}
+		const pruned: Record<string, EntityId> = {};
+		for (const [key, value] of Object.entries(
+			resolved as Record<string, EntityId | undefined>,
+		)) {
+			if (value !== undefined) {
+				pruned[key] = value;
+			}
+		}
+		cutscene.cast = pruned;
 	}
 
 	private pollSkip(
@@ -130,16 +169,19 @@ export class CutsceneSystem implements UpdateSystem {
 		context: CutsceneContext,
 	): void {
 		const scene = cutscene.def!.scenes[cutscene.sceneIndex]!;
+		const cast = cutscene.cast;
+		const factory: SequenceFactory<CutsceneContext> = (api) =>
+			scene(api, cast);
 		if (cutscene.sequence.stepId !== "") {
 			const target = cutscene.sequence;
 			const working = new SequenceState();
-			const runner = new ResumableSequence(scene, working);
+			const runner = new ResumableSequence(factory, working);
 			runner.seek(target, context);
 			cutscene.sequence = working;
 			cutscene.runner = runner;
 		} else {
 			cutscene.runner = new ResumableSequence(
-				scene,
+				factory,
 				cutscene.sequence,
 			);
 		}
@@ -158,6 +200,10 @@ export class CutsceneSystem implements UpdateSystem {
 		}
 		let guard = 0;
 		while (runner.status === "running" && guard++ < SKIP_GUARD) {
+			if (!runner.currentSkippable(context)) {
+				runner.update(context, dt);
+				return;
+			}
 			const before = cutscene.sequence.stepId;
 			runner.update(context, dt);
 			if (runner.status !== "running") {
@@ -195,6 +241,7 @@ export class CutsceneSystem implements UpdateSystem {
 			cutscene.runner = null;
 			cutscene.sequence = new SequenceState();
 			cutscene.skipHeldTime = 0;
+			cutscene.cast = {};
 		} else {
 			ctx.ecs.destroy(id);
 		}

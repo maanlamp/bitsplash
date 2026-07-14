@@ -3,6 +3,8 @@ dist
 build
 .trash/
 
+*.gen.*
+
 docs/storyline.md
 docs/act1-requirements.md
 CLAUDE.md

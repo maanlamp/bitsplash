@@ -27,7 +27,9 @@ export class SkipHintSyncSystem implements UpdateSystem {
 	) {}
 
 	update({ ecs, assetManager, actions, input }: UpdateContext): void {
-		const open = isCutsceneActive(ecs);
+		const cutscene = ecs.query(CutsceneComponent)[0]?.[1];
+		const open =
+			isCutsceneActive(ecs) && (cutscene?.currentSkippable ?? true);
 		const kbd = resolveKbdFrame(assetManager);
 		const hint = resolveHint(
 			assetManager,
@@ -54,7 +56,6 @@ export class SkipHintSyncSystem implements UpdateSystem {
 		if (!ring) {
 			return;
 		}
-		const cutscene = ecs.query(CutsceneComponent)[0]?.[1];
 		const progress = cutscene
 			? Math.min(1, cutscene.skipHeldTime / SKIP_HOLD_SECONDS)
 			: 0;

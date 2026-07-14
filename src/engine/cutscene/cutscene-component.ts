@@ -1,3 +1,4 @@
+import type { EntityId } from "../ecs";
 import type { ResumableSequence } from "../sequence/resumable-sequence";
 import { SequenceState } from "../sequence/sequence-state";
 import {
@@ -12,12 +13,14 @@ export class CutsceneComponent {
 	@serialize() sceneIndex = 0;
 	@serialize() sequence: SequenceState = new SequenceState();
 	@serialize() queue: string[] = [];
+	@serialize() cast: Record<string, EntityId> = {};
 
-	def: CutsceneDef | null = null;
+	def: CutsceneDef<any> | null = null;
 	runner: ResumableSequence<CutsceneContext> | null = null;
 	skipHeldTime = 0;
+	currentSkippable = true;
 
-	constructor(def: CutsceneDef | null = null) {
+	constructor(def: CutsceneDef<any> | null = null) {
 		if (def) {
 			this.def = def;
 			this.defId = def.id;

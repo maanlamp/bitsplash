@@ -1,6 +1,6 @@
 import type AssetManager from "../assets";
 import type AudioManager from "../audio/audio";
-import type { ECS } from "../ecs";
+import type { ECS, EntityId, ReadonlyECS } from "../ecs";
 import type EventBus from "../events";
 import type {
 	SequenceApi,
@@ -26,13 +26,20 @@ export type CutsceneVerb = Readonly<{
 	setup?: () => void;
 	poll: (ctx: CutsceneContext, tick: SequenceTick) => boolean;
 	complete?: (ctx: CutsceneContext) => boolean;
+	skippable?: (ctx: CutsceneContext) => boolean;
 }>;
 
-export type CutsceneScene = (
+export const MISSING_REQUIRED = "missing-required";
+
+export type CutsceneCast = Readonly<Record<string, EntityId>>;
+
+export type CutsceneScene<C = unknown> = (
 	api: CutsceneApi,
+	cast: C,
 ) => Generator<CutsceneStep, void, void>;
 
-export type CutsceneDef = Readonly<{
+export type CutsceneDef<C = unknown> = Readonly<{
 	id: string;
-	scenes: ReadonlyArray<CutsceneScene>;
+	cast?: (ecs: ReadonlyECS) => C | typeof MISSING_REQUIRED;
+	scenes: ReadonlyArray<CutsceneScene<C>>;
 }>;
