@@ -22,7 +22,7 @@ export type CameraTransitionConfig = Readonly<{
 	followAfter?: ReadonlyArray<EntityId>;
 }>;
 
-@serializable("CameraTransition", { runtime: true })
+@serializable("CameraTransition")
 export class CameraTransitionComponent {
 	@serialize() mode: CameraTransitionMode = "cut";
 	@serialize() target: CameraTransitionTarget = "" as EntityId;

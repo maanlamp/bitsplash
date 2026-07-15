@@ -7,28 +7,48 @@ import {
 } from "./registry";
 import { walkFields } from "./value";
 
-// "runtime" captures the full live world (save-games, scene freeze/thaw,
-// editor playtest snapshots) — everything, including transient runtime state
-// like camera pose and sequence run-state. "authored" produces the design-time
-// scene document the editor saves; components declared `runtime` in
-// @serializable (cameras, fades, sequences) are spawned by systems at play
-// time, never authored, and are omitted so they can never leak into a level
-// file. This is the single provenance rule; every save path routes through it.
-export type SerializeScope = "runtime" | "authored";
+/**
+ * Encode live component instances into the `{ TypeName: fields }` shape a
+ * {@link SerializedEntity} carries — the same form {@link serializeEntity}
+ * produces from an ECS, but for components that never entered a world. Used by
+ * pure `SceneFile → SceneFile` migrations that synthesize entities.
+ *
+ * @throws if any component's class is not `@serializable`.
+ * @example
+ * const entity = { id, components: encodeComponents([new RenderLayersComponent()]) };
+ */
+export const encodeComponents = (
+	components: ReadonlyArray<object>,
+): Record<string, SerializedComponent> => {
+	const out: Record<string, SerializedComponent> = {};
+	for (const component of components) {
+		const type = serializableTypeOf(component);
+		if (!type) {
+			throw new Error(
+				`encodeComponents: ${component.constructor.name} is not @serializable`,
+			);
+		}
+		out[type.name] = walkFields(type, component);
+	}
+	return out;
+};
 
+// Serialization has one product shape and no provenance filter. A scene file is
+// only ever produced by replaying the edit journal onto a file-derived baseline
+// in a scratch world that has never simulated (see SceneDocument.save); no live
+// world is ever serialized into a scene document, so component-type provenance
+// has nothing left to guard. Runtime snapshots (save-games, scene freeze/thaw,
+// mid-cutscene resume) serialize any live world whole — cameras, fades, and
+// sequence run-state included.
 export const serializeEntity = (
 	ecs: ReadonlyECS,
 	id: EntityId,
-	scope: SerializeScope = "runtime",
 ): SerializedEntity | null => {
 	const components: Record<string, SerializedComponent> = {};
 	let any = false;
 	for (const component of ecs.componentsOf(id)) {
 		const type = serializableTypeOf(component);
 		if (!type) {
-			continue;
-		}
-		if (scope === "authored" && type.runtime) {
 			continue;
 		}
 		components[type.name] = walkFields(type, component);
@@ -40,10 +60,9 @@ export const serializeEntity = (
 export const serializeWorld = (
 	ecs: ReadonlyECS,
 	predicate?: (id: EntityId) => boolean,
-	scope: SerializeScope = "runtime",
 ): SerializedWorld =>
 	ecs
 		.entities()
 		.filter((id) => !predicate || predicate(id))
-		.map((id) => serializeEntity(ecs, id, scope))
+		.map((id) => serializeEntity(ecs, id))
 		.filter((entity): entity is SerializedEntity => entity !== null);

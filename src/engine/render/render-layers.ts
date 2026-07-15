@@ -1,4 +1,4 @@
-import type { ECS, ReadonlyECS } from "../ecs";
+import type { ReadonlyECS } from "../ecs";
 import {
 	RenderLayerDef,
 	RenderLayersComponent,
@@ -23,17 +23,6 @@ export const renderLayerDef = (
 	def.id = id;
 	def.name = name;
 	return def;
-};
-
-export const seedRenderLayers = (ecs: ECS): void => {
-	if (ecs.query(RenderLayersComponent)[0]) {
-		return;
-	}
-	const component = new RenderLayersComponent();
-	component.layers = DEFAULT_RENDER_LAYERS.map((id) =>
-		renderLayerDef(id),
-	);
-	ecs.createEntity([component]);
 };
 
 export const resolveRenderLayer = (

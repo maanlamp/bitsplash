@@ -1,7 +1,5 @@
 import { Camera2D } from "../../engine/camera/camera-2d";
-import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
-import { EditorCameraTagComponent } from "../../engine/camera/editor-camera-tag-component";
-import type { ECS, EntityId } from "../../engine/ecs";
+import type { ECS } from "../../engine/ecs";
 import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
 import {
 	type UpdateContext,
@@ -10,92 +8,36 @@ import {
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { tileBounds } from "../../engine/tilemap/occupancy";
 import Vector2 from "../../engine/vector2";
-import {
-	EDITOR_CAMERA_PRIORITY,
-	EDITOR_CAMERA_ZOOM_STEP,
-} from "../constants";
+import { EDITOR_CAMERA_ZOOM_STEP } from "../constants";
 import type { EditorState } from "../editor-state";
 
+/**
+ * Pan/zoom controller for a scene view's editor camera. The camera is
+ * plain per-view state (not an ECS entity); this system only mutates it
+ * from mouse input each frame.
+ */
 export class EditorCamera2DSystem implements UpdateSystem {
-	private editor: EditorState;
-	private cameraId: EntityId | null = null;
-	private cameraComponent: Camera2DComponent | null = null;
 	private lastDragScreen: Vector2 | null = null;
 
-	constructor(editor: EditorState) {
-		this.editor = editor;
+	constructor(
+		private readonly editor: EditorState,
+		private readonly camera: Camera2D,
+	) {}
+
+	update({ input }: UpdateContext): void {
+		this.pan(input, this.camera);
+		this.zoom(input, this.camera);
 	}
 
-	update({ ecs, input }: UpdateContext): void {
-		const component = this.ensureCamera(ecs);
-		this.pan(input, component.camera);
-		this.zoom(input, component.camera);
-	}
-
-	setActive(active: boolean): void {
-		if (this.cameraComponent) {
-			this.cameraComponent.active = active;
-		}
-	}
-
-	ensure(ecs: ECS): void {
-		this.ensureCamera(ecs);
-	}
-
-	viewState(): Readonly<{
-		x: number;
-		y: number;
-		zoom: number;
-	}> | null {
-		const camera = this.cameraComponent?.camera;
-		return camera
-			? {
-					x: camera.position.x,
-					y: camera.position.y,
-					zoom: camera.zoom,
-				}
-			: null;
-	}
-
-	applyView(
-		ecs: ECS,
-		view: Readonly<{ x: number; y: number; zoom: number }>,
-	): void {
-		const component = this.ensureCamera(ecs);
-		component.camera.position.set(view.x, view.y);
-		component.camera.zoom = view.zoom;
-	}
-
-	private ensureCamera(ecs: ECS): Camera2DComponent {
-		if (this.cameraId) {
-			const existing = ecs.getComponent(
-				this.cameraId,
-				Camera2DComponent,
-			);
-			if (existing) {
-				this.cameraComponent = existing;
-				return existing;
-			}
-		}
-		const camera = new Camera2D();
+	/** Centre the camera on the scene's tile bounds, if any exist. */
+	centerOnContent(ecs: ECS): void {
 		const bounds = tileBounds(ecs);
 		if (bounds) {
-			camera.position.set(
+			this.camera.position.set(
 				((bounds.minX + bounds.maxX + 1) / 2) * TILE_SIZE,
 				((bounds.minY + bounds.maxY + 1) / 2) * TILE_SIZE,
 			);
 		}
-		const component = new Camera2DComponent(
-			camera,
-			true,
-			EDITOR_CAMERA_PRIORITY,
-		);
-		this.cameraId = ecs.createEntity([
-			component,
-			new EditorCameraTagComponent(),
-		]);
-		this.cameraComponent = component;
-		return component;
 	}
 
 	private panActive(input: DeviceSnapshot): boolean {

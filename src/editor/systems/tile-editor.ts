@@ -1,16 +1,14 @@
-import type { ECS, EntityId } from "../../engine/ecs";
+import type { EntityId } from "../../engine/ecs";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import type { TileGrid } from "../../engine/tilemap/grid";
-import { TileLayerComponent } from "../../engine/tilemap/tile-layer-component";
 import { activeTileLayer } from "../active-layer";
 import { FLOOD_FILL_CELL_CAP } from "../constants";
 import type { EditorState } from "../editor-state";
-import type { History } from "../history";
+import type { SceneDocument } from "../scene-document";
 import { bresenham } from "../line";
 
 type Cell = Readonly<{
@@ -26,9 +24,8 @@ type PendingAction = {
 
 export class TileEditorSystem implements UpdateSystem {
 	private editor: EditorState;
-	private history: History;
+	private document: SceneDocument;
 
-	private ecs: ECS | null = null;
 	private layerId: EntityId | null = null;
 	private grid: TileGrid | null = null;
 
@@ -40,9 +37,14 @@ export class TileEditorSystem implements UpdateSystem {
 	private lassoSeen = new Set<string>();
 	private pending: PendingAction | null = null;
 
-	constructor(editor: EditorState, history: History) {
+	constructor(editor: EditorState, document: SceneDocument) {
 		this.editor = editor;
-		this.history = history;
+		this.document = document;
+	}
+
+	/** Commit any open tile stroke as a journal entry — a save gesture boundary. */
+	flush(): void {
+		this.commitAction();
 	}
 
 	private beginAction(): void {
@@ -58,50 +60,21 @@ export class TileEditorSystem implements UpdateSystem {
 	private commitAction(): void {
 		const pending = this.pending;
 		this.pending = null;
-		const ecs = this.ecs;
 		if (
 			!pending ||
-			!ecs ||
 			(pending.added.length === 0 && pending.removed.length === 0)
 		) {
 			return;
 		}
-		const { layerId, added, removed } = pending;
-		const gridOf = (): TileGrid | undefined =>
-			(this.history.world?.ecs ?? ecs).getComponent(
-				layerId,
-				TileLayerComponent,
-			)?.grid;
-		this.history.push({
-			undo: () => {
-				const grid = gridOf();
-				if (!grid) {
-					return;
-				}
-				for (const c of added) {
-					grid.removeTile(c.gx, c.gy);
-				}
-				for (const c of removed) {
-					grid.setTile(c.gx, c.gy);
-				}
-			},
-			redo: () => {
-				const grid = gridOf();
-				if (!grid) {
-					return;
-				}
-				for (const c of added) {
-					grid.setTile(c.gx, c.gy);
-				}
-				for (const c of removed) {
-					grid.removeTile(c.gx, c.gy);
-				}
-			},
+		this.document.recordApplied({
+			kind: "tile-op",
+			layerId: pending.layerId,
+			added: pending.added,
+			removed: pending.removed,
 		});
 	}
 
-	update({ ecs, input }: UpdateContext): void {
-		this.ecs = ecs;
+	update({ ecs, input, camera }: UpdateContext): void {
 		const entry = activeTileLayer(ecs, this.editor);
 		if (!entry) {
 			this.commitAction();
@@ -119,7 +92,6 @@ export class TileEditorSystem implements UpdateSystem {
 		this.layerId = entry[0];
 		this.grid = entry[1].grid;
 
-		const camera = pickActiveCamera2D(ecs);
 		if (!camera) {
 			return;
 		}

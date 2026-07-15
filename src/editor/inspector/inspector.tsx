@@ -8,13 +8,12 @@ import {
 } from "../../engine/serialization/registry";
 import type { Scene } from "../../engine/scene/scene";
 import {
+	configFieldBinding,
 	entityFieldBinding,
 	type FieldBinding,
-	objectFieldBinding,
 } from "../commands";
 import { componentLabel } from "../component-label";
 import type { EditorState } from "../editor-state";
-import type { History } from "../history";
 import { toSentenceCase } from "../text-case";
 import { useEditorValue } from "../use-editor";
 import { Field } from "./field";
@@ -268,12 +267,12 @@ const ComponentSection = ({
 const InspectorBody = ({
 	ecs,
 	selected,
-	history,
+	document,
 	runtime,
 }: Readonly<{
 	ecs: ECS;
 	selected: EntityId;
-	history: History;
+	document: SceneDocument;
 	runtime: boolean;
 }>) => (
 	<InspectorEcsProvider value={ecs}>
@@ -288,8 +287,7 @@ const InspectorBody = ({
 					key={component.constructor.name}
 					component={component}
 					binding={entityFieldBinding(
-						ecs,
-						history,
+						document,
 						selected,
 						serializableTypeName(component) ?? "",
 					)}
@@ -302,24 +300,24 @@ const InspectorBody = ({
 const Inspector = ({
 	ecs,
 	store,
-	history,
+	document,
 	runtime = false,
 }: Readonly<{
 	ecs: ECS;
 	store: EditorState;
-	history: History;
+	document: SceneDocument;
 	runtime?: boolean;
 }>) => {
 	const selected = useEditorValue(store, (s) => s.selected);
 	const [revision, force] = useReducer((n: number) => n + 1, 0);
 	useEffect(() => {
 		const unEcs = ecs.subscribe(force);
-		const unHistory = history.subscribe(force);
+		const unDoc = document.subscribe(force);
 		return () => {
 			unEcs();
-			unHistory();
+			unDoc();
 		};
-	}, [ecs, history]);
+	}, [ecs, document]);
 
 	if (!selected) {
 		return null;
@@ -330,7 +328,7 @@ const Inspector = ({
 			key={revision}
 			ecs={ecs}
 			selected={selected}
-			history={history}
+			document={document}
 			runtime={runtime}
 		/>
 	);
@@ -339,22 +337,12 @@ const Inspector = ({
 export const SceneConfigInspector = ({
 	scene,
 	doc,
-	history,
 }: Readonly<{
 	scene: Scene;
 	doc: SceneDocument;
-	history: History;
 }>) => {
 	const [revision, force] = useReducer((n: number) => n + 1, 0);
-	useEffect(
-		() =>
-			history.subscribe(() => {
-				scene.applyConfig();
-				doc.markDirty();
-				force();
-			}),
-		[scene, doc, history],
-	);
+	useEffect(() => doc.subscribe(force), [doc]);
 	const config = scene.config;
 	return (
 		<div className={styles.inspector}>
@@ -365,7 +353,7 @@ export const SceneConfigInspector = ({
 						component={config}
 						typeName={serializableTypeName(config)}
 						keys={Object.keys(config)}
-						binding={objectFieldBinding(history, config)}
+						binding={configFieldBinding(doc)}
 					/>
 				</div>
 			</section>

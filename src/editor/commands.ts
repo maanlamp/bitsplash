@@ -1,83 +1,55 @@
-import type { ECS, EntityId, ReadonlyECS } from "../engine/ecs";
-import { deserializeEntity } from "../engine/serialization/deserialize";
+import type { EntityId } from "../engine/ecs";
 import {
 	componentClass,
-	type ComponentClass,
 	serializableType,
 	serializableTypeName,
 } from "../engine/serialization/registry";
-import { serializeEntity } from "../engine/serialization/serialize";
 import {
-	reconstruct,
-	walkFields,
-} from "../engine/serialization/value";
-import { PhysicsBodyComponent } from "../engine/physics/physics-body-component";
+	encodeComponents,
+	serializeEntity,
+} from "../engine/serialization/serialize";
+import { walkFields } from "../engine/serialization/value";
 import { TILE_SIZE } from "../engine/tilemap/tile";
-import { TransformComponent } from "../engine/transform-component";
-import type { World } from "../engine/world";
-import type { History } from "./history";
+import {
+	type FieldValue,
+	type JournalEntry,
+	walkTo,
+} from "./journal-entry";
+import type { SceneDocument } from "./scene-document";
 
-const classOf = (component: object): ComponentClass =>
-	component.constructor as ComponentClass;
+export type { FieldValue } from "./journal-entry";
 
-const destroyNow = (ecs: ECS, id: EntityId): void => {
-	ecs.destroy(id);
-	ecs.flushDestroyed();
-};
-
-const worldOf = (history: History, fallback: World): World =>
-	history.world ?? fallback;
-
-const ecsOf = (
-	history: History,
-	fallback: ReadonlyECS,
-): ReadonlyECS => history.world?.ecs ?? fallback;
-
+/** Create an authored entity from component instances, journaling the create. */
 export const createEntity = (
-	world: World,
-	history: History,
+	document: SceneDocument,
 	components: ReadonlyArray<object>,
 ): EntityId => {
-	const id = worldOf(history, world).ecs.createEntity(components);
-	history.createdIds.add(id);
-	const data = serializeEntity(worldOf(history, world).ecs, id);
-	history.push({
-		undo: () => destroyNow(worldOf(history, world).ecs, id),
-		redo: () => {
-			const target = worldOf(history, world);
-			if (data) {
-				deserializeEntity(target, data);
-			} else {
-				target.ecs.createEntity(components, id);
-			}
-		},
+	const id = crypto.randomUUID() as EntityId;
+	document.record({
+		kind: "entity-create",
+		entity: { id, components: encodeComponents(components) },
 	});
 	return id;
 };
 
+/** Delete an entity, capturing its current components so undo can recreate it. */
 export const deleteEntity = (
-	world: World,
-	history: History,
+	document: SceneDocument,
 	id: EntityId,
 ): void => {
-	const components = [
-		...worldOf(history, world).ecs.componentsOf(id),
-	];
-	destroyNow(worldOf(history, world).ecs, id);
-	history.push({
-		undo: () => {
-			worldOf(history, world).ecs.createEntity(components, id);
-		},
-		redo: () => destroyNow(worldOf(history, world).ecs, id),
-	});
+	const entity = serializeEntity(document.projection, id) ?? {
+		id,
+		components: {},
+	};
+	document.record({ kind: "entity-delete", entity });
 };
 
+/** Duplicate an entity, offsetting the copy by one tile, journaling the create. */
 export const duplicateEntity = (
-	world: World,
-	history: History,
+	document: SceneDocument,
 	id: EntityId,
 ): EntityId | null => {
-	const data = serializeEntity(worldOf(history, world).ecs, id);
+	const data = serializeEntity(document.projection, id);
 	if (!data) {
 		return null;
 	}
@@ -88,65 +60,55 @@ export const duplicateEntity = (
 		position.x += TILE_SIZE;
 		position.y += TILE_SIZE;
 	}
-	const newId = crypto.randomUUID();
-	const entity = { id: newId, components };
-	history.createdIds.add(newId);
-	deserializeEntity(worldOf(history, world), entity);
-	history.push({
-		undo: () => destroyNow(worldOf(history, world).ecs, newId),
-		redo: () => {
-			deserializeEntity(worldOf(history, world), entity);
-		},
+	const newId = crypto.randomUUID() as EntityId;
+	document.record({
+		kind: "entity-create",
+		entity: { id: newId, components },
 	});
 	return newId;
 };
 
+/** Add a component instance to an entity, journaling the add. */
 export const addComponent = (
-	world: World,
-	history: History,
+	document: SceneDocument,
 	id: EntityId,
 	component: object,
 ): void => {
-	const cls = classOf(component);
-	worldOf(history, world).ecs.addComponent(id, component);
 	const name = serializableTypeName(component);
-	const data = name
-		? walkFields(serializableType(name)!, component)
-		: null;
-	history.push({
-		undo: () => worldOf(history, world).ecs.removeComponent(id, cls),
-		redo: () => {
-			const target = worldOf(history, world);
-			if (name && data) {
-				target.ecs.addComponent(
-					id,
-					reconstruct(serializableType(name)!, data),
-				);
-			} else {
-				target.ecs.addComponent(id, component);
-			}
-		},
+	const type = name ? serializableType(name) : null;
+	if (!name || !type) {
+		return;
+	}
+	document.record({
+		kind: "component-add",
+		id,
+		type: name,
+		data: walkFields(type, component),
 	});
 };
 
+/** Remove a component from an entity, capturing it so undo can restore it. */
 export const removeComponent = (
-	world: World,
-	history: History,
+	document: SceneDocument,
 	id: EntityId,
 	component: object,
 ): void => {
-	const cls = classOf(component);
-	worldOf(history, world).ecs.removeComponent(id, cls);
-	history.push({
-		undo: () =>
-			worldOf(history, world).ecs.addComponent(id, component),
-		redo: () => worldOf(history, world).ecs.removeComponent(id, cls),
+	const name = serializableTypeName(component);
+	const type = name ? serializableType(name) : null;
+	if (!name || !type) {
+		return;
+	}
+	document.record({
+		kind: "component-remove",
+		id,
+		type: name,
+		data: walkFields(type, component),
 	});
 };
 
+/** Move an entity's transform (and physics body) from `before` to `after`. */
 export const moveEntity = (
-	ecs: ReadonlyECS,
-	history: History,
+	document: SceneDocument,
 	id: EntityId,
 	before: Readonly<{ x: number; y: number }>,
 	after: Readonly<{ x: number; y: number }>,
@@ -154,30 +116,16 @@ export const moveEntity = (
 	if (before.x === after.x && before.y === after.y) {
 		return;
 	}
-	const apply = (to: Readonly<{ x: number; y: number }>): void => {
-		const target = ecsOf(history, ecs);
-		const transform = target.getComponent(id, TransformComponent);
-		if (transform) {
-			transform.position.x = to.x;
-			transform.position.y = to.y;
-		}
-		const body = target.getComponent(id, PhysicsBodyComponent)?.body;
-		if (body) {
-			body.setTransform(to, transform?.rotation.radians ?? 0);
-			body.linearVelocity = { x: 0, y: 0 };
-			body.setAngularVelocity(0);
-		}
-	};
-	apply(after);
-	history.push({
-		undo: () => apply(before),
-		redo: () => apply(after),
-	});
+	document.record({ kind: "entity-move", id, before, after });
 };
 
-export type FieldValue = number | string | boolean | null;
-
 type Container = Record<string, unknown>;
+
+type EntryFactory = (
+	path: ReadonlyArray<string>,
+	before: FieldValue,
+	after: FieldValue,
+) => JournalEntry;
 
 export type FieldBinding = Readonly<{
 	resolve: (
@@ -192,57 +140,16 @@ export type FieldBinding = Readonly<{
 	sub: (prefix: ReadonlyArray<string>) => FieldBinding;
 }>;
 
-const walkTo = (
-	root: Container | null,
-	path: ReadonlyArray<string>,
-): { container: Container; key: string } | null => {
-	if (!root || path.length === 0) {
-		return null;
-	}
-	let container: Container = root;
-	for (let i = 0; i < path.length - 1; i++) {
-		const next = container[path[i]!];
-		if (next === null || typeof next !== "object") {
-			return null;
-		}
-		container = next as Container;
-	}
-	return { container, key: path[path.length - 1]! };
-};
-
 const makeBinding = (
-	history: History,
+	document: SceneDocument,
 	root: () => Container | null,
 	base: ReadonlyArray<string>,
+	entry: EntryFactory,
 ): FieldBinding => {
 	const resolve = (path: ReadonlyArray<string>) =>
 		walkTo(root(), [...base, ...path]);
-	const record = (
-		path: ReadonlyArray<string>,
-		before: FieldValue,
-		after: FieldValue,
-	): void => {
-		if (before === after) {
-			return;
-		}
-		history.push({
-			undo: () => {
-				const t = resolve(path);
-				if (t) {
-					t.container[t.key] = before;
-				}
-			},
-			redo: () => {
-				const t = resolve(path);
-				if (t) {
-					t.container[t.key] = after;
-				}
-			},
-		});
-	};
 	return {
 		resolve,
-		record,
 		commit: (path, after) => {
 			const t = resolve(path);
 			if (!t) {
@@ -252,33 +159,60 @@ const makeBinding = (
 			if (before === after) {
 				return;
 			}
-			t.container[t.key] = after;
-			record(path, before, after);
+			document.record(entry([...base, ...path], before, after));
 		},
-		sub: (prefix) => makeBinding(history, root, [...base, ...prefix]),
+		record: (path, before, after) => {
+			if (before === after) {
+				return;
+			}
+			document.recordApplied(
+				entry([...base, ...path], before, after),
+			);
+		},
+		sub: (prefix) =>
+			makeBinding(document, root, [...base, ...prefix], entry),
 	};
 };
 
+/** A field binding onto a component of an authored entity. */
 export const entityFieldBinding = (
-	ecs: ReadonlyECS,
-	history: History,
+	document: SceneDocument,
 	entity: EntityId,
 	componentType: string,
 ): FieldBinding => {
 	const cls = componentClass(componentType);
 	return makeBinding(
-		history,
+		document,
 		() =>
 			cls
-				? ((ecsOf(history, ecs).getComponent(entity, cls) as
+				? ((document.projection.getComponent(entity, cls) as
 						| Container
 						| undefined) ?? null)
 				: null,
 		[],
+		(path, before, after) => ({
+			kind: "field-set",
+			id: entity,
+			type: componentType,
+			path,
+			before,
+			after,
+		}),
 	);
 };
 
-export const objectFieldBinding = (
-	history: History,
-	root: object,
-): FieldBinding => makeBinding(history, () => root as Container, []);
+/** A field binding onto the scene config (gravity, ui scale, clear color). */
+export const configFieldBinding = (
+	document: SceneDocument,
+): FieldBinding =>
+	makeBinding(
+		document,
+		() => document.config as unknown as Container,
+		[],
+		(path, before, after) => ({
+			kind: "config-set",
+			path,
+			before,
+			after,
+		}),
+	);

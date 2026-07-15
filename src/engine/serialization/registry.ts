@@ -19,7 +19,6 @@ export type SerializableType = Readonly<{
 	ctor: ComponentClass;
 	fields: ReadonlyMap<string, SerializeOptions>;
 	valueType: boolean;
-	runtime: boolean;
 }>;
 
 const byName = new Map<string, SerializableType>();
@@ -29,14 +28,12 @@ export const registerSerializable = (
 	name: string,
 	ctor: ComponentClass,
 	fields: ReadonlyMap<string, SerializeOptions>,
-	runtime: boolean = false,
 ): void => {
 	const entry: SerializableType = {
 		name,
 		ctor,
 		fields,
 		valueType: VALUE_TYPE in ctor.prototype,
-		runtime,
 	};
 	byName.set(name, entry);
 	byCtor.set(ctor, entry);
@@ -72,10 +69,3 @@ export const registeredComponents = (): ReadonlyArray<
 	[...byName.values()]
 		.filter((type) => !type.valueType)
 		.map((type) => [type.name, type.ctor] as const);
-
-export const runtimeTypeNames = (): ReadonlySet<string> =>
-	new Set(
-		[...byName.values()]
-			.filter((type) => type.runtime)
-			.map((type) => type.name),
-	);

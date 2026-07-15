@@ -246,6 +246,31 @@ const createWindow = async () => {
 	void window.loadURL(DEV_URL);
 };
 
+const createGameWindow = () => {
+	const window = new BrowserWindow({
+		width: 1280,
+		height: 720,
+		backgroundColor: "#030303",
+		titleBarStyle: "hidden",
+		titleBarOverlay: {
+			color: "#030303",
+			symbolColor: "#dedede",
+			height: 40,
+		},
+		webPreferences: {
+			preload: path.join(__dirname, "preload.cjs"),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+	});
+	void window.loadURL(`${DEV_URL}/game.html`);
+};
+
+ipcMain.handle("openGameWindow", () => {
+	createGameWindow();
+	return { opened: true };
+});
+
 app.on(
 	"certificate-error",
 	(event, _webContents, url, _error, _certificate, callback) => {

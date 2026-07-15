@@ -17,7 +17,6 @@ import {
 	TileLayerComponent,
 } from "../engine/tilemap/tile-layer-component";
 import Button from "./button";
-import type { History } from "./history";
 import { deleteEntity } from "./commands";
 import { openImageDialog, resolveToWebPath } from "./project-io";
 import type { SceneView } from "./scene-view";
@@ -61,8 +60,7 @@ const LayerRow = ({
 	onDragEnd: () => void;
 	bump: () => void;
 }>) => {
-	const history: History = view.history;
-	const ecs = view.scene.ecs;
+	const doc = view.document;
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
 
@@ -70,7 +68,7 @@ const LayerRow = ({
 		setEditing(false);
 		const trimmed = name.trim();
 		if (trimmed && trimmed !== layer.name) {
-			renameTileLayer(ecs, history, id, trimmed);
+			renameTileLayer(doc, id, trimmed);
 		}
 		bump();
 	};
@@ -79,7 +77,7 @@ const LayerRow = ({
 		void openImageDialog().then((path) => {
 			if (path) {
 				void resolveToWebPath(path).then((webPath) => {
-					setTileLayerTileset(ecs, history, id, webPath);
+					setTileLayerTileset(doc, id, webPath);
 					bump();
 				});
 			}
@@ -167,12 +165,7 @@ const LayerRow = ({
 			<Select.Root
 				value={layer.collision}
 				onValueChange={(value) => {
-					setTileLayerCollision(
-						ecs,
-						history,
-						id,
-						value as TileCollisionMode,
-					);
+					setTileLayerCollision(doc, id, value as TileCollisionMode);
 					bump();
 				}}
 			>
@@ -220,7 +213,7 @@ const LayerRow = ({
 					className={styles.layerIconButton}
 					onClick={(e) => {
 						e.stopPropagation();
-						deleteEntity(view.scene.world, history, id);
+						deleteEntity(doc, id);
 						if (view.store.activeLayer === id) {
 							view.store.setActiveLayer(null);
 						}
@@ -239,7 +232,7 @@ const TileLayersPanel = ({
 	editorEnabled,
 }: Readonly<{ view: SceneView; editorEnabled: boolean }>) => {
 	const ecs = view.scene.ecs;
-	const history = view.history;
+	const doc = view.document;
 	const [, bump] = useReducer((x: number) => x + 1, 0);
 	const activeLayer = useEditorValue(
 		view.store,
@@ -249,12 +242,12 @@ const TileLayersPanel = ({
 
 	useEffect(() => {
 		const unsubEcs = ecs.subscribe(bump);
-		const unsubHistory = history.subscribe(bump);
+		const unsubDoc = doc.subscribe(bump);
 		return () => {
 			unsubEcs();
-			unsubHistory();
+			unsubDoc();
 		};
-	}, [ecs, history]);
+	}, [ecs, doc]);
 
 	const rows = layerRowIds(ecs);
 
@@ -271,7 +264,7 @@ const TileLayersPanel = ({
 					<Button
 						variant="icon"
 						onClick={() => {
-							const id = addTileLayer(view.scene.world, history);
+							const id = addTileLayer(doc);
 							view.store.setActiveLayer(id);
 						}}
 					>
@@ -322,8 +315,7 @@ const TileLayersPanel = ({
 							}}
 							onDragEnd={() => {
 								commitRowOrder(
-									ecs,
-									history,
+									doc,
 									orderBefore.current,
 									layerRowIds(ecs),
 								);

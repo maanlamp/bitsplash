@@ -4,7 +4,6 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import type { EditorState } from "../editor-state";
 import { entityGeometry, unionBounds } from "../pick";
 
@@ -20,8 +19,13 @@ export class EntityHighlightSystem implements RenderSystem {
 		this.layer = layer;
 	}
 
-	render({ renderer, ecs, assetManager }: RenderContext): void {
-		const zoom = pickActiveCamera2D(ecs)?.zoom ?? 1;
+	render({
+		renderer,
+		ecs,
+		assetManager,
+		camera,
+	}: RenderContext): void {
+		const zoom = camera?.zoom ?? 1;
 		const lineWidth = 2 / zoom;
 		const hovered = this.store.hovered;
 		const selected = this.store.selected;

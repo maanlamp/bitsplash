@@ -1,16 +1,9 @@
 import { Color } from "../color";
-import { EditorCameraTagComponent } from "../camera/editor-camera-tag-component";
 import type { ECS } from "../ecs";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
-import { serializeWorld } from "../serialization/serialize";
 import type { ActionProvider } from "../input/bindings/action-provider";
 import type { GlobalServices } from "../services";
-import type {
-	RenderSystem,
-	UpdateContext,
-	UpdateSystem,
-} from "../system";
 import type { UiRuntime } from "../ui/ui-runtime";
 import {
 	serializable,
@@ -81,13 +74,10 @@ export type SceneParams = Readonly<{
 	name: string;
 	config: SceneConfig;
 	world: World;
-	gameplaySystems: ReadonlyArray<UpdateSystem>;
 	actions?: ActionProvider;
 	ui?: UiRuntime | null;
-	runtimeRenderSystems?: ReadonlyArray<RenderSystem>;
-	spawnRuntimeEntities?: () => void;
 	defaultEntity?: (position: Vector2) => ReadonlyArray<object>;
-	migrateFile?: (file: SceneFile) => void;
+	migrateFile?: (file: SceneFile, sceneId: string) => SceneFile;
 }>;
 
 export class Scene {
@@ -98,17 +88,13 @@ export class Scene {
 	readonly actions: ActionProvider | null;
 	readonly ui: UiRuntime | null;
 
-	private readonly gameplaySystems: ReadonlyArray<UpdateSystem>;
-	private readonly runtimeRenderSystems: ReadonlyArray<RenderSystem>;
-	private readonly spawnRuntime?: () => void;
 	private readonly makeDefaultEntity?: (
 		position: Vector2,
 	) => ReadonlyArray<object>;
-	private readonly migrate?: (file: SceneFile) => void;
-
-	private simulating = false;
-	private paused = false;
-	private snapshot: SerializedWorld | null = null;
+	private readonly migrate?: (
+		file: SceneFile,
+		sceneId: string,
+	) => SceneFile;
 
 	constructor(params: SceneParams) {
 		this.kind = params.kind;
@@ -117,89 +103,32 @@ export class Scene {
 		this.world = params.world;
 		this.actions = params.actions ?? null;
 		this.ui = params.ui ?? null;
-		this.gameplaySystems = params.gameplaySystems;
-		this.runtimeRenderSystems = params.runtimeRenderSystems ?? [];
-		this.spawnRuntime = params.spawnRuntimeEntities;
 		this.makeDefaultEntity = params.defaultEntity;
 		this.migrate = params.migrateFile;
 	}
 
-	migrateFile(file: SceneFile): void {
-		this.migrate?.(file);
+	/**
+	 * Apply this scene's authored-data migration to a raw {@link SceneFile},
+	 * returning a new file. Pure: never touches the live world. Returns the
+	 * input unchanged when the scene declares no migration or it does not apply.
+	 */
+	migrateFile(file: SceneFile, sceneId: string): SceneFile {
+		return this.migrate?.(file, sceneId) ?? file;
 	}
 
 	get ecs(): ECS {
 		return this.world.ecs;
 	}
 
-	applyConfig(): void {
-		this.world.setGravity(this.config.gravity);
-	}
-
-	get isSimulating(): boolean {
-		return this.simulating;
-	}
-
-	get snapshotData(): SerializedWorld | null {
-		return this.snapshot;
-	}
-
-	get isPaused(): boolean {
-		return this.paused;
-	}
-
-	setPaused(paused: boolean): void {
-		this.paused = paused;
-	}
-
 	defaultEntity(position: Vector2): ReadonlyArray<object> {
 		return this.makeDefaultEntity?.(position) ?? [];
 	}
 
-	setSimulating(enabled: boolean): void {
-		if (enabled === this.simulating) {
-			return;
-		}
-		this.simulating = enabled;
-		this.paused = false;
-		if (enabled) {
-			this.snapshot = serializeWorld(
-				this.world.ecs,
-				(id) =>
-					!this.world.ecs.getComponent(id, EditorCameraTagComponent),
-			);
-			for (const system of this.gameplaySystems) {
-				(system as { resetRuntime?: () => void }).resetRuntime?.();
-			}
-			this.spawnRuntime?.();
-			for (const system of this.runtimeRenderSystems) {
-				this.world.ecs.addRenderSystem(system);
-			}
-		} else {
-			for (const system of this.runtimeRenderSystems) {
-				this.world.ecs.removeRenderSystem(system);
-			}
-			if (this.snapshot) {
-				this.restore(this.snapshot);
-				this.snapshot = null;
-			}
-		}
-	}
-
-	updateGameplay(ctx: UpdateContext): void {
-		if (!this.simulating || this.paused) {
-			return;
-		}
-		this.stepGameplay(ctx);
-	}
-
-	stepGameplay(ctx: UpdateContext): void {
-		for (const system of this.gameplaySystems) {
-			system.update(ctx);
-		}
-		this.world.ecs.flushDestroyed();
-	}
-
+	/**
+	 * Reset the live world to an authored snapshot: clear it and re-deserialize.
+	 * Used by the edit document to rebuild its projection from the baseline
+	 * ({@link SceneDocument.rebuildLive}); never serializes a live world.
+	 */
 	restore(snapshot: SerializedWorld): void {
 		this.world.clear();
 		deserializeWorld(this.world, snapshot);

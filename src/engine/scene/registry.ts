@@ -1,8 +1,10 @@
 import { Game, type FrameInfo } from "../game";
-import { seedRenderLayers } from "../render/render-layers";
+import { migrateRenderLayers } from "../render/migrate-render-layers";
 import type { GlobalServices } from "../services";
-import { deserializeWorld } from "../serialization/deserialize";
-import type { SerializedWorld } from "../serialization/registry";
+import {
+	deserializeWorld,
+	type UnknownComponentPolicy,
+} from "../serialization/deserialize";
 import {
 	Scene,
 	type SceneFactory,
@@ -14,6 +16,16 @@ export type SceneSummary = Readonly<{
 	id: string;
 	name: string;
 	kind: string;
+}>;
+
+/**
+ * A freshly built scene paired with the migrated {@link SceneFile} it was
+ * deserialized from. The file — the raw registered file passed through the pure
+ * migration pipeline — is the canonical baseline for a `SceneDocument`.
+ */
+export type CreatedScene = Readonly<{
+	scene: Scene;
+	file: SceneFile;
 }>;
 
 const factories = new Map<string, SceneFactory>();
@@ -40,38 +52,75 @@ export const sceneSummaries = (): ReadonlyArray<SceneSummary> =>
 		kind: file.kind,
 	}));
 
-export const createScene = (
+/**
+ * The pure migration pipeline: engine migrations (render layers) then the
+ * scene's own authored-data migration (e.g. legacy tiles → tile layer). The
+ * output is the canonical input for both deserialize and the document baseline;
+ * no live world is involved.
+ */
+const migrateSceneFile = (
+	scene: Scene,
+	file: SceneFile,
 	id: string,
-	services: GlobalServices,
-): Scene => {
+): SceneFile => scene.migrateFile(migrateRenderLayers(file, id), id);
+
+const registeredFile = (id: string): SceneFile => {
 	const file = files.get(id);
 	if (!file) {
 		throw new Error(`Unknown scene id: ${id}`);
 	}
-	const factory = factories.get(file.kind);
+	return file;
+};
+
+const buildScene = (
+	raw: SceneFile,
+	id: string,
+	services: GlobalServices,
+): Scene => {
+	const factory = factories.get(raw.kind);
 	if (!factory) {
-		throw new Error(`Unknown scene kind: ${file.kind}`);
+		throw new Error(`Unknown scene kind: ${raw.kind}`);
 	}
-	const scene = factory({
-		config: toSceneConfig(file.config),
-		name: file.name ?? id,
+	return factory({
+		config: toSceneConfig(raw.config),
+		name: raw.name ?? id,
 		services,
 	});
+};
+
+export const createScene = (
+	id: string,
+	services: GlobalServices,
+	onUnknown: UnknownComponentPolicy = "skip",
+): CreatedScene => {
+	const raw = registeredFile(id);
+	const scene = buildScene(raw, id, services);
+	const file = migrateSceneFile(scene, raw, id);
 	deserializeWorld(
 		scene.world,
-		file.entities as SerializedWorld,
+		file.entities,
 		`scene "${file.name ?? id}"`,
+		onUnknown,
 	);
-	seedRenderLayers(scene.world.ecs);
-	scene.migrateFile(file);
-	return scene;
+	return { scene, file };
 };
+
+/**
+ * Recompute the migrated {@link SceneFile} for an already-built scene, deriving
+ * it from the registered raw file. Lets the editor obtain a document baseline
+ * for a scene it did not build via {@link createScene} (e.g. the preloaded
+ * start scene the game shell constructed).
+ */
+export const migratedSceneFile = (
+	scene: Scene,
+	id: string,
+): SceneFile => migrateSceneFile(scene, registeredFile(id), id);
 
 export const createGame = (
 	startScene: string,
 	onFrame?: (info: FrameInfo) => void,
 ): Game => {
 	const game = new Game({ onFrame });
-	game.sceneManager.setBase(createScene(startScene, game.services));
+	game.setScene(createScene(startScene, game.services).scene);
 	return game;
 };

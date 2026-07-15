@@ -1,10 +1,10 @@
-import type { Decorations } from "../decorations/decorations";
+import type { DecorationsRenderer } from "../decorations/decorations";
 import { type RenderContext, RenderSystem } from "../system";
 
 export class DecorationsRenderSystem implements RenderSystem {
-	private decorations: Decorations;
+	private decorations: DecorationsRenderer;
 
-	constructor(decorations: Decorations) {
+	constructor(decorations: DecorationsRenderer) {
 		this.decorations = decorations;
 	}
 

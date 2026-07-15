@@ -1,4 +1,3 @@
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
 import {
@@ -33,7 +32,7 @@ export class PerceptionDebugSystem implements RenderSystem {
 		if (!this.flags.get("perception")) {
 			return;
 		}
-		const zoom = pickActiveCamera2D(ctx.ecs)?.zoom ?? 1;
+		const zoom = ctx.camera?.zoom ?? 1;
 		const width = 1.5 / zoom;
 		for (const [, perception, transform, facing] of ctx.ecs.query(
 			PerceptionComponent,

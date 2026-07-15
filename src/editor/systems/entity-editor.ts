@@ -5,12 +5,11 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 import { moveEntity } from "../commands";
 import type { EditorState } from "../editor-state";
-import type { History } from "../history";
+import type { SceneDocument } from "../scene-document";
 import { pickEntityAt } from "../pick";
 
 const snap = (value: number): number =>
@@ -18,7 +17,7 @@ const snap = (value: number): number =>
 
 export class EntityEditorSystem implements UpdateSystem {
 	private store: EditorState;
-	private history: History;
+	private document: SceneDocument;
 
 	private prevLeft = false;
 	private dragging = false;
@@ -26,13 +25,19 @@ export class EntityEditorSystem implements UpdateSystem {
 	private dragStart: Vector2 | null = null;
 	private origin: { x: number; y: number } | null = null;
 
-	constructor(store: EditorState, history: History) {
+	constructor(store: EditorState, document: SceneDocument) {
 		this.store = store;
-		this.history = history;
+		this.document = document;
 	}
 
-	update({ ecs, input, assetManager }: UpdateContext): void {
-		const camera = pickActiveCamera2D(ecs);
+	/** Commit any open drag as a journal entry — a save gesture boundary. */
+	flush(): void {
+		if (this.dragging) {
+			this.finishDrag(this.document.scene.world.ecs);
+		}
+	}
+
+	update({ ecs, input, assetManager, camera }: UpdateContext): void {
 		if (!camera) {
 			return;
 		}
@@ -118,7 +123,7 @@ export class EntityEditorSystem implements UpdateSystem {
 			return;
 		}
 		const position = transform.position;
-		moveEntity(ecs, this.history, id, origin, {
+		moveEntity(this.document, id, origin, {
 			x: position.x,
 			y: position.y,
 		});

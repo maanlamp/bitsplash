@@ -9,16 +9,17 @@ import {
 	type RenderSystem,
 	type UpdateSystem,
 } from "../engine/system";
+import { Camera2D } from "../engine/camera/camera-2d";
 import {
 	pickActiveCamera2D,
 	renderSceneToTexture,
 } from "../engine/camera/camera-2d-render";
 import { DebugGridSystem } from "../engine/debug/debug-grid-system";
 import Viewport from "../engine/camera/viewport";
+import type { World } from "../engine/world";
 import { EditorLayer } from "./constants";
 import { DEBUG_OVERLAY, type DebugFlags } from "./debug-flags";
 import type { EditorState } from "./editor-state";
-import { History } from "./history";
 import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
 import { EntityEditorSystem } from "./systems/entity-editor";
@@ -38,9 +39,6 @@ type RenderSurface = Readonly<{
 }>;
 
 export class SceneView {
-	readonly history = new History();
-	readonly document: SceneDocument;
-
 	frameTime = 0;
 	fps = 0;
 	physicsTime = 0;
@@ -51,31 +49,31 @@ export class SceneView {
 	);
 	private attachedNode: HTMLElement | null = null;
 
+	readonly editorCamera = new Camera2D();
+
 	private readonly camera: EditorCamera2DSystem;
+	private readonly entityEditor: EntityEditorSystem;
+	private readonly tileEditor: TileEditorSystem;
 	private readonly updateSystems: ReadonlyArray<UpdateSystem>;
 	private readonly renderSystems: ReadonlyArray<RenderSystem>;
-	private readonly historyUnsub: () => void;
 
 	private detachSurface: (() => void) | null = null;
 	private suspended = false;
-	private savedCameraView: Readonly<{
-		x: number;
-		y: number;
-		zoom: number;
-	}> | null = null;
 
 	constructor(
 		readonly id: string,
-		readonly scene: Scene,
+		readonly document: SceneDocument,
 		readonly store: EditorState,
 		readonly debugFlags: DebugFlags,
 		private readonly services: GlobalServices,
 	) {
-		this.camera = new EditorCamera2DSystem(store);
+		this.camera = new EditorCamera2DSystem(store, this.editorCamera);
+		this.entityEditor = new EntityEditorSystem(store, this.document);
+		this.tileEditor = new TileEditorSystem(store, this.document);
 		this.updateSystems = [
 			this.camera,
-			new EntityEditorSystem(store, this.history),
-			new TileEditorSystem(store, this.history),
+			this.entityEditor,
+			this.tileEditor,
 		];
 		this.renderSystems = [
 			new PhysicsShapeDebugSystem(
@@ -110,14 +108,21 @@ export class SceneView {
 			new DebugGridSystem(EditorLayer.DEBUG_GRID),
 		];
 
-		this.history.world = scene.world;
-		this.addSystems();
-		this.camera.ensure(scene.world.ecs);
+		this.camera.centerOnContent(this.scene.world.ecs);
+	}
 
-		this.document = new SceneDocument(scene);
-		this.historyUnsub = this.history.subscribe(() =>
-			this.document.markDirty(),
-		);
+	/** The scene this view renders — the one owned by its bound document. */
+	get scene(): Scene {
+		return this.document.scene;
+	}
+
+	/**
+	 * Force-commit any open editor gesture (entity drag, tile stroke) so a save
+	 * serializes a settled world — a save is a gesture boundary (plan D3).
+	 */
+	flushGestures(): void {
+		this.entityEditor.flush();
+		this.tileEditor.flush();
 	}
 
 	get viewport(): Viewport {
@@ -158,129 +163,19 @@ export class SceneView {
 		}
 	}
 
-	private addSystems(): void {
-		const ecs = this.scene.world.ecs;
-		for (const system of this.updateSystems) {
-			ecs.addUpdateSystem(system);
-		}
-		for (const system of this.renderSystems) {
-			ecs.addRenderSystem(system);
-		}
+	/** The camera this view renders and picks its own edit world with. */
+	displayCamera(): Camera2D {
+		return this.editorCamera;
 	}
 
-	private removeSystems(): void {
-		const ecs = this.scene.world.ecs;
-		for (const system of this.updateSystems) {
-			ecs.removeUpdateSystem(system);
-		}
-		for (const system of this.renderSystems) {
-			ecs.removeRenderSystem(system);
-		}
-	}
-
+	/** Stop stepping this view's per-view editor systems (detached view). */
 	suspend(): void {
-		if (this.suspended) {
-			return;
-		}
 		this.suspended = true;
-		this.captureCameraView();
-		this.removeSystems();
-		this.camera.setActive(false);
 	}
 
+	/** Resume stepping this view's per-view editor systems. */
 	resume(): void {
-		if (!this.suspended) {
-			return;
-		}
 		this.suspended = false;
-		this.addSystems();
-		this.restoreCameraView();
-		this.camera.setActive(true);
-	}
-
-	captureCameraView(): void {
-		this.savedCameraView = this.camera.viewState();
-	}
-
-	restoreCameraView(): void {
-		const ecs = this.scene.world.ecs;
-		if (this.savedCameraView) {
-			this.camera.applyView(ecs, this.savedCameraView);
-		} else {
-			this.camera.ensure(ecs);
-		}
-		this.savedCameraView = null;
-	}
-
-	setCameraActive(active: boolean): void {
-		this.camera.setActive(active);
-	}
-
-	runUpdate(
-		dt: Milliseconds,
-		time: Time,
-		editorInput: Input,
-		gameInput: Input,
-	): void {
-		const ecs = this.scene.world.ecs;
-		const actions = this.scene.actions ?? NULL_ACTIONS;
-		const base = {
-			dt,
-			time,
-			ecs,
-			world: this.scene.world,
-			assetManager: this.services.assetManager,
-			audio: this.services.audio,
-			events: this.scene.world.events,
-		};
-		ecs.update({
-			...base,
-			input: editorInput,
-			actions: NULL_ACTIONS,
-		});
-		const ui = this.scene.ui;
-		if (ui && this.scene.isSimulating) {
-			const uiScale = this.scene.config.uiScale ?? 1;
-			ui.step(gameInput, uiScale, dt / 1000, (masked) => {
-				actions.step(masked, dt);
-				this.scene.updateGameplay({
-					...base,
-					input: masked,
-					actions,
-				});
-			});
-			const camera = pickActiveCamera2D(ecs);
-			ui.layout(
-				uiScale,
-				this.renderer.width,
-				this.renderer.height,
-				camera ?? undefined,
-			);
-		} else {
-			actions.step(gameInput, dt);
-			this.scene.updateGameplay({
-				...base,
-				input: gameInput,
-				actions,
-			});
-		}
-	}
-
-	stepGameplayOnce(dt: Milliseconds, time: Time, input: Input): void {
-		this.scene.world.requestSingleStep();
-		const actions = this.scene.actions ?? NULL_ACTIONS;
-		actions.step(input, dt);
-		this.scene.stepGameplay({
-			dt,
-			time,
-			ecs: this.scene.world.ecs,
-			world: this.scene.world,
-			input,
-			actions,
-			assetManager: this.services.assetManager,
-			audio: this.services.audio,
-			events: this.scene.world.events,
-		});
 	}
 
 	attach(node: HTMLElement): void {
@@ -300,9 +195,17 @@ export class SceneView {
 		this.input.update();
 	}
 
+	/**
+	 * Step this view's edit world one frame. The world ECS runs its own
+	 * document/world maintenance systems (the `editorEdit` composition); the
+	 * per-view editor systems (camera pan/zoom, entity picking, tile tools) are
+	 * stepped here directly against this view's world, input, and camera — they
+	 * live outside the ECS flat lists (plan D13). They never step while the view
+	 * is suspended.
+	 */
 	update(dt: Milliseconds, time: Time): void {
 		this.input.update();
-		this.scene.world.ecs.update({
+		const ctx = {
 			dt,
 			time,
 			ecs: this.scene.world.ecs,
@@ -312,25 +215,81 @@ export class SceneView {
 			assetManager: this.services.assetManager,
 			audio: this.services.audio,
 			events: this.scene.world.events,
-		});
+			camera: this.displayCamera(),
+		};
+		this.scene.world.ecs.update(ctx);
+		if (this.suspended) {
+			return;
+		}
+		for (const system of this.updateSystems) {
+			system.update(ctx);
+		}
 	}
 
+	/**
+	 * Render this view's edit world. The world ECS renders its own base visuals
+	 * (sprites, tilemaps, decorations); the per-view editor overlays (debug
+	 * gizmos, entity highlight, tile preview, grid) are rendered here directly
+	 * into the same renderer so they composite into their {@link EditorLayer}
+	 * bands (plan D13). They are skipped while the view is suspended.
+	 */
 	render(time: Time): void {
 		const renderer = this.renderer;
 		if (renderer.width <= 0 || renderer.height <= 0) {
 			return;
 		}
+		const camera = this.displayCamera();
 		renderer.beginFrame();
-		this.scene.world.ecs.render({
+		const ctx = {
 			renderer,
 			time,
 			ecs: this.scene.world.ecs,
 			input: this.input,
 			assetManager: this.services.assetManager,
 			uiScale: this.scene.config.uiScale ?? 1,
+			camera,
+		};
+		this.scene.world.ecs.render(ctx);
+		if (!this.suspended) {
+			for (const system of this.renderSystems) {
+				system.render(ctx);
+			}
+		}
+		const target = renderer.sceneTarget(this.scene);
+		renderSceneToTexture(renderer, this.scene, target, camera);
+		renderer.composite([target], {
+			x: 0,
+			y: 0,
+			w: renderer.width,
+			h: renderer.height,
+		});
+		renderer.endFrame();
+	}
+
+	/**
+	 * Render an external world — the run world owned by the {@link RunHost} —
+	 * into this viewport with its active game camera (plan D5/D13). The view's
+	 * own scene supplies only the clear color, ui scale, and render-target key;
+	 * no edit-world state is drawn.
+	 */
+	renderRunWorld(world: World, time: Time): void {
+		const renderer = this.renderer;
+		if (renderer.width <= 0 || renderer.height <= 0) {
+			return;
+		}
+		const camera = pickActiveCamera2D(world.ecs);
+		renderer.beginFrame();
+		world.ecs.render({
+			renderer,
+			time,
+			ecs: world.ecs,
+			input: this.input,
+			assetManager: this.services.assetManager,
+			uiScale: this.scene.config.uiScale ?? 1,
+			camera,
 		});
 		const target = renderer.sceneTarget(this.scene);
-		renderSceneToTexture(renderer, this.scene, target);
+		renderSceneToTexture(renderer, this.scene, target, camera);
 		renderer.composite([target], {
 			x: 0,
 			y: 0,
@@ -341,10 +300,6 @@ export class SceneView {
 	}
 
 	dispose(): void {
-		if (!this.suspended) {
-			this.removeSystems();
-		}
-		this.historyUnsub();
 		this.input.dispose();
 		this.detach();
 		this.renderer.dispose();

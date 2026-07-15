@@ -1,4 +1,3 @@
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { LocomotionComponent } from "../../engine/locomotion/locomotion-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import type { NavProfile } from "../../engine/nav/nav-graph-builder";
@@ -54,7 +53,7 @@ export class NavGraphDebugSystem implements RenderSystem {
 		if (!comp?.surface) {
 			return;
 		}
-		const zoom = pickActiveCamera2D(ctx.ecs)?.zoom ?? 1;
+		const zoom = ctx.camera?.zoom ?? 1;
 		const g = comp.gravity;
 		if (showGraph) {
 			const profile = this.selectedProfile(ctx, comp);

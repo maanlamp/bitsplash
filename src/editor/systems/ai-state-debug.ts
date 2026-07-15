@@ -1,4 +1,3 @@
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { AiStateComponent } from "../../engine/debug/ai-state-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
@@ -27,7 +26,7 @@ export class AiStateDebugSystem implements RenderSystem {
 		if (!font) {
 			return;
 		}
-		const zoom = pickActiveCamera2D(ctx.ecs)?.zoom ?? 1;
+		const zoom = ctx.camera?.zoom ?? 1;
 		for (const [id, perception, transform] of ctx.ecs.query(
 			PerceptionComponent,
 			TransformComponent,

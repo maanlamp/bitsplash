@@ -63,7 +63,9 @@ export class GameShell {
 				}
 			},
 		});
-		this.driver = this.makeDriver(createFreshRuntime());
+		this.driver = this.makeDriver(
+			createFreshRuntime(this.game.services.settings),
+		);
 		this.game.mountUI(
 			createElement(GameUI, {
 				state: this.uiState,
@@ -104,7 +106,8 @@ export class GameShell {
 	}
 
 	private readonly actions: GameUiActions = {
-		newGame: () => this.beginPlaying(startNewRuntime()),
+		newGame: () =>
+			this.beginPlaying(startNewRuntime(this.game.services.settings)),
 		continueLatest: () => void this.continueLatest(),
 		openLoad: () => void this.openLoad(),
 		closeLoad: () => this.uiState.setView("root"),
@@ -220,7 +223,7 @@ export class GameShell {
 	}
 
 	private quitToMenu(): void {
-		const menu = createFreshRuntime();
+		const menu = createFreshRuntime(this.game.services.settings);
 		const previous = this.driver.runtime;
 		this.driver = this.makeDriver(menu);
 		this.mount(menu);
@@ -256,7 +259,8 @@ export class GameShell {
 			runtime,
 			manager: this.manager,
 			store: this.store,
-			createRuntime: createFreshRuntime,
+			createRuntime: () =>
+				createFreshRuntime(this.game.services.settings),
 			now: () => Date.now(),
 			autosaveIntervalMs: AUTOSAVE_INTERVAL_MS,
 			onRuntimeChanged: (next) => this.mount(next),
@@ -264,19 +268,14 @@ export class GameShell {
 	}
 
 	private mount(runtime: Runtime): void {
-		const previous = this.scene;
 		this.scene = new Scene({
 			kind: "game",
 			name: runtime.activeScene ?? "game",
 			config: runtime.config ?? new SceneConfig(),
 			world: runtime.world,
 			actions: createPlatformerActions(this.game.services.settings),
-			gameplaySystems: [],
 		});
-		this.game.sceneManager.setBase(this.scene);
-		if (previous) {
-			this.game.renderer.releaseSceneTarget(previous);
-		}
+		this.game.setScene(this.scene);
 
 		const ecs = runtime.world.ecs;
 		if (this.paintEcs !== ecs) {

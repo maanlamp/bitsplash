@@ -3,7 +3,6 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { cssVar } from "../css-var";
 import type { DebugFlags, DebugOverlay } from "../debug-flags";
 
@@ -79,11 +78,11 @@ export class TransformGizmoDebugSystem implements RenderSystem {
 		}
 	}
 
-	render({ renderer, ecs }: RenderContext): void {
+	render({ renderer, ecs, camera }: RenderContext): void {
 		if (!this.flags.get(this.overlay.id)) {
 			return;
 		}
-		const zoom = pickActiveCamera2D(ecs)?.zoom ?? 1;
+		const zoom = camera?.zoom ?? 1;
 		const length = AXIS_PIXELS / zoom;
 		const head = length * HEAD_RATIO;
 		const width = 2 / zoom;

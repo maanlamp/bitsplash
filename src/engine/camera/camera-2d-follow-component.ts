@@ -15,7 +15,7 @@ export type Camera2DFollowConfig = Readonly<{
 	bounds?: Bounds | null;
 }>;
 
-@serializable("Camera2DFollow", { runtime: true })
+@serializable("Camera2DFollow")
 export class Camera2DFollowComponent {
 	@serialize() targets: EntityId[] = [];
 	@serialize() smoothing: { x: number; y: number } = {

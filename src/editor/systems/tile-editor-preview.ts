@@ -2,7 +2,6 @@ import {
 	type RenderContext,
 	RenderSystem,
 } from "../../engine/system";
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { activeTileLayer } from "../active-layer";
 import type { EditorState } from "../editor-state";
@@ -30,8 +29,7 @@ export class TileEditorPreviewSystem implements RenderSystem {
 		this.editor = editor;
 	}
 
-	render({ renderer, ecs, input }: RenderContext): void {
-		const camera = pickActiveCamera2D(ecs);
+	render({ renderer, ecs, input, camera }: RenderContext): void {
 		const entry = activeTileLayer(ecs, this.editor);
 		if (
 			!entry ||

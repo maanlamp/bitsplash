@@ -1,4 +1,3 @@
-import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { ActiveDevice } from "../../engine/input/aim/active-device";
 import {
 	type AimSettingsValues,
@@ -28,10 +27,9 @@ export class AimSystem implements UpdateSystem {
 			: DEFAULT_AIM_SETTINGS;
 	}
 
-	update({ ecs, input, dt }: UpdateContext): void {
+	update({ ecs, input, dt, camera }: UpdateContext): void {
 		const dtSeconds = dt / 1000;
 		this.device.update(input, dtSeconds);
-		const camera = pickActiveCamera2D(ecs);
 
 		for (const [, aimComponent, transform] of ecs.query(
 			AimComponent,

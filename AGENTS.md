@@ -57,24 +57,38 @@ continue stepping → assert`. `test/support/sequence-harness.ts`
 
 ## Serialization provenance
 
-There are two serialization products and one rule that separates them:
+`serializeWorld(ecs)` serializes a world **whole** — every serializable
+component, including transient runtime state (camera pose, sequence run-state).
+It has one meaning and one code path: there is no scope parameter and no
+per-component `runtime` flag. The two serialization products are separated by
+_which world is serialized_, never by filtering components:
 
-- **Runtime snapshot** (save-games, scene freeze/thaw, editor playtest
-  snapshots) — the full live world, including transient runtime state
-  (camera pose, sequence run-state). This is `serializeWorld(ecs)` /
-  scope `"runtime"` (the default).
-- **Authored scene document** (what the editor writes to `*.scene.json`) —
-  only design-time entities. Runtime-spawned things (cameras, fades,
-  sequences) must never appear. This is scope `"authored"`.
+- **Runtime snapshot** (save-games, scene freeze/thaw, cutscene skip/resume) —
+  serialize the live world whole. Cameras, fades, and running sequences are
+  captured so a mid-cutscene save resumes correctly.
+- **Authored scene document** (`*.scene.json`) — produced **only** by
+  `SceneDocument.save()`: replay the scene's edit journal onto its file-derived
+  baseline in a **scratch world that has never simulated**, then serialize that
+  scratch world whole. No live world — and never a simulating one — is ever
+  serialized into a scene file.
 
-A component declares its own provenance at the class via
-`@serializable("Name", { runtime: true })`; the `"authored"` scope omits those
-components (and drops entities left empty). **Never** re-decide provenance at a
-call site (a component-type blocklist, an `instanceof` check) — every
-save path routes through `serializeWorld`'s scope so the rule holds uniformly.
-Cameras et al. stay `@serialize`d precisely so runtime snapshots (and cutscene
-skip/resume) keep working; the `runtime` flag is what keeps them out of level
-files.
+Because the journal records only authored edits (the command router poke-routes
+runtime-entity edits live-only, never journaling them), the scratch world holds
+only authored entities, so serializing it whole yields authored data _by
+construction_. The authored artifact has exactly one writer
+(`SceneDocument.save`); provenance is enforced by construction, not by call-site
+discipline, and guarded by:
+
+- the **command router** (`SceneDocument.record`) — edits to document entities
+  are journaled; edits to runtime-spawned entities poke the run world live-only
+  and are discarded on stop;
+- the **save tripwires** (`SceneDocument`) — a round-trip check on every save
+  and, while idle, a replay-diff check against the live edit world; both
+  hard-crash rather than write a corrupt file.
+
+**Never** reintroduce a component-type blocklist, an `instanceof` check, or a
+serialize "scope" to keep runtime state out of level files — the
+journal-onto-scratch construction is what makes leaks unrepresentable.
 
 ## Project architecture
 
@@ -125,7 +139,9 @@ Violating these boundaries is never acceptable, regardless of convenience.
 
 ## Conventions
 
-- No comments.
+- Document APIs using JSDoc comments. Clearly document what things do, don't be too verbose. Provide examples. Public APIs missing comments should have them added.
+- No inline comments, except for very specific cases of required but inpenetrable code to explain it. Note that code that's not autological should initially be treated as a candidate for refactoring so it's clear, and only if that genuinely won't work or produces way more LOC, then a comment is ok.
+- Comments can and _will_ rot. Make sure any code you touch is reflected in the comments surrounding it, if at all. Prefer removing comments if they're not longer correct instead of trying to fix them. Same two rules above apply.
 - Do not handroll your own components for the editor UI; check `base-ui` (https://base-ui.com/llms.txt) first.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
 - **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in AGENTS.md, not in memory.

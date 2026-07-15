@@ -515,6 +515,7 @@ export default class Renderer2D {
 	private sceneTargets = new Map<object, RenderTarget>();
 	private presentTarget: RenderTarget | null = null;
 	private clipStack: ScissorBox[] = [];
+	private disposeListeners = new Set<() => void>();
 
 	constructor(viewport: Viewport, vsync = false) {
 		this.viewport = viewport;
@@ -1475,8 +1476,22 @@ export default class Renderer2D {
 		}
 	}
 
+	/**
+	 * Register a callback fired once when this renderer is disposed, before its
+	 * WebGL context is released. Per-renderer resource caches (tile/decoration
+	 * batches keyed by renderer, {@link RendererResourceCache}) use this to free
+	 * and drop the entry belonging to a view whose renderer is going away.
+	 */
+	onDispose(listener: () => void): void {
+		this.disposeListeners.add(listener);
+	}
+
 	dispose(): void {
 		const gl = this.gl;
+		for (const listener of this.disposeListeners) {
+			listener();
+		}
+		this.disposeListeners.clear();
 		for (const target of this.sceneTargets.values()) {
 			target.dispose();
 		}

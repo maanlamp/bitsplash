@@ -4,11 +4,11 @@ import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-co
 import { CameraTransitionComponent } from "../../engine/camera/camera-transition-component";
 import type { EntityId } from "../../engine/ecs";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import type { AuthoredScene } from "../../engine/runtime/game-module";
 import type {
 	SceneDefinition,
 	SceneEnterReason,
 } from "../../engine/runtime/runtime";
-import type { SceneConfig } from "../../engine/scene/scene";
 import { deserializeWorld } from "../../engine/serialization/deserialize";
 import type { SerializedWorld } from "../../engine/serialization/registry";
 import { TransformComponent } from "../../engine/transform-component";
@@ -19,13 +19,9 @@ import { RespawnComponent } from "../respawn/respawn-component";
 import { SpawnPointComponent } from "../respawn/spawn-point-component";
 import { spawnCamera2D } from "../spawn-camera-2d";
 
-const PLAYER_PREFAB = "player";
+export type { AuthoredScene } from "../../engine/runtime/game-module";
 
-export type AuthoredScene = Readonly<{
-	config: SceneConfig;
-	entities: SerializedWorld;
-	bounds?: Bounds | null;
-}>;
+const PLAYER_PREFAB = "player";
 
 const playerEntity = (world: World): EntityId | null =>
 	world.ecs.query(PlayerInputComponent)[0]?.[0] ?? null;

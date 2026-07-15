@@ -1,7 +1,7 @@
 import type { EntityId } from "../ecs";
-import type Renderer2D from "../render/renderer-2d";
 import type { StaticBatch } from "../render/renderer-2d";
 import { resolveRenderLayer } from "../render/render-layers";
+import { RendererResourceCache } from "../render/renderer-resource-cache";
 import { type RenderContext, RenderSystem } from "../system";
 import {
 	SHEET_COLUMNS,
@@ -19,14 +19,19 @@ type LayerBatch = {
 };
 
 export class TilemapRenderSystem implements RenderSystem {
-	private batches = new Map<EntityId, LayerBatch>();
-	private batchRenderer: Renderer2D | null = null;
+	private readonly caches = new RendererResourceCache<
+		Map<EntityId, LayerBatch>
+	>(
+		() => new Map(),
+		(batches) => {
+			for (const entry of batches.values()) {
+				entry.batch.dispose();
+			}
+		},
+	);
 
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		if (this.batchRenderer !== renderer) {
-			this.batchRenderer = renderer;
-			this.batches.clear();
-		}
+		const batches = this.caches.get(renderer);
 		const seen = new Set<EntityId>();
 		for (const [id, layer] of ecs.query(TileLayerComponent)) {
 			seen.add(id);
@@ -41,14 +46,14 @@ export class TilemapRenderSystem implements RenderSystem {
 			const columns = autotile ? SHEET_COLUMNS : 1;
 			const srcSize = image.naturalWidth / columns;
 			const array = renderer.getTileArray(image, columns, srcSize);
-			let entry = this.batches.get(id);
+			let entry = batches.get(id);
 			if (!entry || entry.tileset !== layer.tilesetRef.path) {
 				entry = {
 					batch: renderer.createStaticBatch(),
 					version: -1,
 					tileset: layer.tilesetRef.path,
 				};
-				this.batches.set(id, entry);
+				batches.set(id, entry);
 			}
 			if (entry.version !== layer.grid.version) {
 				if (autotile) {
@@ -64,9 +69,9 @@ export class TilemapRenderSystem implements RenderSystem {
 				array.texture,
 			);
 		}
-		for (const id of this.batches.keys()) {
+		for (const id of batches.keys()) {
 			if (!seen.has(id)) {
-				this.batches.delete(id);
+				batches.delete(id);
 			}
 		}
 	}

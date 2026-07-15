@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("bitsplashDesktop", {
 	openImageDialog: () => ipcRenderer.invoke("openImageDialog"),
 	openFileDialog: (payload) =>
 		ipcRenderer.invoke("openFileDialog", payload),
+	openGameWindow: () => ipcRenderer.invoke("openGameWindow"),
 });
 
 contextBridge.exposeInMainWorld("saveStore", {

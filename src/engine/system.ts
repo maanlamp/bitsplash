@@ -1,5 +1,6 @@
 import type AssetManager from "./assets";
 import type AudioManager from "./audio/audio";
+import type { Camera2D } from "./camera/camera-2d";
 import type { Time } from "./clock";
 import type { Milliseconds } from "./duration";
 import type { ECS, ReadonlyECS } from "./ecs";
@@ -20,6 +21,7 @@ export type UpdateContext = Readonly<{
 	assetManager: AssetManager;
 	events: EventBus;
 	audio: AudioManager;
+	camera: Camera2D | null;
 }>;
 
 export type RenderContext = Readonly<{
@@ -29,6 +31,7 @@ export type RenderContext = Readonly<{
 	input: Input;
 	assetManager: AssetManager;
 	uiScale: number;
+	camera: Camera2D | null;
 }>;
 
 export type ScreenMetrics = Readonly<{

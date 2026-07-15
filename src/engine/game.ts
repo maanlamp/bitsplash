@@ -1,9 +1,14 @@
 import AssetManager from "./assets";
 import AudioManager from "./audio/audio";
-import { pickActiveCamera2D } from "./camera/camera-2d-render";
+import {
+	pickActiveCamera2D,
+	renderSceneToTexture,
+} from "./camera/camera-2d-render";
 import { Clock } from "./clock";
+import type { Time } from "./clock";
 import type { Milliseconds } from "./duration";
 import EventBus from "./events";
+import { NULL_ACTIONS } from "./input/bindings/action-provider";
 import type { DeviceSnapshot } from "./input/device-snapshot";
 import { Input } from "./input/input";
 import { LocalStorageSettingsStore } from "./input/local-storage-settings-store";
@@ -12,7 +17,6 @@ import Renderer2D from "./render/renderer-2d";
 import type { ReactNode } from "react";
 import { UiRuntime, type UiRuntimeOptions } from "./ui/ui-runtime";
 import type { Scene } from "./scene/scene";
-import { SceneManager } from "./scene/scene-manager";
 import type { GlobalServices } from "./services";
 import Viewport from "./camera/viewport";
 
@@ -25,6 +29,12 @@ export type GameOptions = Readonly<{
 	settings?: SettingsStore;
 }>;
 
+/**
+ * The bundled-game / preview host: owns the render surface, input, services, and
+ * a single active {@link Scene} it updates and renders each frame. Scene
+ * transitions swap the whole world behind {@link setScene}; there is no scene
+ * stack or overlay (the editor's multi-view model lives in the editor layer).
+ */
 export class Game {
 	readonly viewport = new Viewport();
 	readonly renderer: Renderer2D;
@@ -33,9 +43,10 @@ export class Game {
 	readonly events = new EventBus();
 	readonly audio: AudioManager;
 	readonly services: GlobalServices;
-	readonly sceneManager: SceneManager;
 
 	private clock = new Clock();
+	private current: Scene | null = null;
+	private lastSource: DeviceSnapshot | null = null;
 	private ui: UiRuntime | null = null;
 	private isPaused = false;
 	private onFrame?: (info: FrameInfo) => void;
@@ -57,11 +68,15 @@ export class Game {
 			events: this.events,
 			settings: options.settings ?? new LocalStorageSettingsStore(),
 		};
-		this.sceneManager = new SceneManager(this.services);
 	}
 
 	get scene(): Scene | null {
-		return this.sceneManager.base;
+		return this.current;
+	}
+
+	/** Make `scene` the world this game updates and renders. */
+	setScene(scene: Scene): void {
+		this.current = scene;
 	}
 
 	get paused(): boolean {
@@ -113,19 +128,14 @@ export class Game {
 			this.input.update();
 			const runGameplay = (masked: DeviceSnapshot): void => {
 				if (!this.isPaused) {
-					this.sceneManager.update(
-						{ dt: delta, time: now },
-						masked,
-						this.input,
-					);
+					this.updateScene(delta, now, masked, this.input);
 				}
 			};
 			if (this.ui) {
-				const uiScale = this.sceneManager.base?.config.uiScale ?? 1;
+				const uiScale = this.current?.config.uiScale ?? 1;
 				this.ui.step(this.input, uiScale, delta / 1000, runGameplay);
-				const base = this.sceneManager.base;
-				const camera = base
-					? pickActiveCamera2D(base.world.ecs)
+				const camera = this.current
+					? pickActiveCamera2D(this.current.world.ecs)
 					: null;
 				this.ui.layout(
 					uiScale,
@@ -136,11 +146,11 @@ export class Game {
 			} else {
 				runGameplay(this.input);
 			}
-			this.sceneManager.render(this.renderer, { time: now });
+			this.renderScene(now);
 			this.onFrame?.({ delta: rawDelta, fps });
 			this.renderer.endFrame();
 			this.ui?.clearEvents();
-			this.sceneManager.clearEvents();
+			this.current?.world.events.clear();
 			this.events.clear();
 
 			this.lastFrameTime = performance.now() - before;
@@ -162,5 +172,62 @@ export class Game {
 			cancelAnimationFrame(this.rafId);
 			this.rafId = null;
 		}
+	}
+
+	private updateScene(
+		dt: Milliseconds,
+		time: Time,
+		input: DeviceSnapshot,
+		source: DeviceSnapshot,
+	): void {
+		const scene = this.current;
+		if (!scene) {
+			return;
+		}
+		const actions = scene.actions ?? NULL_ACTIONS;
+		if (source !== this.lastSource) {
+			actions.resetEdges();
+		}
+		this.lastSource = source;
+		actions.step(input, dt);
+		scene.world.ecs.update({
+			dt,
+			time,
+			ecs: scene.world.ecs,
+			world: scene.world,
+			input,
+			actions,
+			assetManager: this.assetManager,
+			audio: this.audio,
+			events: scene.world.events,
+			camera: pickActiveCamera2D(scene.world.ecs),
+		});
+		scene.world.ecs.flushDestroyed();
+	}
+
+	private renderScene(time: Time): void {
+		const scene = this.current;
+		if (!scene) {
+			return;
+		}
+		this.renderer.beginFrame();
+		const camera = pickActiveCamera2D(scene.world.ecs);
+		scene.world.ecs.render({
+			renderer: this.renderer,
+			time,
+			ecs: scene.world.ecs,
+			input: this.input,
+			assetManager: this.assetManager,
+			uiScale: scene.config.uiScale ?? 1,
+			camera,
+		});
+		const target = this.renderer.sceneTarget(this);
+		renderSceneToTexture(this.renderer, scene, target, camera);
+		this.renderer.composite([target], {
+			x: 0,
+			y: 0,
+			w: this.renderer.width,
+			h: this.renderer.height,
+		});
 	}
 }

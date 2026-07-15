@@ -1,5 +1,3 @@
-import type { EntityId } from "../engine/ecs";
-import type { World } from "../engine/world";
 import { Subscribable } from "./subscribable";
 
 export type Command = Readonly<{
@@ -7,13 +5,18 @@ export type Command = Readonly<{
 	redo: () => void | Promise<void>;
 }>;
 
+type Direction = "undo" | "redo";
+
+/**
+ * Undo/redo stack whose moves are transactional: a command's live apply must
+ * succeed before the stacks are mutated to reflect the move. Applies are
+ * serialized through an internal promise chain so operations stay ordered even
+ * when a command's `undo`/`redo` is async.
+ */
 export class History extends Subscribable {
 	private undoStack: Command[] = [];
 	private redoStack: Command[] = [];
 	private running: Promise<void> = Promise.resolve();
-
-	world: World | null = null;
-	readonly createdIds = new Set<EntityId>();
 
 	get canUndo(): boolean {
 		return this.undoStack.length > 0;
@@ -29,26 +32,22 @@ export class History extends Subscribable {
 		this.notify();
 	}
 
+	/**
+	 * Undo the most recent command. The command's `undo` runs first; only once
+	 * it resolves is the command moved from the undo stack to the redo stack. A
+	 * failed apply leaves the stacks untouched and surfaces the error through the
+	 * internal running chain (never silently swallowed).
+	 */
 	undo(): void {
-		const command = this.undoStack.pop();
-		if (!command) {
-			return;
-		}
-		this.redoStack.push(command);
-		this.enqueue(command.undo, () => {
-			drop(this.redoStack, command);
-		});
+		this.enqueue("undo");
 	}
 
+	/**
+	 * Redo the most recently undone command, with the same apply-then-append
+	 * transactionality as {@link undo}.
+	 */
 	redo(): void {
-		const command = this.redoStack.pop();
-		if (!command) {
-			return;
-		}
-		this.undoStack.push(command);
-		this.enqueue(command.redo, () => {
-			drop(this.undoStack, command);
-		});
+		this.enqueue("redo");
 	}
 
 	clear(): void {
@@ -60,48 +59,41 @@ export class History extends Subscribable {
 		this.notify();
 	}
 
-	mark(): number {
-		return this.undoStack.length;
+	/**
+	 * Resolve once the current apply chain has drained. Rejects with the error of
+	 * a failed `undo`/`redo` apply, so callers (and tests) can await the outcome
+	 * of a queued transactional move.
+	 */
+	settle(): Promise<void> {
+		return this.running;
 	}
 
-	async replayFrom(marker: number): Promise<void> {
-		await this.running;
-		for (const command of this.undoStack.slice(marker)) {
-			await command.redo();
+	private enqueue(direction: Direction): void {
+		this.running = this.running
+			.catch(() => {})
+			.then(() => this.apply(direction));
+	}
+
+	private async apply(direction: Direction): Promise<void> {
+		const from =
+			direction === "undo" ? this.undoStack : this.redoStack;
+		const command = from.at(-1);
+		if (!command) {
+			return;
 		}
+		await (direction === "undo" ? command.undo() : command.redo());
+		this.commit(command, direction);
+		this.notify();
 	}
 
-	async replayInto(target: World, marker: number): Promise<void> {
-		await this.running;
-		const previous = this.world;
-		this.world = target;
-		try {
-			for (const command of this.undoStack.slice(marker)) {
-				await command.redo();
-			}
-		} finally {
-			this.world = previous;
+	private commit(command: Command, direction: Direction): void {
+		const from =
+			direction === "undo" ? this.undoStack : this.redoStack;
+		const to = direction === "undo" ? this.redoStack : this.undoStack;
+		const index = from.lastIndexOf(command);
+		if (index >= 0) {
+			from.splice(index, 1);
 		}
-	}
-
-	private enqueue(
-		task: () => void | Promise<void>,
-		onError: () => void,
-	): void {
-		this.running = this.running.then(async () => {
-			try {
-				await task();
-			} catch {
-				onError();
-			}
-			this.notify();
-		});
+		to.push(command);
 	}
 }
-
-const drop = (stack: Command[], command: Command): void => {
-	const index = stack.indexOf(command);
-	if (index >= 0) {
-		stack.splice(index, 1);
-	}
-};

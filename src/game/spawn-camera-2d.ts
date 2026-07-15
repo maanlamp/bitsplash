@@ -1,6 +1,5 @@
 import { Camera2D, type Bounds } from "../engine/camera/camera-2d";
 import { Camera2DComponent } from "../engine/camera/camera-2d-component";
-import { EditorCameraTagComponent } from "../engine/camera/editor-camera-tag-component";
 import { Camera2DFollowComponent } from "../engine/camera/camera-2d-follow-component";
 import { CameraShakeComponent } from "../engine/camera/camera-shake-component";
 import { TransformComponent } from "../engine/transform-component";
@@ -26,11 +25,7 @@ export const spawnCamera2D = (
 	options: Readonly<{ target: EntityId; bounds?: Bounds | null }>,
 ): EntityId => {
 	const bounds = options.bounds ?? null;
-	const existing = world.ecs
-		.query(Camera2DComponent)
-		.find(
-			([id]) => !world.ecs.getComponent(id, EditorCameraTagComponent),
-		);
+	const existing = world.ecs.query(Camera2DComponent).at(0);
 	if (existing) {
 		const [id] = existing;
 		if (!world.ecs.getComponent(id, Camera2DFollowComponent)) {

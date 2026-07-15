@@ -4,7 +4,7 @@ import {
 	serialize,
 } from "../serialization/serializable";
 
-@serializable("Camera2D", { runtime: true })
+@serializable("Camera2D")
 export class Camera2DComponent {
 	@serialize() camera: Camera2D;
 	@serialize() active: boolean;

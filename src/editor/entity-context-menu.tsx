@@ -15,7 +15,6 @@ import {
 	registeredComponents,
 	serializableTypeName,
 } from "../engine/serialization/registry";
-import type { World } from "../engine/world";
 import surface from "./styles/surface.module.scss";
 
 import {
@@ -24,12 +23,11 @@ import {
 	duplicateEntity,
 	removeComponent,
 } from "./commands";
-import type { History } from "./history";
+import type { SceneDocument } from "./scene-document";
 
 export type MenuDeps = Readonly<{
 	ecs: ECS;
-	world: World;
-	history: History;
+	document: SceneDocument;
 	requestAddComponent: (entity: EntityId) => void;
 	select: (entity: EntityId | null) => void;
 }>;
@@ -50,7 +48,7 @@ const EntityItems = ({
 	entity,
 	deps,
 }: Readonly<{ entity: EntityId; deps: MenuDeps }>) => {
-	const { ecs, world, history, requestAddComponent, select } = deps;
+	const { ecs, document, requestAddComponent, select } = deps;
 	const attached = ecs
 		.componentsOf(entity)
 		.map((c) => ({ component: c, name: serializableTypeName(c) }))
@@ -70,7 +68,7 @@ const EntityItems = ({
 			<ContextMenu.Item
 				className={surface.item}
 				onClick={() => {
-					const id = duplicateEntity(world, history, entity);
+					const id = duplicateEntity(document, entity);
 					if (id) {
 						select(id);
 					}
@@ -82,7 +80,7 @@ const EntityItems = ({
 			<ContextMenu.Item
 				className={surface.item}
 				onClick={() => {
-					deleteEntity(world, history, entity);
+					deleteEntity(document, entity);
 					select(null);
 				}}
 			>
@@ -96,9 +94,7 @@ const EntityItems = ({
 				<ContextMenu.Item
 					key={name}
 					className={surface.item}
-					onClick={() =>
-						removeComponent(world, history, entity, component)
-					}
+					onClick={() => removeComponent(document, entity, component)}
 				>
 					<MinusCircleIcon
 						className={surface.itemIcon}
@@ -164,7 +160,7 @@ export const AddComponentPicker = ({
 	deps: MenuDeps;
 	onClose: () => void;
 }>) => {
-	const { ecs, world, history } = deps;
+	const { ecs, document } = deps;
 	const attached = new Set(
 		ecs
 			.componentsOf(entity)
@@ -179,7 +175,7 @@ export const AddComponentPicker = ({
 	const pick = (name: string) => {
 		const ctor = componentClass(name);
 		if (ctor) {
-			addComponent(world, history, entity, new ctor());
+			addComponent(document, entity, new ctor());
 		}
 		onClose();
 	};

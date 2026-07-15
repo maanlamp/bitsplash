@@ -4,7 +4,7 @@ import {
 	serialize,
 } from "../serialization/serializable";
 
-@serializable("ScreenFade", { runtime: true })
+@serializable("ScreenFade")
 export class ScreenFadeComponent {
 	@serialize() alpha: number;
 	@serialize() tween: Tween | null = null;

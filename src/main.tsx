@@ -1,7 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./editor/app";
+import "./game/registrations";
+import { createPlatformerGameModule } from "./game/shell/platformer-runtime";
 import "./style/main.scss";
+
+const gameModule = createPlatformerGameModule();
 
 const runtimeReady = (async (): Promise<void> => {
 	const [, rapier] = await Promise.all([
@@ -13,6 +17,10 @@ const runtimeReady = (async (): Promise<void> => {
 
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		<App startScene="demo" runtimeReady={runtimeReady} />
+		<App
+			startScene="demo"
+			runtimeReady={runtimeReady}
+			gameModule={gameModule}
+		/>
 	</StrictMode>,
 );

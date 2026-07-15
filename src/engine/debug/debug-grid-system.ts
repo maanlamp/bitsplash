@@ -1,6 +1,5 @@
 import { compileProgram } from "../render/programs";
 import { type RenderContext, RenderSystem } from "../system";
-import { pickActiveCamera2D } from "../camera/camera-2d-render";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../tilemap/tile";
 
 const VS = `#version 300 es
@@ -65,8 +64,8 @@ export class DebugGridSystem implements RenderSystem {
 		this.layer = layer;
 	}
 
-	render({ renderer, ecs }: RenderContext): void {
-		const zoom = pickActiveCamera2D(ecs)?.zoom ?? 1;
+	render({ renderer, camera }: RenderContext): void {
+		const zoom = camera?.zoom ?? 1;
 		renderer.withRawLayer(this.layer, (gl, ctx) => {
 			const res = this.ensureResources(gl);
 			const scaleX = ctx.spanX / ctx.texW;

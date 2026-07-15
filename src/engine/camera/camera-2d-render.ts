@@ -25,6 +25,7 @@ export const renderSceneToTexture = (
 	renderer: Renderer2D,
 	scene: Scene,
 	target: RenderTarget,
+	camera: Camera2D | null,
 ): void => {
 	const vw = renderer.width;
 	const vh = renderer.height;
@@ -34,7 +35,6 @@ export const renderSceneToTexture = (
 	target.resize(vw, vh);
 
 	const clearColor = scene.config.clearColor.rgba;
-	const camera = pickActiveCamera2D(scene.world.ecs);
 	let drewWorld = false;
 	if (camera && camera.zoom > 0) {
 		camera.viewportWidth = vw;

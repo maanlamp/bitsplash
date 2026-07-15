@@ -1,0 +1,269 @@
+import { Glob } from "bun";
+import { beforeAll, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import type AudioManager from "../src/engine/audio/audio";
+import { Camera2DComponent } from "../src/engine/camera/camera-2d-component";
+import { NULL_ACTIONS } from "../src/engine/input/bindings/action-provider";
+import type { DeviceSnapshot } from "../src/engine/input/device-snapshot";
+import type { SettingsStore } from "../src/engine/input/settings-store";
+import type { SceneDefinition } from "../src/engine/runtime/runtime";
+import { loadRapier } from "../src/engine/physics/rapier-physics";
+import { migrateRenderLayers } from "../src/engine/render/migrate-render-layers";
+import {
+	Scene,
+	type SceneFile,
+	toSceneConfig,
+} from "../src/engine/scene/scene";
+import { deserializeWorld } from "../src/engine/serialization/deserialize";
+import type {
+	SerializedEntity,
+	SerializedWorld,
+} from "../src/engine/serialization/registry";
+import { TransformComponent } from "../src/engine/transform-component";
+import Vector2 from "../src/engine/vector2";
+import { World } from "../src/engine/world";
+import { moveEntity } from "../src/editor/commands";
+import { SceneDocument } from "../src/editor/scene-document";
+import { collisionMatrix } from "../src/game/collision";
+import { game as gameComposition } from "../src/game/compositions";
+import { registerPrefab } from "../src/game/prefabs";
+import { newGameSeed } from "../src/game/runtime/new-game-seed";
+import { toSceneDefinition } from "../src/game/runtime/scene-runtime";
+import { migrateLegacyTiles } from "../src/game/scenes/migrate-legacy-tiles";
+import { SequenceFixture } from "./support/sequence-harness";
+
+class HeadlessImage {
+	onload: (() => void) | null = null;
+	#src = "";
+	set src(value: string) {
+		this.#src = value;
+		queueMicrotask(() => this.onload?.());
+	}
+	get src(): string {
+		return this.#src;
+	}
+}
+(globalThis as { Image?: unknown }).Image ??= HeadlessImage;
+
+const REPO_ROOT = ".";
+const DEMO = "demo";
+
+const toImportPath = (path: string): string =>
+	`../${path.replace(/\\/g, "/")}`;
+
+const loadRapierHeadless = (): Promise<void> =>
+	loadRapier(async () => {
+		const mod =
+			(await import("@dimforge/rapier2d-compat")) as unknown as {
+				init: () => Promise<void>;
+			};
+		await mod.init();
+		return mod as never;
+	});
+
+const registerGameContent = async (): Promise<void> => {
+	await loadRapierHeadless();
+	for (const path of new Glob(
+		"src/{engine,game}/**/*-component.ts",
+	).scanSync(REPO_ROOT)) {
+		await import(toImportPath(path));
+	}
+	for (const path of new Glob("src/game/**/*-def.ts").scanSync(
+		REPO_ROOT,
+	)) {
+		await import(toImportPath(path));
+	}
+	await import("../src/game/sequence/sequence-manifest");
+	for (const path of new Glob(
+		"src/game/content/prefabs/*.json",
+	).scanSync(REPO_ROOT)) {
+		const name = path
+			.split(/[/\\]/)
+			.pop()!
+			.replace(/\.json$/, "");
+		registerPrefab(name, JSON.parse(readFileSync(path, "utf8")));
+	}
+};
+
+const migratedDemo = (): SceneFile =>
+	migrateLegacyTiles(
+		migrateRenderLayers(
+			JSON.parse(
+				readFileSync(
+					"src/game/content/levels/demo.scene.json",
+					"utf8",
+				),
+			) as SceneFile,
+			DEMO,
+		),
+		DEMO,
+		"dirt.png",
+	);
+
+const openDocument = (baseline: SceneFile): SceneDocument => {
+	const config = toSceneConfig(baseline.config);
+	const world = new World(config.gravity, collisionMatrix);
+	deserializeWorld(world, baseline.entities, "edit world", "throw");
+	const scene = new Scene({
+		kind: baseline.kind,
+		name: baseline.name ?? DEMO,
+		config,
+		world,
+	});
+	return new SceneDocument(scene, baseline);
+};
+
+const emptyDevice: DeviceSnapshot = {
+	keyboard: { keys: {} },
+	mouse: {
+		buttons: {},
+		position: Vector2.zero(),
+		wheel: Vector2.zero(),
+		inside: false,
+	},
+	gamepads: {},
+};
+
+const silentAudio = {
+	load: () => new Promise<never>(() => {}),
+} as unknown as AudioManager;
+
+const memorySettings = (): SettingsStore => {
+	const values = new Map<string, string>();
+	return {
+		get: (key) => values.get(key) ?? null,
+		set: (key, value) => void values.set(key, value),
+	};
+};
+
+const byId = (
+	world: SerializedWorld,
+): Map<string, SerializedEntity> =>
+	new Map(world.map((e) => [e.id, e]));
+
+const differingIds = (
+	a: SerializedWorld,
+	b: SerializedWorld,
+): ReadonlyArray<string> => {
+	const other = byId(b);
+	return a
+		.filter(
+			(e) =>
+				JSON.stringify(e) !== JSON.stringify(other.get(e.id) ?? null),
+		)
+		.map((e) => e.id);
+};
+
+describe("run contamination", () => {
+	beforeAll(registerGameContent);
+
+	test("a run's simulation never leaks into a scene file save", async () => {
+		const baseline = migratedDemo();
+		const document = openDocument(baseline);
+
+		// The pre-run committed artifact.
+		const preRun = document.save();
+		document.markSaved(preRun);
+
+		// Boot a real run world: fresh World + Runtime on the game composition,
+		// resolving the dirty document's projection (plan D5). This spawns the
+		// player + scene prefabs, creates a follow camera, and runs physics.
+		const settings = memorySettings();
+		const fixture = await SequenceFixture.create({
+			initialScene: DEMO,
+			seed: newGameSeed,
+			resolveScene: (): SceneDefinition =>
+				toSceneDefinition(document.toAuthoredScene()),
+			collisionMatrix,
+			input: emptyDevice,
+			actions: NULL_ACTIONS,
+			audio: silentAudio,
+			registerSystems: (world) => {
+				const { update, render } = gameComposition({
+					settings,
+					gravityY: baseline.config.gravity.y,
+				});
+				for (const system of update) {
+					world.ecs.addUpdateSystem(system);
+				}
+				for (const system of render) {
+					world.ecs.addRenderSystem(system);
+				}
+			},
+		});
+
+		fixture.step(20);
+		// A goToScene transition: freeze the active scene, despawn, re-enter.
+		fixture.runtime.goToScene(DEMO, "revisit");
+		fixture.step(10);
+
+		// The run world genuinely accumulated runtime-spawned entities not in the
+		// document — otherwise the test would prove nothing.
+		const runCameras = fixture.ecs.query(Camera2DComponent);
+		expect(runCameras.length).toBeGreaterThan(0);
+		expect(fixture.ecs.entities().length).toBeGreaterThan(
+			baseline.entities.length,
+		);
+		const documentIds = new Set(baseline.entities.map((e) => e.id));
+		expect(runCameras.every(([id]) => !documentIds.has(id))).toBe(
+			true,
+		);
+
+		// Bind the run world as the command router's live target, then journal
+		// exactly one edit to a document entity.
+		document.bindRun({
+			world: fixture.world,
+			config: document.config,
+		});
+		const target = baseline.entities.find(
+			(e) => "Transform" in e.components,
+		)!;
+		const transform = document.projection.getComponent(
+			target.id as never,
+			TransformComponent,
+		)!;
+		const before = {
+			x: transform.position.x,
+			y: transform.position.y,
+		};
+		const after = { x: before.x + 32, y: before.y - 16 };
+		moveEntity(document, target.id as never, before, after);
+
+		// Save DURING the run.
+		const duringRun = document.save();
+		expectOnlyTheOneEdit(
+			duringRun.entities,
+			preRun.entities,
+			target.id,
+		);
+
+		// Stop: unbind + rebuild the edit world from the document (plan D8), then
+		// save again.
+		document.unbindRun();
+		document.rebuildLive();
+		fixture.dispose();
+
+		const afterStop = document.save();
+		expectOnlyTheOneEdit(
+			afterStop.entities,
+			preRun.entities,
+			target.id,
+		);
+	});
+});
+
+const expectOnlyTheOneEdit = (
+	saved: SerializedWorld,
+	preRun: SerializedWorld,
+	editedId: string,
+): void => {
+	// Same entity set: no runtime-spawned camera, prefab enemy, fade, or
+	// sequence run-state leaked in, and nothing authored was dropped.
+	expect(new Set(saved.map((e) => e.id))).toEqual(
+		new Set(preRun.map((e) => e.id)),
+	);
+	// No camera component of any kind reaches the file.
+	expect(saved.some((e) => "Camera2D" in e.components)).toBe(false);
+	// Exactly the one journaled edit differs from the pre-run artifact.
+	expect(differingIds(saved, preRun)).toEqual([editedId]);
+};

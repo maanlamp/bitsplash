@@ -4,28 +4,46 @@ import { loadImage } from "../load";
 import type Renderer2D from "../render/renderer-2d";
 import type { StaticBatch } from "../render/renderer-2d";
 import { resolveRenderLayer } from "../render/render-layers";
+import { RendererResourceCache } from "../render/renderer-resource-cache";
 import { solidTileLayers } from "../tilemap/occupancy";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../tilemap/tile";
 import type { TileGrid } from "../tilemap/grid";
 
-export abstract class Decorations {
+/**
+ * Baked decoration geometry for one renderer. The `generation` records the
+ * {@link Decorations.generation} value the batches were baked at; a mismatch
+ * means the atlas loaded or the tracked grid changed and the batches must be
+ * re-baked (per renderer, so N views never thrash a single shared batch).
+ */
+export type DecorationsState<S> = S & { generation: number };
+
+/**
+ * The render surface a {@link DecorationsRenderSystem} depends on: draw baked
+ * decorations for a scene into one renderer. Kept generic-free so a render
+ * system can hold any {@link Decorations} regardless of its per-renderer state
+ * shape.
+ */
+export interface DecorationsRenderer {
+	render(renderer: Renderer2D, ecs: ReadonlyECS): void;
+}
+
+export abstract class Decorations<
+	S extends object = object,
+> implements DecorationsRenderer {
 	private density: number;
 	protected atlas: HTMLImageElement | null = null;
 	protected cols = 0;
 	protected count = 0;
-	protected dirty = true;
-	private batchRenderer: Renderer2D | null = null;
+	/** Bumped whenever every renderer's batches must be re-baked. */
+	protected generation = 0;
 	private trackedId: EntityId | null = null;
 	private trackedVersion = -1;
-
-	protected rendererChanged(renderer: Renderer2D): boolean {
-		if (this.batchRenderer === renderer) {
-			return false;
-		}
-		this.batchRenderer = renderer;
-		this.dirty = true;
-		return true;
-	}
+	private readonly states = new RendererResourceCache<
+		DecorationsState<S>
+	>(
+		(renderer) => ({ ...this.createState(renderer), generation: -1 }),
+		(state) => this.disposeState(state),
+	);
 
 	constructor(atlasUrl: string, density: number) {
 		this.density = density;
@@ -34,11 +52,22 @@ export abstract class Decorations {
 			this.cols = Math.floor(image.naturalWidth / TILE_SIZE);
 			const rows = Math.floor(image.naturalHeight / TILE_SIZE);
 			this.count = this.cols * rows;
-			this.dirty = true;
+			this.generation++;
 		});
 	}
 
 	abstract render(renderer: Renderer2D, ecs: ReadonlyECS): void;
+
+	/** Allocate this decoration's per-renderer batches. */
+	protected abstract createState(renderer: Renderer2D): S;
+
+	/** Free the GPU batches held by a per-renderer state. */
+	protected abstract disposeState(state: S): void;
+
+	/** The batches for `renderer`, allocated once and reused across frames. */
+	protected stateFor(renderer: Renderer2D): DecorationsState<S> {
+		return this.states.get(renderer);
+	}
 
 	protected track(ecs: ReadonlyECS): TileGrid | null {
 		const entry = solidTileLayers(ecs)[0] ?? null;
@@ -48,7 +77,7 @@ export abstract class Decorations {
 		if (id !== this.trackedId || version !== this.trackedVersion) {
 			this.trackedId = id;
 			this.trackedVersion = version;
-			this.dirty = true;
+			this.generation++;
 		}
 		return grid;
 	}
@@ -70,12 +99,12 @@ export abstract class Decorations {
 	}
 }
 
-export class SurfaceDecorations extends Decorations {
+type SurfaceState = { back: StaticBatch; front: StaticBatch };
+
+export class SurfaceDecorations extends Decorations<SurfaceState> {
 	private backLayer: string;
 	private frontLayer: string;
 	private jitter: number;
-	private backBatch: StaticBatch | null = null;
-	private frontBatch: StaticBatch | null = null;
 
 	constructor(
 		atlasUrl: string,
@@ -90,6 +119,18 @@ export class SurfaceDecorations extends Decorations {
 		this.jitter = jitter;
 	}
 
+	protected createState(renderer: Renderer2D): SurfaceState {
+		return {
+			back: renderer.createStaticBatch(),
+			front: renderer.createStaticBatch(),
+		};
+	}
+
+	protected disposeState(state: SurfaceState): void {
+		state.back.dispose();
+		state.front.dispose();
+	}
+
 	render(renderer: Renderer2D, ecs: ReadonlyECS): void {
 		const grid = this.track(ecs);
 		if (!grid || !this.ready()) {
@@ -100,35 +141,26 @@ export class SurfaceDecorations extends Decorations {
 			this.cols,
 			TILE_SIZE,
 		);
-		if (this.rendererChanged(renderer)) {
-			this.backBatch = null;
-			this.frontBatch = null;
-		}
-		if (!this.backBatch) {
-			this.backBatch = renderer.createStaticBatch();
-		}
-		if (!this.frontBatch) {
-			this.frontBatch = renderer.createStaticBatch();
-		}
-		if (this.dirty) {
-			this.bake(grid);
-			this.dirty = false;
+		const state = this.stateFor(renderer);
+		if (state.generation !== this.generation) {
+			this.bake(grid, state);
+			state.generation = this.generation;
 		}
 		renderer.drawStaticBatch(
 			resolveRenderLayer(ecs, this.backLayer),
-			this.backBatch,
+			state.back,
 			array.texture,
 		);
 		renderer.drawStaticBatch(
 			resolveRenderLayer(ecs, this.frontLayer),
-			this.frontBatch,
+			state.front,
 			array.texture,
 		);
 	}
 
-	private bake(grid: TileGrid): void {
-		this.backBatch!.clear();
-		this.frontBatch!.clear();
+	private bake(grid: TileGrid, state: SurfaceState): void {
+		state.back.clear();
+		state.front.clear();
 		for (const [gx, gy] of grid.occupiedCells()) {
 			if (grid.hasTile(gx, gy - 1)) {
 				continue;
@@ -139,7 +171,7 @@ export class SurfaceDecorations extends Decorations {
 			const jitter =
 				(hashCell(gx, gy, 4) % (2 * this.jitter + 1)) - this.jitter;
 			const batch =
-				hashCell(gx, gy, 5) & 1 ? this.frontBatch! : this.backBatch!;
+				hashCell(gx, gy, 5) & 1 ? state.front : state.back;
 			batch.cell(
 				gx * TILE_SIZE + HALF_TILE_SIZE + jitter,
 				gy * TILE_SIZE - HALF_TILE_SIZE,
@@ -149,15 +181,16 @@ export class SurfaceDecorations extends Decorations {
 				this.flip(gx, gy),
 			);
 		}
-		this.backBatch!.commit();
-		this.frontBatch!.commit();
+		state.back.commit();
+		state.front.commit();
 	}
 }
 
-export class TileDecorations extends Decorations {
+type TileState = { batch: StaticBatch };
+
+export class TileDecorations extends Decorations<TileState> {
 	private layer: string;
 	private order: number;
-	private batch: StaticBatch | null = null;
 
 	constructor(
 		atlasUrl: string,
@@ -170,6 +203,14 @@ export class TileDecorations extends Decorations {
 		this.order = order;
 	}
 
+	protected createState(renderer: Renderer2D): TileState {
+		return { batch: renderer.createStaticBatch() };
+	}
+
+	protected disposeState(state: TileState): void {
+		state.batch.dispose();
+	}
+
 	render(renderer: Renderer2D, ecs: ReadonlyECS): void {
 		const grid = this.track(ecs);
 		if (!grid || !this.ready()) {
@@ -180,25 +221,20 @@ export class TileDecorations extends Decorations {
 			this.cols,
 			TILE_SIZE,
 		);
-		if (this.rendererChanged(renderer)) {
-			this.batch = null;
-		}
-		if (!this.batch) {
-			this.batch = renderer.createStaticBatch();
-		}
-		if (this.dirty) {
-			this.bake(grid);
-			this.dirty = false;
+		const state = this.stateFor(renderer);
+		if (state.generation !== this.generation) {
+			this.bake(grid, state);
+			state.generation = this.generation;
 		}
 		renderer.drawStaticBatch(
 			resolveRenderLayer(ecs, this.layer, this.order),
-			this.batch,
+			state.batch,
 			array.texture,
 		);
 	}
 
-	private bake(grid: TileGrid): void {
-		this.batch!.clear();
+	private bake(grid: TileGrid, state: TileState): void {
+		state.batch.clear();
 		for (const [gx, gy] of grid.occupiedCells()) {
 			if (!this.fullCorner(grid, gx, gy)) {
 				continue;
@@ -206,7 +242,7 @@ export class TileDecorations extends Decorations {
 			if (!this.present(gx, gy)) {
 				continue;
 			}
-			this.batch!.tile(
+			state.batch.tile(
 				gx * TILE_SIZE - HALF_TILE_SIZE,
 				gy * TILE_SIZE - HALF_TILE_SIZE,
 				TILE_SIZE,
@@ -215,7 +251,7 @@ export class TileDecorations extends Decorations {
 				this.flip(gx, gy),
 			);
 		}
-		this.batch!.commit();
+		state.batch.commit();
 	}
 
 	private fullCorner(

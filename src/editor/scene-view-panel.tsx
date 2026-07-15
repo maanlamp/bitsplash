@@ -6,7 +6,6 @@ import {
 	useSyncExternalStore,
 } from "react";
 import type { EntityId } from "../engine/ecs";
-import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
 import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
 import styles from "./app.module.scss";
@@ -18,6 +17,7 @@ import {
 import PerfMonitor from "./perf-monitor";
 import PlaybackBar from "./playback-bar";
 import type { SceneView } from "./scene-view";
+import badgeStyles from "./simulating-badge.module.scss";
 import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
 import { useEditorValue } from "./use-editor";
@@ -37,6 +37,7 @@ const SceneViewPanel = ({
 	inputMode,
 	paused,
 	running,
+	simulating,
 	editorEnabled,
 	requestAddComponent,
 	undoShortcut,
@@ -52,23 +53,23 @@ const SceneViewPanel = ({
 	inputMode: "game" | "editor";
 	paused: boolean;
 	running: boolean;
+	simulating: boolean;
 	editorEnabled: boolean;
 	requestAddComponent: (entity: EntityId) => void;
 	undoShortcut: string;
 	redoShortcut: string;
 }>) => {
 	const ecs = view.scene.ecs;
-	const world = view.scene.world;
-	const history = view.history;
+	const doc = view.document;
 	const store = view.store;
 	const mode = useEditorValue(store, (s) => s.mode);
 	const canUndo = useSyncExternalStore(
-		history.subscribe,
-		() => history.canUndo,
+		doc.subscribe,
+		() => doc.canUndo,
 	);
 	const canRedo = useSyncExternalStore(
-		history.subscribe,
-		() => history.canRedo,
+		doc.subscribe,
+		() => doc.canRedo,
 	);
 	const createPosRef = useRef<Vector2 | null>(null);
 	const [menuEntity, setMenuEntity] = useState<EntityId | null>(null);
@@ -83,8 +84,7 @@ const SceneViewPanel = ({
 
 	const deps: MenuDeps = {
 		ecs,
-		world,
-		history,
+		document: doc,
 		requestAddComponent,
 		select: (entity) => store.setSelected(entity),
 	};
@@ -104,7 +104,7 @@ const SceneViewPanel = ({
 	);
 
 	const recordCreatePosition = (e: React.MouseEvent): void => {
-		const camera = pickActiveCamera2D(ecs);
+		const camera = view.displayCamera();
 		if (!camera) {
 			return;
 		}
@@ -120,8 +120,7 @@ const SceneViewPanel = ({
 			return;
 		}
 		const id = createEntity(
-			world,
-			history,
+			doc,
 			view.scene.defaultEntity(new Vector2(snap(pos.x), snap(pos.y))),
 		);
 		store.setSelected(id);
@@ -158,6 +157,12 @@ const SceneViewPanel = ({
 				>
 					{mount}
 				</EntityContextMenu>
+				{simulating && (
+					<div className={badgeStyles.badge}>
+						<span className={badgeStyles.dot} />
+						Simulating
+					</div>
+				)}
 				<PerfMonitor
 					stats={view}
 					vsync={vsync}
@@ -178,8 +183,8 @@ const SceneViewPanel = ({
 					mode={mode}
 					onModeChange={(m) => store.setMode(m)}
 					editorEnabled={editorEnabled}
-					onUndo={() => history.undo()}
-					onRedo={() => history.redo()}
+					onUndo={() => doc.undo()}
+					onRedo={() => doc.redo()}
 					canUndo={canUndo}
 					canRedo={canRedo}
 					undoShortcut={undoShortcut}

@@ -5,7 +5,7 @@ import {
 import type { SequenceClass, SequenceDef } from "./sequence-def";
 import { SequenceRunState } from "./sequence-run-state";
 
-@serializable("Sequence", { runtime: true })
+@serializable("Sequence")
 export class SequenceComponent {
 	@serialize() defId = "";
 	@serialize() sequenceClass: SequenceClass = "exclusive";

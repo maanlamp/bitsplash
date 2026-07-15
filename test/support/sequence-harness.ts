@@ -1,8 +1,13 @@
+import type AudioManager from "../../src/engine/audio/audio";
+import { pickActiveCamera2D } from "../../src/engine/camera/camera-2d-render";
 import { Clock } from "../../src/engine/clock";
 import type {
 	Milliseconds,
 	Seconds,
 } from "../../src/engine/duration";
+import type { ActionProvider } from "../../src/engine/input/bindings/action-provider";
+import type { DeviceSnapshot } from "../../src/engine/input/device-snapshot";
+import type { CollisionMatrix } from "../../src/engine/physics/collision";
 import { loadRapier } from "../../src/engine/physics/rapier-physics";
 import type {
 	Runtime,
@@ -33,6 +38,14 @@ export type HarnessConfig = Readonly<{
 	resolveScene: (id: string) => SceneDefinition;
 	registerSystems?: (world: World) => void;
 	now?: () => number;
+	/** Collision matrix for the world, matching the shipped game's layers. */
+	collisionMatrix?: CollisionMatrix;
+	/** Device snapshot fed to systems each frame (defaults to a throwing stub). */
+	input?: DeviceSnapshot;
+	/** Action provider fed to systems each frame (defaults to a throwing stub). */
+	actions?: ActionProvider;
+	/** Audio manager fed to systems each frame (defaults to a throwing stub). */
+	audio?: AudioManager;
 }>;
 
 const stubService = <T>(label: string): T =>
@@ -63,7 +76,10 @@ export class SequenceFixture {
 
 	static makeRuntime(config: HarnessConfig): Runtime {
 		const initial = config.resolveScene(config.initialScene);
-		const world = new World(initial.config.gravity);
+		const world = new World(
+			initial.config.gravity,
+			config.collisionMatrix,
+		);
 		config.registerSystems?.(world);
 		return new RuntimeClass({
 			world,
@@ -107,11 +123,12 @@ export class SequenceFixture {
 			time,
 			ecs: this.world.ecs,
 			world: this.world,
-			input: stubService("input"),
-			actions: stubService("actions"),
+			input: this.config.input ?? stubService("input"),
+			actions: this.config.actions ?? stubService("actions"),
 			assetManager: stubService("assetManager"),
 			events: this.world.events,
-			audio: stubService("audio"),
+			audio: this.config.audio ?? stubService("audio"),
+			camera: pickActiveCamera2D(this.world.ecs),
 		};
 	}
 

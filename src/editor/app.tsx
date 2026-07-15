@@ -11,9 +11,8 @@ import { Clock } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
-import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
-import { createGame, createScene } from "../engine/scene/registry";
-import type { Scene } from "../engine/scene/scene";
+import type { GameModule } from "../engine/runtime/game-module";
+import { createGame } from "../engine/scene/registry";
 import type { DirEntry } from "../project-rpc";
 import styles from "./app.module.scss";
 import { AssetBrowser } from "./asset-browser/asset-browser";
@@ -36,6 +35,7 @@ import {
 	type MenuDeps,
 } from "./entity-context-menu";
 import FontPreview from "./font/font-preview";
+import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import { History } from "./history";
 import Inspector, {
 	SceneConfigInspector,
@@ -46,11 +46,12 @@ import { Project } from "./project";
 import {
 	getAssetsRoot,
 	isDesktop,
+	launchGameWindow,
 	listAssetsDeep,
 	saveLevel,
 } from "./project-io";
-import { RunSession } from "./run-session";
-import { exportSceneJson } from "./level-export";
+import { RunHost } from "./run-host";
+import type { SceneDocument } from "./scene-document";
 import ProjectTree from "./project-tree";
 import "./register-drops";
 import "./inspector/register-renderers";
@@ -92,22 +93,23 @@ const NEW_AUDIO_VIEW = "audio:new";
 const firstSceneView = (workspace: WorkspaceState): ViewId | null =>
 	allViewIds(workspace.root).find(isSceneView) ?? null;
 
-type PlaySession = Readonly<{
-	view: SceneView;
-	overlay: Scene;
-	paused: { value: boolean };
-}>;
-
 const App = ({
 	startScene,
 	runtimeReady,
-}: Readonly<{ startScene: string; runtimeReady: Promise<void> }>) => {
+	gameModule,
+}: Readonly<{
+	startScene: string;
+	runtimeReady: Promise<void>;
+	gameModule: GameModule;
+}>) => {
 	const [game, setGame] = useState<Game | null>(null);
 	const [addTarget, setAddTarget] = useState<EntityId | null>(null);
-	const [playing, setPlaying] = useState(false);
 	const [running, setRunning] = useState(false);
 	const [runMode, setRunMode] = useState<"game" | "editor">("game");
 	const [runPaused, setRunPaused] = useState(false);
+	const [runActiveScene, setRunActiveScene] = useState<string | null>(
+		null,
+	);
 	const [, forceStore] = useReducer((n: number) => n + 1, 0);
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
@@ -132,18 +134,19 @@ const App = ({
 	};
 
 	const gameRef = useRef<Game | null>(null);
+	const gameModuleRef = useRef<GameModule>(gameModule);
+	gameModuleRef.current = gameModule;
 	const projectRef = useRef<Project | null>(null);
 	const sceneViewsRef = useRef(new Map<ViewId, SceneView>());
 	const debugFlagsRef = useRef(new DebugFlags());
-	const historyUnsubsRef = useRef(new Map<ViewId, () => void>());
+	const docUnsubsRef = useRef(new Map<string, () => void>());
 	const closedStackRef = useRef<ViewId[]>([]);
-	const playingRef = useRef(false);
 	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const activeSceneIdRef = useRef<ViewId | null>(null);
-	const playSessionRef = useRef<PlaySession | null>(null);
-	const runSessionRef = useRef<RunSession | null>(null);
-	const playDetachRef = useRef<(() => void) | null>(null);
-	const playContainerRef = useRef<HTMLDivElement | null>(null);
+	const runHostRef = useRef<RunHost | null>(null);
+	const gameUiRef = useRef<ReturnType<
+		GameModule["createGameUi"]
+	> | null>(null);
 
 	const focusedView = workspace.focused;
 	const focusedViewRef = useRef<ViewId | null>(focusedView);
@@ -165,16 +168,32 @@ const App = ({
 		sceneId: string,
 		view: SceneView,
 	): Promise<void> => {
-		const session = runSessionRef.current;
-		const json =
-			session && session.view === view
-				? exportSceneJson(
-						view.scene,
-						await session.serializeAuthored(),
-					)
-				: await view.document.toBlob().text();
-		await saveLevel(sceneId, json);
-		view.document.markSaved();
+		view.flushGestures();
+		const file = view.document.save();
+		await saveLevel(sceneId, JSON.stringify(file, null, "\t"));
+		view.document.markSaved(file);
+	};
+
+	const hasOpenSceneView = (sceneId: string): boolean => {
+		for (const key of sceneViewsRef.current.keys()) {
+			if (parseViewId(key).param === sceneId) {
+				return true;
+			}
+		}
+		return false;
+	};
+
+	const ensureDocSubscription = (
+		sceneId: string,
+		doc: SceneDocument,
+	): void => {
+		if (docUnsubsRef.current.has(sceneId)) {
+			return;
+		}
+		const unsub = doc.subscribe(() =>
+			setSceneDirty(sceneId, doc.dirty),
+		);
+		docUnsubsRef.current.set(sceneId, unsub);
 	};
 
 	const ensureSceneView = (id: ViewId): SceneView | null => {
@@ -191,18 +210,15 @@ const App = ({
 		if (!param || !isValidViewId(id, [])) {
 			return null;
 		}
-		const scene = project.scene(param);
+		const document = project.document(param);
 		const view = new SceneView(
 			id,
-			scene,
+			document,
 			project.store(param),
 			debugFlagsRef.current,
 			instance.services,
 		);
-		const unsub = view.document.subscribe(() =>
-			setViewDirty(id, view.document.dirty),
-		);
-		historyUnsubsRef.current.set(id, unsub);
+		ensureDocSubscription(param, document);
 		sceneViewsRef.current.set(id, view);
 		return view;
 	};
@@ -212,10 +228,13 @@ const App = ({
 		if (!view) {
 			return;
 		}
-		historyUnsubsRef.current.get(id)?.();
-		historyUnsubsRef.current.delete(id);
 		view.dispose();
 		sceneViewsRef.current.delete(id);
+		const sceneId = parseViewId(id).param;
+		if (sceneId && !hasOpenSceneView(sceneId)) {
+			docUnsubsRef.current.get(sceneId)?.();
+			docUnsubsRef.current.delete(sceneId);
+		}
 	};
 
 	if (game) {
@@ -265,6 +284,22 @@ const App = ({
 				disposeSceneView(id);
 			}
 		}
+		const project = projectRef.current;
+		if (!project) {
+			return;
+		}
+		const scenes = new Set<string>();
+		for (const id of open) {
+			const sceneId = parseViewId(id).param;
+			if (sceneId) {
+				scenes.add(sceneId);
+			}
+		}
+		for (const sceneId of scenes) {
+			if (project.hasDocument(sceneId)) {
+				setSceneDirty(sceneId, project.document(sceneId).dirty);
+			}
+		}
 	}, [workspace]);
 
 	const assetFocused = (): boolean => {
@@ -297,6 +332,30 @@ const App = ({
 				next.delete(id);
 			}
 			return next;
+		});
+	};
+	/**
+	 * Reflect a document's dirty state onto every open view of its scene (plan
+	 * D13: dirty lives on the document, shared across its views). A save through
+	 * any view clears the marker on all of them.
+	 */
+	const setSceneDirty = (sceneId: string, dirty: boolean): void => {
+		setDirtyViews((prev) => {
+			const next = new Set(prev);
+			let changed = false;
+			for (const id of allViewIds(workspaceRef.current.root)) {
+				if (!isSceneView(id) || parseViewId(id).param !== sceneId) {
+					continue;
+				}
+				if (dirty && !next.has(id)) {
+					next.add(id);
+					changed = true;
+				} else if (!dirty && next.has(id)) {
+					next.delete(id);
+					changed = true;
+				}
+			}
+			return changed ? next : prev;
 		});
 	};
 	const isViewDirty = (id: ViewId): boolean => dirtyViews.has(id);
@@ -356,7 +415,18 @@ const App = ({
 		removeViewNow(id);
 	};
 
+	const sceneViewCount = (sceneId: string): number =>
+		allViewIds(workspaceRef.current.root).filter(
+			(v) => isSceneView(v) && parseViewId(v).param === sceneId,
+		).length;
+
 	const closeView = (id: ViewId): void => {
+		const sceneId = isSceneView(id) ? parseViewId(id).param : null;
+		if (sceneId && sceneViewCount(sceneId) > 1) {
+			recordClosed(id);
+			removeViewNow(id);
+			return;
+		}
 		if (isViewDirty(id)) {
 			setPendingDiscard(() => () => discardView(id));
 		} else {
@@ -451,12 +521,12 @@ const App = ({
 
 	const selectEntity = (sceneId: string, id: EntityId): void => {
 		openScene(sceneId);
-		ensureSceneView(`scene:${sceneId}`)?.store.setSelected(id);
+		projectRef.current?.store(sceneId).setSelected(id);
 	};
 
 	const selectWorld = (sceneId: string): void => {
 		openScene(sceneId);
-		ensureSceneView(`scene:${sceneId}`)?.store.inspectWorld();
+		projectRef.current?.store(sceneId).inspectWorld();
 	};
 
 	useEffect(() => {
@@ -475,109 +545,102 @@ const App = ({
 		updateWorkspace({ ...ws, root });
 	}, [selectedEntity, inspectingWorld]);
 
-	const exitPlay = useCallback((): void => {
-		const session = playSessionRef.current;
-		const instance = gameRef.current;
-		if (!session || !instance) {
-			return;
-		}
-		if (session.paused.value) {
-			instance.sceneManager.pop();
-		}
-		session.view.scene.setSimulating(false);
-		session.view.resume();
-		playSessionRef.current = null;
-		playingRef.current = false;
-		setPlaying(false);
-	}, []);
-
-	const play = (): void => {
-		const view = focusedSceneViewRef.current;
-		const instance = gameRef.current;
-		if (!view || !instance) {
-			return;
-		}
-		view.suspend();
-		instance.sceneManager.setBase(view.scene);
-		view.scene.setSimulating(true);
-		playSessionRef.current = {
-			view,
-			overlay: createScene("pause", instance.services),
-			paused: { value: false },
-		};
-		playingRef.current = true;
-		setPlaying(true);
+	const playGame = (): void => {
+		void launchGameWindow();
 	};
 
 	const onRunChange = useCallback((): void => {
-		const session = runSessionRef.current;
-		setRunMode(session ? session.inputMode : "game");
-		setRunPaused(session ? session.paused : false);
+		const host = runHostRef.current;
+		setRunMode(host ? host.inputMode : "game");
+		setRunPaused(host ? host.paused : false);
 	}, []);
 
 	const focusRunView = (): void => {
-		runSessionRef.current?.view.viewport.element.focus();
+		runHostRef.current?.view.viewport.element.focus();
 	};
 
+	const openDocumentFor = (sceneId: string): SceneDocument | null => {
+		const project = projectRef.current;
+		return project?.hasDocument(sceneId)
+			? project.document(sceneId)
+			: null;
+	};
+
+	const ensureDocumentFor = (sceneId: string): SceneDocument =>
+		projectRef.current!.document(sceneId);
+
 	const startRun = (): void => {
-		if (
-			runSessionRef.current ||
-			playingRef.current ||
-			!gameRef.current
-		) {
+		const instance = gameRef.current;
+		if (runHostRef.current || !instance) {
 			return;
 		}
 		const view = focusedSceneViewRef.current;
-		if (!view) {
+		const activeId = activeSceneIdRef.current;
+		const sceneId = activeId ? parseViewId(activeId).param : null;
+		if (!view || !sceneId) {
 			return;
 		}
-		runSessionRef.current = new RunSession(view, onRunChange);
+		const gameModule = gameModuleRef.current;
+		gameUiRef.current ??= gameModule.createGameUi(instance.services);
+		runHostRef.current = new RunHost(view, {
+			gameModule,
+			services: instance.services,
+			settings: instance.services.settings,
+			actions: view.scene.actions ?? NULL_ACTIONS,
+			gameUi: gameUiRef.current,
+			startSceneId: sceneId,
+			openDocument: openDocumentFor,
+			ensureDocument: ensureDocumentFor,
+			onActiveSceneChange: setRunActiveScene,
+			onChange: onRunChange,
+		});
 		setRunning(true);
 		setRunMode("game");
+		setRunActiveScene(sceneId);
 		requestAnimationFrame(focusRunView);
 	};
 
 	const stopRun = (): void => {
-		const session = runSessionRef.current;
-		if (!session) {
+		const host = runHostRef.current;
+		if (!host) {
 			return;
 		}
-		runSessionRef.current = null;
-		void session.stop().finally(() => {
-			setRunning(false);
-			setRunMode("game");
-			setRunPaused(false);
-		});
+		runHostRef.current = null;
+		host.stop();
+		setRunning(false);
+		setRunMode("game");
+		setRunPaused(false);
+		setRunActiveScene(null);
 	};
 
 	const setRunInputMode = (mode: "game" | "editor"): void => {
-		const session = runSessionRef.current;
-		if (!session) {
+		const host = runHostRef.current;
+		if (!host) {
 			return;
 		}
-		session.setMode(mode);
-		if (session.inputMode === "game") {
+		host.setMode(mode);
+		if (host.inputMode === "game") {
 			requestAnimationFrame(focusRunView);
 		}
 	};
 
 	const toggleRunMode = (): void => {
-		const session = runSessionRef.current;
-		if (!session) {
+		const host = runHostRef.current;
+		if (!host) {
 			return;
 		}
-		session.toggleMode();
-		if (session.inputMode === "game") {
+		host.toggleMode();
+		if (host.inputMode === "game") {
 			requestAnimationFrame(focusRunView);
 		}
 	};
 
 	const toggleRunPause = (): void => {
-		runSessionRef.current?.togglePause();
+		runHostRef.current?.togglePause();
 	};
 
 	const stepRun = (): void => {
-		runSessionRef.current?.step();
+		runHostRef.current?.step();
 	};
 
 	useEffect(() => {
@@ -599,71 +662,46 @@ const App = ({
 			const clock = new Clock();
 			let last = 0;
 			const frame = (time = last): void => {
-				const before = performance.now();
 				const dt = (time - last) as Milliseconds;
 				clock.advance(dt);
 				const now = clock.snapshot(dt);
 				const fps = dt > 0 ? 1000 / dt : 0;
 				const g = gameRef.current;
 				if (g) {
-					const session = playSessionRef.current;
-					if (playingRef.current && session) {
-						const { view } = session;
-						const scene = view.scene;
-						view.input.update();
-						const ui = scene.ui;
-						if (ui) {
-							const uiScale = scene.config.uiScale ?? 1;
-							ui.step(view.input, uiScale, dt / 1000, (masked) => {
-								g.sceneManager.update(
-									{ dt, time: now },
-									masked,
-									view.input,
-								);
-							});
-							const camera = pickActiveCamera2D(scene.world.ecs);
-							ui.layout(
-								uiScale,
-								view.renderer.width,
-								view.renderer.height,
-								camera ?? undefined,
-							);
-						} else {
-							g.sceneManager.update({ dt, time: now }, view.input);
-						}
-						g.sceneManager.render(
-							view.renderer,
-							{ time: now },
-							view.input,
-						);
-						view.renderer.endFrame();
-						g.sceneManager.clearEvents();
-						scene.ui?.clearEvents();
-						view.fps = fps;
-						view.frameTime = performance.now() - before;
-						view.physicsTime = view.scene.world.physicsTime;
-					} else {
-						const focused = focusedSceneViewRef.current;
-						const runSession = runSessionRef.current;
-						for (const view of sceneViewsRef.current.values()) {
-							const viewBefore = performance.now();
-							if (runSession && view === runSession.view) {
-								runSession.frame(dt, now);
-								view.physicsTime = view.scene.world.physicsTime;
-							} else {
-								if (view === focused && !runSession) {
-									view.update(dt, now);
-								} else {
-									view.rollInput();
-								}
-								view.render(now);
+					const focused = focusedSceneViewRef.current;
+					const host = runHostRef.current;
+					if (host) {
+						host.frame(dt, now);
+					}
+					for (const view of sceneViewsRef.current.values()) {
+						const viewBefore = performance.now();
+						const sceneId = parseViewId(view.id).param;
+						const runBound =
+							!!host &&
+							(view === host.view || sceneId === host.activeScene);
+						if (host && runBound) {
+							if (view !== host.view) {
+								view.rollInput();
 							}
-							view.frameTime = performance.now() - viewBefore;
-							view.fps = fps;
+							view.renderRunWorld(host.world, now);
+							if (view === host.view) {
+								view.physicsTime = host.physicsTime;
+							}
+						} else {
+							if (view === focused && !host) {
+								view.update(dt, now);
+							} else {
+								view.rollInput();
+							}
+							view.render(now);
 						}
-						if (!runSession) {
-							focused?.scene.world.events.clear();
-						}
+						view.frameTime = performance.now() - viewBefore;
+						view.fps = fps;
+					}
+					if (host) {
+						host.endFrame();
+					} else {
+						focused?.scene.world.events.clear();
 					}
 					g.events.clear();
 				}
@@ -715,74 +753,6 @@ const App = ({
 	}, [game]);
 
 	useEffect(() => {
-		if (!playing) {
-			return;
-		}
-		const instance = gameRef.current;
-		const session = playSessionRef.current;
-		if (!instance || !session) {
-			return;
-		}
-		const el = session.view.viewport.element;
-		const container = playContainerRef.current;
-		const enter = container?.requestFullscreen?.();
-		if (enter) {
-			void enter.then(() => el.focus()).catch(() => el.focus());
-		} else {
-			el.focus();
-		}
-
-		const togglePause = (e: KeyboardEvent): void => {
-			if (e.code !== "Backquote") {
-				return;
-			}
-			e.preventDefault();
-			if (session.paused.value) {
-				instance.sceneManager.pop();
-			} else {
-				instance.sceneManager.push(session.overlay, {
-					blocksUpdateBelow: true,
-					blocksInputBelow: true,
-				});
-			}
-			session.paused.value = !session.paused.value;
-		};
-		el.addEventListener("keydown", togglePause);
-		const onFullscreen = (): void => {
-			if (!document.fullscreenElement) {
-				exitPlay();
-			}
-		};
-		document.addEventListener("fullscreenchange", onFullscreen);
-
-		return () => {
-			el.removeEventListener("keydown", togglePause);
-			document.removeEventListener("fullscreenchange", onFullscreen);
-			if (document.fullscreenElement) {
-				void document.exitFullscreen?.().catch(() => {});
-			}
-		};
-	}, [playing, exitPlay]);
-
-	const attachPlay = useCallback(
-		(node: HTMLDivElement | null): void => {
-			const session = playSessionRef.current;
-			if (!session) {
-				return;
-			}
-			if (node) {
-				playContainerRef.current = node;
-				playDetachRef.current = session.view.viewport.attach(node);
-			} else {
-				playContainerRef.current = null;
-				playDetachRef.current?.();
-				playDetachRef.current = null;
-			}
-		},
-		[],
-	);
-
-	useEffect(() => {
 		const el = focusedSceneView?.viewport.element;
 		if (el) {
 			setCursorMode(el, mode === "pan" ? "grab" : "default");
@@ -790,7 +760,7 @@ const App = ({
 	}, [focusedSceneView, mode]);
 
 	const editorEnabled = !running || runMode === "editor";
-	const editorHotkeysEnabled = !playing && editorEnabled;
+	const editorHotkeysEnabled = editorEnabled;
 
 	useHotkeys(
 		"tab",
@@ -798,14 +768,14 @@ const App = ({
 			event.preventDefault();
 			toggleRunMode();
 		},
-		{ enabled: running && !playing, preventDefault: true },
+		{ enabled: running, preventDefault: true },
 	);
 	useHotkeys(
 		"period",
 		() => {
 			stepRun();
 		},
-		{ enabled: running && !playing },
+		{ enabled: running },
 	);
 	useHotkeys(
 		"r",
@@ -815,7 +785,7 @@ const App = ({
 			}
 			stopRun();
 		},
-		{ enabled: running && !playing },
+		{ enabled: running },
 	);
 
 	useHotkeys(
@@ -844,7 +814,7 @@ const App = ({
 				startRun();
 			}
 		},
-		{ enabled: !playing },
+		{ enabled: true },
 	);
 	useHotkeys(
 		"shift+p",
@@ -852,9 +822,9 @@ const App = ({
 			if (assetFocused()) {
 				return;
 			}
-			play();
+			playGame();
 		},
-		{ enabled: !playing && !running },
+		{ enabled: true },
 	);
 	useHotkeys(
 		"escape",
@@ -876,7 +846,7 @@ const App = ({
 			if (assetFocused() || !view || !selected) {
 				return;
 			}
-			deleteEntity(view.scene.world, view.history, selected);
+			deleteEntity(view.document, selected);
 			view.store.setSelected(null);
 		},
 		{ enabled: editorHotkeysEnabled },
@@ -891,11 +861,7 @@ const App = ({
 			const view = focusedSceneViewRef.current;
 			const selected = view?.store.selected;
 			if (view && selected) {
-				const id = duplicateEntity(
-					view.scene.world,
-					view.history,
-					selected,
-				);
+				const id = duplicateEntity(view.document, selected);
 				if (id) {
 					view.store.setSelected(id);
 				}
@@ -957,7 +923,7 @@ const App = ({
 				return;
 			}
 			event.preventDefault();
-			focusedSceneViewRef.current?.history.undo();
+			focusedSceneViewRef.current?.document.undo();
 		},
 		{
 			preventDefault: true,
@@ -978,7 +944,7 @@ const App = ({
 				return;
 			}
 			event.preventDefault();
-			focusedSceneViewRef.current?.history.redo();
+			focusedSceneViewRef.current?.document.redo();
 		},
 		{
 			preventDefault: true,
@@ -990,8 +956,7 @@ const App = ({
 	const deps: MenuDeps | null = focusedSceneView
 		? {
 				ecs: focusedSceneView.scene.ecs,
-				world: focusedSceneView.scene.world,
-				history: focusedSceneView.history,
+				document: focusedSceneView.document,
 				requestAddComponent: (entity) => setAddTarget(entity),
 				select: (entity) =>
 					focusedSceneView.store.setSelected(entity),
@@ -1023,7 +988,6 @@ const App = ({
 					<SceneConfigInspector
 						scene={focusedScene}
 						doc={focusedSceneView.document}
-						history={focusedSceneView.history}
 					/>
 				</div>
 			);
@@ -1031,15 +995,15 @@ const App = ({
 		if (focusedScene && focusedSceneView && selectedEntity) {
 			const runtime = !!(
 				running &&
-				runSessionRef.current?.view === focusedSceneView &&
-				runSessionRef.current.isRuntimeEntity(selectedEntity)
+				runHostRef.current?.view === focusedSceneView &&
+				runHostRef.current.isRuntimeEntity(selectedEntity)
 			);
 			return (
 				<div className={editorEnabled ? undefined : styles.disabled}>
 					<Inspector
 						ecs={focusedScene.ecs}
 						store={focusedSceneView.store}
-						history={focusedSceneView.history}
+						document={focusedSceneView.document}
 						runtime={runtime}
 					/>
 				</div>
@@ -1086,10 +1050,14 @@ const App = ({
 		if (!view || !game) {
 			return <Loading label="Loading runtime..." />;
 		}
+		const simulating =
+			running &&
+			(runHostRef.current?.view === view ||
+				parseViewId(id).param === runActiveScene);
 		return (
 			<SceneViewPanel
 				view={view}
-				onPlay={play}
+				onPlay={playGame}
 				onRun={startRun}
 				onStop={stopRun}
 				onPause={toggleRunPause}
@@ -1097,7 +1065,8 @@ const App = ({
 				onSetMode={setRunInputMode}
 				inputMode={runMode}
 				paused={runPaused}
-				running={running && runSessionRef.current?.view === view}
+				running={running && runHostRef.current?.view === view}
+				simulating={simulating}
 				editorEnabled={editorEnabled}
 				requestAddComponent={(entity) => setAddTarget(entity)}
 				undoShortcut={UNDO_SHORTCUT}
@@ -1151,17 +1120,13 @@ const App = ({
 				<div className={styles.shell}>
 					{isDesktop() && <TitleBar />}
 					<div className={styles.appBody}>
-						{playing ? (
-							<div className={styles.playSurface} ref={attachPlay} />
-						) : (
-							<Workspace
-								workspace={workspace}
-								onChange={updateWorkspace}
-								renderView={renderView}
-								onCloseView={closeView}
-								dirtyViews={dirtyViews}
-							/>
-						)}
+						<Workspace
+							workspace={workspace}
+							onChange={updateWorkspace}
+							renderView={renderView}
+							onCloseView={closeView}
+							dirtyViews={dirtyViews}
+						/>
 					</div>
 				</div>
 				{addTarget && deps && (

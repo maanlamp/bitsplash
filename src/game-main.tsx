@@ -1,11 +1,9 @@
+import "./game/registrations";
 import { GameShell } from "./game/shell/game-shell";
 import "./style/main.scss";
 
 const ready = (async (): Promise<void> => {
-	const [, rapier] = await Promise.all([
-		import("./game/scenes/platformer"),
-		import("./engine/physics/rapier-physics"),
-	]);
+	const rapier = await import("./engine/physics/rapier-physics");
 	await rapier.loadRapier();
 })();
 
