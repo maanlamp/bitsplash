@@ -9,27 +9,13 @@ import {
 	StartQuestEvent,
 } from "../events";
 import {
-	registerCutscene,
-	startCutscene,
-} from "../../engine/cutscene/cutscene-system";
-import type { CutsceneDef } from "../../engine/cutscene/cutscene";
-import {
-	pickupTourCutscene,
-	pickupTourKissCutscene,
-} from "../quest/pickup-tour-cutscene";
+	hasSequenceDef,
+	sequenceDefById,
+	startSequence,
+} from "../../engine/sequence/sequence-system";
 import { bindSetChronicle } from "../chronicle/chronicle-ink-external";
+import "../sequence/sequence-manifest";
 import { createStory } from "./ink-loader";
-
-const cutscenes = new Map<string, CutsceneDef<any>>(
-	[pickupTourCutscene, pickupTourKissCutscene].map((def) => [
-		def.id,
-		def,
-	]),
-);
-
-for (const def of cutscenes.values()) {
-	registerCutscene(def);
-}
 
 const bindExternals = (
 	story: Story,
@@ -65,9 +51,8 @@ const bindExternals = (
 	story.BindExternalFunction(
 		"start_cutscene",
 		(id: string) => {
-			const def = cutscenes.get(id);
-			if (def) {
-				startCutscene(ecs, def);
+			if (hasSequenceDef(id)) {
+				startSequence(ecs, sequenceDefById(id));
 			}
 		},
 		false,

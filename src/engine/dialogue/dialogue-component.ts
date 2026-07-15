@@ -29,6 +29,7 @@ export class DialogueComponent {
 	complete = false;
 
 	@serialize() choices: string[] = [];
+	@serialize() choiceTags: string[][] = [];
 	@serialize() selectedOption = 0;
 
 	@serialize() opened = false;

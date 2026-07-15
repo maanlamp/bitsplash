@@ -21,6 +21,11 @@ import { getQuest, type QuestReward } from "../quest/loader";
 
 type QuestStage = "offered" | "active" | "return" | "complete";
 
+export const objectiveComplete = (
+	count: number,
+	goal: number,
+): boolean => goal > 0 && count >= goal;
+
 const rewardHandlers: Record<string, (reward: QuestReward) => void> =
 	{};
 
@@ -136,7 +141,7 @@ export class QuestSystem implements UpdateSystem {
 				const next = (quest.counters[objective.tag] ?? 0) + 1;
 				quest.counters[objective.tag] = next;
 				const goal = quest.goals[objective.tag] ?? objective.count;
-				if (next >= goal) {
+				if (objectiveComplete(next, goal)) {
 					quest.pending = objective.onComplete.to;
 				}
 			}
@@ -164,7 +169,9 @@ export class QuestSystem implements UpdateSystem {
 				continue;
 			}
 			const goal = quest.goals[objective.tag] ?? objective.count;
-			if ((quest.counters[objective.tag] ?? 0) >= goal) {
+			if (
+				objectiveComplete(quest.counters[objective.tag] ?? 0, goal)
+			) {
 				quest.pending = objective.onComplete.to;
 			}
 		}

@@ -1,21 +1,15 @@
 import { useSyncExternalStore } from "react";
-import { DialogueHud } from "../dialogue/dialogue-hud";
 import type { DialogueHudState } from "../dialogue/dialogue-hud-state";
-import { HealthBars } from "../health/health-bar-hud";
 import type { HealthBarHudState } from "../health/health-bar-hud-state";
-import { Hitsplats } from "../hitsplat/hitsplat-hud";
-import { InteractHint } from "../interaction/interact-hint-hud";
 import type { InteractHintHudState } from "../interaction/interact-hint-hud-state";
-import { QuestMarkers } from "../quest/quest-marker-hud";
 import type { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
-import { GameHud } from "./game-hud";
 import type { GameUiActions } from "./game-ui-actions";
 import type { GameUiState } from "./game-ui-state";
 import type { HudState } from "./hud-state";
 import { MainMenu } from "./main-menu";
 import { PauseMenu } from "./pause-menu";
+import { PlayingHud } from "./playing-hud";
 import { ScreenFade } from "./screen-fade";
-import { SkipHint } from "./skip-hint";
 import type { SkipHintState } from "./skip-hint-state";
 import { Toast } from "./toast";
 
@@ -46,17 +40,16 @@ export const GameUI = ({
 	);
 	return (
 		<>
-			{snap.phase === "playing" && <HealthBars store={healthBars} />}
-			{snap.phase === "playing" && <Hitsplats />}
 			{snap.phase === "playing" && (
-				<QuestMarkers store={questMarkers} />
+				<PlayingHud
+					hud={hud}
+					dialogue={dialogue}
+					healthBars={healthBars}
+					interactHint={interactHint}
+					questMarkers={questMarkers}
+					skipHint={skipHint}
+				/>
 			)}
-			{snap.phase === "playing" && (
-				<InteractHint store={interactHint} />
-			)}
-			{snap.phase === "playing" && <GameHud hud={hud} />}
-			{snap.phase === "playing" && <DialogueHud store={dialogue} />}
-			{snap.phase === "playing" && <SkipHint store={skipHint} />}
 			{snap.phase === "menu" && (
 				<MainMenu snap={snap} actions={actions} />
 			)}

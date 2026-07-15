@@ -31,25 +31,50 @@ Tests run on Bun's built-in runner (`bun test`). Test files live in `test/`
 dedicated `tsconfig.test.json` (referenced from the root `tsconfig.json`) that
 includes `test/` and pulls in `@types/bun` for the `bun:test` module.
 
-Write tests for **stateful / simulation logic** — AI, FSMs, anything whose
-behavior emerges over many frames and can't be trusted by reading the code
-alone. Reaching for the running app to check such logic is slow and
-unreliable; a stepped simulation is fast and repeatable. The enemy AI
-(`test/enemy-brain*.test.ts`) is the reference example, using two tiers:
+## Debugging & validation
 
-- **Logic / FSM tests** exercise a pure definition directly (e.g. the enemy
-  brain's transition table), including _invariants_ such as "every engaged
-  state can reach `patrol` once the target is gone" — this is what guards
-  against dead-end states.
-- **Integration tests** construct a real `ECS`, add the actual components, and
-  step the real systems (e.g. `EnemyBrainSystem` + `StateMachineSystem`) over
-  many frames with **scripted inputs** (perception, nav status) in place of
-  physics. This covers the system seam — parameter derivation, transitions,
-  and actuation together — which is where behavior bugs actually live.
+Do not declare something fixed until you have validated it. A change is
+"done" only when a check that failed before the change passes after it.
 
-When fixing a behavior bug, add a test that fails before the fix and passes
-after. Run `bun test` alongside `bun check` before declaring behavior work
-complete.
+- **Reproduce first.** Before fixing, make the failure observable — ideally a
+  test that fails today. Fixing by inspection and declaring victory is how the
+  same bug returns three times.
+- **Prefer headless integration tests over isolated unit tests** for anything
+  stateful: lifecycle, serialization, save/load, scene entry/exit, camera. Boot
+  a real `ECS` + the relevant systems with no Electron, step N frames with
+  scripted input, then `capture → construct a fresh Runtime → restore →
+continue stepping → assert`. `test/support/sequence-harness.ts`
+  (`SequenceFixture`) is that harness; extend it rather than mocking pieces.
+- **Test the artifact, not just the mechanism.** A filter/guard can be green in
+  isolation while the real product it protects (a committed `*.scene.json`, a
+  save blob, an exported level) is already corrupt — often because a second
+  code path bypasses the guard. Assert against the actual artifact so a leak on
+  any path fails CI.
+- **When behavior is genuinely visual** (framing, feel) and can't be asserted
+  headlessly: add temporary `console` logging, run `bun run dev`, read the
+  stdout, then remove the logs. State in your summary what you ran and what the
+  output showed — never infer that pixels are correct from code alone.
+
+## Serialization provenance
+
+There are two serialization products and one rule that separates them:
+
+- **Runtime snapshot** (save-games, scene freeze/thaw, editor playtest
+  snapshots) — the full live world, including transient runtime state
+  (camera pose, sequence run-state). This is `serializeWorld(ecs)` /
+  scope `"runtime"` (the default).
+- **Authored scene document** (what the editor writes to `*.scene.json`) —
+  only design-time entities. Runtime-spawned things (cameras, fades,
+  sequences) must never appear. This is scope `"authored"`.
+
+A component declares its own provenance at the class via
+`@serializable("Name", { runtime: true })`; the `"authored"` scope omits those
+components (and drops entities left empty). **Never** re-decide provenance at a
+call site (a component-type blocklist, an `instanceof` check) — every
+save path routes through `serializeWorld`'s scope so the rule holds uniformly.
+Cameras et al. stay `@serialize`d precisely so runtime snapshots (and cutscene
+skip/resume) keep working; the `runtime` flag is what keeps them out of level
+files.
 
 ## Project architecture
 
@@ -101,9 +126,9 @@ Violating these boundaries is never acceptable, regardless of convenience.
 ## Conventions
 
 - No comments.
-- Do not handroll your own components; check `base-ui` (https://base-ui.com/llms.txt) first.
+- Do not handroll your own components for the editor UI; check `base-ui` (https://base-ui.com/llms.txt) first.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
-- **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in this file (AGENTS.md), not in memory.
+- **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in AGENTS.md, not in memory.
 - **UX decisions are not yours to make**: Never make a user-experience decision without asking the user first. This applies to anything that shapes how a user (game author or player) experiences a flow: error handling and where/how failures surface, field interaction, validation behavior, when/whether something blocks an action, notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems obvious, and even mid-task. This applies across all parts of the project (editor, game runtime, serialization, save/load). Exception: trivial, conventional accessibility/correctness choices (e.g. "a clickable element should be a `<button>`") are fine to make without asking.
 - **No sliders in player-facing game UI.** This rule is scoped to the **game
   runtime's** player-facing settings/options; the **editor UI is exempt** —

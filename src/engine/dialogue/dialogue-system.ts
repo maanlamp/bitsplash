@@ -314,6 +314,9 @@ export class DialogueSystem implements UpdateSystem {
 			}
 		}
 		state.choices = story.currentChoices.map((choice) => choice.text);
+		state.choiceTags = story.currentChoices.map(
+			(choice) => choice.tags ?? [],
+		);
 		state.text = text;
 		state.paginated = false;
 		state.pages = [[]];

@@ -11,6 +11,7 @@ import { Clock } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
+import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
 import { createGame, createScene } from "../engine/scene/registry";
 import type { Scene } from "../engine/scene/scene";
 import type { DirEntry } from "../project-rpc";
@@ -608,8 +609,28 @@ const App = ({
 					const session = playSessionRef.current;
 					if (playingRef.current && session) {
 						const { view } = session;
+						const scene = view.scene;
 						view.input.update();
-						g.sceneManager.update({ dt, time: now }, view.input);
+						const ui = scene.ui;
+						if (ui) {
+							const uiScale = scene.config.uiScale ?? 1;
+							ui.step(view.input, uiScale, dt / 1000, (masked) => {
+								g.sceneManager.update(
+									{ dt, time: now },
+									masked,
+									view.input,
+								);
+							});
+							const camera = pickActiveCamera2D(scene.world.ecs);
+							ui.layout(
+								uiScale,
+								view.renderer.width,
+								view.renderer.height,
+								camera ?? undefined,
+							);
+						} else {
+							g.sceneManager.update({ dt, time: now }, view.input);
+						}
 						g.sceneManager.render(
 							view.renderer,
 							{ time: now },
@@ -617,6 +638,7 @@ const App = ({
 						);
 						view.renderer.endFrame();
 						g.sceneManager.clearEvents();
+						scene.ui?.clearEvents();
 						view.fps = fps;
 						view.frameTime = performance.now() - before;
 						view.physicsTime = view.scene.world.physicsTime;

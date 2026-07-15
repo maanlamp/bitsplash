@@ -1,12 +1,25 @@
 import type { RenderTarget } from "../render/render-target";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
+import {
+	type ValueType,
+	VALUE_TYPE,
+} from "../serialization/serializable-value";
 import Vector2, { type ReadonlyVector2 } from "../vector2";
 
 export type Bounds = Readonly<{ min: Vector2; max: Vector2 }>;
 
-export class Camera2D {
-	position: Vector2;
+@serializable("Camera2DState")
+export class Camera2D implements ValueType {
+	get [VALUE_TYPE](): true {
+		return true;
+	}
+
+	@serialize() position: Vector2;
 	shake: Vector2 = Vector2.zero();
-	zoom: number;
+	@serialize() zoom: number;
 	viewportWidth = 0;
 	viewportHeight = 0;
 	minZoom: number;

@@ -9,7 +9,10 @@ import {
 	type RenderSystem,
 	type UpdateSystem,
 } from "../engine/system";
-import { renderSceneToTexture } from "../engine/camera/camera-2d-render";
+import {
+	pickActiveCamera2D,
+	renderSceneToTexture,
+} from "../engine/camera/camera-2d-render";
 import { DebugGridSystem } from "../engine/debug/debug-grid-system";
 import Viewport from "../engine/camera/viewport";
 import { EditorLayer } from "./constants";
@@ -221,7 +224,6 @@ export class SceneView {
 	): void {
 		const ecs = this.scene.world.ecs;
 		const actions = this.scene.actions ?? NULL_ACTIONS;
-		actions.step(gameInput, dt);
 		const base = {
 			dt,
 			time,
@@ -236,7 +238,32 @@ export class SceneView {
 			input: editorInput,
 			actions: NULL_ACTIONS,
 		});
-		this.scene.updateGameplay({ ...base, input: gameInput, actions });
+		const ui = this.scene.ui;
+		if (ui && this.scene.isSimulating) {
+			const uiScale = this.scene.config.uiScale ?? 1;
+			ui.step(gameInput, uiScale, dt / 1000, (masked) => {
+				actions.step(masked, dt);
+				this.scene.updateGameplay({
+					...base,
+					input: masked,
+					actions,
+				});
+			});
+			const camera = pickActiveCamera2D(ecs);
+			ui.layout(
+				uiScale,
+				this.renderer.width,
+				this.renderer.height,
+				camera ?? undefined,
+			);
+		} else {
+			actions.step(gameInput, dt);
+			this.scene.updateGameplay({
+				...base,
+				input: gameInput,
+				actions,
+			});
+		}
 	}
 
 	stepGameplayOnce(dt: Milliseconds, time: Time, input: Input): void {

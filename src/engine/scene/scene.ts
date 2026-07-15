@@ -1,11 +1,17 @@
 import { Color } from "../color";
+import { EditorCameraTagComponent } from "../camera/editor-camera-tag-component";
 import type { ECS } from "../ecs";
 import { deserializeWorld } from "../serialization/deserialize";
 import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
 import type { ActionProvider } from "../input/bindings/action-provider";
 import type { GlobalServices } from "../services";
-import type { UpdateContext, UpdateSystem } from "../system";
+import type {
+	RenderSystem,
+	UpdateContext,
+	UpdateSystem,
+} from "../system";
+import type { UiRuntime } from "../ui/ui-runtime";
 import {
 	serializable,
 	serialize,
@@ -77,6 +83,8 @@ export type SceneParams = Readonly<{
 	world: World;
 	gameplaySystems: ReadonlyArray<UpdateSystem>;
 	actions?: ActionProvider;
+	ui?: UiRuntime | null;
+	runtimeRenderSystems?: ReadonlyArray<RenderSystem>;
 	spawnRuntimeEntities?: () => void;
 	defaultEntity?: (position: Vector2) => ReadonlyArray<object>;
 	migrateFile?: (file: SceneFile) => void;
@@ -88,8 +96,10 @@ export class Scene {
 	readonly config: SceneConfig;
 	readonly world: World;
 	readonly actions: ActionProvider | null;
+	readonly ui: UiRuntime | null;
 
 	private readonly gameplaySystems: ReadonlyArray<UpdateSystem>;
+	private readonly runtimeRenderSystems: ReadonlyArray<RenderSystem>;
 	private readonly spawnRuntime?: () => void;
 	private readonly makeDefaultEntity?: (
 		position: Vector2,
@@ -106,7 +116,9 @@ export class Scene {
 		this.config = params.config;
 		this.world = params.world;
 		this.actions = params.actions ?? null;
+		this.ui = params.ui ?? null;
 		this.gameplaySystems = params.gameplaySystems;
+		this.runtimeRenderSystems = params.runtimeRenderSystems ?? [];
 		this.spawnRuntime = params.spawnRuntimeEntities;
 		this.makeDefaultEntity = params.defaultEntity;
 		this.migrate = params.migrateFile;
@@ -151,14 +163,26 @@ export class Scene {
 		this.simulating = enabled;
 		this.paused = false;
 		if (enabled) {
-			this.snapshot = serializeWorld(this.world.ecs);
+			this.snapshot = serializeWorld(
+				this.world.ecs,
+				(id) =>
+					!this.world.ecs.getComponent(id, EditorCameraTagComponent),
+			);
 			for (const system of this.gameplaySystems) {
 				(system as { resetRuntime?: () => void }).resetRuntime?.();
 			}
 			this.spawnRuntime?.();
-		} else if (this.snapshot) {
-			this.restore(this.snapshot);
-			this.snapshot = null;
+			for (const system of this.runtimeRenderSystems) {
+				this.world.ecs.addRenderSystem(system);
+			}
+		} else {
+			for (const system of this.runtimeRenderSystems) {
+				this.world.ecs.removeRenderSystem(system);
+			}
+			if (this.snapshot) {
+				this.restore(this.snapshot);
+				this.snapshot = null;
+			}
 		}
 	}
 

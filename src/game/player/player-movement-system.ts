@@ -1,4 +1,4 @@
-import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
@@ -32,7 +32,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 			return;
 		}
 		const s = dt / 1000;
-		const frozen = isCutsceneActive(ecs);
+		const frozen = isExclusiveSequenceActive(ecs);
 		for (const [, player, intent, facing, rb] of ecs.query(
 			PlayerInputComponent,
 			MovementIntentComponent,

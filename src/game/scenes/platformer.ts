@@ -25,7 +25,12 @@ import { Scene, type SceneFile } from "../../engine/scene/scene";
 import { Camera2DFollowSystem } from "../../engine/camera/camera-2d-follow-system";
 import { CameraShakeSystem } from "../../engine/camera/camera-shake-system";
 import { CameraTransitionSystem } from "../../engine/camera/camera-transition-system";
-import { CutsceneSystem } from "../../engine/cutscene/cutscene-system";
+import { SequenceSystem } from "../../engine/sequence/sequence-system";
+import { TriggerVolumeSystem } from "../../engine/trigger/trigger-volume-system";
+// Side-effect: register all sequence defs + op executors (2.11 manifest).
+import "../sequence/sequence-manifest";
+import { SequenceTriggerSystem } from "../sequence/sequence-trigger-system";
+import { chronicleTriggerBindings } from "../sequence/trigger-bindings";
 import { ScreenFadeSystem } from "../../engine/fade/screen-fade-system";
 import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
 import { DecorationsRenderSystem } from "../../engine/decorations/decorations-render-system";
@@ -56,6 +61,8 @@ import { DamageTriggerSystem } from "../combat/damage-trigger-system";
 import { MeleeSystem } from "../combat/melee-system";
 import { DeathSystem } from "../respawn/death-system";
 import { DeathNoticeSystem } from "../respawn/death-notice-system";
+import { BarkRenderSystem } from "../dialogue/bark-render-system";
+import { BarkSystem } from "../dialogue/bark-system";
 import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
 import { GroundDetectionSystem } from "../player/ground-detection-system";
 import { HealthSystem } from "../health/health-system";
@@ -81,6 +88,7 @@ import { QuestSystem } from "../quest/quest-system";
 import { QuestNoticeSystem } from "../quest/quest-notice-system";
 import { SpawnSystem } from "../respawn/spawn-system";
 import { VoiceSystem } from "../dialogue/voice-system";
+import { createEditorHud } from "../ui/editor-hud";
 
 import "./pause";
 
@@ -90,6 +98,7 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 	const world = new World(config.gravity, collisionMatrix);
 	const ecs = world.ecs;
 	const actions = createPlatformerActions(services.settings);
+	const hud = createEditorHud(services);
 
 	ecs.addUpdateSystem(
 		new TileCollisionSystem(CollisionLayer.Terrain),
@@ -128,9 +137,12 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 		new ArrowSystem(),
 		new MeleeSystem(),
 		new PickupSystem(),
+		new TriggerVolumeSystem(chronicleTriggerBindings),
+		new SequenceTriggerSystem(),
 		new InteractionSystem(),
 		new DialogueTriggerSystem(),
 		new DialogueSystem(platformerDialogueBindings),
+		new BarkSystem(),
 		new DamageTriggerSystem(),
 		new HealthSystem(),
 		new PerceptionSystem(),
@@ -140,7 +152,7 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 		new DeathSystem(),
 		new QuestSystem(),
 		new ChronicleInkMirrorSystem(),
-		new CutsceneSystem({
+		new SequenceSystem({
 			skipHeld: ({ actions }) =>
 				actions.active(ACTION_IDS.cutsceneSkip),
 		}),
@@ -154,6 +166,7 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 		new ScreenFadeSystem(),
 		new CameraTransitionSystem(),
 		new CameraShakeSystem(),
+		...hud.update,
 	];
 
 	ecs.addRenderSystem(
@@ -162,6 +175,7 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem("overlay"));
 	ecs.addRenderSystem(new InteractOutlineRenderSystem("entities"));
+	ecs.addRenderSystem(new BarkRenderSystem("overlay"));
 	ecs.addRenderSystem(new SpriteRenderSystem());
 	ecs.addRenderSystem(new BowRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());
@@ -172,6 +186,8 @@ registerScene("platformer", ({ config, name, services }): Scene => {
 		config,
 		world,
 		actions,
+		ui: hud.ui,
+		runtimeRenderSystems: hud.render,
 		gameplaySystems,
 		spawnRuntimeEntities: () => spawnRuntimeEntities({ world }),
 		defaultEntity: (position: Vector2) => [

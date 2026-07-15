@@ -1,5 +1,9 @@
 import type { Bounds } from "../camera/camera-2d";
 import type { EntityId } from "../ecs";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 
 export type Camera2DFollowConfig = Readonly<{
 	targets?: EntityId[];
@@ -11,14 +15,21 @@ export type Camera2DFollowConfig = Readonly<{
 	bounds?: Bounds | null;
 }>;
 
+@serializable("Camera2DFollow", { runtime: true })
 export class Camera2DFollowComponent {
-	targets: EntityId[];
-	smoothing: { x: number; y: number };
-	deadzone: { x: number; y: number };
-	lookahead: { seconds: number; max: number };
-	zoom: number;
-	fitPadding: number;
-	bounds: Bounds | null;
+	@serialize() targets: EntityId[] = [];
+	@serialize() smoothing: { x: number; y: number } = {
+		x: 0.12,
+		y: 0.18,
+	};
+	@serialize() deadzone: { x: number; y: number } = { x: 0, y: 0 };
+	@serialize() lookahead: { seconds: number; max: number } = {
+		seconds: 0,
+		max: 0,
+	};
+	@serialize() zoom: number = 1;
+	@serialize() fitPadding: number = 64;
+	@serialize() bounds: Bounds | null = null;
 
 	constructor(config: Camera2DFollowConfig = {}) {
 		this.targets = config.targets ?? [];

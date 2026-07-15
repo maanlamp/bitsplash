@@ -1,4 +1,4 @@
-import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import { resolveRenderLayer } from "../../engine/render/render-layers";
 import {
 	SpriteComponent,
@@ -16,7 +16,7 @@ export class InteractOutlineRenderSystem implements RenderSystem {
 	constructor(private outlineLayer: string) {}
 
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		if (isCutsceneActive(ecs)) {
+		if (isExclusiveSequenceActive(ecs)) {
 			return;
 		}
 		const stateEntry = ecs.query(InteractionStateComponent)[0];

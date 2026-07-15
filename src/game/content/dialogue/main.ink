@@ -3,6 +3,10 @@ INCLUDE pickup-tutor.ink
 INCLUDE signpost.ink
 INCLUDE trap.ink
 INCLUDE speed-test.ink
+INCLUDE campfire.ink
+INCLUDE checkpoint.ink
+INCLUDE ambush.ink
+INCLUDE critter.ink
 
 VAR quest_massacre = "none"
 VAR quest_pickup_tour = "none"

@@ -2,7 +2,6 @@ import { createElement } from "react";
 import { Game } from "../../engine/game";
 import type { ECS } from "../../engine/ecs";
 import { LastUsedDevice } from "../../engine/input/last-used-device";
-import { LastUsedDeviceSystem } from "../../engine/input/last-used-device-system";
 import { resolveFont } from "../../engine/text/resolve-font";
 import type { Runtime } from "../../engine/runtime/runtime";
 import { SaveDriver } from "../../engine/save/save-driver";
@@ -12,24 +11,15 @@ import { Scene, SceneConfig } from "../../engine/scene/scene";
 import { createPlatformerActions } from "../input/platformer-actions";
 import { UI_FONT } from "../dialogue/dialogue-ui";
 import { DialogueHudState } from "../dialogue/dialogue-hud-state";
-import { DialogueHudDynSystem } from "../dialogue/dialogue-hud-dyn-system";
-import { DialogueHudSyncSystem } from "../dialogue/dialogue-hud-sync-system";
 import { HealthBarHudState } from "../health/health-bar-hud-state";
-import { HealthBarHudSystem } from "../health/health-bar-hud-system";
 import { InteractHintHudState } from "../interaction/interact-hint-hud-state";
-import { InteractHintHudSystem } from "../interaction/interact-hint-hud-system";
-import { HitsplatHudSystem } from "../hitsplat/hitsplat-hud-system";
 import { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
-import { QuestMarkerHudSystem } from "../quest/quest-marker-hud-system";
 import type { GameUiActions } from "../ui/game-ui-actions";
 import { GameUiState } from "../ui/game-ui-state";
 import { GameUI } from "../ui/game-ui";
+import { createHudSystems } from "../ui/hud-systems";
 import { HudState } from "../ui/hud-state";
-import { HudDynSystem } from "../ui/hud-dyn-system";
-import { HudSyncSystem } from "../ui/hud-sync-system";
-import { ScreenFadeHudSystem } from "../ui/screen-fade-hud-system";
 import { SkipHintState } from "../ui/skip-hint-state";
-import { SkipHintSyncSystem } from "../ui/skip-hint-system";
 import {
 	createFreshRuntime,
 	startNewRuntime,
@@ -292,49 +282,24 @@ export class GameShell {
 		if (this.paintEcs !== ecs) {
 			const ui = this.game.uiRuntime;
 			if (ui) {
-				ecs.addUpdateSystem(
-					new LastUsedDeviceSystem(this.lastUsedDevice),
+				const { update, render } = createHudSystems(
+					ui,
+					{
+						hud: this.hudState,
+						dialogue: this.dialogueHud,
+						healthBars: this.healthBars,
+						interactHint: this.interactHint,
+						questMarkers: this.questMarkers,
+						skipHint: this.skipHint,
+					},
+					this.lastUsedDevice,
 				);
-				ecs.addUpdateSystem(new HudSyncSystem(this.hudState));
-				ecs.addUpdateSystem(
-					new DialogueHudSyncSystem(
-						this.dialogueHud,
-						this.lastUsedDevice,
-					),
-				);
-				ecs.addUpdateSystem(
-					new HealthBarHudSystem(this.healthBars, ui.root, ui.dyn),
-				);
-				ecs.addUpdateSystem(
-					new InteractHintHudSystem(
-						this.interactHint,
-						ui.root,
-						ui.dyn,
-						this.lastUsedDevice,
-					),
-				);
-				ecs.addUpdateSystem(
-					new QuestMarkerHudSystem(
-						this.questMarkers,
-						ui.root,
-						ui.dyn,
-					),
-				);
-				ecs.addUpdateSystem(new HitsplatHudSystem(ui.root, ui.dyn));
-				ecs.addUpdateSystem(
-					new SkipHintSyncSystem(
-						this.skipHint,
-						ui.root,
-						ui.dyn,
-						this.lastUsedDevice,
-					),
-				);
-				ecs.addRenderSystem(new HudDynSystem(ui.root, ui.dyn));
-				ecs.addRenderSystem(
-					new DialogueHudDynSystem(ui.root, ui.dyn),
-				);
-				ecs.addRenderSystem(new ScreenFadeHudSystem(ui.root, ui.dyn));
-				ecs.addRenderSystem(ui.paintSystem);
+				for (const system of update) {
+					ecs.addUpdateSystem(system);
+				}
+				for (const system of render) {
+					ecs.addRenderSystem(system);
+				}
 			}
 			this.paintEcs = ecs;
 		}

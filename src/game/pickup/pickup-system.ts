@@ -1,4 +1,4 @@
-import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { TransformComponent } from "../../engine/transform-component";
 import { CollisionEvent } from "../../engine/events";
@@ -63,7 +63,7 @@ export class PickupSystem implements UpdateSystem {
 			}
 		}
 
-		if (isCutsceneActive(ecs)) {
+		if (isExclusiveSequenceActive(ecs)) {
 			return;
 		}
 

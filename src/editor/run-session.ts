@@ -46,12 +46,17 @@ export class RunSession {
 	async serializeAuthored(): Promise<SerializedWorld> {
 		const snapshot = this.view.scene.snapshotData;
 		if (!snapshot) {
-			return serializeWorld(this.view.scene.world.ecs);
+			const ecs = this.view.scene.world.ecs;
+			return serializeWorld(ecs, undefined, "authored");
 		}
 		const authored = new World(this.view.scene.config.gravity);
 		deserializeWorld(authored, snapshot);
 		await this.view.history.replayInto(authored, this.journalStart);
-		const serialized = serializeWorld(authored.ecs);
+		const serialized = serializeWorld(
+			authored.ecs,
+			undefined,
+			"authored",
+		);
 		authored.clear();
 		return serialized;
 	}
@@ -103,6 +108,7 @@ export class RunSession {
 		const gameInput = this.mode === "game" ? real : this.muted;
 		this.view.runUpdate(dt, time, editorInput, gameInput);
 		this.view.render(time);
+		this.view.scene.ui?.clearEvents();
 		this.view.scene.world.events.clear();
 	}
 

@@ -1,5 +1,6 @@
 import { Camera2D } from "../../engine/camera/camera-2d";
 import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
+import { EditorCameraTagComponent } from "../../engine/camera/editor-camera-tag-component";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
 import {
@@ -89,7 +90,10 @@ export class EditorCamera2DSystem implements UpdateSystem {
 			true,
 			EDITOR_CAMERA_PRIORITY,
 		);
-		this.cameraId = ecs.createEntity([component]);
+		this.cameraId = ecs.createEntity([
+			component,
+			new EditorCameraTagComponent(),
+		]);
 		this.cameraComponent = component;
 		return component;
 	}

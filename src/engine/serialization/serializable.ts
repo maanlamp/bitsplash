@@ -18,10 +18,19 @@ const fieldsOf = (
 	return (meta.serializedFields ??= new Map());
 };
 
+export type SerializableOptions = {
+	runtime?: boolean;
+};
+
 export const serializable =
-	(name: string) =>
+	(name: string, options: SerializableOptions = {}) =>
 	(ctor: ComponentClass, context: ClassDecoratorContext): void => {
-		registerSerializable(name, ctor, fieldsOf(context.metadata));
+		registerSerializable(
+			name,
+			ctor,
+			fieldsOf(context.metadata),
+			options.runtime ?? false,
+		);
 	};
 
 export const serialize =

@@ -1,4 +1,4 @@
-import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import {
 	SpriteComponent,
 	spriteImageUrl,
@@ -44,7 +44,7 @@ export class InteractHintHudSystem implements UpdateSystem {
 			? ecs.getComponent(inRange, TransformComponent)
 			: null;
 		if (
-			isCutsceneActive(ecs) ||
+			isExclusiveSequenceActive(ecs) ||
 			!state ||
 			!inRange ||
 			!interactable ||

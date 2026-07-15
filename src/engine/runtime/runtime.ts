@@ -6,10 +6,12 @@ import type { SerializedWorld } from "../serialization/registry";
 import { serializeWorld } from "../serialization/serialize";
 import type { World } from "../world";
 
+export type SceneEnterReason = "fresh" | "revisit" | "restore";
+
 export type SceneDefinition = Readonly<{
 	config: SceneConfig;
 	build: (world: World) => void;
-	onEnter?: (world: World) => void;
+	onEnter?: (world: World, reason: SceneEnterReason) => void;
 	onExit?: (world: World) => void;
 }>;
 
@@ -62,10 +64,10 @@ export class Runtime {
 		}
 		this.seed(this.world);
 		this.seeded = true;
-		this.goToScene(sceneId);
+		this.goToScene(sceneId, "fresh");
 	}
 
-	goToScene(id: string): void {
+	goToScene(id: string, reason?: SceneEnterReason): void {
 		const target = this.resolveScene(id);
 		if (this.activeSceneId !== null) {
 			this.activeDefinition?.onExit?.(this.world);
@@ -73,6 +75,8 @@ export class Runtime {
 			this.despawnSceneContent();
 		}
 		const snapshot = this.frozen.get(id);
+		const effectiveReason: SceneEnterReason =
+			reason ?? (snapshot ? "revisit" : "fresh");
 		if (snapshot) {
 			deserializeWorld(this.world, snapshot, `frozen scene "${id}"`);
 		} else {
@@ -81,7 +85,7 @@ export class Runtime {
 		this.world.setGravity(target.config.gravity);
 		this.activeSceneId = id;
 		this.activeDefinition = target;
-		target.onEnter?.(this.world);
+		target.onEnter?.(this.world, effectiveReason);
 	}
 
 	snapshot(): RuntimeState {
@@ -123,7 +127,7 @@ export class Runtime {
 		for (const [id, world] of Object.entries(state.scenes)) {
 			this.frozen.set(id, world);
 		}
-		this.goToScene(state.activeSceneId);
+		this.goToScene(state.activeSceneId, "restore");
 	}
 
 	dispose(): void {

@@ -1,8 +1,7 @@
-import { CutsceneComponent } from "../../engine/cutscene/cutscene-component";
 import {
-	isCutsceneActive,
+	currentExclusiveSequence,
 	SKIP_HOLD_SECONDS,
-} from "../../engine/cutscene/cutscene-system";
+} from "../../engine/sequence/sequence-system";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -27,9 +26,8 @@ export class SkipHintSyncSystem implements UpdateSystem {
 	) {}
 
 	update({ ecs, assetManager, actions, input }: UpdateContext): void {
-		const cutscene = ecs.query(CutsceneComponent)[0]?.[1];
-		const open =
-			isCutsceneActive(ecs) && (cutscene?.currentSkippable ?? true);
+		const sequence = currentExclusiveSequence(ecs);
+		const open = sequence !== undefined && sequence.currentSkippable;
 		const kbd = resolveKbdFrame(assetManager);
 		const hint = resolveHint(
 			assetManager,
@@ -56,8 +54,8 @@ export class SkipHintSyncSystem implements UpdateSystem {
 		if (!ring) {
 			return;
 		}
-		const progress = cutscene
-			? Math.min(1, cutscene.skipHeldTime / SKIP_HOLD_SECONDS)
+		const progress = sequence
+			? Math.min(1, sequence.skipHeldTime / SKIP_HOLD_SECONDS)
 			: 0;
 		this.dyn.setField(ring.id, "progress", progress);
 	}

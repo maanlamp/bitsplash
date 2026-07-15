@@ -1,6 +1,10 @@
 import type { Seconds } from "../duration";
 import type { EntityId } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
+import {
+	serializable,
+	serialize,
+} from "../serialization/serializable";
 import type Vector2 from "../vector2";
 
 export type CameraTransitionMode = "glide" | "cut";
@@ -18,23 +22,29 @@ export type CameraTransitionConfig = Readonly<{
 	followAfter?: ReadonlyArray<EntityId>;
 }>;
 
+@serializable("CameraTransition", { runtime: true })
 export class CameraTransitionComponent {
-	mode: CameraTransitionMode;
-	target: CameraTransitionTarget;
-	zoom: number | null;
-	duration: Seconds;
-	fadeOut: Seconds;
-	fadeIn: Seconds;
-	easing: string;
-	followAfter: EntityId[];
+	@serialize() mode: CameraTransitionMode = "cut";
+	@serialize() target: CameraTransitionTarget = "" as EntityId;
+	@serialize() zoom: number | null = null;
+	@serialize() duration: Seconds = 0.6 as Seconds;
+	@serialize() fadeOut: Seconds = 0.35 as Seconds;
+	@serialize() fadeIn: Seconds = 0.45 as Seconds;
+	@serialize() easing: string = "easeInOutCubic";
+	@serialize() followAfter: EntityId[] = [];
 
-	elapsed = 0 as Seconds;
-	fromPosition: Vector2 | null = null;
-	fromZoom = 0;
-	phase: "glide" | "out" | "in" = "glide";
+	@serialize() elapsed = 0 as Seconds;
+	@serialize() fromPosition: Vector2 | null = null;
+	@serialize() fromZoom = 0;
+	@serialize() phase: "glide" | "out" | "in" = "glide";
 	fade: EffectHandle | null = null;
 
-	constructor(config: CameraTransitionConfig) {
+	constructor(
+		config: CameraTransitionConfig = {
+			target: "" as EntityId,
+			mode: "cut",
+		},
+	) {
 		this.mode = config.mode;
 		this.target = config.target;
 		this.zoom = config.zoom ?? null;

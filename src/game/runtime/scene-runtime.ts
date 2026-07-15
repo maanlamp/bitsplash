@@ -1,8 +1,13 @@
 import type { Bounds } from "../../engine/camera/camera-2d";
+import { Camera2DComponent } from "../../engine/camera/camera-2d-component";
 import { Camera2DFollowComponent } from "../../engine/camera/camera-2d-follow-component";
+import { CameraTransitionComponent } from "../../engine/camera/camera-transition-component";
 import type { EntityId } from "../../engine/ecs";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
-import type { SceneDefinition } from "../../engine/runtime/runtime";
+import type {
+	SceneDefinition,
+	SceneEnterReason,
+} from "../../engine/runtime/runtime";
 import type { SceneConfig } from "../../engine/scene/scene";
 import { deserializeWorld } from "../../engine/serialization/deserialize";
 import type { SerializedWorld } from "../../engine/serialization/registry";
@@ -107,12 +112,46 @@ const setupCamera = (world: World, bounds: Bounds | null): void => {
 	spawnCamera2D(world, { target: player, bounds });
 };
 
+const recenterCamera = (world: World): void => {
+	const player = playerEntity(world);
+	const cameraEntry = world.ecs.query(Camera2DComponent)[0];
+	if (!cameraEntry) {
+		return;
+	}
+	const [cameraId, cameraComponent] = cameraEntry;
+	world.ecs.removeComponent(cameraId, CameraTransitionComponent);
+	if (player === null) {
+		return;
+	}
+	const follow = world.ecs.getComponent(
+		cameraId,
+		Camera2DFollowComponent,
+	);
+	if (follow) {
+		follow.targets = [player];
+	}
+	const playerTransform = world.ecs.getComponent(
+		player,
+		TransformComponent,
+	);
+	if (playerTransform) {
+		cameraComponent.camera.position.copy(playerTransform.position);
+	}
+};
+
 export const toSceneDefinition = (
 	authored: AuthoredScene,
 ): SceneDefinition => ({
 	config: authored.config,
 	build: (world) => buildSceneContent(world, authored.entities),
-	onEnter: (world) => {
+	onEnter: (world, reason: SceneEnterReason = "fresh") => {
+		if (reason === "restore") {
+			return;
+		}
+		if (reason === "revisit") {
+			recenterCamera(world);
+			return;
+		}
 		repositionPlayer(world);
 		setupCamera(world, authored.bounds ?? null);
 	},

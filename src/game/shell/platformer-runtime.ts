@@ -1,7 +1,12 @@
 import { Camera2DFollowSystem } from "../../engine/camera/camera-2d-follow-system";
 import { CameraShakeSystem } from "../../engine/camera/camera-shake-system";
 import { CameraTransitionSystem } from "../../engine/camera/camera-transition-system";
-import { CutsceneSystem } from "../../engine/cutscene/cutscene-system";
+import { SequenceSystem } from "../../engine/sequence/sequence-system";
+import { TriggerVolumeSystem } from "../../engine/trigger/trigger-volume-system";
+// Side-effect: register all sequence defs + op executors (2.11 manifest).
+import "../sequence/sequence-manifest";
+import { SequenceTriggerSystem } from "../sequence/sequence-trigger-system";
+import { chronicleTriggerBindings } from "../sequence/trigger-bindings";
 import { DebugTagSystem } from "../../engine/debug/debug-tag-system";
 import {
 	SurfaceDecorations,
@@ -42,6 +47,8 @@ import {
 } from "../constants";
 import knickKnacksUrl from "../content/assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "../content/assets/tile-decorations.png";
+import { BarkRenderSystem } from "../dialogue/bark-render-system";
+import { BarkSystem } from "../dialogue/bark-system";
 import { platformerDialogueBindings } from "../dialogue/dialogue-bindings";
 import { DialogueTriggerSystem } from "../dialogue/dialogue-trigger-system";
 import { VoiceSystem } from "../dialogue/voice-system";
@@ -143,9 +150,12 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 		new ArrowSystem(),
 		new MeleeSystem(),
 		new PickupSystem(),
+		new TriggerVolumeSystem(chronicleTriggerBindings),
+		new SequenceTriggerSystem(),
 		new InteractionSystem(),
 		new DialogueTriggerSystem(),
 		new DialogueSystem(platformerDialogueBindings),
+		new BarkSystem(),
 		new DamageTriggerSystem(),
 		new HealthSystem(),
 		new PerceptionSystem(),
@@ -155,7 +165,7 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 		new DeathSystem(),
 		new QuestSystem(),
 		new ChronicleInkMirrorSystem(),
-		new CutsceneSystem({
+		new SequenceSystem({
 			skipHeld: ({ actions }) =>
 				actions.active(ACTION_IDS.cutsceneSkip),
 		}),
@@ -180,6 +190,7 @@ const registerSystems = (world: World, config: SceneConfig): void => {
 	ecs.addRenderSystem(new DecorationsRenderSystem(tileDecorations));
 	ecs.addRenderSystem(new DebugTagSystem("overlay"));
 	ecs.addRenderSystem(new InteractOutlineRenderSystem("entities"));
+	ecs.addRenderSystem(new BarkRenderSystem("overlay"));
 	ecs.addRenderSystem(new SpriteRenderSystem());
 	ecs.addRenderSystem(new BowRenderSystem());
 	ecs.addRenderSystem(new TilemapRenderSystem());

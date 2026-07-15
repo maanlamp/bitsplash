@@ -36,12 +36,17 @@ export class SceneDocument extends Subscribable {
 
 	toBlob(): Blob {
 		return new Blob(
-			[exportSceneJson(this.scene, serializeWorld(this.scene.ecs))],
+			[
+				exportSceneJson(
+					this.scene,
+					serializeWorld(this.scene.ecs, undefined, "authored"),
+				),
+			],
 			{ type: "application/json" },
 		);
 	}
 
 	private capture(): SerializedWorld {
-		return serializeWorld(this.scene.ecs);
+		return serializeWorld(this.scene.ecs, undefined, "authored");
 	}
 }

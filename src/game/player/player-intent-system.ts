@@ -1,4 +1,4 @@
-import { isCutsceneActive } from "../../engine/cutscene/cutscene-system";
+import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import {
@@ -16,7 +16,7 @@ export class PlayerIntentSystem implements UpdateSystem {
 	private wasFrozen = false;
 
 	update({ ecs, actions, input }: UpdateContext): void {
-		const frozen = isCutsceneActive(ecs);
+		const frozen = isExclusiveSequenceActive(ecs);
 		const justFroze = frozen && !this.wasFrozen;
 		this.wasFrozen = frozen;
 		if (!this.enabled) {
