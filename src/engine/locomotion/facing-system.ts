@@ -1,7 +1,9 @@
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { FacingComponent } from "./facing-component";
 import { MovementIntentComponent } from "./movement-intent-component";
 
+@profiler("Facing", "Animation")
 export class FacingSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
 		for (const [, facing, intent] of ecs.query(

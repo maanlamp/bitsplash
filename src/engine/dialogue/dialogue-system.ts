@@ -7,6 +7,7 @@ import type { ECS, EntityId } from "../ecs";
 import type EventBus from "../events";
 import type { LoadedFont } from "../load";
 import { mirrorInkState } from "../ink/story";
+import { profiler } from "../profiling/profiler";
 import { resolveFont } from "../text/resolve-font";
 import {
 	parseRichText,
@@ -155,6 +156,7 @@ const pageSpeeds = (page: RichLine[]): number[] => {
 	return speeds;
 };
 
+@profiler("Dialogue", "Dialogue")
 export class DialogueSystem implements UpdateSystem {
 	private bindings: DialogueBindings;
 

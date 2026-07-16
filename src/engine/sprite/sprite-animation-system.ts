@@ -1,6 +1,8 @@
+import { profiler } from "../profiling/profiler";
 import { SpriteComponent } from "../sprite/sprite-component";
 import { type UpdateContext, UpdateSystem } from "../system";
 
+@profiler("Sprite animation", "Animation")
 export class SpriteAnimationSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		for (const [, sprite] of ecs.query(SpriteComponent)) {

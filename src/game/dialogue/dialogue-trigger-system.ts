@@ -13,7 +13,9 @@ import { DialogueSourceComponent } from "../dialogue/dialogue-source-component";
 import { InteractEvent } from "../events";
 import { ACTION_IDS } from "../input/action-ids";
 import { npcChatSequence } from "../sequence/npc-chat-sequence";
+import { profiler } from "../../engine/profiling/profiler";
 
+@profiler("Dialogue triggers", "Dialogue")
 export class DialogueTriggerSystem implements UpdateSystem {
 	update({ ecs, events, actions }: UpdateContext): void {
 		if (isExclusiveSequenceActive(ecs)) {

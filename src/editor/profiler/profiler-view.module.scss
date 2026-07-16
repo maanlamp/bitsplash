@@ -1,0 +1,104 @@
+.container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden auto;
+	padding: 0.5rem 1rem 1rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.empty {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	opacity: 0.6;
+}
+
+.table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.table th {
+	position: sticky;
+	top: 0;
+	background: var(--color-neutral-0);
+	text-align: right;
+	padding: 4px 8px;
+	font-weight: 600;
+	opacity: 0.7;
+	cursor: pointer;
+	user-select: none;
+	white-space: nowrap;
+}
+
+.table th.name {
+	text-align: left;
+}
+
+.table td {
+	padding: 3px 8px;
+	text-align: right;
+	white-space: nowrap;
+}
+
+.table td.name {
+	text-align: left;
+}
+
+.groupRow {
+	cursor: pointer;
+	user-select: none;
+}
+
+.groupRow td {
+	font-weight: 700;
+}
+
+.groupRow:hover td {
+	background: var(--state-hover);
+}
+
+.groupRow td.name {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.caret {
+	flex: 0 0 auto;
+	opacity: 0.7;
+}
+
+.count {
+	margin-left: 2px;
+	padding: 0 6px;
+	border-radius: var(--radius-full);
+	font-weight: 600;
+	font-size: 10px;
+	opacity: 0.6;
+	background: var(--state-hover);
+}
+
+.systemRow td.name {
+	padding-left: 28px;
+	opacity: 0.85;
+}
+
+.bar {
+	position: relative;
+}
+
+.barFill {
+	position: absolute;
+	inset: 0;
+	transform-origin: left;
+	background: rgba(122, 162, 247, 0.22);
+	border-radius: 2px;
+}
+
+.barLabel {
+	position: relative;
+}

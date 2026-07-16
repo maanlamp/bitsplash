@@ -7,6 +7,7 @@ import { MovementIntentComponent } from "../../engine/locomotion/movement-intent
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -33,6 +34,7 @@ const LOOK_PERIOD = 2;
 const TERRITORY_HYSTERESIS = 1.15;
 const ATTACK_HYSTERESIS = 1.4;
 
+@profiler("Enemy brain", "AI")
 export class EnemyBrainSystem implements UpdateSystem {
 	update({ ecs, dt }: UpdateContext): void {
 		for (const [

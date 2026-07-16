@@ -1,4 +1,5 @@
 import { CameraShakeComponent } from "../../engine/camera/camera-shake-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -10,6 +11,7 @@ import { DamageEvent } from "../events";
 const DEFAULT_TRAUMA_PER_HP = 0.015;
 const DEFAULT_CRIT_TRAUMA_BONUS = 0.15;
 
+@profiler("Damage shake", "Combat")
 export class DamageShakeSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
 		const damage = events.read(DamageEvent);

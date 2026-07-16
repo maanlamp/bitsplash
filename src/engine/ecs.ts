@@ -1,3 +1,5 @@
+import type { FrameProfile } from "./profiling/frame-profile";
+import { profilerMeta } from "./profiling/profiler";
 import type {
 	RenderContext,
 	RenderSystem,
@@ -22,13 +24,22 @@ type CleanupHook<T extends object = object> = (
 
 const MAX_FLUSH_ITERATIONS = 1000;
 
+/** A resolved profiler label for one update system slot, or `null` if the
+ * system's class is undecorated (it runs untimed). */
+type UpdateLabel = Readonly<{ label: string; group?: string }> | null;
+
+const warnedUndecorated = new WeakSet<object>();
+
 export class ECS {
 	private components = new Map<
 		EntityId,
 		Map<ComponentClass, object>
 	>();
 	private updateSystems: UpdateSystem[] = [];
+	private updateLabels: UpdateLabel[] = [];
+	private labelsDirty = true;
 	private renderSystems: RenderSystem[] = [];
+	private profile: FrameProfile | null = null;
 	private listeners = new Set<() => void>();
 	private pendingDestroy = new Set<EntityId>();
 	private cleanupHooks = new Map<
@@ -213,15 +224,58 @@ export class ECS {
 		return map ? [...new Set(map.values())] : [];
 	}
 
+	/**
+	 * Attach (or detach with `null`) a per-world profiling sink. While attached,
+	 * {@link update} brackets each system with `performance.now()` and records
+	 * per-system self-times and the total update span into it. Disabled by
+	 * default; the bundled game never attaches one.
+	 */
+	setProfile(profile: FrameProfile | null): void {
+		this.profile = profile;
+		this.labelsDirty = true;
+	}
+
 	addUpdateSystem(system: UpdateSystem): void {
 		this.updateSystems.push(system);
+		this.labelsDirty = true;
 	}
 
 	removeUpdateSystem(system: UpdateSystem): void {
 		const index = this.updateSystems.indexOf(system);
 		if (index !== -1) {
 			this.updateSystems.splice(index, 1);
+			this.labelsDirty = true;
 		}
+	}
+
+	/**
+	 * Resolve every update slot's profiler label in registration order,
+	 * suffixing `#2`, `#3`, … when one label recurs so duplicate-class instances
+	 * (e.g. two decoration systems) stay distinct. Resolved lazily on the first
+	 * profiled frame after the system list changes — never when profiling is
+	 * off — so `#n` follows stable insertion order and undecorated systems warn
+	 * only in a profiled world.
+	 */
+	private resolveUpdateLabels(): void {
+		const counts = new Map<string, number>();
+		this.updateLabels = this.updateSystems.map((system) => {
+			const meta = profilerMeta(system);
+			if (!meta) {
+				if (!warnedUndecorated.has(system.constructor)) {
+					warnedUndecorated.add(system.constructor);
+					console.warn(
+						`ECS profiling: update system ${system.constructor.name} lacks a @profiler(name) decorator; it will run untimed.`,
+					);
+				}
+				return null;
+			}
+			const n = (counts.get(meta.name) ?? 0) + 1;
+			counts.set(meta.name, n);
+			return {
+				label: n === 1 ? meta.name : `${meta.name}#${n}`,
+				group: meta.group,
+			};
+		});
 	}
 
 	addRenderSystem(system: RenderSystem): void {
@@ -236,9 +290,36 @@ export class ECS {
 	}
 
 	update(ctx: UpdateContext): void {
-		for (const system of this.updateSystems) {
-			system.update(ctx);
+		const profile = this.profile;
+		if (!profile) {
+			for (const system of this.updateSystems) {
+				system.update(ctx);
+			}
+			return;
 		}
+		if (this.labelsDirty) {
+			this.resolveUpdateLabels();
+			this.labelsDirty = false;
+		}
+		profile.reset();
+		const spanStart = performance.now();
+		const systems = this.updateSystems;
+		const labels = this.updateLabels;
+		for (let i = 0; i < systems.length; i++) {
+			const label = labels[i];
+			if (!label) {
+				systems[i]!.update(ctx);
+				continue;
+			}
+			const before = performance.now();
+			systems[i]!.update(ctx);
+			profile.record(
+				label.label,
+				performance.now() - before,
+				label.group,
+			);
+		}
+		profile.updateSpanMs = performance.now() - spanStart;
 	}
 
 	render(ctx: RenderContext): void {

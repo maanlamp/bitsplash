@@ -15,6 +15,20 @@ const suppressSceneHmr = (): Plugin => ({
 	},
 });
 
+/**
+ * Cross-origin isolation for the dev server. With COOP `same-origin` + COEP
+ * `credentialless` the page becomes `crossOriginIsolated`, which drops
+ * `performance.now()` resolution from Chromium's 100µs clamp to 5µs — the finer
+ * timer the per-system profiler wants. `credentialless` (over `require-corp`) is
+ * chosen so cross-origin subresources need no `Cross-Origin-Resource-Policy`
+ * header, keeping the invasive blast radius small; all app assets are
+ * same-origin anyway.
+ */
+const CROSS_ORIGIN_ISOLATION = {
+	"Cross-Origin-Opener-Policy": "same-origin",
+	"Cross-Origin-Embedder-Policy": "credentialless",
+};
+
 export default defineConfig({
 	plugins: [
 		mkcert(),
@@ -35,6 +49,8 @@ export default defineConfig({
 		}),
 	],
 	assetsInclude: ["**/*.zip"],
+	server: { headers: CROSS_ORIGIN_ISOLATION },
+	preview: { headers: CROSS_ORIGIN_ISOLATION },
 	build: {
 		target: "esnext",
 		rollupOptions: {

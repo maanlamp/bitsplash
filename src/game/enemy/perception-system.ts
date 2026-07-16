@@ -1,6 +1,7 @@
 import type { ECS, EntityId } from "../../engine/ecs";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -18,6 +19,7 @@ import { PerceptionComponent } from "../../engine/perception/perception-componen
 
 const SUSPICION = 0.5;
 
+@profiler("Perception", "AI")
 export class PerceptionSystem implements UpdateSystem {
 	update({ dt, ecs, world, events }: UpdateContext): void {
 		const s = dt / 1000;

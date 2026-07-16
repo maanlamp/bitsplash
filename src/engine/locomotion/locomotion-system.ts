@@ -1,5 +1,6 @@
 import { computeGrounded } from "../physics/grounded";
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import Vector2 from "../vector2";
 import { LocomotionComponent } from "./locomotion-component";
@@ -16,6 +17,7 @@ const approach = (
 	return Math.max(current - maxDelta, target);
 };
 
+@profiler("Locomotion", "Movement")
 export class LocomotionSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const s = dt / 1000;

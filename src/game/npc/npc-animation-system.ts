@@ -3,6 +3,7 @@ import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { LocomotionComponent } from "../../engine/locomotion/locomotion-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import {
 	type UpdateContext,
@@ -12,6 +13,7 @@ import { stepMachine } from "../../engine/fsm/step-machine";
 import { playerAnimMachine } from "../player/player-anim-def";
 import { NpcAnimationComponent } from "./npc-animation-component";
 
+@profiler("NPC animation", "Animation")
 export class NpcAnimationSystem implements UpdateSystem {
 	update({ ecs, dt }: UpdateContext): void {
 		for (const [, npc, sprite, facing, intent, loco, rb] of ecs.query(

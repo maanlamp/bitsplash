@@ -3,6 +3,7 @@ import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -24,6 +25,7 @@ const approach = (
 	return Math.max(current - maxDelta, target);
 };
 
+@profiler("Player movement", "Movement")
 export class PlayerMovementSystem implements UpdateSystem {
 	enabled = true;
 

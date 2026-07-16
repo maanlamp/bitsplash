@@ -1,7 +1,9 @@
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import { CameraShakeComponent } from "../camera/camera-shake-component";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 
+@profiler("Camera shake", "Camera")
 export class CameraShakeSystem implements UpdateSystem {
 	update({ dt, time, ecs }: UpdateContext): void {
 		const dtSeconds = dt / 1000;

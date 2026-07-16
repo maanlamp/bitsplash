@@ -1,5 +1,6 @@
 import type { ECS, EntityId } from "../ecs";
 import { CollisionEvent } from "../events";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { TriggerEnteredEvent } from "./events";
 import { TriggerVolumeComponent } from "./trigger-volume-component";
@@ -14,6 +15,7 @@ type ResolvedVolume = Readonly<{
 	entered: EntityId;
 }>;
 
+@profiler("Trigger volumes", "Interaction")
 export class TriggerVolumeSystem implements UpdateSystem {
 	constructor(private readonly bindings: TriggerVolumeBindings) {}
 

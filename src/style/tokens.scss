@@ -88,6 +88,9 @@
 		transparent 92%
 	);
 
+	--surface-hud: rgba(0, 0, 0, 0.75);
+	--blur-hud: blur(16px);
+
 	--on-surface: var(--color-neutral-800);
 	--on-surface-strong: var(--color-neutral-900);
 	--on-surface-muted: var(--color-neutral-700);

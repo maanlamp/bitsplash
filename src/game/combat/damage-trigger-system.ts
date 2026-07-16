@@ -3,12 +3,14 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
+import { profiler } from "../../engine/profiling/profiler";
 import { DamageStatsComponent } from "../combat/damage-stats-component";
 import { DamageTriggerComponent } from "../combat/damage-trigger-component";
 import { resolveHit, NO_MODIFIERS } from "../combat/resolve-hit";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { DamageEvent } from "../events";
 
+@profiler("Damage triggers", "Combat")
 export class DamageTriggerSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
 		for (const event of events.read(DialogueClosedEvent)) {

@@ -90,6 +90,7 @@ export class RunHost {
 			settings: deps.settings,
 			resolveScene: (id) => this.resolveScene(id),
 		});
+		this.runtime.world.setProfiling(true);
 		this.mountUi();
 		this.runtime.newGame(deps.startSceneId);
 		this.syncActiveScene();
@@ -105,11 +106,6 @@ export class RunHost {
 
 	get activeScene(): string {
 		return this.activeSceneId;
-	}
-
-	/** Physics step time of the run world, for the viewport's perf monitor. */
-	get physicsTime(): number {
-		return this.runtime.world.physicsTime;
 	}
 
 	/**

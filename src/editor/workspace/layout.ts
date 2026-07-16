@@ -342,7 +342,11 @@ export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 							},
 						],
 					},
-					{ type: "tabs", views: ["console"], active: "console" },
+					{
+						type: "tabs",
+						views: ["console", "profiler"],
+						active: "console",
+					},
 				],
 			},
 		],

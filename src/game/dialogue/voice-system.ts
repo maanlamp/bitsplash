@@ -13,11 +13,13 @@ import {
 	VOICE_BANKS,
 	vowelIndexForChar,
 } from "./voice-bank";
+import { profiler } from "../../engine/profiling/profiler";
 import { VoiceComponent } from "./voice-component";
 
 const DEFAULT_VOICE = new VoiceComponent();
 const FALLBACK_CPS = 24;
 
+@profiler("Voice", "Dialogue")
 export class VoiceSystem implements UpdateSystem {
 	private banks = new Map<string, LoadedBank>();
 	private loading = new Set<string>();

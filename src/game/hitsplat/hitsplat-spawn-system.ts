@@ -18,11 +18,13 @@ import { DamageEvent } from "../events";
 import flavourContent from "../content/hitsplats/flavour.json";
 import { HitsplatComponent } from "./hitsplat-component";
 import { HitsplatStyleComponent } from "./hitsplat-style-component";
+import { profiler } from "../../engine/profiling/profiler";
 
 const FLAVOUR = flavourContent as Record<string, readonly string[]>;
 const CRIT_LAUNCH_SCALE = 1.35;
 const SPAWN_MARGIN = 4;
 
+@profiler("Hitsplat spawn", "Combat")
 export class HitsplatSpawnSystem implements UpdateSystem {
 	update({ ecs, events, assetManager }: UpdateContext): void {
 		const damage = events.read(DamageEvent);

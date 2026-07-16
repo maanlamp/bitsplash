@@ -14,10 +14,9 @@ import {
 	EntityContextMenu,
 	type MenuDeps,
 } from "./entity-context-menu";
-import PerfMonitor from "./perf-monitor";
+import PerfOverlay from "./perf/perf-overlay";
 import PlaybackBar from "./playback-bar";
 import type { SceneView } from "./scene-view";
-import badgeStyles from "./simulating-badge.module.scss";
 import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
 import { useEditorValue } from "./use-editor";
@@ -37,7 +36,6 @@ const SceneViewPanel = ({
 	inputMode,
 	paused,
 	running,
-	simulating,
 	editorEnabled,
 	requestAddComponent,
 	undoShortcut,
@@ -53,7 +51,6 @@ const SceneViewPanel = ({
 	inputMode: "game" | "editor";
 	paused: boolean;
 	running: boolean;
-	simulating: boolean;
 	editorEnabled: boolean;
 	requestAddComponent: (entity: EntityId) => void;
 	undoShortcut: string;
@@ -157,17 +154,7 @@ const SceneViewPanel = ({
 				>
 					{mount}
 				</EntityContextMenu>
-				{simulating && (
-					<div className={badgeStyles.badge}>
-						<span className={badgeStyles.dot} />
-						Simulating
-					</div>
-				)}
-				<PerfMonitor
-					stats={view}
-					vsync={vsync}
-					onVsyncChange={toggleVsync}
-				/>
+				<PerfOverlay view={view} />
 				<PlaybackBar
 					onPlaytest={onPlay}
 					onRun={onRun}
@@ -178,6 +165,8 @@ const SceneViewPanel = ({
 					inputMode={inputMode}
 					paused={paused}
 					running={running}
+					vsync={vsync}
+					onVsyncChange={toggleVsync}
 				/>
 				<Toolbar
 					mode={mode}

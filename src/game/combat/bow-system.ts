@@ -1,4 +1,5 @@
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -15,6 +16,7 @@ import { spawnPrefab } from "../prefabs";
 const SHOT_SPREAD = 0.04;
 const FIRE_ACTION = "attack.primary";
 
+@profiler("Bow", "Combat")
 export class BowSystem implements UpdateSystem {
 	update({ ecs, actions, world }: UpdateContext): void {
 		const firing = actions.active(FIRE_ACTION);

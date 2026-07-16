@@ -5,6 +5,7 @@ import {
 	readAimSettings,
 } from "../../engine/input/aim/aim-settings";
 import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
+import { profiler } from "../../engine/profiling/profiler";
 import type { SettingsStore } from "../../engine/input/settings-store";
 import {
 	type UpdateContext,
@@ -16,6 +17,7 @@ import { AimComponent } from "./aim-component";
 
 const AIM_STICK_INDEX = "1";
 
+@profiler("Aim", "Input")
 export class AimSystem implements UpdateSystem {
 	private readonly device = new ActiveDevice();
 	private readonly settings: AimSettingsValues;

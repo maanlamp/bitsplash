@@ -6,6 +6,7 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { profiler } from "../../engine/profiling/profiler";
 import Vector2 from "../../engine/vector2";
 import {
 	PICKUP_TYPES,
@@ -23,6 +24,7 @@ import { PickupCollectedEvent, QuestRewardEvent } from "../events";
 const isPickupType = (value: string): value is PickupType =>
 	(PICKUP_TYPES as readonly string[]).includes(value);
 
+@profiler("Pickups", "Interaction")
 export class PickupSystem implements UpdateSystem {
 	applyPickup(type: PickupType, player: PlayerInputComponent): void {
 		switch (type) {

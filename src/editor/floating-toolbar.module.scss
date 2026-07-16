@@ -18,5 +18,6 @@
 	gap: var(--unit-4);
 	padding: var(--unit-4);
 	border-radius: calc(var(--radius-xl) + var(--unit-4));
-	background: var(--surface);
+	background: var(--surface-hud);
+	backdrop-filter: var(--blur-hud);
 }

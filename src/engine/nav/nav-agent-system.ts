@@ -2,6 +2,7 @@ import type { ECS } from "../ecs";
 import { MovementIntentComponent } from "../locomotion/movement-intent-component";
 import { computeGrounded } from "../physics/grounded";
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { TILE_SIZE } from "../tilemap/tile";
 import { TransformComponent } from "../transform-component";
@@ -16,6 +17,7 @@ const MAX_FAILURES = 3;
 const REACH_X = TILE_SIZE * 0.75;
 const REACH_Y = TILE_SIZE * 0.75;
 
+@profiler("Nav agent", "AI")
 export class NavAgentSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const comp = ecs.query(NavGraphComponent)[0]?.[1];

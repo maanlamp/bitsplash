@@ -11,6 +11,7 @@ import { Clock } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
+import type { FrameProfile } from "../engine/profiling/frame-profile";
 import type { GameModule } from "../engine/runtime/game-module";
 import { createGame } from "../engine/scene/registry";
 import type { DirEntry } from "../project-rpc";
@@ -42,6 +43,8 @@ import Inspector, {
 } from "./inspector/inspector";
 import Loading from "./loading";
 import { MODES } from "./modes";
+import { usedHeapBytes } from "./perf/heap";
+import ProfilerView from "./profiler/profiler-view";
 import { Project } from "./project";
 import {
 	getAssetsRoot,
@@ -73,6 +76,7 @@ import {
 	type Workspace as WorkspaceState,
 } from "./workspace/layout";
 import { loadWorkspace, saveWorkspace } from "./workspace/persist";
+import ViewBar from "./workspace/view-bar";
 import {
 	assetViewId,
 	isAssetView,
@@ -107,9 +111,6 @@ const App = ({
 	const [running, setRunning] = useState(false);
 	const [runMode, setRunMode] = useState<"game" | "editor">("game");
 	const [runPaused, setRunPaused] = useState(false);
-	const [runActiveScene, setRunActiveScene] = useState<string | null>(
-		null,
-	);
 	const [, forceStore] = useReducer((n: number) => n + 1, 0);
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
@@ -591,12 +592,11 @@ const App = ({
 			startSceneId: sceneId,
 			openDocument: openDocumentFor,
 			ensureDocument: ensureDocumentFor,
-			onActiveSceneChange: setRunActiveScene,
+			onActiveSceneChange: () => {},
 			onChange: onRunChange,
 		});
 		setRunning(true);
 		setRunMode("game");
-		setRunActiveScene(sceneId);
 		requestAnimationFrame(focusRunView);
 	};
 
@@ -610,7 +610,6 @@ const App = ({
 		setRunning(false);
 		setRunMode("game");
 		setRunPaused(false);
-		setRunActiveScene(null);
 	};
 
 	const setRunInputMode = (mode: "game" | "editor"): void => {
@@ -673,20 +672,20 @@ const App = ({
 					if (host) {
 						host.frame(dt, now);
 					}
+					const heap = usedHeapBytes();
 					for (const view of sceneViewsRef.current.values()) {
 						const viewBefore = performance.now();
 						const sceneId = parseViewId(view.id).param;
 						const runBound =
 							!!host &&
 							(view === host.view || sceneId === host.activeScene);
+						let updateSpan: number;
 						if (host && runBound) {
 							if (view !== host.view) {
 								view.rollInput();
 							}
 							view.renderRunWorld(host.world, now);
-							if (view === host.view) {
-								view.physicsTime = host.physicsTime;
-							}
+							updateSpan = host.world.profile.updateSpanMs;
 						} else {
 							if (view === focused && !host) {
 								view.update(dt, now);
@@ -694,9 +693,16 @@ const App = ({
 								view.rollInput();
 							}
 							view.render(now);
+							updateSpan = view.scene.world.profile.updateSpanMs;
 						}
 						view.frameTime = performance.now() - viewBefore;
 						view.fps = fps;
+						view.perf.push({
+							frametime: view.frameTime,
+							update: updateSpan,
+							heap,
+							fps,
+						});
 					}
 					if (host) {
 						host.endFrame();
@@ -1014,6 +1020,27 @@ const App = ({
 
 	const renderConsole = () => <Console />;
 
+	const resolveActiveProfile =
+		useCallback((): FrameProfile | null => {
+			const view = focusedSceneViewRef.current;
+			if (!view) {
+				return null;
+			}
+			const host = runHostRef.current;
+			if (
+				host &&
+				(view === host.view ||
+					parseViewId(view.id).param === host.activeScene)
+			) {
+				return host.world.profile;
+			}
+			return view.scene.world.profile;
+		}, []);
+
+	const renderProfiler = () => (
+		<ProfilerView resolveProfile={resolveActiveProfile} />
+	);
+
 	const renderAssetBrowser = () =>
 		assetsRoot ? (
 			<AssetBrowser
@@ -1050,10 +1077,6 @@ const App = ({
 		if (!view || !game) {
 			return <Loading label="Loading runtime..." />;
 		}
-		const simulating =
-			running &&
-			(runHostRef.current?.view === view ||
-				parseViewId(id).param === runActiveScene);
 		return (
 			<SceneViewPanel
 				view={view}
@@ -1066,7 +1089,6 @@ const App = ({
 				inputMode={runMode}
 				paused={runPaused}
 				running={running && runHostRef.current?.view === view}
-				simulating={simulating}
 				editorEnabled={editorEnabled}
 				requestAddComponent={(entity) => setAddTarget(entity)}
 				undoShortcut={UNDO_SHORTCUT}
@@ -1086,6 +1108,8 @@ const App = ({
 				return renderAssetBrowser();
 			case "console":
 				return renderConsole();
+			case "profiler":
+				return renderProfiler();
 			case "scene":
 				return renderScene(id);
 			case "font":
@@ -1120,13 +1144,21 @@ const App = ({
 				<div className={styles.shell}>
 					{isDesktop() && <TitleBar />}
 					<div className={styles.appBody}>
-						<Workspace
-							workspace={workspace}
-							onChange={updateWorkspace}
-							renderView={renderView}
-							onCloseView={closeView}
-							dirtyViews={dirtyViews}
+						<ViewBar
+							onOpen={openView}
+							focusedKind={
+								focusedView ? parseViewId(focusedView).kind : null
+							}
 						/>
+						<div className={styles.workspaceArea}>
+							<Workspace
+								workspace={workspace}
+								onChange={updateWorkspace}
+								renderView={renderView}
+								onCloseView={closeView}
+								dirtyViews={dirtyViews}
+							/>
+						</div>
 					</div>
 				</div>
 				{addTarget && deps && (

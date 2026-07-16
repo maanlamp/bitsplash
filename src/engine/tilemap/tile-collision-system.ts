@@ -1,4 +1,5 @@
 import type { RigidBody } from "../physics/rigid-body";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import type { World } from "../world";
 import { mergedSolidCells, solidTileLayers } from "./occupancy";
@@ -9,6 +10,7 @@ type Point = Readonly<{
 	y: number;
 }>;
 
+@profiler("Tile collision", "World")
 export class TileCollisionSystem implements UpdateSystem {
 	private layer: string | undefined;
 	private bodies: RigidBody[] = [];

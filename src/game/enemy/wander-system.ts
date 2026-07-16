@@ -3,6 +3,7 @@ import { NavGraphComponent } from "../../engine/nav/nav-graph-component";
 import { NavGraph, nodeFeet } from "../../engine/nav/nav-graph";
 import { resolveNavProfile } from "../../engine/nav/nav-profile";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -13,6 +14,7 @@ import Vector2 from "../../engine/vector2";
 import { EnemyBrainComponent } from "./enemy-brain-component";
 import { WanderComponent } from "./wander-component";
 
+@profiler("Wander", "AI")
 export class WanderSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const comp = ecs.query(NavGraphComponent)[0]?.[1];

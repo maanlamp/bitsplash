@@ -5,8 +5,10 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { profiler } from "../../engine/profiling/profiler";
 import { ChronicleComponent } from "./chronicle-component";
 
+@profiler("Chronicle ink mirror", "Sequence")
 export class ChronicleInkMirrorSystem implements UpdateSystem {
 	private mirrored: Story | null = null;
 

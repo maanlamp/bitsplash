@@ -1,4 +1,5 @@
 import type { ECS, EntityId, ReadonlyECS } from "../ecs";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import {
 	resolveCast,
@@ -103,6 +104,7 @@ export const isExclusiveSequenceActive = (
 export const isAnySequenceActive = (ecs: ReadonlyECS): boolean =>
 	ecs.query(SequenceComponent).length > 0;
 
+@profiler("Sequence", "Sequence")
 export class SequenceSystem extends UpdateSystem {
 	constructor(private readonly bindings: SequenceBindings) {
 		super();

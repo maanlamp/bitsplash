@@ -1,7 +1,9 @@
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
 import { TransformComponent } from "../transform-component";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 
+@profiler("Physics", "Physics")
 export class PhysicsSystem implements UpdateSystem {
 	update({ dt, ecs, world }: UpdateContext): void {
 		for (const [id, phys, transform] of ecs.query(

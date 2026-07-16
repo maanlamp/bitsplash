@@ -15,7 +15,9 @@ import {
 	hitsplatFlavourId,
 	hitsplatMainId,
 } from "./hitsplat-hud";
+import { profiler } from "../../engine/profiling/profiler";
 
+@profiler("Hitsplat HUD", "HUD")
 export class HitsplatHudSystem implements UpdateSystem {
 	private readonly slotOf = new Map<EntityId, number>();
 

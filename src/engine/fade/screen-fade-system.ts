@@ -2,6 +2,7 @@ import { Tween } from "../animation/tween";
 import type { Seconds } from "../duration";
 import type { ECS } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { ScreenFadeComponent } from "./screen-fade-component";
 
@@ -35,6 +36,7 @@ export const startFade = (
 	};
 };
 
+@profiler("Screen fade", "Camera")
 export class ScreenFadeSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		for (const [, fade] of ecs.query(ScreenFadeComponent)) {

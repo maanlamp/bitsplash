@@ -1,0 +1,22 @@
+.overlay {
+	position: absolute;
+	left: 8px;
+	top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	pointer-events: none;
+	user-select: none;
+}
+
+.widget {
+	padding: 6px;
+	border-radius: calc(var(--radius-xl) + var(--unit-4));
+	background: var(--surface-hud);
+	backdrop-filter: var(--blur-hud);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.canvas {
+	display: block;
+}

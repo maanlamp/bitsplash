@@ -4,12 +4,14 @@ import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
+import { profiler } from "../../engine/profiling/profiler";
 import { InteractableComponent } from "../interaction/interactable-component";
 import { InteractionStateComponent } from "../interaction/interaction-state-component";
 import { PlayerInputComponent } from "../player/player-input-component";
 import { InteractEvent } from "../events";
 import { ACTION_IDS } from "../input/action-ids";
 
+@profiler("Interaction", "Interaction")
 export class InteractionSystem implements UpdateSystem {
 	update({ ecs, actions, events }: UpdateContext): void {
 		const stateEntry = ecs.query(InteractionStateComponent)[0];

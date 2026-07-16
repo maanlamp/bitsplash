@@ -4,6 +4,7 @@ import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
 import { TransformComponent } from "../transform-component";
 import type { ECS, EntityId } from "../ecs";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import Vector2 from "../vector2";
 
@@ -28,6 +29,7 @@ const deadzoned = (
 	return current;
 };
 
+@profiler("Camera follow", "Camera")
 export class Camera2DFollowSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = dt / 1000;

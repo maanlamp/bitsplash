@@ -14,6 +14,7 @@ import { resolveKbdFrame } from "../ui/kbd-frame";
 import { DialoguePanelComponent } from "./dialogue-panel-component";
 import type { DialogueHudState } from "./dialogue-hud-state";
 import { UI_FONT } from "./dialogue-ui";
+import { profiler } from "../../engine/profiling/profiler";
 
 const FALLBACK_INSETS: NineSliceInsets = {
 	left: 6,
@@ -25,6 +26,7 @@ const FALLBACK_INSETS: NineSliceInsets = {
 
 const EMPTY_LINES: readonly RichLine[] = [];
 
+@profiler("Dialogue HUD sync", "HUD")
 export class DialogueHudSyncSystem implements UpdateSystem {
 	constructor(
 		private readonly hud: DialogueHudState,

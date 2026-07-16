@@ -17,11 +17,13 @@ import { QuestComponent } from "./quest-component";
 import { QuestMarkerTagComponent } from "./quest-marker-tag-component";
 import { markerNodeId } from "./quest-marker-hud";
 import type { QuestMarkerHudState } from "./quest-marker-hud-state";
+import { profiler } from "../../engine/profiling/profiler";
 
 const GAP = 6;
 const BOB_SPEED = 4;
 const BOB_AMOUNT = 2;
 
+@profiler("Quest marker HUD", "HUD")
 export class QuestMarkerHudSystem implements UpdateSystem {
 	constructor(
 		private readonly store: QuestMarkerHudState,

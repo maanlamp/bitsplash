@@ -8,7 +8,9 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { TriggerEnteredEvent } from "../../engine/trigger/events";
+import { profiler } from "../../engine/profiling/profiler";
 
+@profiler("Sequence triggers", "Sequence")
 export class SequenceTriggerSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
 		for (const event of events.read(TriggerEnteredEvent)) {

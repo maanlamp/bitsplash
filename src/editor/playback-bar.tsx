@@ -3,6 +3,7 @@ import { ToggleGroup } from "@base-ui/react/toggle-group";
 import {
 	CornersOutIcon,
 	GameControllerIcon,
+	MonitorIcon,
 	PauseIcon,
 	PencilIcon,
 	PlayIcon,
@@ -24,6 +25,8 @@ type PlaybackBarProps = Readonly<{
 	inputMode: "game" | "editor";
 	paused: boolean;
 	running: boolean;
+	vsync: boolean;
+	onVsyncChange: (enabled: boolean) => void;
 }>;
 
 const PlaybackBar = ({
@@ -36,6 +39,8 @@ const PlaybackBar = ({
 	inputMode,
 	paused,
 	running,
+	vsync,
+	onVsyncChange,
 }: PlaybackBarProps) => (
 	<FloatingToolbar align="top">
 		{running ? (
@@ -98,6 +103,18 @@ const PlaybackBar = ({
 				</Tooltip>
 			</>
 		)}
+
+		<div className={controls.toolbarSeparator} />
+
+		<Tooltip label={vsync ? "Vsync on" : "Vsync off"}>
+			<Toggle
+				pressed={vsync}
+				onPressedChange={onVsyncChange}
+				className={controls.iconButton}
+			>
+				<MonitorIcon weight={vsync ? "fill" : undefined} />
+			</Toggle>
+		</Tooltip>
 	</FloatingToolbar>
 );
 

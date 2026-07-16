@@ -18,6 +18,7 @@ import {
 	StartQuestEvent,
 } from "../events";
 import { getQuest, type QuestReward } from "../quest/loader";
+import { profiler } from "../../engine/profiling/profiler";
 
 type QuestStage = "offered" | "active" | "return" | "complete";
 
@@ -29,6 +30,7 @@ export const objectiveComplete = (
 const rewardHandlers: Record<string, (reward: QuestReward) => void> =
 	{};
 
+@profiler("Quests", "Quest")
 export class QuestSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
 		for (const event of events.read(StartQuestEvent)) {

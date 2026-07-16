@@ -2,6 +2,7 @@ import type { ECS, EntityId } from "../../engine/ecs";
 import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -20,6 +21,7 @@ import { stepMachine } from "../../engine/fsm/step-machine";
 import { NO_MODIFIERS, resolveHit } from "./resolve-hit";
 import { DamageEvent } from "../events";
 
+@profiler("Melee", "Combat")
 export class MeleeSystem implements UpdateSystem {
 	update({ dt, ecs, events }: UpdateContext): void {
 		for (const [id, melee, transform, facing] of ecs.query(

@@ -7,7 +7,9 @@ import { RespawnComponent } from "../respawn/respawn-component";
 import { SpawnPointComponent } from "../respawn/spawn-point-component";
 import { SpawnEvent } from "../events";
 import { spawnPrefab } from "../prefabs";
+import { profiler } from "../../engine/profiling/profiler";
 
+@profiler("Spawn", "Respawn")
 export class SpawnSystem implements UpdateSystem {
 	update({ ecs, world, events }: UpdateContext): void {
 		for (const event of events.read(SpawnEvent)) {

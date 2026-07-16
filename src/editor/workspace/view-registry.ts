@@ -3,6 +3,7 @@ import {
 	FileImageIcon,
 	FilmSlateIcon,
 	FolderIcon,
+	GaugeIcon,
 	GlobeIcon,
 	type Icon,
 	PuzzlePieceIcon,
@@ -26,7 +27,8 @@ export type ViewKind =
 	| "sprite"
 	| "audio"
 	| "font"
-	| "console";
+	| "console"
+	| "profiler";
 
 const ASSET_KINDS: ReadonlyArray<ViewKind> = [
 	"sprite",
@@ -127,6 +129,8 @@ export const viewTitle = (id: ViewId): string => {
 			return "Assets";
 		case "console":
 			return "Console";
+		case "profiler":
+			return "Profiler";
 		default:
 			if (param === NEW_PARAM) {
 				return kind === "audio" ? "New audio" : "New sprite";
@@ -148,6 +152,8 @@ export const viewIcon = (id: ViewId): Icon => {
 			return FolderIcon;
 		case "console":
 			return TerminalIcon;
+		case "profiler":
+			return GaugeIcon;
 		case "audio":
 			return FileAudioIcon;
 		case "font":
@@ -168,7 +174,8 @@ export const isValidViewId = (
 		kind === "tree" ||
 		kind === "inspector" ||
 		kind === "asset-browser" ||
-		kind === "console"
+		kind === "console" ||
+		kind === "profiler"
 	) {
 		return true;
 	}

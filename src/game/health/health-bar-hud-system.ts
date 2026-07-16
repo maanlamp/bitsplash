@@ -13,10 +13,12 @@ import { HealthComponent } from "./health-component";
 import { HealthBarStateComponent } from "./health-bar-state-component";
 import type { HealthBarHudState } from "./health-bar-hud-state";
 import { healthNodeId } from "./health-bar-hud";
+import { profiler } from "../../engine/profiling/profiler";
 
 const FADE = 1;
 const BAR_WIDTH = 32;
 
+@profiler("Health bar HUD", "HUD")
 export class HealthBarHudSystem implements UpdateSystem {
 	constructor(
 		private readonly store: HealthBarHudState,

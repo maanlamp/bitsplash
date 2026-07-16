@@ -1,3 +1,4 @@
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import {
 	mergedSolidCells,
@@ -7,6 +8,7 @@ import {
 import { NavGraphComponent } from "./nav-graph-component";
 import { NavSurface } from "./nav-surface";
 
+@profiler("Nav graph", "AI")
 export class NavGraphSystem implements UpdateSystem {
 	private signature: string | null = null;
 	private version = 0;

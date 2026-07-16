@@ -1,4 +1,5 @@
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import { TransformComponent } from "../../engine/transform-component";
 import type { Seconds } from "../../engine/duration";
@@ -25,6 +26,7 @@ const ARROW_REACH = 8;
 const EMBED_DEPTH = 4;
 const STIMULUS_BEARING = 4 * TILE_SIZE;
 
+@profiler("Arrow", "Combat")
 export class ArrowSystem implements UpdateSystem {
 	update({ dt, ecs, world, events }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;

@@ -1,4 +1,5 @@
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -6,6 +7,7 @@ import {
 import { TransformComponent } from "../../engine/transform-component";
 import { FollowComponent } from "./follow-component";
 
+@profiler("Follow", "AI")
 export class FollowSystem implements UpdateSystem {
 	update({ ecs }: UpdateContext): void {
 		for (const [, follow, agent, transform] of ecs.query(

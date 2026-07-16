@@ -6,11 +6,13 @@ import {
 import { HealthComponent } from "../health/health-component";
 import { HealthBarComponent } from "../health/health-bar-component";
 import { HealthBarStateComponent } from "../health/health-bar-state-component";
+import { profiler } from "../../engine/profiling/profiler";
 
 const DAMAGE_DELAY = 0.5 as Seconds;
 const SLIDE_TAU = 0.2;
 const VISIBLE_DURATION = 4 as Seconds;
 
+@profiler("Health bars", "HUD")
 export class HealthBarSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;

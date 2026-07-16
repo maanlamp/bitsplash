@@ -16,7 +16,9 @@ import { resolveKbdFrame } from "./kbd-frame";
 import { holdRingNodeId } from "./key-cap";
 import { SKIP_KEYCAP_ID } from "./skip-hint";
 import type { SkipHintState } from "./skip-hint-state";
+import { profiler } from "../../engine/profiling/profiler";
 
+@profiler("Skip hint HUD", "HUD")
 export class SkipHintSyncSystem implements UpdateSystem {
 	constructor(
 		private readonly hud: SkipHintState,

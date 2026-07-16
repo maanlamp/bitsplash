@@ -6,9 +6,11 @@ import {
 } from "../../engine/system";
 import { HitsplatComponent } from "./hitsplat-component";
 import { HitsplatStyleComponent } from "./hitsplat-style-component";
+import { profiler } from "../../engine/profiling/profiler";
 
 const DEFAULT_GRAVITY = 500;
 
+@profiler("Hitsplats", "Combat")
 export class HitsplatSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;

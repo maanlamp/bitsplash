@@ -1,6 +1,7 @@
 import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import { profiler } from "../../engine/profiling/profiler";
 import type { RigidBody } from "../../engine/physics/rigid-body";
 import { Layer } from "../collision";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
@@ -16,6 +17,7 @@ import { PlayerInputComponent } from "../player/player-input-component";
 const AIRBORNE = new Set(["fall", "jump", "walljump", "wallslide"]);
 const LANDING_LOOKAHEAD = 0.15;
 
+@profiler("Player animation", "Animation")
 export class PlayerAnimationSystem implements UpdateSystem {
 	update({ ecs, dt, world }: UpdateContext): void {
 		for (const [, player, rb, sprite, facing] of ecs.query(

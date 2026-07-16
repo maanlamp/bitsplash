@@ -8,8 +8,10 @@ import { scheduleEvent } from "../../engine/timer/timer-system";
 import { DeathNoticeComponent } from "../respawn/death-notice-component";
 import { PlayerTagComponent } from "../player/player-tag-component";
 import { RespawnComponent } from "../respawn/respawn-component";
+import { profiler } from "../../engine/profiling/profiler";
 import { DeathEvent, SpawnEvent } from "../events";
 
+@profiler("Death", "Respawn")
 export class DeathSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
 		for (const event of events.read(DeathEvent)) {

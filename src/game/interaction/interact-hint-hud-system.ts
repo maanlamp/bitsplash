@@ -23,9 +23,11 @@ import {
 	INTERACT_HINT_ID,
 } from "./interact-hint-hud";
 import type { InteractHintHudState } from "./interact-hint-hud-state";
+import { profiler } from "../../engine/profiling/profiler";
 
 const GAP = 20;
 
+@profiler("Interact hint HUD", "HUD")
 export class InteractHintHudSystem implements UpdateSystem {
 	constructor(
 		private readonly hud: InteractHintHudState,

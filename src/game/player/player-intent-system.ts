@@ -1,6 +1,7 @@
 import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import type { DeviceSnapshot } from "../../engine/input/device-snapshot";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
+import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -11,6 +12,7 @@ import { PlayerInputComponent } from "../player/player-input-component";
 const MOVE_STICK_INDEX = "0";
 const MOVE_STICK_DEADZONE = 0.2;
 
+@profiler("Player intent", "Input")
 export class PlayerIntentSystem implements UpdateSystem {
 	enabled = true;
 	private wasFrozen = false;

@@ -3,6 +3,7 @@ import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
 import { startFade } from "../fade/screen-fade-system";
+import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { TransformComponent } from "../transform-component";
 import Vector2 from "../vector2";
@@ -97,6 +98,7 @@ export const startCameraTransition = (
 	};
 };
 
+@profiler("Camera transition", "Camera")
 export class CameraTransitionSystem implements UpdateSystem {
 	update({ time, ecs }: UpdateContext): void {
 		for (const [id, cameraComponent, follow, transition] of ecs.query(

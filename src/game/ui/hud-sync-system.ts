@@ -6,6 +6,7 @@ import { getQuest } from "../quest/loader";
 import { QuestComponent } from "../quest/quest-component";
 import { QuestNoticeComponent } from "../quest/quest-notice-component";
 import type { HudState } from "./hud-state";
+import { profiler } from "../../engine/profiling/profiler";
 
 const MAX_VISIBLE_QUESTS = 3;
 
@@ -22,6 +23,7 @@ const substitute = (
 	return out;
 };
 
+@profiler("HUD sync", "HUD")
 export class HudSyncSystem implements UpdateSystem {
 	constructor(private readonly hud: HudState) {}
 

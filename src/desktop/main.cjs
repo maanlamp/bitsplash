@@ -218,12 +218,23 @@ ipcMain.handle("openFileDialog", async (_event, { accept }) => {
 
 const createWindow = async () => {
 	Menu.setApplicationMenu(null);
-	protocol.handle(FS_SCHEME, (request) => {
+	protocol.handle(FS_SCHEME, async (request) => {
 		const url = new URL(request.url);
 		const filePath = decodeURIComponent(
 			url.pathname.replace(/^\//, ""),
 		);
-		return net.fetch(pathToFileURL(filePath).toString());
+		const response = await net.fetch(
+			pathToFileURL(filePath).toString(),
+		);
+		// The editor page is cross-origin isolated (see vite.config.ts), so this
+		// cross-scheme asset carries CORP to stay embeddable under COEP.
+		const headers = new Headers(response.headers);
+		headers.set("Cross-Origin-Resource-Policy", "cross-origin");
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
+		});
 	});
 	const window = new BrowserWindow({
 		width: 1280,

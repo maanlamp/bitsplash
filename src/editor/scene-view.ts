@@ -19,6 +19,7 @@ import Viewport from "../engine/camera/viewport";
 import type { World } from "../engine/world";
 import { EditorLayer } from "./constants";
 import { DEBUG_OVERLAY, type DebugFlags } from "./debug-flags";
+import { PerfHistory } from "./perf/perf-history";
 import type { EditorState } from "./editor-state";
 import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
@@ -41,7 +42,7 @@ type RenderSurface = Readonly<{
 export class SceneView {
 	frameTime = 0;
 	fps = 0;
-	physicsTime = 0;
+	readonly perf = new PerfHistory();
 
 	private vsyncEnabled = false;
 	private surface: RenderSurface = this.createSurface(
@@ -108,6 +109,7 @@ export class SceneView {
 			new DebugGridSystem(EditorLayer.DEBUG_GRID),
 		];
 
+		this.scene.world.setProfiling(true);
 		this.camera.centerOnContent(this.scene.world.ecs);
 	}
 
