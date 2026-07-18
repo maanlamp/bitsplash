@@ -1,5 +1,7 @@
 import type { EntityId } from "../engine/ecs";
 import type { AssetType } from "./assets";
+import type { EditorState } from "./editor-state";
+import type { SceneDocument } from "./scene-document";
 
 export const DRAG_MIME = "application/x-bitsplash-asset";
 
@@ -11,6 +13,19 @@ export type AssetDragPayload = Readonly<{
 
 export type DropTarget = "scene-view" | "inspector-field";
 
+/**
+ * What a `"scene-view"` drop handler needs to place an entity: the scene's edit
+ * document (to journal the create), the per-scene store (to select the new
+ * entity), and the already-snapped world-space drop point (the panel converts
+ * the pointer to world space and snaps it — unless `Ctrl` is held on the drop —
+ * before dispatching).
+ */
+export type SceneViewDropInfo = Readonly<{
+	document: SceneDocument;
+	store: EditorState;
+	worldPoint: Readonly<{ x: number; y: number }>;
+}>;
+
 export type DropContext = Readonly<{
 	target: DropTarget;
 	field?: Readonly<{
@@ -19,6 +34,7 @@ export type DropContext = Readonly<{
 		fieldKey: string;
 		apply: (webPath: string) => void;
 	}>;
+	sceneView?: SceneViewDropInfo;
 }>;
 
 export type DropHandler = (

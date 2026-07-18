@@ -65,7 +65,7 @@ const RowSurface = ({
 	children: ReactNode;
 }>) => {
 	const isHovered = useSyncExternalStore(
-		store.subscribe,
+		store.subscribeHover,
 		() => entity != null && store.hovered === entity,
 	);
 	return (
@@ -202,7 +202,7 @@ const ProjectTree = ({
 	focusedStore,
 	deps,
 	onOpenScene,
-	onSelectEntity,
+	onSelectEntities,
 	onSelectWorld,
 }: Readonly<{
 	summaries: ReadonlyArray<SceneSummary>;
@@ -213,7 +213,10 @@ const ProjectTree = ({
 	focusedStore: EditorState | null;
 	deps: MenuDeps | null;
 	onOpenScene: (id: string) => void;
-	onSelectEntity: (sceneId: string, id: EntityId) => void;
+	onSelectEntities: (
+		sceneId: string,
+		ids: ReadonlyArray<EntityId>,
+	) => void;
 	onSelectWorld: (sceneId: string) => void;
 }>) => {
 	const [fallbackStore] = useState(() => new EditorState());
@@ -232,7 +235,7 @@ const ProjectTree = ({
 		}
 	}, [focusedStore]);
 
-	const selected = focusedStore?.selected ?? null;
+	const selection = focusedStore?.selection ?? null;
 	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
 
 	const [expanded, setExpanded] = useState<Set<Key>>(() => {
@@ -255,37 +258,66 @@ const ProjectTree = ({
 		setExpanded(new Set(keys));
 	};
 
-	const selectedKeys =
-		inspectingWorld && focusedSceneId
+	const selectedKeys: Set<string> =
+		focusedSceneId && inspectingWorld
 			? new Set([`world:${focusedSceneId}`])
-			: selected && focusedSceneId
-				? new Set([`entity:${focusedSceneId}:${selected}`])
+			: focusedSceneId && selection && selection.ids.size > 0
+				? new Set(
+						[...selection.ids].map(
+							(id) => `entity:${focusedSceneId}:${id}`,
+						),
+					)
 				: focusedSceneId
 					? new Set([`scene:${focusedSceneId}`])
 					: new Set<string>();
 
 	const handleSelection = (keys: Selection): void => {
 		if (keys === "all") {
+			if (focusedSceneId && focusedScene) {
+				onSelectEntities(focusedSceneId, focusedScene.ecs.entities());
+			}
 			return;
 		}
-		const key = [...keys][0];
-		if (typeof key !== "string") {
+		const ids: EntityId[] = [];
+		let entityScene: string | null = null;
+		let worldScene: string | null = null;
+		let sceneToOpen: string | null = null;
+		for (const key of keys) {
+			if (typeof key !== "string") {
+				continue;
+			}
+			if (key.startsWith("entity:") || key.startsWith("comp:")) {
+				const [, sid, id] = key.split(":");
+				if (sid && id) {
+					entityScene ??= sid;
+					if (sid === entityScene) {
+						ids.push(id as EntityId);
+					}
+				}
+			} else if (key.startsWith("world:")) {
+				worldScene = key.slice("world:".length);
+			} else if (key.startsWith("scene:")) {
+				sceneToOpen = key.slice("scene:".length);
+			}
+		}
+		if (entityScene && ids.length > 0) {
+			const set = new Set(ids);
+			const scene = loadedScene(entityScene);
+			const ordered = scene
+				? scene.ecs.entities().filter((id) => set.has(id))
+				: [...set];
+			onSelectEntities(
+				entityScene,
+				ordered.length > 0 ? ordered : [...set],
+			);
 			return;
 		}
-		if (key.startsWith("scene:")) {
-			onOpenScene(key.slice("scene:".length));
-		} else if (key.startsWith("world:")) {
-			onSelectWorld(key.slice("world:".length));
-		} else if (key.startsWith("entity:")) {
-			const [, sceneId, id] = key.split(":");
-			if (sceneId && id) {
-				onSelectEntity(sceneId, id as EntityId);
-			}
-		} else if (key.startsWith("comp:")) {
-			const [, sceneId, id] = key.split(":");
-			if (sceneId && id) {
-				onSelectEntity(sceneId, id as EntityId);
-			}
+		if (worldScene) {
+			onSelectWorld(worldScene);
+			return;
+		}
+		if (sceneToOpen) {
+			onOpenScene(sceneToOpen);
 		}
 	};
 
@@ -293,7 +325,8 @@ const ProjectTree = ({
 		<Tree
 			aria-label="Project"
 			className={styles.tree}
-			selectionMode="single"
+			selectionMode="multiple"
+			selectionBehavior="replace"
 			selectedKeys={selectedKeys}
 			onSelectionChange={handleSelection}
 			expandedKeys={expanded}

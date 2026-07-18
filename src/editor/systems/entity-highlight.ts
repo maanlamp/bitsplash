@@ -5,19 +5,16 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import type { EditorState } from "../editor-state";
-import { entityGeometry, unionBounds } from "../pick";
+import { entityAabb } from "../pick";
 
 const HOVER_STROKE = "rgba(255, 255, 255, 0.5)";
-const SELECTED_STROKE = "rgba(80, 180, 255, 0.95)";
+const SELECTION_STROKE = "rgba(80, 180, 255, 0.95)";
 
 export class EntityHighlightSystem implements RenderSystem {
-	private store: EditorState;
-	private layer: number;
-
-	constructor(store: EditorState, layer: number) {
-		this.store = store;
-		this.layer = layer;
-	}
+	constructor(
+		private readonly store: EditorState,
+		private readonly layer: number,
+	) {}
 
 	render({
 		renderer,
@@ -28,9 +25,9 @@ export class EntityHighlightSystem implements RenderSystem {
 		const zoom = camera?.zoom ?? 1;
 		const lineWidth = 2 / zoom;
 		const hovered = this.store.hovered;
-		const selected = this.store.selected;
+		const selection = this.store.selection;
 
-		if (hovered && hovered !== selected) {
+		if (hovered && !selection.ids.has(hovered)) {
 			this.outline(
 				renderer,
 				ecs,
@@ -40,13 +37,13 @@ export class EntityHighlightSystem implements RenderSystem {
 				lineWidth,
 			);
 		}
-		if (selected) {
+		for (const id of selection.ids) {
 			this.outline(
 				renderer,
 				ecs,
 				assetManager,
-				selected,
-				SELECTED_STROKE,
+				id,
+				SELECTION_STROKE,
 				lineWidth,
 			);
 		}
@@ -60,15 +57,15 @@ export class EntityHighlightSystem implements RenderSystem {
 		stroke: string,
 		lineWidth: number,
 	): void {
-		const bounds = unionBounds(entityGeometry(ecs, id, assetManager));
-		if (!bounds) {
+		const aabb = entityAabb(ecs, id, assetManager);
+		if (!aabb) {
 			return;
 		}
 		renderer.drawRect(this.layer, {
-			x: bounds.center.x - bounds.half.x,
-			y: bounds.center.y - bounds.half.y,
-			width: bounds.half.x * 2,
-			height: bounds.half.y * 2,
+			x: aabb.minX,
+			y: aabb.minY,
+			width: aabb.maxX - aabb.minX,
+			height: aabb.maxY - aabb.minY,
 			stroke,
 			lineWidth,
 		});

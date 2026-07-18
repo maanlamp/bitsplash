@@ -73,6 +73,16 @@ export const uploadAsset = async (
 export const getAssetsRoot = async (): Promise<string> =>
 	(await getBridge().getAssetsRoot()).path;
 
+/**
+ * Read a file's UTF-8 text through the desktop bridge (main-process `fs`), the
+ * same IPC path the editor uses for its other project I/O. Use this — not a
+ * cross-origin `fetch` to `bitsplash-fs://` — to load authored JSON (prefabs,
+ * scene data): under COEP `credentialless`, the fs protocol's CORP-without-CORS
+ * response blocks a `cors`-mode fetch, so a `fetch` of that scheme fails.
+ */
+export const readTextFile = async (path: string): Promise<string> =>
+	(await getBridge().readTextFile({ path })).text;
+
 export const listDir = (path: string) =>
 	getBridge().listDir({ path });
 

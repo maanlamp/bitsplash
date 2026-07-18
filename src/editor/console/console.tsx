@@ -9,9 +9,15 @@ const Console = () => {
 	const [logs, setLogs] =
 		useState<ReadonlyArray<ConsoleEntry>>(consoleHistory);
 	useEffect(() => {
-		setLogs(consoleHistory());
 		return subscribeConsole((entry) => {
-			setLogs((prev) => prev.concat(entry));
+			// In order to allow logging anything at any time,
+			// such as mid-render, this component cannot
+			// trigger a setstate immediately when it recieves
+			// a console message, it needs to defer to next tick.
+			// TODO: Figure out a nicer way to do this
+			setTimeout(() => {
+				setLogs((prev) => prev.concat(entry));
+			});
 		});
 	}, []);
 
@@ -45,7 +51,7 @@ const Console = () => {
 						}}
 					>
 						{log.args.map((arg, i) => (
-							<span key={i}>{arg}</span>
+							<span key={i}>{JSON.stringify(arg, null, 2)}</span>
 						))}
 					</p>
 					<time

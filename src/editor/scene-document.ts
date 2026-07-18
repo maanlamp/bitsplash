@@ -10,15 +10,27 @@ import { deserializeWorld } from "../engine/serialization/deserialize";
 import type { SerializedWorld } from "../engine/serialization/registry";
 import { serializeWorld } from "../engine/serialization/serialize";
 import { World } from "../engine/world";
+import type { SelectionSnapshot } from "./editor-state";
 import { Journal } from "./journal";
 import {
 	applyEntry,
+	compositeOf,
 	entryTargets,
 	type JournalEntry,
 	type ReplayTarget,
 } from "./journal-entry";
 import { sceneFileFrom } from "./level-export";
 import { Subscribable } from "./subscribable";
+
+/**
+ * A two-way binding to the scene's selection store, used to snapshot and
+ * restore selection across an undo/redo cursor move (plan cross-cutting:
+ * undo-reselect). Kept as plain callbacks so the document depends on no UI type.
+ */
+export type SelectionBinding = Readonly<{
+	capture: () => SelectionSnapshot;
+	restore: (snap: SelectionSnapshot) => void;
+}>;
 
 /**
  * The per-scene edit document. Owns the scene's **baseline** — the raw scene
@@ -43,6 +55,10 @@ export class SceneDocument extends Subscribable {
 	readonly journal = new Journal();
 
 	private runTarget: ReplayTarget | null = null;
+
+	private selectionBinding: SelectionBinding | null = null;
+	private readonly selUndo: SelectionSnapshot[] = [];
+	private readonly selRedo: SelectionSnapshot[] = [];
 
 	/**
 	 * @param scene the live scene this document edits.
@@ -105,6 +121,17 @@ export class SceneDocument extends Subscribable {
 	}
 
 	/**
+	 * Bind the scene's selection store so undo/redo can restore the selection
+	 * that was active at each cursor position (plan cross-cutting: undo-reselect).
+	 * The document snapshots the selection before each journaled edit and, on an
+	 * undo/redo move, restores the matching snapshot with ids the edit deleted
+	 * filtered out.
+	 */
+	bindSelection(binding: SelectionBinding): void {
+		this.selectionBinding = binding;
+	}
+
+	/**
 	 * Whether `id` belongs to this document — i.e. exists in its authored
 	 * projection. Membership is live document state (never a monotone id cache):
 	 * a create-then-undo entity is correctly not a member.
@@ -128,14 +155,52 @@ export class SceneDocument extends Subscribable {
 	 * sim-pokes a runtime entity.
 	 */
 	record(entry: JournalEntry): void {
+		if (entry.kind === "composite") {
+			this.recordComposite(entry);
+			return;
+		}
 		if (this.isPoke(entry)) {
 			this.pokeRun(entry);
 			this.notify();
 			return;
 		}
 		this.assertJournalable(entry);
+		this.captureSelectionCursor();
 		this.journal.record(entry, this.liveTarget());
 		this.mirrorToRun(entry);
+		this.notify();
+	}
+
+	/**
+	 * Route a composite by its targets (plan F6). Its sub-entries are partitioned:
+	 * ones targeting only runtime-spawned entities are poked live-only (discarded
+	 * on stop), the rest are journaled together as one composite — a single undo
+	 * step. An all-runtime composite journals nothing; an all-authored composite
+	 * journals whole. This lets one keystroke touch authored and runtime entities
+	 * without the whole entry hitting {@link assertJournalable} and throwing.
+	 */
+	private recordComposite(
+		entry: JournalEntry & { kind: "composite" },
+	): void {
+		const poked: JournalEntry[] = [];
+		const journaled: JournalEntry[] = [];
+		for (const sub of entry.entries) {
+			if (this.isRuntimeTargeted(sub)) {
+				poked.push(sub);
+			} else {
+				journaled.push(sub);
+			}
+		}
+		for (const sub of poked) {
+			this.pokeRun(sub);
+		}
+		const authored = compositeOf(journaled);
+		if (authored) {
+			this.assertJournalable(authored);
+			this.captureSelectionCursor();
+			this.journal.record(authored, this.liveTarget());
+			this.mirrorToRun(authored);
+		}
 		this.notify();
 	}
 
@@ -144,18 +209,43 @@ export class SceneDocument extends Subscribable {
 	 * previews such as a color-picker drag or a tile stroke).
 	 */
 	recordApplied(entry: JournalEntry): void {
+		this.captureSelectionCursor();
 		this.journal.recordApplied(entry);
 		this.mirrorToRun(entry);
 		this.notify();
 	}
 
 	undo(): void {
-		this.mirrorToRun(this.journal.undo(this.liveTarget()));
+		const binding = this.selectionBinding;
+		const current = binding ? binding.capture() : null;
+		const inverse = this.journal.undo(this.liveTarget());
+		this.mirrorToRun(inverse);
+		if (binding && inverse) {
+			const before = this.selUndo.pop();
+			if (current) {
+				this.selRedo.push(current);
+			}
+			if (before) {
+				this.restoreSelectionSnapshot(binding, before);
+			}
+		}
 		this.notify();
 	}
 
 	redo(): void {
-		this.mirrorToRun(this.journal.redo(this.liveTarget()));
+		const binding = this.selectionBinding;
+		const current = binding ? binding.capture() : null;
+		const forward = this.journal.redo(this.liveTarget());
+		this.mirrorToRun(forward);
+		if (binding && forward) {
+			const after = this.selRedo.pop();
+			if (current) {
+				this.selUndo.push(current);
+			}
+			if (after) {
+				this.restoreSelectionSnapshot(binding, after);
+			}
+		}
 		this.notify();
 	}
 
@@ -203,6 +293,8 @@ export class SceneDocument extends Subscribable {
 	revert(): void {
 		this.restoreBaselineWorld();
 		this.journal.reset();
+		this.selUndo.length = 0;
+		this.selRedo.length = 0;
 		this.notify();
 	}
 
@@ -216,6 +308,40 @@ export class SceneDocument extends Subscribable {
 		this.restoreBaselineWorld();
 		this.journal.replayPending(this.liveTarget());
 		this.notify();
+	}
+
+	/**
+	 * Snapshot the current selection onto the undo cursor before a forward edit,
+	 * discarding the redo cursor. The command may change the selection *after*
+	 * recording (selecting a freshly-created entity, say); this captures the
+	 * pre-edit selection, which is what an undo of that edit restores.
+	 */
+	private captureSelectionCursor(): void {
+		if (!this.selectionBinding) {
+			return;
+		}
+		this.selUndo.push(this.selectionBinding.capture());
+		this.selRedo.length = 0;
+	}
+
+	/**
+	 * Restore a captured selection, dropping ids the intervening edit deleted so
+	 * the selection never dangles onto a non-existent entity.
+	 */
+	private restoreSelectionSnapshot(
+		binding: SelectionBinding,
+		snap: SelectionSnapshot,
+	): void {
+		const ids = snap.ids.filter((id) => this.isMember(id));
+		const primaryId =
+			snap.primaryId !== null && this.isMember(snap.primaryId)
+				? snap.primaryId
+				: (ids.at(-1) ?? null);
+		const anchorId =
+			snap.anchorId !== null && this.isMember(snap.anchorId)
+				? snap.anchorId
+				: primaryId;
+		binding.restore({ ids, anchorId, primaryId });
 	}
 
 	private restoreBaselineWorld(): void {
@@ -259,11 +385,22 @@ export class SceneDocument extends Subscribable {
 	 * world is bound.
 	 */
 	private isPoke(entry: JournalEntry): boolean {
+		return (
+			entry.kind !== "composite" && this.isRuntimeTargeted(entry)
+		);
+	}
+
+	/**
+	 * Whether `entry` targets only runtime-spawned entities (present in the bound
+	 * run world, absent from this document). Entity-creates author document
+	 * members and config edits have no entity target, so both are never runtime.
+	 * Used to classify a top-level poke and to partition a composite (plan F6).
+	 */
+	private isRuntimeTargeted(entry: JournalEntry): boolean {
 		if (
 			!this.runTarget ||
 			entry.kind === "entity-create" ||
-			entry.kind === "config-set" ||
-			entry.kind === "composite"
+			entry.kind === "config-set"
 		) {
 			return false;
 		}

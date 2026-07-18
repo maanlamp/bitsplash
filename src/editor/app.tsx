@@ -11,10 +11,13 @@ import { Clock } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
+import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import type { FrameProfile } from "../engine/profiling/frame-profile";
 import type { GameModule } from "../engine/runtime/game-module";
 import { createGame } from "../engine/scene/registry";
+import { TILE_SIZE } from "../engine/tilemap/tile";
 import type { DirEntry } from "../project-rpc";
+import { ActiveScene } from "./active-scene";
 import styles from "./app.module.scss";
 import { AssetBrowser } from "./asset-browser/asset-browser";
 import { type AssetCreateActions } from "./asset-context-menu";
@@ -26,21 +29,25 @@ import {
 	isTilesetName,
 } from "./assets";
 import AudioEditor from "./audio/audio-editor";
-import { deleteEntity, duplicateEntity } from "./commands";
+import {
+	deleteEntities,
+	duplicateEntities,
+	nudgeEntities,
+} from "./commands";
 import ConfirmDialog from "./confirm-dialog";
 import Console from "./console/console";
-import { setCursorMode } from "./cursor";
 import { DebugFlags } from "./debug-flags";
+import { editorSettings } from "./editor-settings";
 import {
 	AddComponentPicker,
 	type MenuDeps,
 } from "./entity-context-menu";
 import FontPreview from "./font/font-preview";
-import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import { History } from "./history";
 import Inspector, {
 	SceneConfigInspector,
 } from "./inspector/inspector";
+import "./inspector/register-renderers";
 import Loading from "./loading";
 import { MODES } from "./modes";
 import { usedHeapBytes } from "./perf/heap";
@@ -53,13 +60,13 @@ import {
 	listAssetsDeep,
 	saveLevel,
 } from "./project-io";
-import { RunHost } from "./run-host";
-import type { SceneDocument } from "./scene-document";
 import ProjectTree from "./project-tree";
 import "./register-drops";
-import "./inspector/register-renderers";
+import { RunHost } from "./run-host";
+import type { SceneDocument } from "./scene-document";
 import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
+import { SelectionChannel } from "./selection-channel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
 import SpriteEditor, {
 	type NewSpriteConfig,
@@ -80,6 +87,7 @@ import ViewBar from "./workspace/view-bar";
 import {
 	assetViewId,
 	isAssetView,
+	isLegacyMultiViewId,
 	isSceneView,
 	isValidViewId,
 	NEW_PARAM,
@@ -93,6 +101,15 @@ const UNDO_SHORTCUT = `${MOD}+Z`;
 const REDO_SHORTCUT = `${MOD}+Y`;
 const NEW_SPRITE_VIEW = "sprite:new";
 const NEW_AUDIO_VIEW = "audio:new";
+
+const NUDGE_DELTAS: Readonly<
+	Record<string, Readonly<{ x: number; y: number }>>
+> = {
+	up: { x: 0, y: -1 },
+	down: { x: 0, y: 1 },
+	left: { x: -1, y: 0 },
+	right: { x: 1, y: 0 },
+};
 
 const firstSceneView = (workspace: WorkspaceState): ViewId | null =>
 	allViewIds(workspace.root).find(isSceneView) ?? null;
@@ -119,7 +136,9 @@ const App = ({
 		useState<ViewId | null>(null);
 	const [workspace, setWorkspace] = useState<WorkspaceState>(() =>
 		loadWorkspace(
-			(id) => isSceneView(id) || isValidViewId(id, assets),
+			(id) =>
+				(isSceneView(id) && !isLegacyMultiViewId(id)) ||
+				isValidViewId(id, assets),
 			`scene:${startScene}`,
 		),
 	);
@@ -145,6 +164,25 @@ const App = ({
 	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const activeSceneIdRef = useRef<ViewId | null>(null);
 	const runHostRef = useRef<RunHost | null>(null);
+	const activeSceneRef = useRef(new ActiveScene());
+	const selectionChannelRef = useRef<SelectionChannel | null>(null);
+	if (!selectionChannelRef.current) {
+		selectionChannelRef.current = new SelectionChannel(
+			activeSceneRef.current,
+			(sceneId) => {
+				const project = projectRef.current;
+				if (!project) {
+					return null;
+				}
+				const document = project.document(sceneId);
+				return {
+					store: project.store(sceneId),
+					document,
+					ecs: document.scene.ecs,
+				};
+			},
+		);
+	}
 	const gameUiRef = useRef<ReturnType<
 		GameModule["createGameUi"]
 	> | null>(null);
@@ -260,14 +298,16 @@ const App = ({
 		? parseViewId(activeSceneId).param
 		: null;
 	const focusedStore = focusedSceneView?.store ?? null;
-	const selectedEntity = focusedStore?.selected ?? null;
+	const selectedEntity = focusedStore?.primaryId ?? null;
 	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
-	const mode = focusedStore?.mode ?? "select";
 
 	useEffect(() => {
 		focusedSceneViewRef.current = focusedSceneView;
 		activeSceneIdRef.current = activeSceneId;
-	}, [focusedSceneView, activeSceneId]);
+		activeSceneRef.current.set(
+			focusedSceneView ? focusedSceneId : null,
+		);
+	}, [focusedSceneView, activeSceneId, focusedSceneId]);
 
 	useEffect(() => {
 		if (!focusedStore) {
@@ -520,9 +560,12 @@ const App = ({
 		openView(`scene:${sceneId}`);
 	};
 
-	const selectEntity = (sceneId: string, id: EntityId): void => {
+	const selectEntities = (
+		sceneId: string,
+		ids: ReadonlyArray<EntityId>,
+	): void => {
 		openScene(sceneId);
-		projectRef.current?.store(sceneId).setSelected(id);
+		projectRef.current?.store(sceneId).select(ids);
 	};
 
 	const selectWorld = (sceneId: string): void => {
@@ -758,13 +801,6 @@ const App = ({
 		updateWorkspace({ ...ws, root, focused });
 	}, [game]);
 
-	useEffect(() => {
-		const el = focusedSceneView?.viewport.element;
-		if (el) {
-			setCursorMode(el, mode === "pan" ? "grab" : "default");
-		}
-	}, [focusedSceneView, mode]);
-
 	const editorEnabled = !running || runMode === "editor";
 	const editorHotkeysEnabled = editorEnabled;
 
@@ -840,20 +876,51 @@ const App = ({
 				closeView(id);
 				return;
 			}
-			focusedSceneViewRef.current?.store.setSelected(null);
+			focusedSceneViewRef.current?.store.clear();
 		},
 		{ enabled: editorHotkeysEnabled },
+	);
+	useHotkeys(
+		"mod+a",
+		(event) => {
+			if (assetFocused()) {
+				return;
+			}
+			event.preventDefault();
+			const view = focusedSceneViewRef.current;
+			if (view) {
+				view.store.select(view.scene.ecs.entities());
+			}
+		},
+		{ preventDefault: true, enabled: editorHotkeysEnabled },
+	);
+	useHotkeys(
+		"mod+shift+a",
+		(event) => {
+			if (assetFocused()) {
+				return;
+			}
+			event.preventDefault();
+			const view = focusedSceneViewRef.current;
+			if (view) {
+				const current = view.store.selection.ids;
+				view.store.select(
+					view.scene.ecs.entities().filter((id) => !current.has(id)),
+				);
+			}
+		},
+		{ preventDefault: true, enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"delete,backspace",
 		() => {
 			const view = focusedSceneViewRef.current;
-			const selected = view?.store.selected;
-			if (assetFocused() || !view || !selected) {
+			const ids = view ? [...view.store.selection.ids] : [];
+			if (assetFocused() || !view || ids.length === 0) {
 				return;
 			}
-			deleteEntity(view.document, selected);
-			view.store.setSelected(null);
+			deleteEntities(view.document, ids);
+			view.store.clear();
 		},
 		{ enabled: editorHotkeysEnabled },
 	);
@@ -865,15 +932,48 @@ const App = ({
 				return;
 			}
 			const view = focusedSceneViewRef.current;
-			const selected = view?.store.selected;
-			if (view && selected) {
-				const id = duplicateEntity(view.document, selected);
-				if (id) {
-					view.store.setSelected(id);
+			const ids = view ? [...view.store.selection.ids] : [];
+			if (view && ids.length > 0) {
+				const copies = duplicateEntities(view.document, ids);
+				if (copies.length > 0) {
+					view.store.select(copies);
 				}
 			}
 		},
 		{ preventDefault: true, enabled: editorHotkeysEnabled },
+	);
+	const nudge = (
+		event: KeyboardEvent,
+		dirKey: string | undefined,
+		step: number,
+	): void => {
+		if (assetFocused()) {
+			return;
+		}
+		const delta = NUDGE_DELTAS[dirKey ?? ""];
+		const view = focusedSceneViewRef.current;
+		const ids = view ? [...view.store.selection.ids] : [];
+		if (!delta || !view || ids.length === 0) {
+			return;
+		}
+		event.preventDefault();
+		nudgeEntities(view.document, ids, delta.x * step, delta.y * step);
+	};
+	useHotkeys(
+		"up,down,left,right",
+		(event, handler) => nudge(event, handler.keys?.[0], 1),
+		{ preventDefault: false, enabled: editorHotkeysEnabled },
+	);
+	useHotkeys(
+		"shift+up,shift+down,shift+left,shift+right",
+		(event, handler) =>
+			nudge(event, handler.keys?.[0], editorSettings.nudgeStep),
+		{ preventDefault: false, enabled: editorHotkeysEnabled },
+	);
+	useHotkeys(
+		"shift+mod+up,shift+mod+down,shift+mod+left,shift+mod+right",
+		(event, handler) => nudge(event, handler.keys?.[0], TILE_SIZE),
+		{ preventDefault: false, enabled: editorHotkeysEnabled },
 	);
 	useHotkeys(
 		"mod+w",
@@ -965,7 +1065,9 @@ const App = ({
 				document: focusedSceneView.document,
 				requestAddComponent: (entity) => setAddTarget(entity),
 				select: (entity) =>
-					focusedSceneView.store.setSelected(entity),
+					entity
+						? focusedSceneView.store.selectOne(entity)
+						: focusedSceneView.store.clear(),
 			}
 		: null;
 
@@ -982,7 +1084,7 @@ const App = ({
 				focusedStore={focusedStore}
 				deps={deps}
 				onOpenScene={openScene}
-				onSelectEntity={selectEntity}
+				onSelectEntities={selectEntities}
 				onSelectWorld={selectWorld}
 			/>
 		) : null;
@@ -998,7 +1100,12 @@ const App = ({
 				</div>
 			);
 		}
-		if (focusedScene && focusedSceneView && selectedEntity) {
+		if (
+			focusedScene &&
+			focusedSceneView &&
+			selectedEntity &&
+			selectionChannelRef.current
+		) {
 			const runtime = !!(
 				running &&
 				runHostRef.current?.view === focusedSceneView &&
@@ -1007,9 +1114,7 @@ const App = ({
 			return (
 				<div className={editorEnabled ? undefined : styles.disabled}>
 					<Inspector
-						ecs={focusedScene.ecs}
-						store={focusedSceneView.store}
-						document={focusedSceneView.document}
+						channel={selectionChannelRef.current}
 						runtime={runtime}
 					/>
 				</div>

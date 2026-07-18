@@ -21,6 +21,13 @@
 	font: var(--font-caption, var(--font-body));
 }
 
+.mixed {
+	margin-left: var(--unit-6);
+	color: var(--on-surface-faint);
+	font: var(--font-caption, var(--font-body));
+	font-style: italic;
+}
+
 .section {
 	display: flex;
 	flex-direction: column;

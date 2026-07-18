@@ -75,12 +75,12 @@ const registerGameContent = async (): Promise<void> => {
 	}
 	await import("../src/game/sequence/sequence-manifest");
 	for (const path of new Glob(
-		"src/game/content/prefabs/*.json",
+		"src/game/content/prefabs/*.prefab.json",
 	).scanSync(REPO_ROOT)) {
 		const name = path
 			.split(/[/\\]/)
 			.pop()!
-			.replace(/\.json$/, "");
+			.replace(/\.prefab\.json$/, "");
 		registerPrefab(name, JSON.parse(readFileSync(path, "utf8")));
 	}
 };

@@ -1,21 +1,23 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useSyncExternalStore } from "react";
 import { AssetRef } from "../../engine/asset-ref";
 import type { ECS, EntityId } from "../../engine/ecs";
 import {
+	componentClass,
 	fieldOptions,
 	serializableType,
 	serializableTypeName,
 } from "../../engine/serialization/registry";
 import type { Scene } from "../../engine/scene/scene";
+import { walkFields } from "../../engine/serialization/value";
 import {
 	configFieldBinding,
 	entityFieldBinding,
 	type FieldBinding,
+	multiEntityFieldBinding,
 } from "../commands";
 import { componentLabel } from "../component-label";
-import type { EditorState } from "../editor-state";
+import type { SelectionChannel } from "../selection-channel";
 import { toSentenceCase } from "../text-case";
-import { useEditorValue } from "../use-editor";
 import { Field } from "./field";
 import { buildRows, type Row } from "./grouping";
 import { InspectorEcsProvider } from "./inspector-ecs-context";
@@ -113,16 +115,22 @@ export const FieldControl = ({
 	);
 };
 
+const MixedHint = () => (
+	<span className={styles.mixed}>Multiple values</span>
+);
+
 const GenericField = ({
 	component,
 	fieldKey,
 	value,
 	binding,
+	mixed = false,
 }: Readonly<{
 	component: object;
 	fieldKey: string;
 	value: unknown;
 	binding: FieldBinding;
+	mixed?: boolean;
 }>) => {
 	const label = toSentenceCase(fieldKey);
 	if (typeof value === "boolean") {
@@ -130,6 +138,7 @@ const GenericField = ({
 			<Field.Root>
 				<Checkbox
 					checked={value}
+					indeterminate={mixed}
 					onCheckedChange={(checked) =>
 						binding.commit([fieldKey], checked)
 					}
@@ -145,7 +154,10 @@ const GenericField = ({
 	const requiredMissing = !!options?.required && isEmptyValue(value);
 	return (
 		<Field.Root invalid={requiredMissing}>
-			<Field.Label>{label}</Field.Label>
+			<Field.Label>
+				{label}
+				{mixed && <MixedHint />}
+			</Field.Label>
 			<FieldControl
 				component={component}
 				fieldKey={fieldKey}
@@ -161,10 +173,12 @@ const RowView = ({
 	component,
 	row,
 	binding,
+	mixedKeys,
 }: Readonly<{
 	component: object;
 	row: Row;
 	binding: FieldBinding;
+	mixedKeys?: ReadonlySet<string>;
 }>) => {
 	const record = component as Record<string, unknown>;
 	if (row.kind === "single") {
@@ -174,6 +188,7 @@ const RowView = ({
 				fieldKey={row.key}
 				value={record[row.key]}
 				binding={binding}
+				mixed={mixedKeys?.has(row.key)}
 			/>
 		);
 	}
@@ -186,6 +201,7 @@ const RowView = ({
 					fieldKey={key}
 					value={record[key]}
 					binding={binding}
+					mixed={mixedKeys?.has(key)}
 				/>
 			))}
 		</Field.Row>
@@ -200,11 +216,13 @@ const ComponentFields = ({
 	typeName,
 	keys,
 	binding,
+	mixedKeys,
 }: Readonly<{
 	component: object;
 	typeName: string | undefined;
 	keys: readonly string[];
 	binding: FieldBinding;
+	mixedKeys?: ReadonlySet<string>;
 }>) => (
 	<div className={styles.fields}>
 		{buildRows(keys, typeName).map((row) => (
@@ -213,6 +231,7 @@ const ComponentFields = ({
 				component={component}
 				row={row}
 				binding={binding}
+				mixedKeys={mixedKeys}
 			/>
 		))}
 	</div>
@@ -221,7 +240,12 @@ const ComponentFields = ({
 const ComponentSection = ({
 	component,
 	binding,
-}: Readonly<{ component: object; binding: FieldBinding }>) => {
+	mixedKeys,
+}: Readonly<{
+	component: object;
+	binding: FieldBinding;
+	mixedKeys?: ReadonlySet<string>;
+}>) => {
 	const renderer = getValueRenderer(component);
 	const typeName = serializableTypeName(component);
 	const fieldKeys = typeName
@@ -258,6 +282,7 @@ const ComponentSection = ({
 					typeName={typeName}
 					keys={fieldKeys}
 					binding={binding}
+					mixedKeys={mixedKeys}
 				/>
 			)}
 		</section>
@@ -297,20 +322,121 @@ const InspectorBody = ({
 	</InspectorEcsProvider>
 );
 
-const Inspector = ({
+/** Component type names present on every entity in `ids`. */
+const commonComponentTypes = (
+	ecs: ECS,
+	ids: ReadonlyArray<EntityId>,
+): ReadonlySet<string> => {
+	const perEntity = ids.map(
+		(id) =>
+			new Set(
+				ecs
+					.componentsOf(id)
+					.map((c) => serializableTypeName(c) ?? ""),
+			),
+	);
+	const first = perEntity[0];
+	if (!first) {
+		return new Set();
+	}
+	return new Set(
+		[...first].filter(
+			(name) => name !== "" && perEntity.every((s) => s.has(name)),
+		),
+	);
+};
+
+/**
+ * The field keys of `typeName` whose serialized value is not identical across
+ * every selected entity — the ones the inspector flags "multiple values".
+ */
+const mixedFieldKeys = (
+	ecs: ECS,
+	ids: ReadonlyArray<EntityId>,
+	typeName: string,
+): ReadonlySet<string> => {
+	const type = serializableType(typeName);
+	const cls = componentClass(typeName);
+	if (!type || !cls) {
+		return new Set();
+	}
+	const serialized = ids.map((id) => {
+		const component = ecs.getComponent(id, cls);
+		return component ? walkFields(type, component) : null;
+	});
+	const mixed = new Set<string>();
+	for (const key of type.fields.keys()) {
+		const reference = JSON.stringify(serialized[0]?.[key]);
+		if (
+			serialized.some((s) => JSON.stringify(s?.[key]) !== reference)
+		) {
+			mixed.add(key);
+		}
+	}
+	return mixed;
+};
+
+const MultiInspectorBody = ({
 	ecs,
-	store,
+	ids,
+	primaryId,
 	document,
-	runtime = false,
 }: Readonly<{
 	ecs: ECS;
-	store: EditorState;
+	ids: ReadonlyArray<EntityId>;
+	primaryId: EntityId;
 	document: SceneDocument;
+}>) => {
+	const common = commonComponentTypes(ecs, ids);
+	return (
+		<InspectorEcsProvider value={ecs}>
+			<div className={styles.inspector}>
+				<div className={styles.runtimeBadge}>
+					{ids.length} entities selected — edits apply to all
+				</div>
+				{ecs
+					.componentsOf(primaryId)
+					.filter((component) =>
+						common.has(serializableTypeName(component) ?? ""),
+					)
+					.map((component) => {
+						const typeName = serializableTypeName(component) ?? "";
+						return (
+							<ComponentSection
+								key={component.constructor.name}
+								component={component}
+								binding={multiEntityFieldBinding(
+									document,
+									ids,
+									typeName,
+								)}
+								mixedKeys={mixedFieldKeys(ecs, ids, typeName)}
+							/>
+						);
+					})}
+			</div>
+		</InspectorEcsProvider>
+	);
+};
+
+const Inspector = ({
+	channel,
+	runtime = false,
+}: Readonly<{
+	channel: SelectionChannel;
 	runtime?: boolean;
 }>) => {
-	const selected = useEditorValue(store, (s) => s.selected);
+	const snapshot = useSyncExternalStore(
+		channel.subscribe,
+		() => channel.snapshot,
+	);
+	const ecs = snapshot?.ecs ?? null;
+	const document = snapshot?.document ?? null;
 	const [revision, force] = useReducer((n: number) => n + 1, 0);
 	useEffect(() => {
+		if (!ecs || !document) {
+			return;
+		}
 		const unEcs = ecs.subscribe(force);
 		const unDoc = document.subscribe(force);
 		return () => {
@@ -319,8 +445,21 @@ const Inspector = ({
 		};
 	}, [ecs, document]);
 
-	if (!selected) {
+	const selected = snapshot?.selection.primaryId ?? null;
+	if (!snapshot || !ecs || !document || !selected) {
 		return null;
+	}
+
+	if (snapshot.selection.ids.size > 1) {
+		return (
+			<MultiInspectorBody
+				key={revision}
+				ecs={ecs}
+				ids={[...snapshot.selection.ids]}
+				primaryId={selected}
+				document={document}
+			/>
+		);
 	}
 
 	return (

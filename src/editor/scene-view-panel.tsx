@@ -9,7 +9,13 @@ import type { EntityId } from "../engine/ecs";
 import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
 import styles from "./app.module.scss";
+import {
+	AssetDropRegistry,
+	DRAG_MIME,
+	readDragPayload,
+} from "./asset-drop-registry";
 import { createEntity } from "./commands";
+import { editorSettings } from "./editor-settings";
 import {
 	EntityContextMenu,
 	type MenuDeps,
@@ -17,13 +23,11 @@ import {
 import PerfOverlay from "./perf/perf-overlay";
 import PlaybackBar from "./playback-bar";
 import type { SceneView } from "./scene-view";
+import { snap, type SnapResult } from "./snapping";
 import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
 import { useEditorValue } from "./use-editor";
 import Split from "./workspace/split";
-
-const snap = (value: number): number =>
-	Math.round(value / TILE_SIZE) * TILE_SIZE;
 
 const SceneViewPanel = ({
 	view,
@@ -83,7 +87,8 @@ const SceneViewPanel = ({
 		ecs,
 		document: doc,
 		requestAddComponent,
-		select: (entity) => store.setSelected(entity),
+		select: (entity) =>
+			entity ? store.selectOne(entity) : store.clear(),
 	};
 
 	const attachRef = useCallback(
@@ -111,16 +116,79 @@ const SceneViewPanel = ({
 		);
 	};
 
+	const worldPointFrom = (
+		clientX: number,
+		clientY: number,
+	): Vector2 | null => {
+		const camera = view.displayCamera();
+		if (!camera) {
+			return null;
+		}
+		const rect = view.viewport.element.getBoundingClientRect();
+		return camera.screenToWorld(
+			new Vector2(clientX - rect.left, clientY - rect.top),
+		);
+	};
+
+	const snapPoint = (
+		point: Readonly<{ x: number; y: number }>,
+		ctrl = false,
+	): SnapResult =>
+		snap(null, point, {
+			enabled: !ctrl,
+			grid: TILE_SIZE,
+			threshold: editorSettings.snapThreshold,
+			neighbors: [],
+		});
+
+	const onDrop = (e: React.DragEvent): void => {
+		if (!editorEnabled) {
+			return;
+		}
+		const payload = readDragPayload(e.dataTransfer);
+		if (!payload) {
+			return;
+		}
+		const handler = AssetDropRegistry.resolve(payload, {
+			target: "scene-view",
+		});
+		if (!handler) {
+			return;
+		}
+		e.preventDefault();
+		const point = worldPointFrom(e.clientX, e.clientY);
+		if (!point) {
+			return;
+		}
+		const snapped = snapPoint(point, e.ctrlKey);
+		handler(payload, {
+			target: "scene-view",
+			sceneView: {
+				document: doc,
+				store,
+				worldPoint: { x: snapped.x, y: snapped.y },
+			},
+		});
+	};
+
+	const onDragOver = (e: React.DragEvent): void => {
+		if (editorEnabled && e.dataTransfer.types.includes(DRAG_MIME)) {
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "copy";
+		}
+	};
+
 	const onCreateEntity = (): void => {
 		const pos = createPosRef.current;
 		if (!pos) {
 			return;
 		}
+		const snapped = snapPoint(pos);
 		const id = createEntity(
 			doc,
-			view.scene.defaultEntity(new Vector2(snap(pos.x), snap(pos.y))),
+			view.scene.defaultEntity(new Vector2(snapped.x, snapped.y)),
 		);
-		store.setSelected(id);
+		store.selectOne(id);
 	};
 
 	const mount = (
@@ -128,6 +196,8 @@ const SceneViewPanel = ({
 			ref={attachRef}
 			className={styles.canvasMount}
 			onMouseLeave={() => store.setHovered(null)}
+			onDragOver={onDragOver}
+			onDrop={onDrop}
 			onContextMenu={(e) => {
 				if (!editorEnabled) {
 					e.preventDefault();

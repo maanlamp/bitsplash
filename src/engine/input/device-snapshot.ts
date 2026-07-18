@@ -10,6 +10,12 @@ export interface DeviceSnapshot {
 		position: ReadonlyVector2;
 		wheel: ReadonlyVector2;
 		inside?: boolean;
+		modifiers?: Readonly<{
+			ctrl: boolean;
+			shift: boolean;
+			alt: boolean;
+			meta: boolean;
+		}>;
 	}>;
 	readonly gamepads: Readonly<Record<string, GamepadState>>;
 }

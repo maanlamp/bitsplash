@@ -12,6 +12,7 @@ import { reconstruct } from "../engine/serialization/value";
 import { TileLayerComponent } from "../engine/tilemap/tile-layer-component";
 import { TransformComponent } from "../engine/transform-component";
 import type { World } from "../engine/world";
+import { getPickIndex } from "./pick-index";
 
 /** A primitive value a field/config edit can carry. */
 export type FieldValue = number | string | boolean | null;
@@ -75,6 +76,22 @@ export type JournalEntry =
 			kind: "composite";
 			entries: ReadonlyArray<JournalEntry>;
 	  }>;
+
+/**
+ * Combine journaled entries into a single entry: `null` for none, the sole
+ * entry when there is one, else a `composite` wrapping them. Keeps trivial
+ * single-entry edits flat in the journal.
+ */
+export const compositeOf = (
+	entries: JournalEntry[],
+): JournalEntry | null => {
+	if (entries.length === 0) {
+		return null;
+	}
+	return entries.length === 1
+		? entries[0]!
+		: { kind: "composite", entries };
+};
 
 /**
  * Where an entry lives-applies. `world` receives the entity/component/tile
@@ -181,6 +198,7 @@ export const applyEntry = (
 				body.linearVelocity = { x: 0, y: 0 };
 				body.setAngularVelocity(0);
 			}
+			getPickIndex(ecs).markDirty(entry.id);
 			return;
 		}
 		case "field-set": {
@@ -195,6 +213,7 @@ export const applyEntry = (
 				| Container
 				| undefined;
 			setField(component ?? null, entry.path, entry.after);
+			getPickIndex(ecs).markDirty(entry.id);
 			return;
 		}
 		case "tile-op": {

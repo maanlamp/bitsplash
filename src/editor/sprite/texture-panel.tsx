@@ -3,7 +3,7 @@ import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
 import Vector2 from "../../engine/vector2";
 import styles from "./sprite-editor.module.scss";
-import { setCursorMode } from "../cursor";
+import { CursorAuthority } from "../../engine/cursor/cursor-authority";
 import type { History } from "../history";
 import { bresenham } from "../line";
 import { cursorForTool, toolShowsBrush } from "./sprite-tools";
@@ -90,9 +90,11 @@ const TexturePanel = ({
 			game.renderer.invalidateImage(doc.canvas);
 		});
 
+		const cursorAuthority = new CursorAuthority(element);
+		const cursorToken = cursorAuthority.request("default");
 		let overImage = false;
 		const updateCursor = () => {
-			setCursorMode(element, cursorForTool(state.tool, overImage));
+			cursorToken.update(cursorForTool(state.tool, overImage));
 			if (!toolShowsBrush(state.tool)) {
 				hover.active = false;
 			}
@@ -188,6 +190,8 @@ const TexturePanel = ({
 			element.removeEventListener("pointerup", onPointerUp);
 			element.removeEventListener("pointerleave", onLeave);
 			unsubTool();
+			cursorToken.dispose();
+			cursorAuthority.dispose();
 			unsub();
 			stop();
 			detach();

@@ -9,6 +9,7 @@ import { TransformComponent } from "../engine/transform-component";
 import type { EntityId, ReadonlyECS } from "../engine/ecs";
 import { TILE_SIZE } from "../engine/tilemap/tile";
 import Vector2 from "../engine/vector2";
+import { getPickIndex } from "./pick-index";
 
 export type GeometryRole =
 	| "collider"
@@ -25,6 +26,18 @@ export type GeometryPiece = Readonly<{
 export type EntityBounds = Readonly<{
 	center: Vector2;
 	half: Vector2;
+}>;
+
+/**
+ * The one canonical world-space AABB per entity, the single bounds definition
+ * shared by picking, snapping, highlight, and marquee (plan shared contract).
+ * `null` for an entity with no resolvable geometry (no transform).
+ */
+export type EntityAabb = Readonly<{
+	minX: number;
+	minY: number;
+	maxX: number;
+	maxY: number;
 }>;
 
 export const entityGeometry = (
@@ -95,10 +108,57 @@ export const unionBounds = (
 	};
 };
 
+/**
+ * The canonical world-space {@link EntityAabb} for an entity, the union of its
+ * geometry pieces. `null` when the entity has no resolvable geometry.
+ */
+export const entityAabb = (
+	ecs: ReadonlyECS,
+	id: EntityId,
+	assetManager?: AssetManager,
+): EntityAabb | null => {
+	const bounds = unionBounds(entityGeometry(ecs, id, assetManager));
+	if (!bounds) {
+		return null;
+	}
+	return {
+		minX: bounds.center.x - bounds.half.x,
+		minY: bounds.center.y - bounds.half.y,
+		maxX: bounds.center.x + bounds.half.x,
+		maxY: bounds.center.y + bounds.half.y,
+	};
+};
+
+/**
+ * Whether `id` has a sprite whose image has not finished loading, so its cached
+ * {@link EntityAabb} is still provisional (a fallback/body box rather than the
+ * sprite's true rendered bounds). The pick index uses this to know an entity
+ * must be reindexed once its image resolves — an image load marks no entity
+ * dirty, so without this the AABB would stay a tiny center box forever.
+ */
+export const spriteImagePending = (
+	ecs: ReadonlyECS,
+	id: EntityId,
+	assetManager?: AssetManager,
+): boolean => {
+	const sprite = ecs.getComponent(id, SpriteComponent);
+	if (!sprite || !assetManager) {
+		return false;
+	}
+	return !assetManager.getImage(spriteImageUrl(sprite));
+};
+
 const contains = (piece: GeometryPiece, world: Vector2): boolean =>
 	Math.abs(world.x - piece.center.x) <= piece.half.x &&
 	Math.abs(world.y - piece.center.y) <= piece.half.y;
 
+/**
+ * The topmost entity under `world`: a broad-phase `rbush` query for candidates
+ * whose AABB contains the point, then the same smallest-area-piece narrow test
+ * the pre-index picker used, run only over those candidates (plan C3). The
+ * broad phase never misses a hit — an entity's cached AABB is the union of its
+ * geometry pieces, so any piece containing the point implies the AABB does.
+ */
 export const pickEntityAt = (
 	ecs: ReadonlyECS,
 	world: Vector2,
@@ -106,7 +166,13 @@ export const pickEntityAt = (
 ): EntityId | null => {
 	let best: EntityId | null = null;
 	let bestArea = Number.POSITIVE_INFINITY;
-	for (const id of ecs.entities()) {
+	const candidates = getPickIndex(ecs).search({
+		minX: world.x,
+		minY: world.y,
+		maxX: world.x,
+		maxY: world.y,
+	});
+	for (const id of candidates) {
 		for (const piece of entityGeometry(ecs, id, assetManager)) {
 			if (!contains(piece, world)) {
 				continue;

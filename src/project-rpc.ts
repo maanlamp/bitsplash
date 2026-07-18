@@ -33,6 +33,10 @@ export type ProjectRpcSchema = {
 				params: void;
 				response: { path: string };
 			};
+			readTextFile: {
+				params: { path: string };
+				response: { text: string };
+			};
 			listDir: {
 				params: { path: string };
 				response: {

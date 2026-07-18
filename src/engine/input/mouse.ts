@@ -16,6 +16,18 @@ export class Mouse {
 	readonly buttons: Record<string, boolean> = {};
 	readonly wheel = new Vector2(0, 0);
 	inside = false;
+	/**
+	 * Modifier state captured from the latest mouse event. Read this (not the
+	 * keyboard) for modifier-gated drag behaviour: mouse events keep firing and
+	 * carry live modifier flags while a button is held, so a focus-loss blur that
+	 * clears the keyboard never wipes it mid-drag (plan E4).
+	 */
+	readonly modifiers: {
+		ctrl: boolean;
+		shift: boolean;
+		alt: boolean;
+		meta: boolean;
+	} = { ctrl: false, shift: false, alt: false, meta: false };
 
 	private target: HTMLElement;
 	private wheelAccum = new Vector2(0, 0);
@@ -53,7 +65,15 @@ export class Mouse {
 		this.target.removeEventListener("wheel", this.onWheel);
 	}
 
+	private captureModifiers(e: MouseEvent): void {
+		this.modifiers.ctrl = e.ctrlKey;
+		this.modifiers.shift = e.shiftKey;
+		this.modifiers.alt = e.altKey;
+		this.modifiers.meta = e.metaKey;
+	}
+
 	private onMouseMove = (e: MouseEvent): void => {
+		this.captureModifiers(e);
 		const rect = this.target.getBoundingClientRect();
 		const canvas =
 			this.target instanceof HTMLCanvasElement ? this.target : null;
@@ -67,11 +87,13 @@ export class Mouse {
 	};
 
 	private onMouseDown = (e: MouseEvent): void => {
+		this.captureModifiers(e);
 		this.target.focus();
 		this.buttons[buttonName(e.button)] = true;
 	};
 
 	private onMouseUp = (e: MouseEvent): void => {
+		this.captureModifiers(e);
 		delete this.buttons[buttonName(e.button)];
 	};
 

@@ -6,7 +6,7 @@ import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 import { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import styles from "./sprite-editor.module.scss";
-import { setCursorMode } from "../cursor";
+import { CursorAuthority } from "../../engine/cursor/cursor-authority";
 import type { History } from "../history";
 import { bresenham } from "../line";
 import { cursorForTool, toolShowsBrush } from "./sprite-tools";
@@ -89,9 +89,11 @@ const GameViewPanel = ({
 			world.y >= bounds.min.y &&
 			world.y < bounds.max.y;
 
+		const cursorAuthority = new CursorAuthority(element);
+		const cursorToken = cursorAuthority.request("default");
 		let overImage = false;
 		const updateCursor = () => {
-			setCursorMode(element, cursorForTool(state.tool, overImage));
+			cursorToken.update(cursorForTool(state.tool, overImage));
 			if (!toolShowsBrush(state.tool)) {
 				hover.active = false;
 			}
@@ -205,6 +207,8 @@ const GameViewPanel = ({
 			element.removeEventListener("pointerup", onPointerUp);
 			element.removeEventListener("pointerleave", onLeave);
 			unsubTool();
+			cursorToken.dispose();
+			cursorAuthority.dispose();
 			unsub();
 			stop();
 			detach();

@@ -39,10 +39,9 @@ const ASSET_KINDS: ReadonlyArray<ViewKind> = [
 export const NEW_PARAM = "new";
 
 /**
- * Split a view id into its kind and parameter. A scene view id carries an
- * optional `#instance` suffix so multiple views can bind the same scene
- * document (plan D13: view-instance ids ≠ document ids); the suffix is stripped
- * here so `param` is always the document (scene) id, never the instance key.
+ * Split a view id into its kind and parameter. A scene view id's parameter is
+ * the scene (document) id verbatim: each scene has exactly one view, so a scene
+ * view id and its document id coincide — there is no instance suffix to strip.
  */
 export const parseViewId = (
 	id: ViewId,
@@ -51,49 +50,14 @@ export const parseViewId = (
 	if (separator === -1) {
 		return { kind: id as ViewKind, param: null };
 	}
-	const kind = id.slice(0, separator) as ViewKind;
-	let param = id.slice(separator + 1);
-	if (kind === "scene") {
-		const hash = param.indexOf("#");
-		if (hash !== -1) {
-			param = param.slice(0, hash);
-		}
-	}
-	return { kind, param };
+	return {
+		kind: id.slice(0, separator) as ViewKind,
+		param: id.slice(separator + 1),
+	};
 };
 
 export const makeViewId = (kind: ViewKind, param?: string): ViewId =>
 	param ? `${kind}:${param}` : kind;
-
-/**
- * The scene (document) id a scene view id binds to, with any `#instance` suffix
- * stripped. `null` for non-scene views. Both `scene:demo` and `scene:demo#2`
- * resolve to `demo` — the two views share one document.
- */
-export const sceneDocumentId = (id: ViewId): string | null =>
-	isSceneView(id) ? parseViewId(id).param : null;
-
-/**
- * Mint a scene view id for `sceneId` that is not already present in `existing`.
- * The first view of a scene is `scene:${sceneId}` (backward-compatible with
- * persisted layouts); each additional view gets a `#n` instance suffix so N
- * views of one scene can coexist in the workspace.
- */
-export const nextSceneViewId = (
-	sceneId: string,
-	existing: Iterable<ViewId>,
-): ViewId => {
-	const taken = new Set(existing);
-	const primary = `scene:${sceneId}`;
-	if (!taken.has(primary)) {
-		return primary;
-	}
-	let n = 2;
-	while (taken.has(`${primary}#${n}`)) {
-		n++;
-	}
-	return `${primary}#${n}`;
-};
 
 export const assetViewId = (entry: AssetEntry): ViewId =>
 	makeViewId(
@@ -106,6 +70,15 @@ export const isAssetView = (id: ViewId): boolean =>
 
 export const isSceneView = (id: ViewId): boolean =>
 	parseViewId(id).kind === "scene";
+
+/**
+ * Whether `id` is a legacy multi-view scene id — a `scene:<id>#n` instance
+ * suffix minted by the removed multiple-views-per-scene feature. Each scene now
+ * has exactly one view, so a persisted workspace still carrying such an id must
+ * drop it on load rather than resurrect a view that can never be reopened.
+ */
+export const isLegacyMultiViewId = (id: ViewId): boolean =>
+	isSceneView(id) && id.includes("#");
 
 export const isClosable = (id: ViewId): boolean =>
 	isAssetView(id) ||
@@ -180,6 +153,9 @@ export const isValidViewId = (
 		return true;
 	}
 	if (kind === "scene") {
+		if (isLegacyMultiViewId(id)) {
+			return false;
+		}
 		return !!param && sceneSummaries().some((s) => s.id === param);
 	}
 	if (!ASSET_KINDS.includes(kind)) {

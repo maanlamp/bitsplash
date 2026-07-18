@@ -7,11 +7,10 @@ import {
 } from "../src/editor/workspace/layout";
 import { loadWorkspace } from "../src/editor/workspace/persist";
 import {
+	isLegacyMultiViewId,
 	isSceneView,
 	isValidViewId,
-	nextSceneViewId,
 	parseViewId,
-	sceneDocumentId,
 } from "../src/editor/workspace/view-registry";
 import { loadRapier } from "../src/engine/physics/rapier-physics";
 import { migrateRenderLayers } from "../src/engine/render/migrate-render-layers";
@@ -37,43 +36,28 @@ const rawFile = (): SceneFile => ({
 	entities: [],
 });
 
-describe("scene view identity (view-instance id ≠ document id)", () => {
-	test("both a primary and a suffixed view id resolve to one document id", () => {
-		const primary = "scene:demo";
-		const second = "scene:demo#2";
-
-		expect(isSceneView(primary)).toBe(true);
-		expect(isSceneView(second)).toBe(true);
-		expect(parseViewId(second).param).toBe("demo");
-		expect(sceneDocumentId(second)).toBe("demo");
-		expect(sceneDocumentId(second)).toBe(sceneDocumentId(primary));
+describe("scene view identity (one view per scene)", () => {
+	test("a scene view id's param is the scene id verbatim (no suffix strip)", () => {
+		expect(parseViewId("scene:demo").param).toBe("demo");
+		// The removed multi-view feature suffixed ids as `scene:<id>#n`; the
+		// suffix is no longer stripped, so a legacy id resolves to a param that
+		// matches no scene and is therefore treated as invalid.
+		expect(parseViewId("scene:demo#2").param).toBe("demo#2");
 	});
 
-	test("non-scene ids have no document id", () => {
-		expect(sceneDocumentId("inspector")).toBeNull();
-		expect(sceneDocumentId("sprite:/foo/bar.png")).toBeNull();
+	test("legacy multi-view ids are recognised, plain scene ids are not", () => {
+		expect(isLegacyMultiViewId("scene:demo#2")).toBe(true);
+		expect(isLegacyMultiViewId("scene:demo")).toBe(false);
+		expect(isLegacyMultiViewId("inspector")).toBe(false);
+		expect(isLegacyMultiViewId("sprite:/a#b.png")).toBe(false);
 	});
 
-	test("nextSceneViewId mints a unique instance per scene", () => {
-		expect(nextSceneViewId("demo", [])).toBe("scene:demo");
-		expect(nextSceneViewId("demo", ["scene:demo"])).toBe(
-			"scene:demo#2",
-		);
-		expect(
-			nextSceneViewId("demo", ["scene:demo", "scene:demo#2"]),
-		).toBe("scene:demo#3");
-		// A different scene is unaffected by demo's instances.
-		expect(
-			nextSceneViewId("cave", ["scene:demo", "scene:demo#2"]),
-		).toBe("scene:cave");
-	});
-
-	test("a suffixed scene view id validates against the scene registry", () => {
+	test("a legacy suffixed scene view id fails validation", () => {
 		registerSceneFile("demo", rawFile());
 		expect(sceneSummaries().some((s) => s.id === "demo")).toBe(true);
 		expect(isValidViewId("scene:demo", [])).toBe(true);
-		expect(isValidViewId("scene:demo#2", [])).toBe(true);
-		expect(isValidViewId("scene:missing#2", [])).toBe(false);
+		expect(isValidViewId("scene:demo#2", [])).toBe(false);
+		expect(isValidViewId("scene:missing", [])).toBe(false);
 	});
 });
 
@@ -95,6 +79,13 @@ describe("workspace persistence migration", () => {
 		} as Storage;
 	});
 
+	// Mirrors the predicate the editor shell passes to loadWorkspace: keep a
+	// scene view only when it is not a legacy multi-view id, else fall back to
+	// asset/panel validation.
+	const isValid = (id: string): boolean =>
+		(isSceneView(id) && !isLegacyMultiViewId(id)) ||
+		isValidViewId(id, []);
+
 	const persist = (workspace: Workspace): void => {
 		storage.set("editor-workspace", JSON.stringify(workspace));
 	};
@@ -111,34 +102,38 @@ describe("workspace persistence migration", () => {
 	test("a legacy layout with only a primary scene id loads unchanged", () => {
 		persist(tabsWorkspace(["scene:demo"], "scene:demo"));
 
-		const loaded = loadWorkspace(isSceneView, "scene:demo");
+		const loaded = loadWorkspace(isValid, "scene:demo");
 
 		expect(allViewIds(loaded.root)).toEqual(["scene:demo"]);
 		expect(loaded.focused).toBe("scene:demo");
 	});
 
-	test("multiple views of one scene both survive a load", () => {
+	test("a persisted suffixed multi-view id is dropped on load", () => {
 		persist(
 			tabsWorkspace(["scene:demo", "scene:demo#2"], "scene:demo#2"),
 		);
 
-		const loaded = loadWorkspace(isSceneView, "scene:demo");
+		const loaded = loadWorkspace(isValid, "scene:demo");
 
-		expect([...allViewIds(loaded.root)]).toEqual([
-			"scene:demo",
-			"scene:demo#2",
-		]);
-		expect(loaded.focused).toBe("scene:demo#2");
+		expect([...allViewIds(loaded.root)]).toEqual(["scene:demo"]);
+		// The dropped id can no longer be the focused view; focus clears to
+		// null and the shell resolves a real scene view once the game loads.
+		expect(loaded.focused).not.toBe("scene:demo#2");
 	});
 
-	test("only genuinely-invalid views are dropped, suffixed views kept", () => {
+	test("a workspace of only suffixed views falls back to the default", () => {
 		persist(
-			tabsWorkspace(["scene:demo#2", "bogus:thing"], "scene:demo#2"),
+			tabsWorkspace(["scene:demo#2", "scene:demo#3"], "scene:demo#2"),
 		);
 
-		const loaded = loadWorkspace(isSceneView, "scene:demo");
+		const loaded = loadWorkspace(isValid, "scene:demo");
 
-		expect([...allViewIds(loaded.root)]).toEqual(["scene:demo#2"]);
+		// Every persisted view was legacy; the default workspace is restored,
+		// which contains a single primary scene view.
+		expect(allViewIds(loaded.root)).toContain("scene:demo");
+		expect(allViewIds(loaded.root).some(isLegacyMultiViewId)).toBe(
+			false,
+		);
 	});
 });
 
@@ -170,7 +165,7 @@ describe("shared per-scene document ownership", () => {
 		});
 	};
 
-	test("every view of a scene binds the exact same document instance", () => {
+	test("the single view of a scene binds one shared document instance", () => {
 		registerSceneFile("demo", rawFile());
 		const scene = preloadedScene();
 		const project = new Project({} as unknown as GlobalServices, {
@@ -180,8 +175,8 @@ describe("shared per-scene document ownership", () => {
 		const first = project.document("demo");
 		const second = project.document("demo");
 
-		// Two views (scene:demo, scene:demo#2) both call project.document("demo")
-		// and receive one shared document — divergence is unrepresentable (D13).
+		// Reopening the same scene view resolves the one shared document —
+		// divergence is unrepresentable (D13).
 		expect(second).toBe(first);
 		expect(first.scene).toBe(scene);
 		expect(project.hasDocument("demo")).toBe(true);

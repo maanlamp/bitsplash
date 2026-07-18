@@ -14,6 +14,10 @@ import {
 	pickActiveCamera2D,
 	renderSceneToTexture,
 } from "../engine/camera/camera-2d-render";
+import {
+	CursorAuthority,
+	type CursorToken,
+} from "../engine/cursor/cursor-authority";
 import { DebugGridSystem } from "../engine/debug/debug-grid-system";
 import Viewport from "../engine/camera/viewport";
 import type { World } from "../engine/world";
@@ -23,8 +27,10 @@ import { PerfHistory } from "./perf/perf-history";
 import type { EditorState } from "./editor-state";
 import { SceneDocument } from "./scene-document";
 import { EditorCamera2DSystem } from "./systems/editor-camera-2d";
+import { EntityAabbSystem } from "./systems/entity-aabb";
 import { EntityEditorSystem } from "./systems/entity-editor";
 import { EntityHighlightSystem } from "./systems/entity-highlight";
+import { ManipulationOverlaySystem } from "./systems/manipulation-overlay";
 import { AiStateDebugSystem } from "./systems/ai-state-debug";
 import { NavGraphDebugSystem } from "./systems/nav-graph-debug";
 import { PerceptionDebugSystem } from "./systems/perception-debug";
@@ -59,6 +65,8 @@ export class SceneView {
 	private readonly renderSystems: ReadonlyArray<RenderSystem>;
 
 	private detachSurface: (() => void) | null = null;
+	private cursorAuthority: CursorAuthority | null = null;
+	private cursorToken: CursorToken | null = null;
 	private suspended = false;
 
 	constructor(
@@ -71,8 +79,13 @@ export class SceneView {
 		this.camera = new EditorCamera2DSystem(store, this.editorCamera);
 		this.entityEditor = new EntityEditorSystem(store, this.document);
 		this.tileEditor = new TileEditorSystem(store, this.document);
+		this.document.bindSelection({
+			capture: () => store.snapshot(),
+			restore: (snap) => store.restore(snap),
+		});
 		this.updateSystems = [
 			this.camera,
+			new EntityAabbSystem(),
 			this.entityEditor,
 			this.tileEditor,
 		];
@@ -105,6 +118,10 @@ export class SceneView {
 			),
 			new AiStateDebugSystem(debugFlags, EditorLayer.DEBUG_OVERLAY),
 			new EntityHighlightSystem(store, EditorLayer.EDITOR_PREVIEW),
+			new ManipulationOverlaySystem(
+				this.entityEditor,
+				EditorLayer.EDITOR_PREVIEW,
+			),
 			new TileEditorPreviewSystem(EditorLayer.EDITOR_PREVIEW, store),
 			new DebugGridSystem(EditorLayer.DEBUG_GRID),
 		];
@@ -185,12 +202,30 @@ export class SceneView {
 		this.attachedNode = node;
 		this.viewport.element.style.outline = "none";
 		this.detachSurface = this.viewport.attach(node);
+		this.cursorAuthority = new CursorAuthority(this.viewport.element);
+		this.cursorToken = this.cursorAuthority.request("default");
 	}
 
 	detach(): void {
 		this.detachSurface?.();
 		this.detachSurface = null;
+		this.cursorToken?.dispose();
+		this.cursorToken = null;
+		this.cursorAuthority?.dispose();
+		this.cursorAuthority = null;
 		this.attachedNode = null;
+	}
+
+	/**
+	 * The cursor this view wants right now. Only panning changes it: pan mode
+	 * reads `grab` (the authority upgrades to `grabbing` while the button is
+	 * pressed). Every other interaction keeps the default cursor.
+	 */
+	private desiredCursor(): string {
+		if (this.store.mode === "pan") {
+			return "grab";
+		}
+		return "default";
 	}
 
 	rollInput(): void {
@@ -226,6 +261,7 @@ export class SceneView {
 		for (const system of this.updateSystems) {
 			system.update(ctx);
 		}
+		this.cursorToken?.update(this.desiredCursor());
 	}
 
 	/**

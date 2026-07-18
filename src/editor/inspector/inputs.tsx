@@ -195,12 +195,15 @@ export const FileInput = ({
 export const Checkbox = ({
 	checked,
 	onCheckedChange,
+	indeterminate = false,
 }: Readonly<{
 	checked: boolean;
 	onCheckedChange: (checked: boolean) => void;
+	indeterminate?: boolean;
 }>) => (
 	<BaseCheckbox.Root
 		checked={checked}
+		indeterminate={indeterminate}
 		onCheckedChange={onCheckedChange}
 		className={styles.checkbox}
 	>

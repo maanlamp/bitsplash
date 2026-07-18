@@ -10,6 +10,18 @@ type Asset<T> = Readonly<
 
 export default class AssetManager {
 	assets: Map<string, Asset<unknown>> = new Map();
+	private imageLoadEpoch = 0;
+
+	/**
+	 * A monotonic counter bumped whenever an image finishes loading (or errors).
+	 * Consumers that derive geometry from image dimensions — e.g. the editor's
+	 * pick index — poll this to know an unresolved image may now be ready without
+	 * the manager holding references to them. Idle frames (no load completes) leave
+	 * it unchanged, so a poll is a cheap integer compare.
+	 */
+	get imageEpoch(): number {
+		return this.imageLoadEpoch;
+	}
 
 	getImage(url: string): HTMLImageElement | void {
 		if (!this.assets.has(url)) {
@@ -17,9 +29,11 @@ export default class AssetManager {
 			void loadImage(url)
 				.then((data) => {
 					this.assets.set(url, { status: "ready", data });
+					this.imageLoadEpoch += 1;
 				})
 				.catch((error) => {
 					this.assets.set(url, { status: "error", error });
+					this.imageLoadEpoch += 1;
 				});
 		} else {
 			const asset = this.assets.get(url) as

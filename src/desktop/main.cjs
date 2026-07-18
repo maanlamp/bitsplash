@@ -122,6 +122,11 @@ ipcMain.handle("capturePage", async (event) => {
 
 ipcMain.handle("getAssetsRoot", async () => ({ path: ASSETS_DIR }));
 
+ipcMain.handle("readTextFile", async (_event, { path: target }) => {
+	const text = await fsp.readFile(target, "utf8");
+	return { text };
+});
+
 ipcMain.handle("listDir", async (_event, { path: dir }) => {
 	const dirents = await fsp.readdir(dir, { withFileTypes: true });
 	const entries = dirents.map((dirent) => ({

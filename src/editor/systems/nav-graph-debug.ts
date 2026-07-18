@@ -30,18 +30,15 @@ const REACH_Y_DRAW = TILE_SIZE * 0.75;
 type EdgeLine = { pts: Vector2[]; kind: NavEdgeKind };
 
 export class NavGraphDebugSystem implements RenderSystem {
-	private flags: DebugFlags;
-	private store: EditorState;
-	private layer: number;
 	private cacheGraph: NavGraph | null = null;
 	private cacheMoveSpeed = -1;
 	private cacheLines: EdgeLine[] = [];
 
-	constructor(flags: DebugFlags, store: EditorState, layer: number) {
-		this.flags = flags;
-		this.store = store;
-		this.layer = layer;
-	}
+	constructor(
+		private readonly flags: DebugFlags,
+		private readonly store: EditorState,
+		private readonly layer: number,
+	) {}
 
 	render(ctx: RenderContext): void {
 		const showGraph = this.flags.get("navGraph");
@@ -72,7 +69,7 @@ export class NavGraphDebugSystem implements RenderSystem {
 		ctx: RenderContext,
 		comp: NavGraphComponent,
 	): NavProfile | null {
-		const id = this.store.selected;
+		const id = this.store.primaryId;
 		if (id === null) {
 			return null;
 		}

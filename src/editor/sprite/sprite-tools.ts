@@ -4,7 +4,7 @@ import {
 	type Icon,
 	PaintBrushIcon,
 } from "@phosphor-icons/react";
-import type { CursorMode } from "../cursor";
+import type { CursorValue } from "../../engine/cursor/cursor-authority";
 import type { SpriteTool } from "./sprite-editor-state";
 
 export type SpriteToolDef = Readonly<{
@@ -31,12 +31,12 @@ export const toolShowsBrush = (tool: SpriteTool): boolean =>
 export const cursorForTool = (
 	tool: SpriteTool,
 	overImage: boolean,
-): CursorMode => {
+): CursorValue => {
 	if (tool === "pan") {
 		return "grab";
 	}
 	if (toolShowsBrush(tool) && overImage) {
-		return "hidden";
+		return "none";
 	}
 	return "default";
 };

@@ -37,56 +37,58 @@ const Toolbar = ({
 	undoShortcut,
 	redoShortcut,
 	debugFlags,
-}: ToolbarProps) => (
-	<FloatingToolbar>
-		<Tooltip label="Undo" shortcut={undoShortcut}>
-			<Button
-				variant="icon"
-				onClick={onUndo}
-				disabled={!canUndo || !editorEnabled}
-			>
-				<ArrowUUpLeftIcon />
-			</Button>
-		</Tooltip>
-		<Tooltip label="Redo" shortcut={redoShortcut}>
-			<Button
-				variant="icon"
-				onClick={onRedo}
-				disabled={!canRedo || !editorEnabled}
-			>
-				<ArrowUUpRightIcon />
-			</Button>
-		</Tooltip>
-
-		<div className={controls.toolbarSeparator} />
-
-		<ToggleGroup
-			value={[mode]}
-			disabled={!editorEnabled}
-			onValueChange={(value) => {
-				if (value.length > 0) {
-					onModeChange(value[0]!);
-				}
-			}}
-			className={controls.toggleGroup}
-		>
-			{MODES.map((m) => (
-				<Tooltip
-					key={m.id}
-					label={m.label}
-					shortcut={m.shortcut.toUpperCase()}
+}: ToolbarProps) => {
+	return (
+		<FloatingToolbar>
+			<Tooltip label="Undo" shortcut={undoShortcut}>
+				<Button
+					variant="icon"
+					onClick={onUndo}
+					disabled={!canUndo || !editorEnabled}
 				>
-					<Toggle value={m.id} className={controls.iconButton}>
-						<m.icon weight={mode === m.id ? "fill" : undefined} />
-					</Toggle>
-				</Tooltip>
-			))}
-		</ToggleGroup>
+					<ArrowUUpLeftIcon />
+				</Button>
+			</Tooltip>
+			<Tooltip label="Redo" shortcut={redoShortcut}>
+				<Button
+					variant="icon"
+					onClick={onRedo}
+					disabled={!canRedo || !editorEnabled}
+				>
+					<ArrowUUpRightIcon />
+				</Button>
+			</Tooltip>
 
-		<div className={controls.toolbarSeparator} />
+			<div className={controls.toolbarSeparator} />
 
-		<DebugOverlaysPopover flags={debugFlags} />
-	</FloatingToolbar>
-);
+			<ToggleGroup
+				value={[mode]}
+				disabled={!editorEnabled}
+				onValueChange={(value) => {
+					if (value.length > 0) {
+						onModeChange(value[0]!);
+					}
+				}}
+				className={controls.toggleGroup}
+			>
+				{MODES.map((m) => (
+					<Tooltip
+						key={m.id}
+						label={m.label}
+						shortcut={m.shortcut.toUpperCase()}
+					>
+						<Toggle value={m.id} className={controls.iconButton}>
+							<m.icon weight={mode === m.id ? "fill" : undefined} />
+						</Toggle>
+					</Tooltip>
+				))}
+			</ToggleGroup>
+
+			<div className={controls.toolbarSeparator} />
+
+			<DebugOverlaysPopover flags={debugFlags} />
+		</FloatingToolbar>
+	);
+};
 
 export default Toolbar;
