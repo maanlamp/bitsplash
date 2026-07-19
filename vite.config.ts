@@ -1,6 +1,6 @@
-import { fileURLToPath } from "node:url";
 import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
@@ -60,33 +60,6 @@ export default defineConfig(({ command }) => ({
 			: babel(babelOptions),
 	],
 	assetsInclude: ["**/*.zip"],
-	optimizeDeps: {
-		include: [
-			"@base-ui/react/alert-dialog",
-			"@base-ui/react/autocomplete",
-			"@base-ui/react/button",
-			"@base-ui/react/checkbox",
-			"@base-ui/react/context-menu",
-			"@base-ui/react/dialog",
-			"@base-ui/react/field",
-			"@base-ui/react/fieldset",
-			"@base-ui/react/input",
-			"@base-ui/react/number-field",
-			"@base-ui/react/popover",
-			"@base-ui/react/select",
-			"@base-ui/react/toast",
-			"@base-ui/react/toggle",
-			"@base-ui/react/toggle-group",
-			"@base-ui/react/tooltip",
-			"@base-ui/react/use-render",
-			"@number-flow/react",
-			"@phosphor-icons/react",
-			"colorjs.io",
-			"inkjs/full",
-			"motion/react",
-			"react-aria-components",
-		],
-	},
 	server: {
 		headers: CROSS_ORIGIN_ISOLATION,
 		warmup: {

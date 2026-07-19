@@ -25,8 +25,8 @@ is transform-CPU-bound on a single-threaded Babel pass carried by
 - **`2023-11` standard decorators** on 64 files (`@serializable`/`@serialize`,
   via `@babel/plugin-proposal-decorators`).
 
-`vite-babel-cache.ts` content-addresses Babel output on disk so *warm* boots skip
-the pass, but Babel stays on the hot path and *cold* boots (fresh clone, cache
+`vite-babel-cache.ts` content-addresses Babel output on disk so _warm_ boots skip
+the pass, but Babel stays on the hot path and _cold_ boots (fresh clone, cache
 wipe, or a salt-invalidating dep/toolchain change) pay full price.
 
 Constraints that bound the solution:
@@ -40,7 +40,7 @@ Constraints that bound the solution:
   standard decorators, not legacy/experimental ones (no `experimentalDecorators`
   in `tsconfig.app.json`; `ESNext.Decorators` lib, `es2023` target).
 
-Why this is a *wait*, not a *build-now* (verified this session against the
+Why this is a _wait_, not a _build-now_ (verified this session against the
 installed toolchain):
 
 - **`oxc-transform@0.140.0`** (latest on npm) exposes no `reactCompiler` option;
@@ -58,7 +58,7 @@ Alternatives). So there is no worthwhile lever between now and the oxc delivery.
 ## Decision
 
 **Wait for the oxc Q3 2026 work, then rip Babel out in one move.** The oxc Q3 plan
-(#23976) targets *both* blockers — shipping the React Compiler in Vite (with a fix
+(#23976) targets _both_ blockers — shipping the React Compiler in Vite (with a fix
 that drops the Oxc↔Babel AST conversion for "up to a 2x performance improvement
 with only about a 1 MB binary size increase") and standard decorators (#9170,
 listed as a Vite 7→8 migration blocker). When both land in a stable Vite/oxc
@@ -87,25 +87,23 @@ boots. This is tracked as a roadmap watch-item with the switch triggers.
   cross-platform). Rejected.
 - **Adopt the community `oxc-plugin-react-compiler` now.** Would enable oxc-native
   React Compiler today, but the package is archived/unmaintained and would put an
-  experimental crate on the critical path of *production build output* (subtle
+  experimental crate on the critical path of _production build output_ (subtle
   miscompiled memoization = real runtime bugs, no upstream support). Rejected as
   too risky for shipped output.
-- **Migrate decorators to legacy + oxc's `decorator.legacy`.** oxc *can* lower
+- **Migrate decorators to legacy + oxc's `decorator.legacy`.** oxc _can_ lower
   legacy decorators today, but our decorators are standard and lean on
   `Symbol.metadata`; legacy has no `context.metadata`, so this is a semantic
   rewrite of the field-accumulation mechanism plus a `useDefineForClassFields`
   flip that changes class-field init semantics across all 64 component files. And
   it still leaves the React Compiler on Babel — no Babel removal. Rejected.
-- **Custom oxc-parser + magic-string decorator transform.** Feasible for our two
+- **Custom oxc-parser + magic-string decorator transform.** Feasible for our three
   decorators, but on its own it cannot remove Babel (the React Compiler keeps
   `@rolldown/plugin-babel` resident), and a prior spike showed only ~1s benefit.
   Only worth it bundled with a compiler solution — which the oxc-native path
   provides more cleanly. Rejected as a standalone.
 - **Skip the compiler in dev (build-only).** Violates the no-dev/build-divergence
   constraint. Off the table.
-- **Structural first-paint trim (defer registrations, lazy panels).** Orthogonal
-  and lower-ceiling; compounds with anything but does not remove Babel. Not part
-  of this migration.
+- **Structural first-paint trim (defer registrations, lazy panels).** Already spiked, partially implemented – lazy panels are in, first-paint trim attempts yielded barely any speedup as that wasn't the bottleneck. The core issue is that react-compiler must run for almost all editor files, and is too slow to reach acceptable cold startup times.
 
 ## Approach / steps
 
@@ -168,7 +166,7 @@ boots. This is tracked as a roadmap watch-item with the switch triggers.
   through Babel (`reactCompilerPreset` + `@rolldown/plugin-babel`) — so the swap
   point is that plugin's config surface, not a custom transform.
 - **Our decorators are genuinely standard**, depending on `context.metadata`
-  (`Symbol.metadata`); oxc lowers only *legacy* decorators today, so decorator
+  (`Symbol.metadata`); oxc lowers only _legacy_ decorators today, so decorator
   removal is gated on #9170, independently of the compiler.
 - **Babel worker-pool measured 1.38× ceiling, negative past 2 workers** — a
   main-thread serialization bottleneck; not worth its DX/correctness surface for
@@ -180,7 +178,7 @@ boots. This is tracked as a roadmap watch-item with the switch triggers.
 ## Risks & open questions
 
 - **External timeline is uncertain.** The whole plan is gated on oxc shipping in a
-  stable Vite release; Q3 2026 is a stated *goal*, not a commitment. No internal
+  stable Vite release; Q3 2026 is a stated _goal_, not a commitment. No internal
   action closes this.
 - **Conformance parity of the native compiler.** oxc's React Compiler is a Rust
   port; step 8's output diff is the guard, but a parity gap could force staying on
