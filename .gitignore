@@ -6,5 +6,6 @@ build
 *.gen.*
 
 docs/storyline.md
-docs/act1-requirements.md
+docs/roadmap.md
+
 CLAUDE.md
