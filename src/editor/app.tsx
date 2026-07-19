@@ -1,5 +1,9 @@
 import { IconContext } from "@phosphor-icons/react";
 import {
+	lazy,
+	type ReactNode,
+	Suspense,
+	use,
 	useCallback,
 	useEffect,
 	useReducer,
@@ -28,7 +32,6 @@ import {
 	isFontName,
 	isTilesetName,
 } from "./assets";
-import AudioEditor from "./audio/audio-editor";
 import {
 	deleteEntities,
 	duplicateEntities,
@@ -42,7 +45,6 @@ import {
 	AddComponentPicker,
 	type MenuDeps,
 } from "./entity-context-menu";
-import FontPreview from "./font/font-preview";
 import { History } from "./history";
 import Inspector, {
 	SceneConfigInspector,
@@ -68,9 +70,7 @@ import { SceneView } from "./scene-view";
 import SceneViewPanel from "./scene-view-panel";
 import { SelectionChannel } from "./selection-channel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
-import SpriteEditor, {
-	type NewSpriteConfig,
-} from "./sprite/sprite-editor";
+import type { NewSpriteConfig } from "./sprite/sprite-editor";
 import TitleBar from "./title-bar";
 import { Toaster } from "./toaster";
 import {
@@ -94,6 +94,35 @@ import {
 	parseViewId,
 } from "./workspace/view-registry";
 import Workspace from "./workspace/workspace";
+
+/**
+ * On-demand editor panels, code-split so they leave the editor's first-paint
+ * graph. They are opened by picking an asset and are never in the default
+ * layout, so most sessions never download or transform them at boot. Each is
+ * rendered under a {@link Suspense} boundary whose fallback is the shared
+ * {@link Loading} spinner (see `renderView`).
+ */
+const SpriteEditor = lazy(() => import("./sprite/sprite-editor"));
+const AudioEditor = lazy(() => import("./audio/audio-editor"));
+const FontPreview = lazy(() => import("./font/font-preview"));
+
+/**
+ * Suspends its subtree on a promise, then renders `children()`. Routes the
+ * editor's runtime-readiness wait through the same {@link Suspense} boundary as
+ * the lazy panels, so one {@link Loading} fallback covers both "runtime still
+ * loading" and "panel chunk still downloading". `children` is a thunk so the
+ * runtime-dependent JSX is only built once the runtime is ready.
+ */
+const RuntimeSuspender = ({
+	ready,
+	children,
+}: Readonly<{
+	ready: Promise<unknown>;
+	children: () => ReactNode;
+}>) => {
+	use(ready);
+	return <>{children()}</>;
+};
 
 const IS_MAC = /mac/i.test(navigator.platform);
 const MOD = IS_MAC ? "⌘" : "Ctrl";
@@ -157,6 +186,23 @@ const App = ({
 	const gameModuleRef = useRef<GameModule>(gameModule);
 	gameModuleRef.current = gameModule;
 	const projectRef = useRef<Project | null>(null);
+	/**
+	 * Resolved once the game runtime instance exists. Runtime-dependent views
+	 * suspend on this via {@link RuntimeSuspender}, so their shared {@link Loading}
+	 * fallback shows until boot completes. Reset to a fresh pending promise if the
+	 * runtime is torn down and rebuilt.
+	 */
+	const gameReadyRef = useRef<{
+		promise: Promise<void>;
+		resolve: () => void;
+	} | null>(null);
+	if (!gameReadyRef.current) {
+		let resolve!: () => void;
+		const promise = new Promise<void>((r) => {
+			resolve = r;
+		});
+		gameReadyRef.current = { promise, resolve };
+	}
 	const sceneViewsRef = useRef(new Map<ViewId, SceneView>());
 	const debugFlagsRef = useRef(new DebugFlags());
 	const docUnsubsRef = useRef(new Map<string, () => void>());
@@ -759,6 +805,7 @@ const App = ({
 			};
 			raf = requestAnimationFrame(frame);
 			setGame(instance);
+			gameReadyRef.current!.resolve();
 
 			stop = () => {
 				cancelAnimationFrame(raf);
@@ -768,6 +815,11 @@ const App = ({
 				instance.stop();
 				gameRef.current = null;
 				projectRef.current = null;
+				let resolve!: () => void;
+				const promise = new Promise<void>((r) => {
+					resolve = r;
+				});
+				gameReadyRef.current = { promise, resolve };
 				setGame(null);
 			};
 		});
@@ -1179,8 +1231,8 @@ const App = ({
 
 	const renderScene = (id: ViewId) => {
 		const view = ensureSceneView(id);
-		if (!view || !game) {
-			return <Loading label="Loading runtime..." />;
+		if (!view) {
+			return null;
 		}
 		return (
 			<SceneViewPanel
@@ -1202,6 +1254,25 @@ const App = ({
 		);
 	};
 
+	/**
+	 * Wrap a runtime-dependent view so it suspends on {@link gameReadyRef} until
+	 * the game runtime exists, sharing the {@link Loading} fallback with the lazy
+	 * panel chunks (which suspend on the same boundary once rendered). The body is
+	 * a thunk so its runtime-dependent JSX is only built once the runtime is ready.
+	 */
+	const runtimeView = (render: () => ReactNode) => (
+		<Suspense fallback={<Loading label="Loading runtime…" />}>
+			<RuntimeSuspender ready={gameReadyRef.current!.promise}>
+				{render}
+			</RuntimeSuspender>
+		</Suspense>
+	);
+
+	/** Wrap a lazy-only view (needs no runtime): suspend on the panel chunk. */
+	const lazyView = (element: ReactNode) => (
+		<Suspense fallback={<Loading />}>{element}</Suspense>
+	);
+
 	const renderView = (id: ViewId) => {
 		const { kind, param } = parseViewId(id);
 		switch (kind) {
@@ -1216,26 +1287,32 @@ const App = ({
 			case "profiler":
 				return renderProfiler();
 			case "scene":
-				return renderScene(id);
+				return runtimeView(() => renderScene(id));
 			case "font":
-				return game && param ? (
-					<FontPreview
-						assetUrl={param}
-						assetManager={game.assetManager}
-					/>
-				) : null;
+				return runtimeView(() => {
+					const g = gameRef.current;
+					return g && param ? (
+						<FontPreview
+							assetUrl={param}
+							assetManager={g.assetManager}
+						/>
+					) : null;
+				});
 			case "audio":
-				return game ? (
-					<AudioEditor
-						assetUrl={param === NEW_PARAM ? null : param}
-						onDirty={(d) => setViewDirty(id, d)}
-						audio={game.audio}
-						onCreated={onAssetCreated}
-						active={focusedView === id}
-					/>
-				) : null;
+				return runtimeView(() => {
+					const g = gameRef.current;
+					return g ? (
+						<AudioEditor
+							assetUrl={param === NEW_PARAM ? null : param}
+							onDirty={(d) => setViewDirty(id, d)}
+							audio={g.audio}
+							onCreated={onAssetCreated}
+							active={focusedView === id}
+						/>
+					) : null;
+				});
 			case "sprite":
-				return renderSprite(id, param ?? "");
+				return lazyView(renderSprite(id, param ?? ""));
 			default:
 				return null;
 		}

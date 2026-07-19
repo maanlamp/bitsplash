@@ -3,8 +3,26 @@ import babel from "@rolldown/plugin-babel";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
-import wasm from "vite-plugin-wasm";
 import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
+import { cachedBabel } from "./vite-babel-cache";
+
+/**
+ * Babel is the slow, single-threaded pass on the dev hot path: it runs the
+ * `2023-11` decorator transform (Oxc can't do standard decorators) plus the
+ * React Compiler. Options are shared between dev and build; only dev wraps them
+ * in {@link cachedBabel} (see below).
+ */
+const babelOptions: Parameters<typeof babel>[0] = {
+	plugins: [
+		["@babel/plugin-proposal-decorators", { version: "2023-11" }],
+	],
+	overrides: [
+		{
+			exclude: /[\\/]src[\\/]engine[\\/]ui[\\/]/,
+			presets: [reactCompilerPreset()],
+		},
+	],
+};
 
 const suppressSceneHmr = (): Plugin => ({
 	name: "suppress-scene-hmr",
@@ -29,24 +47,17 @@ const CROSS_ORIGIN_ISOLATION = {
 	"Cross-Origin-Embedder-Policy": "credentialless",
 };
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
 	plugins: [
 		mkcert(),
-		wasm(),
 		inkCodegen(),
 		suppressSceneHmr(),
 		react(),
-		babel({
-			plugins: [
-				["@babel/plugin-proposal-decorators", { version: "2023-11" }],
-			],
-			overrides: [
-				{
-					exclude: /[\\/]src[\\/]engine[\\/]ui[\\/]/,
-					presets: [reactCompilerPreset()],
-				},
-			],
-		}),
+		// Dev serves warm from an on-disk transform cache; production builds run
+		// Babel straight (uncached) so shipped output is never cache-dependent.
+		command === "serve"
+			? cachedBabel(babelOptions)
+			: babel(babelOptions),
 	],
 	assetsInclude: ["**/*.zip"],
 	optimizeDeps: {
@@ -94,4 +105,4 @@ export default defineConfig({
 			},
 		},
 	},
-});
+}));

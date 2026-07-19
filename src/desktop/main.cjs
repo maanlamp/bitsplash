@@ -36,9 +36,9 @@ const loadDevURL = (window, url) => {
 		}
 	};
 	window.webContents.on("did-fail-load", onFail);
-	window.webContents.once("did-finish-load", () =>
-		window.webContents.off("did-fail-load", onFail),
-	);
+	window.webContents.once("did-finish-load", () => {
+		window.webContents.off("did-fail-load", onFail);
+	});
 	void window.loadURL(url);
 };
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
