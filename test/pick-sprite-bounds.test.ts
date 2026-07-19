@@ -64,9 +64,9 @@ describe("sprite entity pick bounds", () => {
 
 		index.maintain(asAssetManager(am));
 		// Only the fallback box (half 16) is hittable while the image loads.
-		expect(pickEntityAt(ecs, new Vector2(0, 0), asAssetManager(am))).toBe(
-			id,
-		);
+		expect(
+			pickEntityAt(ecs, new Vector2(0, 0), asAssetManager(am)),
+		).toBe(id);
 		expect(
 			pickEntityAt(ecs, new Vector2(24, 24), asAssetManager(am)),
 		).toBeNull();

@@ -15,6 +15,32 @@ const { pathToFileURL } = require("node:url");
 const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
 
 const DEV_URL = "https://localhost:5173";
+
+/**
+ * Load a dev-server URL, retrying while the connection is refused. Electron
+ * reaches `loadURL` a few hundred ms before Vite is listening, so the first
+ * attempt on a cold start would otherwise fail with `ERR_CONNECTION_REFUSED`
+ * and leave a blank window until a manual reload.
+ */
+const loadDevURL = (window, url) => {
+	const CONNECTION_ERRORS = new Set([
+		-102, -105, -106, -109, -118, -324,
+	]);
+	const onFail = (_event, errorCode) => {
+		if (!window.isDestroyed() && CONNECTION_ERRORS.has(errorCode)) {
+			setTimeout(() => {
+				if (!window.isDestroyed()) {
+					void window.loadURL(url);
+				}
+			}, 200);
+		}
+	};
+	window.webContents.on("did-fail-load", onFail);
+	window.webContents.once("did-finish-load", () =>
+		window.webContents.off("did-fail-load", onFail),
+	);
+	void window.loadURL(url);
+};
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 const LEVELS_DIR = path.join(
 	PROJECT_ROOT,
@@ -259,7 +285,7 @@ const createWindow = async () => {
 		},
 	});
 
-	void window.loadURL(DEV_URL);
+	loadDevURL(window, DEV_URL);
 };
 
 const createGameWindow = () => {
@@ -279,7 +305,7 @@ const createGameWindow = () => {
 			nodeIntegration: false,
 		},
 	});
-	void window.loadURL(`${DEV_URL}/game.html`);
+	loadDevURL(window, `${DEV_URL}/game.html`);
 };
 
 ipcMain.handle("openGameWindow", () => {

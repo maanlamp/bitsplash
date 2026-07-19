@@ -36,7 +36,7 @@ reconciler with Yoga + pointer input, and code-defined FSMs. Feasibility review
 confirmed **every** element of this design is expressible within those rules
 with no AGENTS.md violation.
 
-The design was adversarially critiqued twice. The durable *why* behind the big
+The design was adversarially critiqued twice. The durable _why_ behind the big
 decisions is captured separately in `docs/design/` (see below); this plan is the
 build checklist.
 
@@ -58,9 +58,9 @@ corpse, an inventory grid, or an equip slot:
 2. **Archetype** (base type, e.g. Longsword, Bow, Plate Cuirass) — defines a
    **part-slot schema**, base behavior, damage-type/mitigation role, and base
    visual. Longsword → `{blade, guard, grip, pommel}`; Bow → `{limbs, string,
-   grip, rest}`; Cuirass → `{plating, lining, trim}`.
+grip, rest}`; Cuirass → `{plating, lining, trim}`.
 3. **Parts** — one per archetype slot. Each carries stat contributions, a
-   damage-type lean, a **material** (drives appearance *and*, for armor, the
+   damage-type lean, a **material** (drives appearance _and_, for armor, the
    resistance profile), and a quality weight. Parts drive appearance.
 4. **Affixes** — 0–N rolled modifier lines, each with a tier and a value range.
 5. **Rarity** — `Common | Uncommon | Rare | Epic`. Gates affix-slot count +
@@ -73,7 +73,7 @@ variance so the god-roll chase lives inside a fixed identity.
 
 **Storage = live references.** An item stores
 `{ id, archetype, [partId…], [{affixId, rolledValue}…], rarity, uniqueId? }`;
-part/affix/archetype/material *definitions* live in central registries; final
+part/affix/archetype/material _definitions_ live in central registries; final
 stats are recomputed on load. `id` is a stable serialized uuid (needed for
 drag/drop, sell, and future transplant). A stored def-id that no longer resolves
 → skip that contribution + log (single-player, safe default).
@@ -96,7 +96,7 @@ No character level, no item-level number. Power climbs via rarity +
 (higher rarity odds + better part pools). A zone's "tier" simply falls out of
 which enemy prefabs a scene places — **no zone/region abstraction is added**.
 Difficulty comes from enemy AI + damage-type resistances + encounter design.
-Progression *novelty* is delivered by story zones opening new build-space (new
+Progression _novelty_ is delivered by story zones opening new build-space (new
 archetypes/affix families/interactions), not bigger numbers. No meta-progression
 board.
 
@@ -104,11 +104,11 @@ board.
 
 - **Damage types:** physical subtypes (cleave/slash, blunt/crush, pierce/stab) +
   elemental (fire, …). Weapons deal 1–2 types.
-- **Offense:** the equipped weapon *is* the item; base damage × part multipliers
+- **Offense:** the equipped weapon _is_ the item; base damage × part multipliers
   feed the existing `HitModifiers` seam. Player-only equips; enemies keep baked
   stats + a drop table.
 - **Mitigation (new `game/armor/` slice):** `taken = raw × generalDR ×
-  typeMult[material][damageType]`, where `generalDR = armor/(armor+k)` and the
+typeMult[material][damageType]`, where `generalDR = armor/(armor+k)` and the
   matrix holds weak ×1.5 / resist ×0.5 / immune ×0 keyed on armor **material**
   (named chain/plate/scale/hide so players guess it). A `MitigationSystem` sits
   immediately before `HealthSystem` and mutates `DamageEvent.amount` by its type
@@ -118,19 +118,19 @@ board.
   structural-slot part's material sets the base column; other parts/affixes
   adjust it); across equipped pieces the `armor` scalars **sum** into
   `armor/(armor+k)` and the per-type maps **multiply** (clamped so stacked
-  immunities can't invert to healing). Symmetric in *formula* for player and
+  immunities can't invert to healing). Symmetric in _formula_ for player and
   enemies; the two differ only in where the profile comes from. **No shields. No
   durability, ever.**
 - **Balance invariant (load-bearing):** a correct matchup is worth ~**one rarity
-  tier** of effective DPS against a *resistant* target and ~zero against a
+  tier** of effective DPS against a _resistant_ target and ~zero against a
   neutral one. Every part/affix/rarity number is validated against this — it is
   what keeps rarity-power and the matchup from eating each other.
 - **Quick-swap loadout:** `LoadoutComponent { slots: ItemInstance[2..3];
-  activeIndex }` on the player (rolled item instances, not registry defs);
+activeIndex }` on the player (rolled item instances, not registry defs);
   instant hotkey/wheel swap via new `ACTION_IDS` + `actions.fired(...)`. The
   matchup is a live combat verb. Armor/accessories change through the
   anytime-openable inventory window.
-- **Feedback:** minimal hitsplats, no damage numbers; magnitude rides on *feel*
+- **Feedback:** minimal hitsplats, no damage numbers; magnitude rides on _feel_
   (weak = meaty hit-stop + bright glyph, resist = dull clang + shrunk glyph,
   immune = absorb-flash) plus a lightweight per-enemy resist readout on inspect.
 
@@ -156,7 +156,7 @@ board.
   loudest class.
 - **QoL (scoped to sparse volume — no loot-filter engine):** lock/favorite
   (protects from sell), junk-tag → bulk-sell, and junk-tagged items auto-convert
-  to a coin trickle on pickup (so trash is never *handled*).
+  to a coin trickle on pickup (so trash is never _handled_).
 
 ### Economy — single currency
 
@@ -170,7 +170,7 @@ reroll, transplant, or pity — those are the deferred catch-up plan.
 ## Alternatives considered
 
 - **Rarity encodes complexity, not power** — rejected: the designer chose rarity
-  as an honest power signal and accepted that low-rarity *instances* become
+  as an honest power signal and accepted that low-rarity _instances_ become
   salvage fodder (sparsity prevents a trash-shower); "every weapon has a reason"
   holds at the archetype + matchup level.
 - **Character/item level** — rejected repeatedly: any level term that multiplies
@@ -202,7 +202,7 @@ fixed. The shared contract is the **item value-types + registries + the
 
 1. **RNG primitive** — add `src/engine/rng/` with a stateless mixer:
    FNV-1a `string→u32` for uuids + a splitmix/PCG finalizer; `roll(worldSeed,
-   key…) → [0,1)`; per-domain salts (loot/combat/cosmetic) so streams can't
+key…) → [0,1)`; per-domain salts (loot/combat/cosmetic) so streams can't
    desync. No `UpdateContext` change required for the pure-hash form.
 2. **`LootLedgerComponent { seed: number; counters: Record<string,number> }`** —
    a persistent singleton created in `newGameSeed`
@@ -210,7 +210,7 @@ fixed. The shared contract is the **item value-types + registries + the
    persistent bucket. Never a scene-document entity (provenance-safe).
 3. **Item value-types + registries** — `ItemInstance` (with stable `id`),
    `PartInstance`, `AffixInstance` as `@serializable` value types; archetype /
-   part / affix / material *definition* registries as code-defined tables with a
+   part / affix / material _definition_ registries as code-defined tables with a
    manual-registration shim (mirroring `quest/loader.ts`) so `bun test` can load
    them without `import.meta.glob`.
 4. **Round-trip test** — headless: build an item, serialize a world holding it
@@ -250,10 +250,10 @@ fixed. The shared contract is the **item value-types + registries + the
    threaded through `resolve-hit.ts`, `damage-stats-component.ts`,
    `arrow-component.ts`, `bow-system.ts`, `melee-system.ts`, `arrow-system.ts`,
    `events.ts`; the basic inspection card.
-   - **Acceptance criteria:** combat *feel* is validated in the real app; ≥1
+   - **Acceptance criteria:** combat _feel_ is validated in the real app; ≥1
      encounter demonstrates element-swap measurably beating no-swap (the matchup
      demotion is only valid if this holds — else cut the damage-type system).
-     Loot-loop *fairness* is explicitly **not** under test here (it runs its
+     Loot-loop _fairness_ is explicitly **not** under test here (it runs its
      highest-variance config with the catch-up layer deferred).
 
 ### Phase 2 — breadth (parallelizable on the contract)
@@ -277,7 +277,7 @@ fixed. The shared contract is the **item value-types + registries + the
 
 ## Research findings that drove this
 
-- **Codebase:** respawns *reuse* the entity id (`death-system.ts:21` →
+- **Codebase:** respawns _reuse_ the entity id (`death-system.ts:21` →
   `spawn-system.ts:31-36` → `prefabs.ts:26-32`) — this is what makes kill-lock a
   pure hash over a per-id counter rather than a fragile PRNG snapshot. Value-type
   arrays serialize generically (`serialization/value.ts`; precedent
@@ -286,7 +286,7 @@ fixed. The shared contract is the **item value-types + registries + the
   `DamageStats` in `enemy.prefab.json`. The UI reconciler already has pointer
   hit-testing, a `Grid`, and unused `setModal`; only drag/scroll are new. There
   is no zone concept — tier falls out of prefab placement.
-- **Prior art:** the near-universal model is *base template + rolled instances*
+- **Prior art:** the near-universal model is _base template + rolled instances_
   (PoE affixes; Borderlands part recipes) — never a pre-baked stat blob. Stat
   aggregation `(base + Σflat) × (1 + Σincreased) × Π(1 + more)`. Drop tables =
   weighted pools

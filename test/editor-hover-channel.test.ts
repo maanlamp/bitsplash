@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { EditorState } from "../src/editor/editor-state";
 import type { EntityId } from "../src/engine/ecs";
 
-const entity = (name: string): EntityId => name as unknown as EntityId;
+const entity = (name: string): EntityId =>
+	name as unknown as EntityId;
 
 describe("editor hover notification channel", () => {
 	test("setHovered wakes only the hover channel, never the coarse store channel", () => {

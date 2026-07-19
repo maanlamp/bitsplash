@@ -29,7 +29,11 @@ export class EditorSettings extends Subscribable {
 	}
 
 	setNudgeStep(value: number): void {
-		this._nudgeStep = this.setNumber(NUDGE_KEY, this._nudgeStep, value);
+		this._nudgeStep = this.setNumber(
+			NUDGE_KEY,
+			this._nudgeStep,
+			value,
+		);
 	}
 
 	get snapThreshold(): number {

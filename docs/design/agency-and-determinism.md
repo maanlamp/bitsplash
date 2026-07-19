@@ -12,7 +12,7 @@ design mechanics whose purpose is to stop players from playing the way they
 like. Anti-agency framing ("prevent the player from…", "punish reloading") is
 rejected on sight.
 
-The implication is positive, not restrictive: we do not *need* to fight the
+The implication is positive, not restrictive: we do not _need_ to fight the
 player, so we are free to build systems that are honest and consistent instead.
 
 ## A save is a window into history, not a fork
@@ -20,7 +20,7 @@ player, so we are free to build systems that are honest and consistent instead.
 The world is **deterministic**. A save is a window back into a consistent
 timeline — not a fork into a parallel universe where dice are re-thrown. Reload
 to a moment, take the same action, and the same thing happens; advance the world
-legitimately, and outcomes vary. This is chosen for *feel* (the world is
+legitimately, and outcomes vary. This is chosen for _feel_ (the world is
 coherent and trustworthy), not to police anyone.
 
 Concretely, for anything random and consequential (loot drops, shop restocks,
@@ -44,7 +44,7 @@ outcome = hash(worldSeed, stableKey, counter[stableKey])
 
 - `worldSeed` — per-save, set at new-game.
 - `stableKey` — a stable identity (e.g. a victim entity id; a shop id).
-- `counter[stableKey]` — a small integer advanced per event, and the *only*
+- `counter[stableKey]` — a small integer advanced per event, and the _only_
   state we persist.
 
 Because the hash is stateless, "reload = same, advance = different" is true **by
@@ -69,7 +69,7 @@ outcomes. This is the counter-based analogue of split RNG streams.
 ## Scope of determinism
 
 We guarantee reproducible **rolls** (loot, restock, and similar discrete
-outcomes), not necessarily a bit-reproducible *simulation* — the physics backend
+outcomes), not necessarily a bit-reproducible _simulation_ — the physics backend
 is not established as cross-run deterministic, so we do not advertise full-run
 determinism. Reproducibility is scoped to the discrete decisions the hash
 governs.
