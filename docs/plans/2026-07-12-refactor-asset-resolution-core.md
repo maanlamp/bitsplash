@@ -2,7 +2,7 @@
 
 - **Type:** refactor
 - **Date:** 2026-07-12
-- **Status:** draft
+- **Status:** accepted
 
 ## Goal
 
