@@ -128,6 +128,19 @@
 	--duration-slow: 800ms;
 	--ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
+	--console-level-warn: oklch(0.82 0.15 85);
+	--console-level-error: oklch(0.72 0.19 25);
+	--console-level-info: var(--accent);
+	--console-tint-warn: oklch(0.82 0.15 85 / 0.08);
+	--console-tint-error: oklch(0.72 0.19 25 / 0.1);
+	--console-string: oklch(0.8 0.13 145);
+	--console-number: oklch(0.78 0.12 250);
+	--console-boolean: oklch(0.78 0.14 300);
+	--console-regexp: oklch(0.78 0.13 30);
+	--console-symbol: oklch(0.8 0.12 200);
+	--console-null: var(--on-surface-faint);
+	--console-key: var(--on-surface-strong);
+
 	--debug-collider: oklch(0.72 0.18 145 / 0.3);
 	--debug-sensor: oklch(0.78 0.16 85 / 0.3);
 	--debug-axis-x: rgb(230 115 115);

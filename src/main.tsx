@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./editor/app";
+import "./editor/console/console-capture";
 import "./game/registrations";
 import { createPlatformerGameModule } from "./game/shell/platformer-runtime";
 import "./style/main.scss";

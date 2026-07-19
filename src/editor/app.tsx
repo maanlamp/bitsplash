@@ -38,7 +38,7 @@ import {
 	nudgeEntities,
 } from "./commands";
 import ConfirmDialog from "./confirm-dialog";
-import Console from "./console/console";
+import { ConsoleView } from "./console/console-view";
 import { DebugFlags } from "./debug-flags";
 import { editorSettings } from "./editor-settings";
 import {
@@ -1175,7 +1175,7 @@ const App = ({
 		return <div className={styles.placeholder}>Nothing selected</div>;
 	};
 
-	const renderConsole = () => <Console />;
+	const renderConsole = () => <ConsoleView />;
 
 	const resolveActiveProfile =
 		useCallback((): FrameProfile | null => {
