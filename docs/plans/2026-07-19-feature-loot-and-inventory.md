@@ -24,8 +24,9 @@ Weapons are baked into actor prefabs as components (`Bow`, `Melee`,
 seam, emits `DamageEvent`, and `HealthSystem` applies it raw — there is no
 mitigation layer, no damage types, no armor. The `give_item` ink binding
 (`src/game/dialogue/ink-bindings.ts:46`) is a no-op stub awaiting a backend.
-There is no seeded RNG (`src/engine/hash.ts` is a stateless position mixer) and
-no particle system.
+There is no seeded RNG (`src/engine/hash.ts` is a stateless position mixer). A
+VFX system is planned (`docs/plans/2026-07-20-feature-vfx-system.md`) and
+supplies the loot beam via its `spawnLootBeam` seam.
 
 The engine is well-suited to the system: POJO components with
 `@serializable`/`@serialize`, value types (nested serializable data) marked by a
@@ -140,10 +141,11 @@ activeIndex }` on the player (rolled item instances, not registry defs);
   rotation**, modest footprints (illustrative, to be tuned: most items 1×1/1×2,
   big weapons/armor ~2×2), auto-arrange. Small and generous, not Tarkov.
   Fungibles (coins) auto-vacuum.
-- **Collection:** enemy death → a **persistent** loot-corpse entity + a faked
-  rarity beam (additive sprite quad + ground glow + rising motes via the
-  transient-spawn pattern; **explicit code marker: should be particle-powered
-  later**), colored by the best item inside. A **non-blocking** review window
+- **Collection:** enemy death → a **persistent** loot-corpse entity + the real
+  rarity beam via the VFX system's `spawnLootBeam(entity, visualClass)` seam
+  (`docs/plans/2026-07-20-feature-vfx-system.md`; `visualClass` is
+  `Common | Uncommon | Rare | Epic | Unique` — Unique out-shouts Epic),
+  driven by the best item inside. A **non-blocking** review window
   (world stays live), openable anytime (agency); take what you want, leave the
   rest; corpse persists so nothing is lost to terrain. Single-item shortcut
   skips the window.
@@ -242,8 +244,11 @@ key…) → [0,1)`; per-domain salts (loot/combat/cosmetic) so streams can't
    a drop table + a `ResistanceComponent`; a `LootSystem` placed in
    `gameplaySystems` **after `HealthSystem` and before the post-update destroy
    flush** (so it reads `DeathEvent` and the victim's still-queryable
-   `TransformComponent` — the flush is deferred) and spawns a persistent corpse
-   with a faked beam; press → collect into a minimal grid; equip via
+   `TransformComponent` — the flush is deferred) and spawns a persistent corpse,
+   calling `spawnLootBeam(corpse, visualClass)` (VFX plan seam; **blocks on the
+   VFX plan's core + beam workstreams landing first**,
+   `docs/plans/2026-07-20-feature-vfx-system.md`) with the class of the best
+   item inside; press → collect into a minimal grid; equip via
    `LoadoutComponent` **including the quick-swap action wiring** (new
    `ACTION_IDS` entries + `actions.fired("weapon.next"/slots)` driving
    `activeIndex`); `MitigationSystem` before `HealthSystem`; damage types
@@ -272,8 +277,10 @@ key…) → [0,1)`; per-domain salts (loot/combat/cosmetic) so streams can't
 ### Phase 3 — wiring + polish
 
 - Author the real content; wire `give_item` (emit `GiveItemEvent`, consume in an
-  inventory system, mirroring `start_quest`); beam juice; the per-enemy resist
-  readout on inspect; feel-based hit feedback pass.
+  inventory system, mirroring `start_quest`); beam tuning against real drop
+  rates/framing (the beam itself ships with the VFX plan — tune its five
+  visual-class defs here, don't rebuild); the per-enemy resist readout on
+  inspect; feel-based hit feedback pass.
 
 ## Research findings that drove this
 
