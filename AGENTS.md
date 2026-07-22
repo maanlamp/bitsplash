@@ -90,6 +90,19 @@ discipline, and guarded by:
 serialize "scope" to keep runtime state out of level files — the
 journal-onto-scratch construction is what makes leaks unrepresentable.
 
+## Saves & schema stability (pre-ship)
+
+We have not shipped. Until a note in this repo says otherwise (likely years
+away), **do not spend any effort preserving or migrating user saves or runtime
+snapshot schemas**. A breaking schema change should simply crash, loudly — that
+is the desired signal to fix the data or the code _now_, before shipping.
+Graceful recovery, save migration, and backward-compatible versioning of
+runtime state are out of scope and actively hamper development; don't design
+for them, don't ask about them. Any schema already carrying versioning
+machinery needs a very good reason to keep it if touched. (Authored content
+migrations — scene files, editor documents — are a separate concern and remain
+legitimate.)
+
 ## Project architecture
 
 Within `engine/` and `game/`, code is organized as **vertical feature
@@ -143,7 +156,9 @@ Violating these boundaries is never acceptable, regardless of convenience.
 - No inline comments, except for very specific cases of required but inpenetrable code to explain it. Note that code that's not autological should initially be treated as a candidate for refactoring so it's clear, and only if that genuinely won't work or produces way more LOC, then a comment is ok.
 - Comments can and _will_ rot. Make sure any code you touch is reflected in the comments surrounding it, if at all. Prefer removing comments if they're not longer correct instead of trying to fix them. Same two rules above apply.
 - Do not handroll your own components for the editor UI; check `base-ui` (https://base-ui.com/llms.txt) first.
+- Compose React `className` values with `clsx`, never raw string interpolation or ternaries: `className={clsx(styles.base, active && styles.active)}`.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
+- **No magic strings for cross-references — make them impossible by construction.** Any identifier that points at other content — ink knots, sequence ids, spawn/cast roles, prefab names, sequence tags, chronicle flags — must be reached through a type-safe mechanism, never a bare string literal at a call site. The mechanism fits the source of truth: for **TS→TS**, import/export a shared `const` (and derive literal-union types from it) so `tsc` checks every use; for content **TypeScript cannot see on its own** (e.g. ink knots compiled from `.ink`), codegen a branded accessor module from the authored source (the `scripts/gen-ink.ts` → `knots.gen.ts` pattern: run by `bun run gen`, wired into `check`/`build`/`pretest`). Either way the reference is **validated so a dangling one fails loudly** — at build for code, at load or build-over-artifacts for authored data (`.scene.json` etc.) — never silently swallowed. The bar is architectural: structure the code so a magic string _can't_ be used, not so it's merely discouraged.
 - **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in AGENTS.md, not in memory.
 - **UX decisions are not yours to make**: Never make a user-experience decision without asking the user first. This applies to anything that shapes how a user (game author or player) experiences a flow: error handling and where/how failures surface, field interaction, validation behavior, when/whether something blocks an action, notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems obvious, and even mid-task. This applies across all parts of the project (editor, game runtime, serialization, save/load). Exception: trivial, conventional accessibility/correctness choices (e.g. "a clickable element should be a `<button>`") are fine to make without asking.
 - **No sliders in player-facing game UI.** This rule is scoped to the **game runtime's** player-facing settings/options; the **editor UI is exempt** — sliders there are fine when appropriate. In the game, any player-configurable numeric value (sensitivities, input thresholds, timings, rates) is entered as a raw number input with an explicit unit label, and — where the raw value is an opaque coefficient — a live preview and/or a meaningful derived unit (e.g. `cm/360°` for aim sensitivity, `ms` for input timings, with a "hold/tap here to feel it" test affordance). Validate only against the invalid domain (e.g. `> 0`); never clamp to arbitrary min/max ranges. Arbitrary floors/caps (the classic can't-go-below-0.1 sensitivity slider) exclude users for no reason. Irreversible or accident-prone actions triggered by a hold surface a visible progress fill rather than firing silently.

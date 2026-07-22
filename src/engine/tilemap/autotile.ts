@@ -81,6 +81,28 @@ export const classifyCap = (
 
 export const SHEET_COLUMNS = 3;
 
+/**
+ * Whether `width` can hold the {@link SHEET_COLUMNS}-column autotile sheet with
+ * every column a whole number of source pixels wide: a positive exact multiple
+ * of the column count. The new-tileset dialog enforces this by snapping
+ * ({@link snapTilesetWidth}); an opened tileset document is validated against it
+ * and warned about when it fails. Shared so both call sites agree by construction.
+ */
+export const isValidTilesetWidth = (width: number): boolean =>
+	Number.isInteger(width) && width > 0 && width % SHEET_COLUMNS === 0;
+
+/**
+ * Snap a desired width to the nearest valid tileset width (see
+ * {@link isValidTilesetWidth}), never below one full column. Used by the
+ * new-tileset dialog so a freshly created tileset always has aligned columns;
+ * `isValidTilesetWidth(snapTilesetWidth(w))` holds for every finite `w`.
+ */
+export const snapTilesetWidth = (width: number): number =>
+	Math.max(
+		SHEET_COLUMNS,
+		Math.round(width / SHEET_COLUMNS) * SHEET_COLUMNS,
+	);
+
 export const TILESET_SUFFIX = ".tileset.png";
 
 export const isAutotileTileset = (url: string): boolean =>

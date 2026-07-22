@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { useEffect, useReducer, useSyncExternalStore } from "react";
 import { AssetRef } from "../../engine/asset-ref";
 import type { ECS, EntityId } from "../../engine/ecs";
@@ -258,11 +259,10 @@ const ComponentSection = ({
 	return (
 		<section className={styles.section}>
 			<div
-				className={
-					incomplete
-						? `${styles.sectionTitle} ${styles.sectionTitleError}`
-						: styles.sectionTitle
-				}
+				className={clsx(
+					styles.sectionTitle,
+					incomplete && styles.sectionTitleError,
+				)}
 			>
 				{componentLabel(component)}
 				{incomplete && (

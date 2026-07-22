@@ -1,10 +1,7 @@
 import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
 import { resolveRenderLayer } from "../../engine/render/render-layers";
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../../engine/sprite/sprite-component";
+import { resolveSpriteDraw } from "../../engine/sprite/resolve-sprite-draw";
+import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import {
 	type RenderContext,
 	RenderSystem,
@@ -32,11 +29,11 @@ export class InteractOutlineRenderSystem implements RenderSystem {
 		if (!transform || !sprite) {
 			return;
 		}
-		const image = assetManager.getImage(spriteImageUrl(sprite));
-		if (!image) {
+		const draw = resolveSpriteDraw(sprite, assetManager);
+		if (!draw) {
 			return;
 		}
-		const source = spriteSource(sprite, image);
+		const { image, source } = draw;
 		renderer.drawImageOutline(
 			resolveRenderLayer(ecs, this.outlineLayer),
 			image,

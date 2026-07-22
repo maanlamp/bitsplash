@@ -4,14 +4,13 @@ import type { TileSource } from "../../engine/render/renderer-2d";
 import type { FontSettings } from "../../engine/text/font-settings";
 import type { ActivationMarker } from "../ui/key-cap";
 import type { ResolvedInputIcon } from "../ui/input-icon-atlas";
-import { KBD_INSETS } from "../ui/kbd-frame";
 
 export type InteractHintSnapshot = Readonly<{
 	entity: EntityId | null;
 	glyph: string;
 	font: FontSettings | null;
 	frame: TileSource | null;
-	insets: NineSliceInsets;
+	insets: NineSliceInsets | undefined;
 	icon: ResolvedInputIcon | null;
 	activation: ActivationMarker;
 }>;
@@ -21,7 +20,7 @@ const CLOSED: InteractHintSnapshot = {
 	glyph: "",
 	font: null,
 	frame: null,
-	insets: KBD_INSETS,
+	insets: undefined,
 	icon: null,
 	activation: "press",
 };

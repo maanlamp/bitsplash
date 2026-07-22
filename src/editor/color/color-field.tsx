@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ColorResolver } from "../../engine/render/color-resolver";
 import type { FieldBinding } from "../commands";
@@ -146,7 +146,7 @@ export const ColorField = ({
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8} align="start">
 					<Popover.Popup
-						className={classNames(surface.surface, styles.colorPanel)}
+						className={clsx(surface.surface, styles.colorPanel)}
 					>
 						<ColorPanel model={model} />
 					</Popover.Popup>

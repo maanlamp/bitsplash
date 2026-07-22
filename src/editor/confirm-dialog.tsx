@@ -1,5 +1,5 @@
 import { AlertDialog } from "@base-ui/react/alert-dialog";
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import Button from "./button";
 import styles from "./confirm-dialog.module.scss";
@@ -33,10 +33,7 @@ const ConfirmDialog = ({
 		<AlertDialog.Portal>
 			<AlertDialog.Backdrop className={surface.backdrop} />
 			<AlertDialog.Popup
-				className={classNames(
-					surface.dialogPopup,
-					styles.confirmPanel,
-				)}
+				className={clsx(surface.dialogPopup, styles.confirmPanel)}
 			>
 				<AlertDialog.Title className={styles.confirmTitle}>
 					{title}

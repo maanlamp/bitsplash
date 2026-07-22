@@ -1,12 +1,12 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import styles from "./loading.module.scss";
 
 const Loading = ({
 	label = "Loading\u2026",
 	className,
 }: Readonly<{ label?: string; className?: string }>) => (
-	<div className={classNames(styles.root, className)}>
+	<div className={clsx(styles.root, className)}>
 		<SpinnerGapIcon
 			className={styles.spinner}
 			size={32}

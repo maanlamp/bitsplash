@@ -1,7 +1,7 @@
 import { Field as BaseField } from "@base-ui/react/field";
 import { Fieldset as BaseFieldset } from "@base-ui/react/fieldset";
 import { useRender } from "@base-ui/react/use-render";
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ComponentPropsWithoutRef } from "react";
 import styles from "./field.module.scss";
 
@@ -10,7 +10,7 @@ const Root = ({
 	...props
 }: ComponentPropsWithoutRef<typeof BaseField.Root>) => (
 	<BaseField.Root
-		className={classNames(styles.root, className)}
+		className={clsx(styles.root, className)}
 		{...props}
 	/>
 );
@@ -20,7 +20,7 @@ const Label = ({
 	...props
 }: ComponentPropsWithoutRef<typeof BaseField.Label>) => (
 	<BaseField.Label
-		className={classNames(styles.label, className)}
+		className={clsx(styles.label, className)}
 		{...props}
 	/>
 );
@@ -30,7 +30,7 @@ const ErrorPart = ({
 	...props
 }: ComponentPropsWithoutRef<typeof BaseField.Error>) => (
 	<BaseField.Error
-		className={classNames(styles.error, className)}
+		className={clsx(styles.error, className)}
 		{...props}
 	/>
 );
@@ -43,7 +43,7 @@ const Row = ({
 	useRender({
 		render,
 		defaultTagName: "div",
-		props: { className: classNames(styles.row, className), ...props },
+		props: { className: clsx(styles.row, className), ...props },
 	});
 
 export const Field = {
@@ -58,7 +58,7 @@ const FieldsetRoot = ({
 	...props
 }: ComponentPropsWithoutRef<typeof BaseFieldset.Root>) => (
 	<BaseFieldset.Root
-		className={classNames(styles.fieldset, className)}
+		className={clsx(styles.fieldset, className)}
 		{...props}
 	/>
 );
@@ -68,7 +68,7 @@ const FieldsetLegend = ({
 	...props
 }: ComponentPropsWithoutRef<typeof BaseFieldset.Legend>) => (
 	<BaseFieldset.Legend
-		className={classNames(styles.legend, className)}
+		className={clsx(styles.legend, className)}
 		{...props}
 	/>
 );
@@ -87,7 +87,7 @@ export const Adornment = ({
 		render,
 		defaultTagName: "span",
 		props: {
-			className: classNames(styles.adornment, className),
+			className: clsx(styles.adornment, className),
 			...props,
 		},
 	});

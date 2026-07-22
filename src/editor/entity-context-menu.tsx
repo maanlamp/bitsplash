@@ -7,7 +7,7 @@ import {
 	PlusCircleIcon,
 	TrashIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import type { ECS, EntityId } from "../engine/ecs";
 import {
@@ -36,7 +36,7 @@ const Popup = ({ children }: Readonly<{ children: ReactNode }>) => (
 	<ContextMenu.Portal>
 		<ContextMenu.Positioner>
 			<ContextMenu.Popup
-				className={classNames(surface.surface, surface.menu)}
+				className={clsx(surface.surface, surface.menu)}
 			>
 				{children}
 			</ContextMenu.Popup>
@@ -193,10 +193,7 @@ export const AddComponentPicker = ({
 				<Dialog.Backdrop className={surface.backdrop} />
 				<Dialog.Popup
 					aria-label="Add component"
-					className={classNames(
-						surface.dialogPopup,
-						surface.pickerPanel,
-					)}
+					className={clsx(surface.dialogPopup, surface.pickerPanel)}
 				>
 					<Autocomplete.Root items={names}>
 						<Autocomplete.Input
@@ -207,10 +204,7 @@ export const AddComponentPicker = ({
 						<Autocomplete.Portal>
 							<Autocomplete.Positioner sideOffset={4}>
 								<Autocomplete.Popup
-									className={classNames(
-										surface.surface,
-										surface.menu,
-									)}
+									className={clsx(surface.surface, surface.menu)}
 								>
 									<Autocomplete.Empty className={surface.pickerEmpty}>
 										No components

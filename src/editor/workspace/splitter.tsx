@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import clsx from "clsx";
 import { useRef } from "react";
 import type { SplitDirection } from "./layout";
 import styles from "./workspace.module.scss";
@@ -41,7 +41,7 @@ const Splitter = ({
 
 	return (
 		<div
-			className={classNames(
+			className={clsx(
 				styles.splitter,
 				direction === "row"
 					? styles.splitterRow

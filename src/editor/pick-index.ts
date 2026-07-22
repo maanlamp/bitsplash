@@ -5,6 +5,7 @@ import {
 	type EntityAabb,
 	entityAabb,
 	spriteImagePending,
+	spriteImageUrlOf,
 } from "./pick";
 
 type SubscribableEcs = ReadonlyECS &
@@ -35,6 +36,7 @@ export class PickIndex {
 	private readonly items = new Map<EntityId, Item>();
 	private readonly dirty = new Set<EntityId>();
 	private readonly pending = new Set<EntityId>();
+	private readonly dirtyUrls = new Set<string>();
 	private imageEpoch = 0;
 	private structureDirty = true;
 	private readonly unsubscribe: () => void;
@@ -48,6 +50,18 @@ export class PickIndex {
 	/** Flag an entity whose geometry changed silently for reindex next frame. */
 	markDirty(id: EntityId): void {
 		this.dirty.add(id);
+	}
+
+	/**
+	 * Flag every entity whose sprite resolves to `url` for reindex on the next
+	 * {@link maintain}, so an evicted/hot-reloaded image's derived bounds are
+	 * recomputed even though the image load marks no entity dirty. Matches the
+	 * epoch-poll pattern: the recompute happens on the next poll, not eagerly.
+	 * The editor save path calls this alongside
+	 * {@link import("../engine/assets").default.evict} for each open view's index.
+	 */
+	invalidateUrl(url: string): void {
+		this.dirtyUrls.add(url);
 	}
 
 	/**
@@ -67,6 +81,15 @@ export class PickIndex {
 			for (const id of this.pending) {
 				this.dirty.add(id);
 			}
+		}
+		if (this.dirtyUrls.size > 0) {
+			for (const id of this.items.keys()) {
+				const url = spriteImageUrlOf(this.ecs, id);
+				if (url !== null && this.dirtyUrls.has(url)) {
+					this.dirty.add(id);
+				}
+			}
+			this.dirtyUrls.clear();
 		}
 		if (this.dirty.size === 0) {
 			return;
@@ -129,6 +152,7 @@ export class PickIndex {
 }
 
 const indices = new WeakMap<ReadonlyECS, PickIndex>();
+const liveIndices = new Set<PickIndex>();
 
 /** The {@link PickIndex} for a world's ECS, created (and bound) on first use. */
 export const getPickIndex = (ecs: ReadonlyECS): PickIndex => {
@@ -136,6 +160,35 @@ export const getPickIndex = (ecs: ReadonlyECS): PickIndex => {
 	if (!index) {
 		index = new PickIndex(ecs);
 		indices.set(ecs, index);
+		liveIndices.add(index);
 	}
 	return index;
+};
+
+/**
+ * Dispose a world's {@link PickIndex} (unsubscribe from the ECS) and drop it from
+ * the live set. Called from a view's `dispose` so a closed view's index is not
+ * iterated by {@link invalidateUrlEverywhere} and its ECS subscription is freed.
+ */
+export const disposePickIndex = (ecs: ReadonlyECS): void => {
+	const index = indices.get(ecs);
+	if (!index) {
+		return;
+	}
+	index.dispose();
+	indices.delete(ecs);
+	liveIndices.delete(index);
+};
+
+/**
+ * Flag every live index's entities that resolve to `url` for reindex, so an
+ * evicted/hot-reloaded sprite's derived bounds recompute in **every** open view
+ * (the editor runs one index per scene-view world). The editor save path calls
+ * this alongside {@link import("../engine/assets").default.evict} and the
+ * renderer-registry image/tile-array invalidation.
+ */
+export const invalidateUrlEverywhere = (url: string): void => {
+	for (const index of liveIndices) {
+		index.invalidateUrl(url);
+	}
 };

@@ -1,3 +1,16 @@
+/**
+ * Asset classification. For `.bsprite` files it is manifest-driven (parsed by
+ * the main process); for other files it is derived from the filename. `unknown`
+ * covers a corrupt/unreadable `.bsprite` archive.
+ */
+export type AssetKind =
+	| "sprite"
+	| "tileset"
+	| "audio"
+	| "font"
+	| "prefab"
+	| "unknown";
+
 export type AssetEntry = Readonly<{
 	name: string;
 	url: string;
@@ -6,12 +19,19 @@ export type AssetEntry = Readonly<{
 	isAudio: boolean;
 	isFont: boolean;
 	isTileset: boolean;
+	/** Manifest-driven kind; present only for `.bsprite` entries. */
+	kind?: AssetKind;
 }>;
 
 export type DirEntry = Readonly<{
 	name: string;
 	path: string;
 	isDirectory: boolean;
+	/**
+	 * Manifest-driven kind; present only for `.bsprite` entries, letting the
+	 * asset browser's synchronous dragstart classify without an async round-trip.
+	 */
+	kind?: AssetKind;
 }>;
 
 export type ProjectRpcSchema = {
@@ -21,10 +41,10 @@ export type ProjectRpcSchema = {
 				params: { sceneId: string; json: string };
 				response: { saved: true };
 			};
-			uploadAsset: {
+			writeAssetAtomic: {
 				params: {
 					filename: string;
-					dataBase64: string;
+					data: ArrayBuffer;
 					overwrite: boolean;
 				};
 				response: { url: string; existed: boolean };
@@ -36,6 +56,10 @@ export type ProjectRpcSchema = {
 			readTextFile: {
 				params: { path: string };
 				response: { text: string };
+			};
+			readBinaryFile: {
+				params: { path: string };
+				response: { data: ArrayBuffer };
 			};
 			listDir: {
 				params: { path: string };

@@ -1,5 +1,5 @@
 import { XIcon } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { motion, type PanInfo } from "motion/react";
 import { type ReactNode, useRef, useState } from "react";
 import Tooltip from "../tooltip";
@@ -49,6 +49,7 @@ export type TabApi = Readonly<{
 	dragging: ViewId | null;
 	focused: ViewId | null;
 	isDirty: (id: ViewId) => boolean;
+	isTileset: (id: ViewId) => boolean;
 	dragProps: (id: ViewId) => Record<string, unknown>;
 }>;
 
@@ -264,7 +265,7 @@ const Tab = ({
 	views: ReadonlyArray<ViewId>;
 	api: TabApi;
 }>) => {
-	const Icon = viewIcon(id);
+	const Icon = viewIcon(id, api.isTileset(id));
 
 	const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
 		const index = views.indexOf(id);
@@ -292,7 +293,7 @@ const Tab = ({
 			aria-selected={active}
 			tabIndex={active ? 0 : -1}
 			data-tab={id}
-			className={classNames(
+			className={clsx(
 				styles.tab,
 				single ? styles.tabSingle : active && styles.tabActive,
 				api.dragging === id && styles.tabDragging,
@@ -341,7 +342,7 @@ const TabsView = ({
 	api: TabApi;
 }>) => (
 	<div
-		className={classNames(
+		className={clsx(
 			styles.slot,
 			node.active === api.focused && styles.slotFocused,
 		)}
@@ -364,7 +365,7 @@ const TabsView = ({
 				<div
 					key={view}
 					role="tabpanel"
-					className={classNames(
+					className={clsx(
 						styles.content,
 						view !== node.active && styles.hidden,
 					)}

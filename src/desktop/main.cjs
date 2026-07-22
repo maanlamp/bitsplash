@@ -13,6 +13,7 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { pathToFileURL } = require("node:url");
 const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
+const { classifyBspriteBytes } = require("./bsprite-classify.cjs");
 
 const DEV_URL = "https://localhost:5173";
 
@@ -89,10 +90,37 @@ const AUDIO_EXTENSIONS = [".wav", ".mp3", ".ogg"];
 const FONT_EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2"];
 const FONT_ZIP_SUFFIX = ".font.zip";
 const TILESET_SUFFIX = ".tileset.png";
+const BSPRITE_SUFFIX = ".bsprite";
 
-const assetEntry = (name, relPath) => {
+const isBspriteName = (name) =>
+	name.toLowerCase().endsWith(BSPRITE_SUFFIX);
+
+/**
+ * Manifest-driven classification of a `.bsprite` file, cached by mtime so a file
+ * is re-parsed only when it changes on disk. Any stat/read failure resolves to
+ * `{ kind: "unknown" }` — a corrupt or vanished file never crashes the listing.
+ */
+const bspriteCache = new Map();
+
+const classifyBspriteFile = async (absPath) => {
+	try {
+		const stat = await fsp.stat(absPath);
+		const cached = bspriteCache.get(absPath);
+		if (cached && cached.mtimeMs === stat.mtimeMs) {
+			return cached.result;
+		}
+		const bytes = await fsp.readFile(absPath);
+		const result = classifyBspriteBytes(bytes);
+		bspriteCache.set(absPath, { mtimeMs: stat.mtimeMs, result });
+		return result;
+	} catch {
+		return { kind: "unknown" };
+	}
+};
+
+const assetEntry = async (name, relPath, full) => {
 	const lower = name.toLowerCase();
-	return {
+	const entry = {
 		name,
 		url: `/src/game/content/assets/${relPath.split(path.sep).join("/")}`,
 		ext: name.split(".").slice(1).join("."),
@@ -103,6 +131,12 @@ const assetEntry = (name, relPath) => {
 			FONT_EXTENSIONS.some((ext) => lower.endsWith(ext)),
 		isTileset: lower.endsWith(TILESET_SUFFIX),
 	};
+	if (isBspriteName(name)) {
+		const classification = await classifyBspriteFile(full);
+		entry.kind = classification.kind;
+		entry.isTileset = classification.kind === "tileset";
+	}
+	return entry;
 };
 
 const walkAssets = async (dir, base, out) => {
@@ -113,7 +147,7 @@ const walkAssets = async (dir, base, out) => {
 		if (dirent.isDirectory()) {
 			await walkAssets(full, rel, out);
 		} else {
-			out.push(assetEntry(dirent.name, rel));
+			out.push(await assetEntry(dirent.name, rel, full));
 		}
 	}
 };
@@ -127,17 +161,87 @@ ipcMain.handle("saveLevel", async (_event, { sceneId, json }) => {
 	return { saved: true };
 });
 
+const RENAME_RETRY_LIMIT = 10;
+const RENAME_RETRY_DELAY_MS = 50;
+
+const sleep = (ms) =>
+	new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Rename `from` over `to`, retrying on the transient `EPERM`/`EBUSY` failures
+ * Windows raises when antivirus or the search indexer briefly locks a file.
+ * Gives up after a bounded number of attempts so a genuinely stuck file
+ * surfaces as an error rather than hanging forever.
+ */
+const renameWithRetry = async (from, to) => {
+	for (let attempt = 0; ; attempt += 1) {
+		try {
+			await fsp.rename(from, to);
+			return;
+		} catch (error) {
+			const transient =
+				error && (error.code === "EPERM" || error.code === "EBUSY");
+			if (!transient || attempt >= RENAME_RETRY_LIMIT) {
+				throw error;
+			}
+			await sleep(RENAME_RETRY_DELAY_MS);
+		}
+	}
+};
+
+const writeQueues = new Map();
+
+/**
+ * Serialize `task` after any pending write to the same `key`, so two concurrent
+ * writes to one destination can't interleave their temp/rename steps. Returns
+ * the caller's result promise (which may reject); the internally chained tail
+ * always settles so a failed write never wedges the queue.
+ */
+const enqueueWrite = (key, task) => {
+	const previous = writeQueues.get(key) ?? Promise.resolve();
+	const run = previous.then(task, task);
+	const tail = run.then(
+		() => {},
+		() => {},
+	);
+	writeQueues.set(key, tail);
+	void tail.then(() => {
+		if (writeQueues.get(key) === tail) {
+			writeQueues.delete(key);
+		}
+	});
+	return run;
+};
+
 ipcMain.handle(
-	"uploadAsset",
-	async (_event, { filename, dataBase64, overwrite }) => {
+	"writeAssetAtomic",
+	async (_event, { filename, data, overwrite }) => {
 		const safe = path.basename(filename);
 		const dest = path.join(ASSETS_DIR, safe);
 		const url = `/src/game/content/assets/${safe}`;
-		if (fs.existsSync(dest) && !overwrite) {
-			return { url, existed: true };
-		}
-		await fsp.writeFile(dest, Buffer.from(dataBase64, "base64"));
-		return { url, existed: false };
+		return enqueueWrite(dest, async () => {
+			if (fs.existsSync(dest) && !overwrite) {
+				return { url, existed: true };
+			}
+			const temp = path.join(
+				ASSETS_DIR,
+				`.${safe}.${randomUUID()}.tmp`,
+			);
+			const handle = await fsp.open(temp, "w");
+			try {
+				await handle.writeFile(Buffer.from(data));
+				await handle.sync();
+			} finally {
+				await handle.close();
+			}
+			try {
+				await renameWithRetry(temp, dest);
+			} catch (error) {
+				await fsp.rm(temp, { force: true });
+				throw error;
+			}
+			return { url, existed: false };
+		});
 	},
 );
 
@@ -153,13 +257,31 @@ ipcMain.handle("readTextFile", async (_event, { path: target }) => {
 	return { text };
 });
 
+ipcMain.handle("readBinaryFile", async (_event, { path: target }) => {
+	const buffer = await fsp.readFile(target);
+	const data = buffer.buffer.slice(
+		buffer.byteOffset,
+		buffer.byteOffset + buffer.byteLength,
+	);
+	return { data };
+});
+
 ipcMain.handle("listDir", async (_event, { path: dir }) => {
 	const dirents = await fsp.readdir(dir, { withFileTypes: true });
-	const entries = dirents.map((dirent) => ({
-		name: dirent.name,
-		path: path.join(dir, dirent.name),
-		isDirectory: dirent.isDirectory(),
-	}));
+	const entries = await Promise.all(
+		dirents.map(async (dirent) => {
+			const full = path.join(dir, dirent.name);
+			const entry = {
+				name: dirent.name,
+				path: full,
+				isDirectory: dirent.isDirectory(),
+			};
+			if (!dirent.isDirectory() && isBspriteName(dirent.name)) {
+				entry.kind = (await classifyBspriteFile(full)).kind;
+			}
+			return entry;
+		}),
+	);
 	return { entries, parent: path.dirname(dir) };
 });
 
@@ -221,7 +343,10 @@ ipcMain.handle("openImageDialog", async () => {
 		properties: ["openFile"],
 		defaultPath: ASSETS_DIR,
 		filters: [
-			{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] },
+			{
+				name: "Images",
+				extensions: ["png", "jpg", "jpeg", "webp", "bsprite"],
+			},
 		],
 	});
 	if (result.canceled || result.filePaths.length === 0) {

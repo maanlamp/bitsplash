@@ -1,0 +1,61 @@
+.control {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-1);
+}
+
+.active {
+	color: var(--accent);
+}
+
+.settingsTrigger {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--unit-2);
+	color: var(--on-surface-muted);
+	background: none;
+	border: none;
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+
+	&:hover {
+		color: var(--on-surface);
+		background: var(--surface-hover);
+	}
+}
+
+.popup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-4);
+	padding: var(--unit-8);
+}
+
+.field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--unit-8);
+}
+
+.fieldLabel {
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+}
+
+.group {
+	display: flex;
+	align-items: center;
+}
+
+.input {
+	width: 3.5rem;
+	padding: var(--unit-2) var(--unit-4);
+	color: var(--on-surface);
+	text-align: right;
+	background: var(--surface-inset);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	font: var(--font-body);
+}

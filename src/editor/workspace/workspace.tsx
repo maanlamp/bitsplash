@@ -59,6 +59,7 @@ const Workspace = ({
 	renderView,
 	onCloseView,
 	dirtyViews,
+	isTilesetView,
 }: Readonly<{
 	workspace: WorkspaceState;
 	onChange: (
@@ -69,6 +70,7 @@ const Workspace = ({
 	renderView: (id: ViewId) => ReactNode;
 	onCloseView: (id: ViewId) => void;
 	dirtyViews: ReadonlySet<ViewId>;
+	isTilesetView: (id: ViewId) => boolean;
 }>) => {
 	const { dragging, drop, activate, dragProps } = useTabDocking(
 		workspace,
@@ -87,6 +89,7 @@ const Workspace = ({
 		dragging,
 		focused: workspace.focused,
 		isDirty: (id) => dirtyViews.has(id),
+		isTileset: isTilesetView,
 		dragProps,
 	};
 

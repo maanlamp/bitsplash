@@ -59,7 +59,8 @@ export default defineConfig(({ command }) => ({
 			? cachedBabel(babelOptions)
 			: babel(babelOptions),
 	],
-	assetsInclude: ["**/*.zip"],
+	assetsInclude: ["**/*.zip", "**/*.bsprite"],
+	optimizeDeps: { exclude: ["@dimforge/rapier2d"] },
 	server: {
 		headers: CROSS_ORIGIN_ISOLATION,
 		warmup: {

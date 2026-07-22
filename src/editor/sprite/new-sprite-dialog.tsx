@@ -1,22 +1,25 @@
 import { Dialog } from "@base-ui/react/dialog";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import Button from "../button";
 import surface from "../styles/surface.module.scss";
 import styles from "./new-sprite-dialog.module.scss";
-import { TILESET_SUFFIX } from "../assets";
-import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
+import { TILESET_BSPRITE_SUFFIX } from "../assets";
+import { snapTilesetWidth } from "../../engine/tilemap/autotile";
 import type { NewSpriteConfig } from "./sprite-editor";
 
 const buildFilename = (raw: string, isTileset: boolean): string => {
 	let name = raw
 		.trim()
+		.replace(/\.bsprite$/i, "")
 		.replace(/\.png$/i, "")
 		.replace(/\.tileset$/i, "");
 	if (!name) {
 		name = isTileset ? "tileset" : "sprite";
 	}
-	return isTileset ? `${name}${TILESET_SUFFIX}` : `${name}.png`;
+	return isTileset
+		? `${name}${TILESET_BSPRITE_SUFFIX}`
+		: `${name}.bsprite`;
 };
 
 const NewSpriteDialog = ({
@@ -48,10 +51,7 @@ const NewSpriteDialog = ({
 
 	const confirm = () => {
 		const w = kind
-			? Math.max(
-					SHEET_COLUMNS,
-					Math.round(width / SHEET_COLUMNS) * SHEET_COLUMNS,
-				)
+			? snapTilesetWidth(width)
 			: Math.max(1, Math.round(width));
 		const h = Math.max(1, Math.round(height));
 		onConfirm({
@@ -73,10 +73,7 @@ const NewSpriteDialog = ({
 			<Dialog.Portal>
 				<Dialog.Backdrop className={surface.backdrop} />
 				<Dialog.Popup
-					className={classNames(
-						surface.dialogPopup,
-						styles.newSpritePanel,
-					)}
+					className={clsx(surface.dialogPopup, styles.newSpritePanel)}
 				>
 					<Dialog.Title className={styles.newSpriteTitle}>
 						{kind ? "New tileset" : "New sprite"}

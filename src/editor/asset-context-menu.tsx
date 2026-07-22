@@ -4,7 +4,7 @@ import {
 	FileImageIcon,
 	SquaresFourIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import surface from "./styles/surface.module.scss";
 
@@ -18,7 +18,7 @@ const Popup = ({ children }: Readonly<{ children: ReactNode }>) => (
 	<ContextMenu.Portal>
 		<ContextMenu.Positioner>
 			<ContextMenu.Popup
-				className={classNames(surface.surface, surface.menu)}
+				className={clsx(surface.surface, surface.menu)}
 			>
 				{children}
 			</ContextMenu.Popup>

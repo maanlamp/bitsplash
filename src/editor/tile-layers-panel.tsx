@@ -8,7 +8,7 @@ import {
 	PlusIcon,
 	TrashIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { Reorder } from "motion/react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import type { EntityId } from "../engine/ecs";
@@ -88,7 +88,7 @@ const LayerRow = ({
 		<Reorder.Item
 			as="div"
 			value={id}
-			className={classNames(
+			className={clsx(
 				styles.layerRow,
 				active && styles.layerRowActive,
 			)}
@@ -170,10 +170,7 @@ const LayerRow = ({
 				}}
 			>
 				<Select.Trigger
-					className={classNames(
-						controls.select,
-						styles.collisionSelect,
-					)}
+					className={clsx(controls.select, styles.collisionSelect)}
 					onPointerDown={(e) => e.stopPropagation()}
 				>
 					<Select.Value />
@@ -188,7 +185,7 @@ const LayerRow = ({
 						alignItemWithTrigger={false}
 					>
 						<Select.Popup
-							className={classNames(
+							className={clsx(
 								surface.surface,
 								surface.menu,
 								surface.selectPopup,
@@ -253,7 +250,7 @@ const TileLayersPanel = ({
 
 	return (
 		<div
-			className={classNames(
+			className={clsx(
 				styles.layersPanel,
 				!editorEnabled && styles.disabled,
 			)}

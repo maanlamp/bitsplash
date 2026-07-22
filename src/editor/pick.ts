@@ -148,6 +148,19 @@ export const spriteImagePending = (
 	return !assetManager.getImage(spriteImageUrl(sprite));
 };
 
+/**
+ * The image URL an entity's sprite currently resolves to, or `null` when the
+ * entity has no sprite. Used by the pick index to find the entities affected by
+ * a hot-reloaded (evicted) image so their derived bounds are recomputed.
+ */
+export const spriteImageUrlOf = (
+	ecs: ReadonlyECS,
+	id: EntityId,
+): string | null => {
+	const sprite = ecs.getComponent(id, SpriteComponent);
+	return sprite ? spriteImageUrl(sprite) : null;
+};
+
 const contains = (piece: GeometryPiece, world: Vector2): boolean =>
 	Math.abs(world.x - piece.center.x) <= piece.half.x &&
 	Math.abs(world.y - piece.center.y) <= piece.half.y;

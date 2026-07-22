@@ -54,8 +54,11 @@
 	text-align: center;
 }
 
-.disabled {
+.inspectorHost {
 	height: 100%;
+}
+
+.disabled {
 	opacity: 0.4;
 	pointer-events: none;
 }

@@ -1,0 +1,17 @@
+.bar {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--unit-4);
+	padding: var(--unit-4) var(--unit-8);
+	background: var(--surface-raised);
+	min-width: 0;
+}
+
+.separator {
+	width: var(--border-width);
+	align-self: stretch;
+	margin: var(--unit-2) var(--unit-4);
+	background: var(--border);
+}

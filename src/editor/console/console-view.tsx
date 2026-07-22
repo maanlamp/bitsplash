@@ -13,7 +13,7 @@ import {
 	ObjectRootLabel,
 	TableInspector,
 } from "react-inspector";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useDeferredValue, useMemo, useState } from "react";
 import Button from "../button";
 import controls from "../styles/controls.module.scss";
@@ -269,7 +269,7 @@ const levelRowClass = (level: ConsoleLevel): string | undefined => {
 };
 
 const Row = ({ entry }: Readonly<{ entry: ConsoleEntry }>) => (
-	<li className={classNames(styles.row, levelRowClass(entry.level))}>
+	<li className={clsx(styles.row, levelRowClass(entry.level))}>
 		<ConsoleErrorBoundary
 			fallback={
 				<span className={styles.null}>[unrenderable log entry]</span>

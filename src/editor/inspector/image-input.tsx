@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 import {
 	AssetDropRegistry,
@@ -86,7 +86,7 @@ export const ImagePreview = ({
 }>) => (
 	<Preview.Box
 		render={<button type="button" aria-label="Choose image" />}
-		className={classNames(
+		className={clsx(
 			styles.preview,
 			dragging && styles.dropping,
 			className,

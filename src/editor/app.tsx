@@ -1,4 +1,5 @@
 import { IconContext } from "@phosphor-icons/react";
+import clsx from "clsx";
 import {
 	lazy,
 	type ReactNode,
@@ -602,6 +603,16 @@ const App = ({
 		setCreateConfig(null);
 	};
 
+	const assetIsTileset = (url: string): boolean => {
+		const entry = assets.find((a) => a.url === url);
+		return entry ? entry.isTileset : isTilesetName(url);
+	};
+
+	const isTilesetView = (id: ViewId): boolean => {
+		const { param } = parseViewId(id);
+		return !!param && param !== NEW_PARAM && assetIsTileset(param);
+	};
+
 	const openScene = (sceneId: string): void => {
 		openView(`scene:${sceneId}`);
 	};
@@ -1144,7 +1155,12 @@ const App = ({
 	const renderInspector = () => {
 		if (focusedScene && focusedSceneView && inspectingWorld) {
 			return (
-				<div className={editorEnabled ? undefined : styles.disabled}>
+				<div
+					className={clsx(
+						styles.inspectorHost,
+						!editorEnabled && styles.disabled,
+					)}
+				>
 					<SceneConfigInspector
 						scene={focusedScene}
 						doc={focusedSceneView.document}
@@ -1164,7 +1180,12 @@ const App = ({
 				runHostRef.current.isRuntimeEntity(selectedEntity)
 			);
 			return (
-				<div className={editorEnabled ? undefined : styles.disabled}>
+				<div
+					className={clsx(
+						styles.inspectorHost,
+						!editorEnabled && styles.disabled,
+					)}
+				>
 					<Inspector
 						channel={selectionChannelRef.current}
 						runtime={runtime}
@@ -1221,7 +1242,7 @@ const App = ({
 		) : (
 			<SpriteEditor
 				assetUrl={param}
-				isTileset={isTilesetName(param)}
+				isTileset={assetIsTileset(param)}
 				create={null}
 				onDirty={(d) => setViewDirty(id, d)}
 				onCreated={onAssetCreated}
@@ -1339,6 +1360,7 @@ const App = ({
 								renderView={renderView}
 								onCloseView={closeView}
 								dirtyViews={dirtyViews}
+								isTilesetView={isTilesetView}
 							/>
 						</div>
 					</div>

@@ -26,7 +26,7 @@ Constraints that bound the solution:
 - **Serialization provenance** (AGENTS.md): scene files are produced only by
   journal-replay-onto-scratch; the save tripwires hard-crash on any
   non-journaled edit-world mutation. VFX run-state must therefore be
-  *unrepresentable* in the serializable universe, not filtered out.
+  _unrepresentable_ in the serializable universe, not filtered out.
 - **The hitsplat leak precedent**: an undecorated component beside a
   serializable `TransformComponent` freezes/thaws as an immortal
   transform-only orphan (`hitsplat-spawn-system.ts:86-96`,
@@ -47,7 +47,7 @@ Four pillars:
 easing table, `Tween` internals, and `FadeTimeline`:
 
 - **`Timeline`** — serializable bounded clock value type.
-  `elapsed`/`duration` (both `@serialize` — restored animations *resume*,
+  `elapsed`/`duration` (both `@serialize` — restored animations _resume_,
   fixing the current mid-fade restart glitch), `tick(dt: Seconds)`, `t()`,
   `done()`, `remaining()`, `restart(duration?)`. `elapsed` is settable and a
   signed `rate` slot is reserved (playback forward-compat, below).
@@ -60,7 +60,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
   debuggability) and is hard-error validated at load. Presets use exact
   derived control points where representable (linear, in/out cubic, the
   backs); `InOut*` variants are documented CSS-style approximations.
-  Elastic/bounce are multi-key preset *curves*, not eases. Eval solves
+  Elastic/bounce are multi-key preset _curves_, not eases. Eval solves
   x(t)=phase (LUT-seeded Newton — exact). Assignment copies; `retarget`
   replaces, never mutates (the current `easing.set()` mutate-in-place idiom
   dies with it — a shared frozen preset must never be written through).
@@ -117,7 +117,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
   `spawnAttached(entityId, def)` write directly into the store; decals are a
   capped ring buffer (recycle oldest). Entities exist only for authored
   emitters and attachment hosts. The `fired` flag does not exist; one-shot
-  effects are fire-and-forget calls. (Consequence, documented: an *authored*
+  effects are fire-and-forget calls. (Consequence, documented: an _authored_
   one-shot emitter is unrepresentable content — every one-shot has a runtime
   trigger.)
 - **Snapshot semantics, uniform and structural:** all VFX run-state drops on
@@ -129,7 +129,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
   doctrine note** so nobody later "fixes" it by serializing pools.
 - **Host death = live-out** (user decision): emission stops the frame the
   host dies; in-flight particles finish their lifetime; beams fade over a
-  short out-envelope. Attached decals clear on `DeathEvent` (respawn *reuses*
+  short out-envelope. Attached decals clear on `DeathEvent` (respawn _reuses_
   entity ids — a dangling reference would teleport smears onto the
   respawned enemy).
 - **System placement:** one `VFXUpdateSystem` at the **end** of
@@ -138,7 +138,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
   pose. For edit preview it joins `editorEdit`'s **own** update list — never
   `editWorldSystems`, which the `game` composition also spreads
   (`compositions.ts:180`): that would double-step VFX in the shipped game
-  *and* at the wrong position. A `createVfxSystems()` factory returns the
+  _and_ at the wrong position. A `createVfxSystems()` factory returns the
   update/render pair sharing one store instance; each composition (`game`,
   `editorEdit`) calls it once and places the members into its update/render
   lists (extending the decorations sharing pattern,
@@ -146,7 +146,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
 - **Editor live preview** (user decision: crucial): the edit world steps VFX
   via the existing focused-view tick (`app.tsx:779-784` → `SceneView.update`)
   — reading frozen configs, writing only the store, so the tripwires cannot
-  fire *by construction*. dt is clamped in VFX stepping (raw rAF gaps would
+  fire _by construction_. dt is clamped in VFX stepping (raw rAF gaps would
   burst-dump spawn accumulators). Preview is focused-view-only (that is what
   the editor ticks; acceptable — you watch what you edit).
 
@@ -160,7 +160,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
 - **Add per-draw blend**: quad draws accept `blend: "normal" | "additive"`.
   Additive fill is exactly `blendFuncSeparate(SRC_ALPHA, ONE, ZERO, ONE)` —
   add color, leave coverage untouched — which through the premultiplied
-  scratch + normal composite is *derivation-verified* identical to per-quad
+  scratch + normal composite is _derivation-verified_ identical to per-quad
   additive over the scene, with correct occlusion in both draw orders. The
   blend flag joins the batch-merge key at **both** merge sites (`recordQuad`
   and `drawTile`'s inline merge). Straight-alpha texture upload
@@ -175,7 +175,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
   comes from shape, motion, and scale, not HDR.
 
 **4. Wind stub + seam** (user decision: weather is a future system that will
-*drive* consumers; this plan only defines how a consumer listens):
+_drive_ consumers; this plan only defines how a consumer listens):
 
 - Engine `WindComponent` — scene-authored singleton (the `RenderLayers`
   precedent): data params only (direction, strength, gustiness, and a
@@ -187,7 +187,7 @@ easing table, `Tween` internals, and `FadeTimeline`:
 ### Events
 
 `DamageEvent` grows `hitPoint: Vector2 | null`, coexisting with the existing
-`origin` (which stays untouched — it is the *stimulus position* consumed by
+`origin` (which stays untouched — it is the _stimulus position_ consumed by
 perception, deliberately bearing-offset for arrows). `hitPoint` is the
 precise impact point, consumed only by VFX: arrows pass the raycast's
 `hit.point` (available at the emit site, currently unused for this), melee
@@ -218,7 +218,7 @@ Effect defs are JSON (hot-reloaded via Vite, hard-error validated at load).
 - **Rain** — camera-tracking spawn band above the viewport; velocity-
   stretched stripe quads (textured-corner API); wind-slanted; occupancy-test
   kill → splash micro-burst + brief ground mark; pre-warms on camera cuts and
-  restore; debug toggle (weather *scheduling* is explicitly out of scope).
+  restore; debug toggle (weather _scheduling_ is explicitly out of scope).
 - **Fire** — flipbook-frame particles (def carries frame metadata:
   width/count/fps; the renderer already samples source rects — no renderer
   work), color-over-life ramp into additive glow, smoke wisps. Debug-
@@ -228,7 +228,7 @@ Effect defs are JSON (hot-reloaded via Vite, hard-error validated at load).
 
 Locked here so the future effect/curve editor can build without reworking
 primitives: `Timeline.elapsed` is settable and a signed `rate` slot is
-reserved — that is the entire scrubbing contract for *curves*. The boundary
+reserved — that is the entire scrubbing contract for _curves_. The boundary
 is stated: keyframed values scrub; the particle sim is event-driven and
 stateful and **re-simulates** (preview = run from t=0), it does not scrub.
 The future editor builds on `engine/sequence`'s `SequenceRunState` (audit
@@ -251,7 +251,7 @@ the name "Timeline" with the existing editor `<Timeline>` clip widget
   coexist forever. Bezier-only with typed presets is the unified form.
 - **Deleting Tween** — rejected: prior art (Godot/CSS/Flutter/DOTween-void)
   converges on keeping a 2-point runtime-target front door; both existing
-  consumers are runtime-targeted (fade from *current* alpha, mid-flight
+  consumers are runtime-targeted (fade from _current_ alpha, mid-flight
   slide reversal) and cannot be authored data even in principle.
 - **A looping mode on Timeline (oscillator subsumption)** — rejected after
   critique: every real oscillator here is stateless phase off a time source;
@@ -291,20 +291,20 @@ a separate later session.
    constructor and `retarget` now take `Ease` (not strings), which forces the
    boundary conversions in this step: `startFade`'s signature takes an `Ease`
    (`screen-fade-system.ts`), dialogue slide passes presets directly, and the
-   sequence fade op keeps its *authored* `easing?: string` param but maps
+   sequence fade op keeps its _authored_ `easing?: string` param but maps
    string→preset at the boundary via a small shim owned by the op (its
    authored-param final form is settled in cleanup). `tick(ms)` call sites
    convert to seconds explicitly. Update `test/camera-serialization.test.ts`;
    **new SequenceFixture test: save mid-fade → restore → fade resumes from
    saved alpha** (pins the deliberate behavior change).
 5. Delete `fade-timeline.ts`; migrate its three call sites — the two
-   undecorated notice components *and* `hud-dyn-system.ts`'s
+   undecorated notice components _and_ `hud-dyn-system.ts`'s
    `fade.alpha()` consumption — to `Timeline` + `Keyframes` directly (the
    full notice unification stays in cleanup).
 6. Delete the `Easing` value type together with its editor surface
    (`easing-select.tsx` + the `register-renderers.tsx` entry) — after step 4
    nothing holds an `Easing` (it lived only inside `Tween`). The named
-   easing *functions* survive as a deprecated internal module for the one
+   easing _functions_ survive as a deprecated internal module for the one
    remaining direct consumer (camera transition's hand-rolled glide, string
    field + `ease()` lookup) until cleanup migrates it; delete the module in
    WS-I.
@@ -316,7 +316,7 @@ a separate later session.
    **all three** call sites — the layer loop (`renderer-2d.ts:1444-1448`) and
    the present pass (`:1826`, `:1833`).
 8. Per-draw blend flag on quad commands; `blendFuncSeparate(SRC_ALPHA, ONE,
-   ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
+ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
    in `recordQuad` **and** `drawTile`'s inline merge; document the
    straight-alpha upload invariant where textures are created.
 9. Public textured-corner quad API (wraps `pushQuadShape`).
@@ -400,7 +400,7 @@ a separate later session.
     `TimerComponent` internals embed a `Timeline` (name and registration
     unchanged).
 27. Absorb `U-P1-fade-a`: one `NoticeComponent` + one lifecycle system
-    replaces the twin death/quest notice systems (the *queue*, `U-P1-fade-b`,
+    replaces the twin death/quest notice systems (the _queue_, `U-P1-fade-b`,
     stays out — genuinely new system).
 28. This workstream consciously overrides the audit's "keep Tween and
     FadeTimeline separate / do not merge" steer — the user chose unification

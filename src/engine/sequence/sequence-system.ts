@@ -124,10 +124,7 @@ export class SequenceSystem extends UpdateSystem {
 		const def = sequenceDefById(component.defId);
 		const opCtx = this.buildContext(ctx, id, component);
 
-		if (!component.run.started) {
-			resolveCast(def, opCtx);
-			component.run.started = true;
-		}
+		resolveCast(def, opCtx);
 
 		const exclusive = component.sequenceClass === "exclusive";
 		const skip = exclusive && this.pollSkip(ctx, component);

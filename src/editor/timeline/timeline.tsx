@@ -5,7 +5,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import classNames from "classnames";
+import clsx from "clsx";
 import styles from "./timeline.module.scss";
 import { EDITOR_CAMERA_ZOOM_STEP } from "../constants";
 import { TimelineViewContext } from "./timeline-context";
@@ -411,7 +411,7 @@ const Timeline = ({
 							return (
 								<div
 									key={clip.id}
-									className={classNames(
+									className={clsx(
 										styles.timelineClip,
 										selectedClipId === clip.id &&
 											styles.timelineClipSelected,
@@ -429,14 +429,14 @@ const Timeline = ({
 								>
 									{renderClip(track, clip)}
 									<div
-										className={classNames(
+										className={clsx(
 											styles.timelineClipThumb,
 											styles.timelineClipThumbStart,
 										)}
 										data-thumb="start"
 									/>
 									<div
-										className={classNames(
+										className={clsx(
 											styles.timelineClipThumb,
 											styles.timelineClipThumbEnd,
 										)}

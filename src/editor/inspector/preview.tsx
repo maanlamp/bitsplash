@@ -1,5 +1,5 @@
 import { useRender } from "@base-ui/react/use-render";
-import classNames from "classnames";
+import clsx from "clsx";
 import styles from "./preview.module.scss";
 
 const Root = ({
@@ -11,7 +11,7 @@ const Root = ({
 		render,
 		defaultTagName: "div",
 		props: {
-			className: classNames(styles.root, className),
+			className: clsx(styles.root, className),
 			...props,
 		},
 	});
@@ -25,7 +25,7 @@ const Body = ({
 		render,
 		defaultTagName: "div",
 		props: {
-			className: classNames(styles.body, className),
+			className: clsx(styles.body, className),
 			...props,
 		},
 	});
@@ -38,7 +38,7 @@ const Box = ({
 	useRender({
 		render,
 		defaultTagName: "div",
-		props: { className: classNames(styles.box, className), ...props },
+		props: { className: clsx(styles.box, className), ...props },
 	});
 
 const Inputs = ({
@@ -50,7 +50,7 @@ const Inputs = ({
 		render,
 		defaultTagName: "div",
 		props: {
-			className: classNames(styles.inputs, className),
+			className: clsx(styles.inputs, className),
 			...props,
 		},
 	});

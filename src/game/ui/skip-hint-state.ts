@@ -2,12 +2,11 @@ import type { NineSliceInsets } from "../../engine/render/nine-slice";
 import type { TileSource } from "../../engine/render/renderer-2d";
 import type { ActivationMarker } from "./key-cap";
 import type { ResolvedInputIcon } from "./input-icon-atlas";
-import { KBD_INSETS } from "./kbd-frame";
 
 export type SkipHintSnapshot = Readonly<{
 	open: boolean;
 	frame: TileSource | null;
-	insets: NineSliceInsets;
+	insets: NineSliceInsets | undefined;
 	glyph: string;
 	icon: ResolvedInputIcon | null;
 	activation: ActivationMarker;
@@ -16,7 +15,7 @@ export type SkipHintSnapshot = Readonly<{
 const CLOSED: SkipHintSnapshot = {
 	open: false,
 	frame: null,
-	insets: KBD_INSETS,
+	insets: undefined,
 	glyph: "E",
 	icon: null,
 	activation: "hold",

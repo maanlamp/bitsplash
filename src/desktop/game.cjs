@@ -31,6 +31,7 @@ const MIME = {
 	".ttf": "font/ttf",
 	".otf": "font/otf",
 	".zip": "application/zip",
+	".bsprite": "application/zip",
 	".wav": "audio/wav",
 	".mp3": "audio/mpeg",
 	".ogg": "audio/ogg",

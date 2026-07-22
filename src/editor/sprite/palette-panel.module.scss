@@ -1,0 +1,64 @@
+.panel {
+	position: absolute;
+	bottom: var(--unit-16);
+	left: var(--unit-16);
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-4);
+	width: 13rem;
+	max-height: 45%;
+	padding: var(--unit-4) var(--unit-6);
+	border-radius: calc(var(--radius-xl) + var(--unit-4));
+	background: var(--surface-hud);
+	backdrop-filter: var(--blur-hud);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	padding-left: var(--unit-2);
+}
+
+.heading {
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+	margin-right: auto;
+}
+
+.empty {
+	margin: 0;
+	padding: 0 var(--unit-2) var(--unit-2);
+	color: var(--on-surface-faint);
+	font: var(--font-caption);
+}
+
+.swatches {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, var(--unit-24));
+	gap: var(--unit-2);
+	padding: var(--unit-2);
+	overflow-y: auto;
+}
+
+.swatch {
+	width: var(--unit-24);
+	height: var(--unit-24);
+	padding: 0;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	cursor: pointer;
+	outline: none;
+}
+
+.swatchSelected {
+	outline: var(--border-width) solid var(--accent);
+	outline-offset: 1px;
+}
+
+.swatchActive {
+	box-shadow:
+		inset 0 0 0 2px #fff,
+		inset 0 0 0 3px rgba(0, 0, 0, 0.5);
+}

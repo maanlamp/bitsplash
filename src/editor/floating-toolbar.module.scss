@@ -5,6 +5,7 @@
 	transform: translateX(-50%);
 	display: flex;
 	gap: var(--unit-12);
+	max-width: calc(100% - var(--unit-32));
 }
 
 .top {
@@ -14,6 +15,8 @@
 
 .bar {
 	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
 	align-items: center;
 	gap: var(--unit-4);
 	padding: var(--unit-4);

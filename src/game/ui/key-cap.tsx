@@ -10,7 +10,6 @@ import {
 } from "../../engine/ui/reconciler/ui-elements";
 import type { Style } from "../../engine/ui/style/style";
 import type { ResolvedInputIcon } from "./input-icon-atlas";
-import { KBD_INSETS } from "./kbd-frame";
 
 export type ActivationMarker =
 	| "press"
@@ -90,16 +89,16 @@ export const KeyCap = ({
 	id,
 }: KeyCapProps) => {
 	const showHold =
-		activation === "hold" && id !== undefined && Boolean(frame);
+		activation === "hold" &&
+		id !== undefined &&
+		Boolean(frame) &&
+		Boolean(insets);
 	const showMarker = Boolean(marker) && activation !== "hold";
 	const showIcon = Boolean(icon);
 	const capStyle: Style = showIcon
 		? { ...CAP }
-		: frame
-			? {
-					...CAP,
-					nineSlice: { image: frame, insets: insets ?? KBD_INSETS },
-				}
+		: frame && insets
+			? { ...CAP, nineSlice: { image: frame, insets } }
 			: { ...CAP, backgroundColor: CAP_FLAT_BACKGROUND };
 	const glyphStyle: Style = {
 		color: [1, 1, 1, 1],
@@ -109,12 +108,12 @@ export const KeyCap = ({
 	};
 	const cap = (
 		<View id={id} style={capStyle}>
-			{showHold ? (
+			{showHold && insets ? (
 				<HoldRing
 					id={holdRingNodeId(id!)}
 					style={RING_STYLE}
 					frame={frame as TileSource}
-					insets={insets ?? KBD_INSETS}
+					insets={insets}
 					inner={RING_INNER}
 					fill={RING_FILL}
 					outer={RING_OUTER}

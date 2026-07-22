@@ -1,0 +1,110 @@
+.panel {
+	position: absolute;
+	top: var(--unit-16);
+	left: var(--unit-16);
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-4);
+	width: 13rem;
+	max-height: 50%;
+	padding: var(--unit-4) var(--unit-6);
+	border-radius: calc(var(--radius-xl) + var(--unit-4));
+	background: var(--surface-hud);
+	backdrop-filter: var(--blur-hud);
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
+	padding-left: var(--unit-2);
+}
+
+.heading {
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+	margin-right: auto;
+}
+
+.empty {
+	margin: 0;
+	padding: 0 var(--unit-2);
+	color: var(--on-surface-faint);
+	font: var(--font-caption);
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-1);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	overflow-y: auto;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-1) var(--unit-2);
+	border-radius: var(--radius-md);
+	cursor: pointer;
+}
+
+.rowActive {
+	background: var(--surface-selected);
+}
+
+.dot {
+	flex: none;
+	width: var(--unit-6);
+	height: var(--unit-6);
+	border-radius: 50%;
+	border: var(--border-width) solid var(--on-surface-faint);
+}
+
+.dotOn {
+	border-color: transparent;
+	background: #ffb020;
+}
+
+.name,
+.nameInput {
+	flex: 1;
+	min-width: 0;
+	color: var(--on-surface);
+	font: var(--font-body);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.nameInput {
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--surface-inset);
+	padding: 0 var(--unit-2);
+}
+
+.rowButton {
+	flex: none;
+}
+
+.frameRow {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
+	padding: var(--unit-2);
+	border-top: var(--border-width) solid var(--border);
+}
+
+.frameLabel {
+	flex: 1;
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

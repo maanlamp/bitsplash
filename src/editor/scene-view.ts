@@ -18,6 +18,7 @@ import {
 	CursorAuthority,
 	type CursorToken,
 } from "../engine/cursor/cursor-authority";
+import { disposePickIndex } from "./pick-index";
 import { DebugGridSystem } from "../engine/debug/debug-grid-system";
 import Viewport from "../engine/camera/viewport";
 import type { World } from "../engine/world";
@@ -341,5 +342,6 @@ export class SceneView {
 		this.input.dispose();
 		this.detach();
 		this.renderer.dispose();
+		disposePickIndex(this.scene.world.ecs);
 	}
 }

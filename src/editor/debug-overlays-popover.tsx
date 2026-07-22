@@ -1,7 +1,7 @@
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Popover } from "@base-ui/react/popover";
 import { CheckIcon, EyeIcon } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { type CSSProperties } from "react";
 import Button from "./button";
 import {
@@ -59,7 +59,7 @@ const DebugOverlaysPopover = ({
 		<Popover.Portal>
 			<Popover.Positioner sideOffset={8}>
 				<Popover.Popup
-					className={classNames(surface.surface, styles.popup)}
+					className={clsx(surface.surface, styles.popup)}
 				>
 					{DEBUG_OVERLAYS.map((overlay) => (
 						<DebugOverlayRow

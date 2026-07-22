@@ -1,6 +1,20 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { decodePng } from "../../src/editor/sprite/png-codec";
+import AssetManager, {
+	type BspriteBytesLoader,
+} from "../../src/engine/assets";
 import type AudioManager from "../../src/engine/audio/audio";
 import { pickActiveCamera2D } from "../../src/engine/camera/camera-2d-render";
 import { Clock } from "../../src/engine/clock";
+import { ECS } from "../../src/engine/ecs";
+import type { TileSource } from "../../src/engine/render/renderer-2d";
+import type {
+	SheetComposer,
+	SpriteAsset,
+} from "../../src/engine/sprite/sprite-asset";
+import { SpriteComponent } from "../../src/engine/sprite/sprite-component";
+import { SpriteTagPlaybackSystem } from "../../src/engine/sprite/sprite-tag-playback-system";
 import type {
 	Milliseconds,
 	Seconds,
@@ -19,6 +33,22 @@ import type { UpdateContext } from "../../src/engine/system";
 import { World } from "../../src/engine/world";
 
 const FRAME_MS = (1000 / 60) as Milliseconds;
+
+/**
+ * Headless {@link BspriteBytesLoader} for the sequence harness: resolves an
+ * authored web path (`/src/game/content/assets/*.bsprite`) to the committed file
+ * on disk and returns its bytes. Rejects (async) when the file is absent, so the
+ * facade settles the entry to `error` and the tag-playback system simply no-ops
+ * rather than crashing — the correct behavior for a scene referencing an asset
+ * not present in a given test.
+ */
+const diskBspriteLoader: BspriteBytesLoader = async (url) => {
+	const rel = url.startsWith("/") ? url.slice(1) : url;
+	const path = fileURLToPath(
+		new URL(`../../${rel}`, import.meta.url),
+	);
+	return new Uint8Array(readFileSync(path));
+};
 
 type RapierModule = typeof import("@dimforge/rapier2d");
 
@@ -46,6 +76,13 @@ export type HarnessConfig = Readonly<{
 	actions?: ActionProvider;
 	/** Audio manager fed to systems each frame (defaults to a throwing stub). */
 	audio?: AudioManager;
+	/**
+	 * Asset manager fed to systems each frame. Defaults to a real headless
+	 * {@link AssetManager} that loads `.bsprite` archives from disk
+	 * ({@link diskBspriteLoader}) via the {@link headlessSheetComposer}, so
+	 * `.bsprite`-backed sprites (the migrated actor prefabs) resolve their tags.
+	 */
+	assetManager?: AssetManager;
 }>;
 
 const stubService = <T>(label: string): T =>
@@ -64,6 +101,7 @@ export class SequenceFixture {
 	private runtimeValue: Runtime;
 	private readonly clock = new Clock();
 	private frame = 0;
+	private readonly assets: AssetManager;
 
 	private constructor(
 		runtime: Runtime,
@@ -72,6 +110,13 @@ export class SequenceFixture {
 		private readonly now: () => number,
 	) {
 		this.runtimeValue = runtime;
+		this.assets =
+			config.assetManager ??
+			new AssetManager(
+				undefined,
+				diskBspriteLoader,
+				headlessSheetComposer,
+			);
 	}
 
 	static makeRuntime(config: HarnessConfig): Runtime {
@@ -125,7 +170,7 @@ export class SequenceFixture {
 			world: this.world,
 			input: this.config.input ?? stubService("input"),
 			actions: this.config.actions ?? stubService("actions"),
-			assetManager: stubService("assetManager"),
+			assetManager: this.assets,
 			events: this.world.events,
 			audio: this.config.audio ?? stubService("audio"),
 			camera: pickActiveCamera2D(this.world.ecs),
@@ -157,5 +202,123 @@ export class SequenceFixture {
 
 	dispose(): void {
 		this.runtimeValue.dispose();
+	}
+}
+
+/** Flush pending microtasks and the macrotask queue so async loads settle. */
+const flushEventLoop = (): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * A headless {@link SheetComposer} substituting the engine's default DOM
+ * composer (`document.createElement("canvas")` + `createImageBitmap`, neither of
+ * which exists in Bun's test runner).
+ *
+ * It decodes every baked frame PNG with the pure {@link decodePng} — proving the
+ * real writer's bakes are valid, decodable PNGs on the actual load path without a
+ * DOM — then returns a stand-in sheet {@link TileSource} sized exactly as the
+ * real canvas composer would (`width * frames` wide). The returned object carries
+ * no readable pixels: GPU texture upload and on-screen sampling remain
+ * DOM/WebGL-only and are deliberately NOT asserted headlessly. Baked-pixel
+ * correctness is proven separately by decoding the archive directly (the
+ * hot-reload test's artifact round-trip).
+ */
+export const headlessSheetComposer: SheetComposer = async (
+	entries,
+	manifest,
+) => {
+	for (let i = 0; i < manifest.frames.length; i++) {
+		const png = entries[`bakes/${i}.png`];
+		if (png) {
+			decodePng(png);
+		}
+	}
+	return {
+		width: Math.max(1, manifest.width * manifest.frames.length),
+		height: Math.max(1, manifest.height),
+	} as unknown as TileSource;
+};
+
+export type SpriteHotReloadConfig = Readonly<{
+	/** The `.bsprite` URL the scene's sprite references. */
+	url: string;
+	/** Byte source — returns the archive bytes currently "on disk" for a URL. */
+	loadBytes: BspriteBytesLoader;
+	/** Tag the sprite plays; defaults to none (`current === ""`). */
+	tag?: string;
+}>;
+
+/**
+ * Headless harness for the `.bsprite` hot-reload self-heal (plan step 18): a real
+ * {@link ECS} running the real {@link SpriteTagPlaybackSystem} against a real
+ * {@link AssetManager} whose two DOM-only load steps are replaced by injected
+ * seams — {@link SpriteHotReloadConfig.loadBytes} for the archive bytes and
+ * {@link headlessSheetComposer} for the sheet. A single {@link SpriteComponent}
+ * entity references the URL, exactly as an authored scene would.
+ *
+ * The save→evict→re-serve loop is exercised by swapping what `loadBytes` returns
+ * and calling {@link evict}; the facade then re-loads and serves the new manifest
+ * (dimensions, frame count, content rects) and the playback consumer sees the new
+ * frame count. What stays out of reach headlessly (the composed sheet's WebGL
+ * upload and on-screen pixels) is documented on {@link headlessSheetComposer}.
+ *
+ * @example
+ * const bytes = { current: v1 };
+ * const fx = new SpriteHotReloadFixture({ url, loadBytes: async () => bytes.current, tag: "idle" });
+ * const a1 = await fx.load(); // 16×16
+ * bytes.current = v2; fx.evict();
+ * const a2 = await fx.load(); // 24×24, self-healed
+ */
+export class SpriteHotReloadFixture {
+	readonly assets: AssetManager;
+	readonly ecs = new ECS();
+	readonly sprite: SpriteComponent;
+	private readonly system = new SpriteTagPlaybackSystem();
+
+	constructor(private readonly config: SpriteHotReloadConfig) {
+		this.assets = new AssetManager(
+			undefined,
+			config.loadBytes,
+			headlessSheetComposer,
+		);
+		this.sprite = new SpriteComponent(config.url);
+		this.sprite.current = config.tag ?? "";
+		this.ecs.createEntity([this.sprite]);
+		this.ecs.addUpdateSystem(this.system);
+	}
+
+	/** Poll the facade, kicking off the load on the first call. */
+	peek(): SpriteAsset | undefined {
+		return this.assets.sprites.get(this.config.url);
+	}
+
+	/** Pump the event loop until the facade has the asset loaded; return it. */
+	async load(): Promise<SpriteAsset> {
+		for (let i = 0; i < 50; i++) {
+			const asset = this.peek();
+			if (asset) {
+				return asset;
+			}
+			await flushEventLoop();
+		}
+		throw new Error(
+			`sprite-harness: "${this.config.url}" did not load within budget`,
+		);
+	}
+
+	/** Run the tag-playback system for `frames` steps of `dtMs` each. */
+	step(dtMs: number, frames = 1): void {
+		for (let i = 0; i < frames; i++) {
+			this.ecs.update({
+				dt: dtMs,
+				ecs: this.ecs,
+				assetManager: this.assets,
+			} as unknown as UpdateContext);
+		}
+	}
+
+	/** Drop the URL's cache entries — the editor save path's hot-reload trigger. */
+	evict(): void {
+		this.assets.evict(this.config.url);
 	}
 }

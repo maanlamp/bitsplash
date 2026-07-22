@@ -1,4 +1,5 @@
 export type { AssetEntry } from "../project-rpc";
+import type { AssetKind } from "../project-rpc";
 import { TILESET_SUFFIX } from "../engine/tilemap/autotile";
 
 const AUDIO_EXTENSIONS = [".wav", ".mp3", ".ogg"];
@@ -7,8 +8,21 @@ const FONT_ZIP_SUFFIX = ".font.zip";
 
 export { TILESET_SUFFIX };
 
-export const isTilesetName = (name: string): boolean =>
-	name.toLowerCase().endsWith(TILESET_SUFFIX);
+/**
+ * Human-facing tileset suffix for `.bsprite` tilesets. Classification of a
+ * `.bsprite` is manifest-driven (presence of the `tileset` block); this suffix
+ * is the naming convention the editor's tileset-vs-sprite *view mode* still keys
+ * on until that mode becomes a document property (plan step 7).
+ */
+export const TILESET_BSPRITE_SUFFIX = ".tileset.bsprite";
+
+export const isTilesetName = (name: string): boolean => {
+	const lower = name.toLowerCase();
+	return (
+		lower.endsWith(TILESET_SUFFIX) ||
+		lower.endsWith(TILESET_BSPRITE_SUFFIX)
+	);
+};
 
 export const isFontName = (name: string): boolean => {
 	const lower = name.toLowerCase();
@@ -23,18 +37,25 @@ export const assetFilename = (url: string): string => {
 	return clean.split("/").pop() ?? clean;
 };
 
-export type AssetType =
-	| "sprite"
-	| "tileset"
-	| "audio"
-	| "font"
-	| "prefab"
-	| "unknown";
+export type AssetType = AssetKind;
 
 const IMAGE_PATTERN = /\.(png|jpg|jpeg|webp)$/;
 const PREFAB_SUFFIX = ".prefab.json";
 
-export const classifyAsset = (name: string): AssetType => {
+/**
+ * Classify an asset. `.bsprite` files are classified by the manifest-driven
+ * `kind` enriched onto the listing by the main process (presence of the
+ * manifest `tileset` block distinguishes tileset from sprite); pass it as
+ * `kind`. Every other file — including legacy `.png`/`.tileset.png` — is
+ * classified by filename here.
+ */
+export const classifyAsset = (
+	name: string,
+	kind?: AssetKind,
+): AssetType => {
+	if (kind) {
+		return kind;
+	}
 	const lower = name.toLowerCase();
 	if (lower.endsWith(TILESET_SUFFIX)) {
 		return "tileset";

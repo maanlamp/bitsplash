@@ -4,7 +4,7 @@ import {
 	MagnifyingGlassMinusIcon,
 	MagnifyingGlassPlusIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type AssetManager from "../../engine/assets";
 import { blitText, supportsChar } from "../../engine/text/font-blit";
@@ -181,10 +181,7 @@ const GlyphCell = ({
 	const supported = supportsChar(font, char, style);
 	return (
 		<div
-			className={classNames(
-				styles.cell,
-				!supported && styles.cellMissing,
-			)}
+			className={clsx(styles.cell, !supported && styles.cellMissing)}
 			title={supported ? undefined : "Not supported by this font"}
 		>
 			<div className={styles.cellGlyph}>
@@ -299,7 +296,7 @@ const FontPreview = ({
 										{option.label}
 										{font && (
 											<span
-												className={classNames(
+												className={clsx(
 													styles.dot,
 													isSynth
 														? styles.dotSynth

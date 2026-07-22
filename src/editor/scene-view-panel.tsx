@@ -14,6 +14,7 @@ import {
 	DRAG_MIME,
 	readDragPayload,
 } from "./asset-drop-registry";
+import { clientToCanvas } from "./client-to-canvas";
 import { createEntity } from "./commands";
 import { editorSettings } from "./editor-settings";
 import {
@@ -110,9 +111,13 @@ const SceneViewPanel = ({
 		if (!camera) {
 			return;
 		}
-		const rect = view.viewport.element.getBoundingClientRect();
+		const canvas = clientToCanvas(
+			view.viewport.element,
+			e.clientX,
+			e.clientY,
+		);
 		createPosRef.current = camera.screenToWorld(
-			new Vector2(e.clientX - rect.left, e.clientY - rect.top),
+			new Vector2(canvas.x, canvas.y),
 		);
 	};
 
@@ -124,10 +129,12 @@ const SceneViewPanel = ({
 		if (!camera) {
 			return null;
 		}
-		const rect = view.viewport.element.getBoundingClientRect();
-		return camera.screenToWorld(
-			new Vector2(clientX - rect.left, clientY - rect.top),
+		const canvas = clientToCanvas(
+			view.viewport.element,
+			clientX,
+			clientY,
 		);
+		return camera.screenToWorld(new Vector2(canvas.x, canvas.y));
 	};
 
 	const snapPoint = (

@@ -1,0 +1,337 @@
+.timeline {
+	--axis-width: 15rem;
+	--col-width: 3.25rem;
+	--row-height: 2.75rem;
+	--cel-size: 2.25rem;
+	--tag-height: 1.5rem;
+
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+	background: var(--surface-raised);
+}
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	padding: var(--unit-4);
+	border-bottom: var(--border-width) solid var(--border);
+}
+
+.toolbarHeading {
+	color: var(--on-surface-muted);
+	font: var(--font-caption);
+	margin-right: auto;
+	padding-left: var(--unit-2);
+}
+
+.scroll {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+}
+
+.grid {
+	display: grid;
+	width: max-content;
+	min-width: 100%;
+}
+
+.corner {
+	position: sticky;
+	top: 0;
+	left: 0;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	padding: 0 var(--unit-4);
+	background: var(--surface-inset);
+	border-right: var(--border-width) solid var(--border);
+	border-bottom: var(--border-width) solid var(--border);
+}
+
+.cornerLabel {
+	color: var(--on-surface-faint);
+	font: var(--font-caption);
+}
+
+// Tag lane — a nested grid whose columns line up with the frame columns so a
+// tag bar can be placed by grid-column span rather than pixel math.
+.tagLane {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: grid;
+	grid-auto-rows: var(--tag-height);
+	align-content: center;
+	padding: var(--unit-2) 0;
+	background: var(--surface-inset);
+	border-bottom: var(--border-width) solid var(--border);
+}
+
+.tagBar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	grid-row: 1;
+	height: var(--tag-height);
+	padding: 0 var(--unit-6);
+	border-radius: var(--radius-sm);
+	background: var(--accent);
+	color: var(--on-accent);
+	font: var(--font-caption);
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.tagName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: text;
+}
+
+.tagNameInput {
+	min-width: var(--unit-32);
+	background: var(--surface-raised);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--on-surface);
+	font: inherit;
+}
+
+.tagHandle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: var(--unit-6);
+	cursor: ew-resize;
+
+	&.tagHandleStart {
+		left: 0;
+	}
+
+	&.tagHandleEnd {
+		right: 0;
+	}
+}
+
+.tagButton {
+	display: flex;
+	align-items: center;
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+	opacity: 0.8;
+
+	&:hover {
+		opacity: 1;
+	}
+
+	&[data-on] {
+		opacity: 1;
+	}
+}
+
+.frameHeader {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--unit-2);
+	padding: var(--unit-2);
+	background: var(--surface-inset);
+	border-right: var(--border-width) solid var(--border);
+	border-bottom: var(--border-width) solid var(--border);
+	cursor: pointer;
+}
+
+.frameHeaderActive {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.frameHeaderTop {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	width: 100%;
+	justify-content: center;
+}
+
+.frameIndex {
+	font: var(--font-caption);
+	font-variant-numeric: tabular-nums;
+}
+
+.dragHandle {
+	display: flex;
+	align-items: center;
+	color: var(--on-surface-faint);
+	cursor: grab;
+
+	&:active {
+		cursor: grabbing;
+	}
+}
+
+.duration {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	width: 100%;
+}
+
+.durationGroup {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	width: 100%;
+	min-width: 0;
+}
+
+.durationInput {
+	width: 100%;
+	min-width: 0;
+	padding: var(--unit-2) var(--unit-4);
+	border-radius: var(--radius-sm);
+	border: var(--border-width) solid var(--border);
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	font: var(--font-caption);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	outline: none;
+
+	&:focus {
+		border-color: var(--accent);
+	}
+}
+
+.durationUnit {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+}
+
+.layerAxis {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: var(--unit-2);
+	padding: var(--unit-2) var(--unit-4);
+	background: var(--surface);
+	border-right: var(--border-width) solid var(--border);
+	border-bottom: var(--border-width) solid var(--border);
+	cursor: pointer;
+}
+
+.layerAxisActive {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.layerAxisActive .layerIconButton:hover:not(:disabled),
+.layerAxisActive .blendSelect,
+.layerAxisActive .opacityTrigger {
+	background: var(--accent-raised);
+	color: var(--on-accent-raised);
+}
+
+.layerThumb {
+	width: var(--unit-32);
+	height: var(--unit-32);
+	flex: none;
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%)
+		0 0 / 12px 12px;
+	image-rendering: pixelated;
+}
+
+.layerNameLabel {
+	flex: 1;
+	min-width: var(--unit-16);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: inherit;
+}
+
+.layerName {
+	flex: 1;
+	min-width: var(--unit-16);
+	background: var(--surface-raised);
+	border: var(--border-width) solid var(--border);
+	border-radius: var(--radius-sm);
+	color: var(--on-surface);
+	padding: 0 var(--unit-2);
+}
+
+.blendSelect {
+	flex: none;
+	width: auto;
+	padding: var(--unit-2) var(--unit-6);
+	font: var(--font-caption);
+}
+
+.opacityTrigger {
+	flex: none;
+	padding: var(--unit-2) var(--unit-6);
+	border: none;
+	border-radius: var(--radius-md);
+	background: var(--surface-control);
+	color: var(--on-surface-strong);
+	font: var(--font-caption);
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+
+	&:hover {
+		background: var(--state-hover);
+	}
+}
+
+.opacityPopup {
+	width: 12rem;
+	padding: var(--unit-12);
+}
+
+.celCell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--unit-2);
+	background: var(--surface);
+	border-right: var(--border-width) solid var(--border);
+	border-bottom: var(--border-width) solid var(--border);
+	cursor: pointer;
+
+	&:hover {
+		background: var(--state-hover);
+	}
+}
+
+.celCellActive {
+	outline: var(--border-width-thick, 2px) solid var(--accent);
+	outline-offset: calc(-1 * var(--border-width-thick, 2px));
+}
+
+.celCellColumnActive {
+	background: color-mix(in oklch, var(--accent), transparent 88%);
+}
+
+.celCanvas {
+	width: var(--cel-size);
+	height: var(--cel-size);
+	background: repeating-conic-gradient(#3a3a3a 0% 25%, #2a2a2a 0% 50%)
+		0 0 / 8px 8px;
+	image-rendering: pixelated;
+	pointer-events: none;
+}

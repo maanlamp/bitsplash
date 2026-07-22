@@ -1,5 +1,5 @@
 import { Button as BaseButton } from "@base-ui/react/button";
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ComponentProps } from "react";
 import styles from "./button.module.scss";
 
@@ -18,7 +18,7 @@ const Button = ({
 	...props
 }: ButtonProps) => (
 	<BaseButton
-		className={classNames(styles.button, styles[variant], className)}
+		className={clsx(styles.button, styles[variant], className)}
 		{...props}
 	/>
 );

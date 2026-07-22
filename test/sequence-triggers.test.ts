@@ -8,7 +8,12 @@ import { SequenceComponent } from "../src/engine/sequence/sequence-component";
 import {
 	currentExclusiveSequence,
 	SequenceSystem,
+	startSequence,
 } from "../src/engine/sequence/sequence-system";
+import {
+	lostCritterFoundSequence,
+	lostCritterHomeSequence,
+} from "../src/game/sequence/lost-critter-sequence";
 import { TransformComponent } from "../src/engine/transform-component";
 import { TriggerVolumeComponent } from "../src/engine/trigger/trigger-volume-component";
 import { TriggerVolumeSystem } from "../src/engine/trigger/trigger-volume-system";
@@ -159,6 +164,23 @@ describe("walk-in trigger volumes start their sequence", () => {
 		fixture.step(1);
 
 		expect(tagged(fixture, "lost-critter")).toBe(1);
+		fixture.dispose();
+	});
+
+	test("lost-critter-home started before the critter exists waits, then binds and leads it once found spawns it", async () => {
+		registerPrefab("critter", transformPrefab());
+		const fixture = await SequenceFixture.create(
+			triggerSceneConfig({ targetId: "unused-target" }),
+		);
+
+		startSequence(fixture.ecs, lostCritterHomeSequence);
+		fixture.step(2);
+
+		startSequence(fixture.ecs, lostCritterFoundSequence);
+		fixture.step(8);
+
+		expect(tagged(fixture, "lost-critter")).toBe(0);
+		expect(fixture.ecs.query(SequenceComponent).length).toBe(0);
 		fixture.dispose();
 	});
 

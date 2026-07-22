@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import clsx from "clsx";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import styles from "./color-picker.module.scss";
@@ -62,7 +62,7 @@ const GradientSlider = ({
 			/>
 			{display !== undefined && (
 				<div
-					className={classNames(
+					className={clsx(
 						styles.sliderBubble,
 						active && styles.sliderBubbleActive,
 					)}

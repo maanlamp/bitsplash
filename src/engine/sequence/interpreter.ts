@@ -53,11 +53,21 @@ export const resolveActor = (
 	return bound === undefined ? null : (bound as EntityId);
 };
 
+/**
+ * Bind cast roles to entities, filling only roles not yet bound and leaving
+ * already-bound roles untouched. Called every tick so a role whose entity does
+ * not exist when the sequence starts (e.g. a `byTag` actor another sequence
+ * spawns later) binds as soon as it appears, rather than staying `null` and
+ * crashing a downstream op that requires it.
+ */
 export const resolveCast = (
 	def: SequenceDef,
 	ctx: OpContext,
 ): void => {
 	for (const [role, ref] of Object.entries(def.cast)) {
+		if (ctx.run.cast[role] !== undefined) {
+			continue;
+		}
 		const resolver = lookupCastResolver(ref.resolver);
 		const entity = resolver(ctx, ref.params ?? {});
 		if (entity !== null) {

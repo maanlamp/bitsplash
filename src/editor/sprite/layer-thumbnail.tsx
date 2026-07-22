@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import styles from "./layers-panel.module.scss";
+import styles from "./timeline.module.scss";
 
 const SIZE = 32;
 

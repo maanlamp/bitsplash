@@ -1,40 +1,48 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { pickActiveCamera2D } from "../../engine/camera/camera-2d-render";
 import { SHEET_COLUMNS } from "../../engine/tilemap/autotile";
 import { TilesetPreviewSystem } from "./tileset-preview-system";
-import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
+import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { TileGrid } from "../../engine/tilemap/grid";
 import Vector2 from "../../engine/vector2";
 import styles from "./sprite-editor.module.scss";
 import { CursorAuthority } from "../../engine/cursor/cursor-authority";
+import { clientToCanvas } from "../client-to-canvas";
 import type { History } from "../history";
-import { bresenham } from "../line";
-import { cursorForTool, toolShowsBrush } from "./sprite-tools";
+import { GestureController } from "./gesture-controller";
+import type { SelectionController } from "./selection-controller";
+import { getTool } from "./tool-registry";
+import { type CellResolver, createToolSink } from "./tool-sink";
+import type { ToolContext } from "./tool-strategy";
 import { SpriteLayer } from "./layers";
 import { createPreviewGame } from "./preview-game";
 import { populateSampleGrid, sampleBounds } from "./sample-layout";
 import { SpriteCameraSystem } from "./sprite-camera";
 import { SpriteCheckerSystem } from "./sprite-checker";
-import type {
-	SpriteDocument,
-	StrokeSnapshot,
-} from "./sprite-document";
+import type { SpriteDocument } from "./sprite-document";
 import type { SpriteEditorState } from "./sprite-editor-state";
 import { SpriteGridSystem } from "./sprite-grid";
 import { type HoverState, SpriteHoverSystem } from "./sprite-hover";
-import { commitStroke } from "./stroke";
-import { resolveSourcePixel } from "./tile-paint";
+import { resolveWorldPixel } from "./tile-paint";
 
 const GameViewPanel = ({
 	doc,
 	state,
 	history,
+	selection,
 }: Readonly<{
 	doc: SpriteDocument;
 	state: SpriteEditorState;
 	history: History;
+	selection: SelectionController;
 }>) => {
 	const containerRef = useRef<HTMLDivElement>(null);
+	// Rebuild on a dimension change (rotate) so the sample bounds re-read
+	// `doc.width`/`height`; the composite canvas identity is stable across it.
+	const dimensionsVersion = useSyncExternalStore(
+		doc.subscribe,
+		() => doc.dimensionsVersion,
+	);
 
 	useEffect(() => {
 		const container = containerRef.current;
@@ -67,7 +75,7 @@ const GameViewPanel = ({
 			new TilesetPreviewSystem(grid, doc.canvas, SpriteLayer.CONTENT),
 		);
 		scene.ecs.addRenderSystem(
-			new SpriteHoverSystem(SpriteLayer.CONTENT, hover, state),
+			new SpriteHoverSystem(SpriteLayer.CONTENT, hover, state, false),
 		);
 		scene.ecs.addRenderSystem(
 			new SpriteGridSystem(SpriteLayer.CONTENT, srcSize, {
@@ -92,75 +100,127 @@ const GameViewPanel = ({
 		const cursorAuthority = new CursorAuthority(element);
 		const cursorToken = cursorAuthority.request("default");
 		let overImage = false;
-		const updateCursor = () => {
-			cursorToken.update(cursorForTool(state.tool, overImage));
-			if (!toolShowsBrush(state.tool)) {
-				hover.active = false;
-			}
-		};
-		updateCursor();
-		const unsubTool = state.subscribe(updateCursor);
-
-		let painting = false;
-		let stroke: StrokeSnapshot | null = null;
-		let lastTx = 0;
-		let lastTy = 0;
+		const gesture = new GestureController();
 
 		const worldOf = (e: PointerEvent): Vector2 | null => {
 			const camera = pickActiveCamera2D(scene.ecs);
 			if (!camera) {
 				return null;
 			}
-			const rect = element.getBoundingClientRect();
-			return camera.screenToWorld(
-				new Vector2(e.clientX - rect.left, e.clientY - rect.top),
-			);
+			const canvas = clientToCanvas(element, e.clientX, e.clientY);
+			return camera.screenToWorld(new Vector2(canvas.x, canvas.y));
 		};
 
 		const resolveAt = (wx: number, wy: number) => {
-			const cx = Math.floor((wx + HALF_TILE_SIZE) / TILE_SIZE);
-			const cy = Math.floor((wy + HALF_TILE_SIZE) / TILE_SIZE);
-			const x0 = cx * TILE_SIZE - HALF_TILE_SIZE;
-			const y0 = cy * TILE_SIZE - HALF_TILE_SIZE;
 			const rows = Math.max(1, Math.round(doc.height / srcSize));
-			return resolveSourcePixel(
-				grid,
-				rows,
-				srcSize,
-				cx,
-				cy,
-				(wx - x0) / TILE_SIZE,
-				(wy - y0) / TILE_SIZE,
-				(x, y) => doc.alphaAt(x, y),
+			return resolveWorldPixel(grid, rows, srcSize, wx, wy, (x, y) =>
+				doc.alphaAt(x, y),
 			);
 		};
 
-		const paintTexel = (tx: number, ty: number) => {
-			const pixel = resolveAt(tx + 0.5, ty + 0.5);
-			if (!pixel) {
-				return;
-			}
-			if (state.tool === "erase") {
-				doc.erasePixel(pixel.x, pixel.y);
-			} else {
-				doc.setPixel(pixel.x, pixel.y, state.css);
-			}
+		// The tool works in tile-cell space; the resolver maps each cell back to
+		// its source pixel via the sample layout, and the shared sink writes it
+		// through the active ink and symmetry.
+		const resolver: CellResolver = (cx, cy) => {
+			const pixel = resolveAt(cx + 0.5, cy + 0.5);
+			return pixel ? { x: pixel.x, y: pixel.y } : null;
+		};
+		const sink = createToolSink(doc, state, resolver);
+
+		const context = (
+			x: number,
+			y: number,
+			overImg: boolean,
+			button: number,
+			pressure: number,
+			pointerId: number,
+			capture: () => void,
+			shiftKey: boolean,
+			altKey: boolean,
+		): ToolContext => ({
+			doc,
+			state,
+			history,
+			selection,
+			shiftKey,
+			altKey,
+			x,
+			y,
+			overImage: overImg,
+			button,
+			pressure,
+			pointerId,
+			capture,
+			paint: sink.paint,
+			erase: sink.erase,
+			sample: sink.sample,
+		});
+
+		const eventContext = (
+			e: PointerEvent,
+			tx: number,
+			ty: number,
+			world: Vector2 | null,
+		): ToolContext =>
+			context(
+				tx,
+				ty,
+				world ? worldInBounds(world) : false,
+				e.button,
+				e.pressure,
+				e.pointerId,
+				() => element.setPointerCapture(e.pointerId),
+				e.shiftKey,
+				e.altKey,
+			);
+
+		const synthContext = (): ToolContext =>
+			context(
+				hover.x,
+				hover.y,
+				overImage,
+				-1,
+				0,
+				-1,
+				() => {},
+				false,
+				false,
+			);
+
+		const refreshHover = () => {
+			const tool = getTool(state.tool);
+			cursorToken.update(tool.cursor(overImage));
+			hover.active =
+				(tool.preview?.(synthContext())?.brushCell ?? false) &&
+				overImage;
 		};
 
-		const onPointerDown = (e: PointerEvent) => {
-			if (e.button !== 0 || state.tool === "pan") {
-				return;
+		let lastToolId = state.tool;
+		const onStateChange = () => {
+			const toolId = state.tool;
+			if (toolId !== lastToolId) {
+				lastToolId = toolId;
+				gesture.syncTool(toolId, synthContext());
 			}
+			refreshHover();
+		};
+		refreshHover();
+		const unsubTool = state.subscribe(onStateChange);
+
+		const onPointerDown = (e: PointerEvent) => {
 			const world = worldOf(e);
 			if (!world) {
 				return;
 			}
-			painting = true;
-			stroke = doc.snapshot();
-			element.setPointerCapture(e.pointerId);
-			lastTx = Math.floor(world.x);
-			lastTy = Math.floor(world.y);
-			paintTexel(lastTx, lastTy);
+			const tx = Math.floor(world.x);
+			const ty = Math.floor(world.y);
+			hover.x = tx;
+			hover.y = ty;
+			overImage = worldInBounds(world);
+			gesture.down(
+				getTool(state.tool),
+				eventContext(e, tx, ty, world),
+			);
 		};
 		const onPointerMove = (e: PointerEvent) => {
 			const world = worldOf(e);
@@ -172,40 +232,43 @@ const GameViewPanel = ({
 			hover.x = tx;
 			hover.y = ty;
 			overImage = worldInBounds(world);
-			hover.active = toolShowsBrush(state.tool) && overImage;
-			updateCursor();
-			if (painting) {
-				bresenham(lastTx, lastTy, tx, ty, paintTexel);
-				lastTx = tx;
-				lastTy = ty;
-			}
+			refreshHover();
+			gesture.move(eventContext(e, tx, ty, world));
 		};
-		const onPointerUp = () => {
-			if (!painting) {
-				return;
-			}
-			painting = false;
-			if (stroke) {
-				commitStroke(doc, history, stroke);
-				stroke = null;
-			}
+		const onPointerUp = (e: PointerEvent) => {
+			gesture.up(eventContext(e, hover.x, hover.y, worldOf(e)));
+		};
+		const onPointerCancel = (e: PointerEvent) => {
+			gesture.cancel(eventContext(e, hover.x, hover.y, worldOf(e)));
+		};
+		const onLostCapture = () => {
+			gesture.cancel(synthContext());
 		};
 		const onLeave = () => {
 			hover.active = false;
 			overImage = false;
-			updateCursor();
+			refreshHover();
 		};
 
 		element.addEventListener("pointerdown", onPointerDown);
 		element.addEventListener("pointermove", onPointerMove);
 		element.addEventListener("pointerup", onPointerUp);
+		element.addEventListener("pointercancel", onPointerCancel);
+		element.addEventListener("lostpointercapture", onLostCapture);
 		element.addEventListener("pointerleave", onLeave);
 
 		return () => {
 			element.removeEventListener("pointerdown", onPointerDown);
 			element.removeEventListener("pointermove", onPointerMove);
 			element.removeEventListener("pointerup", onPointerUp);
+			element.removeEventListener("pointercancel", onPointerCancel);
+			element.removeEventListener(
+				"lostpointercapture",
+				onLostCapture,
+			);
 			element.removeEventListener("pointerleave", onLeave);
+			gesture.cancel(synthContext());
+			doc.cancelStroke();
 			unsubTool();
 			cursorToken.dispose();
 			cursorAuthority.dispose();
@@ -213,7 +276,7 @@ const GameViewPanel = ({
 			stop();
 			detach();
 		};
-	}, [doc, state, history]);
+	}, [doc, state, history, selection, dimensionsVersion]);
 
 	return (
 		<div ref={containerRef} className={styles.spriteCanvasHost} />

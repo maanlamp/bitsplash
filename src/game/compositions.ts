@@ -22,6 +22,8 @@ import type { SettingsStore } from "../engine/input/settings-store";
 import { SequenceSystem } from "../engine/sequence/sequence-system";
 import { SpriteAnimationSystem } from "../engine/sprite/sprite-animation-system";
 import { SpriteRenderSystem } from "../engine/sprite/sprite-render-system";
+import { StaticAnimationSystem } from "../engine/sprite/static-animation-system";
+import { SpriteTagPlaybackSystem } from "../engine/sprite/sprite-tag-playback-system";
 import type { RenderSystem, UpdateSystem } from "../engine/system";
 import { TileCollisionSystem } from "../engine/tilemap/tile-collision-system";
 import { TilemapRenderSystem } from "../engine/tilemap/tilemap-render-system";
@@ -96,6 +98,8 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new PlayerAnimationSystem(),
 	new NpcAnimationSystem(),
 	new SpriteAnimationSystem(),
+	new StaticAnimationSystem(),
+	new SpriteTagPlaybackSystem(),
 	new WanderSystem(),
 	new FollowSystem(),
 	new NavAgentSystem(),

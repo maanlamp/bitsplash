@@ -12,11 +12,7 @@ import {
 	TextAaIcon,
 } from "@phosphor-icons/react";
 import { sceneSummaries } from "../../engine/scene/registry";
-import {
-	type AssetEntry,
-	assetFilename,
-	isTilesetName,
-} from "../assets";
+import { type AssetEntry, assetFilename } from "../assets";
 import type { ViewId } from "./layout";
 
 export type ViewKind =
@@ -112,8 +108,14 @@ export const viewTitle = (id: ViewId): string => {
 	}
 };
 
-export const viewIcon = (id: ViewId): Icon => {
-	const { kind, param } = parseViewId(id);
+/**
+ * Icon for a view. For an asset (sprite) view, `isTileset` selects the tileset
+ * icon; the caller resolves tileset-ness from the classified asset listing
+ * (manifest-driven for `.bsprite`, filename-driven for legacy `.png`), so the
+ * registry stays free of asset-state dependencies. Non-asset views ignore it.
+ */
+export const viewIcon = (id: ViewId, isTileset = false): Icon => {
+	const { kind } = parseViewId(id);
 	switch (kind) {
 		case "scene":
 			return GlobeIcon;
@@ -132,9 +134,7 @@ export const viewIcon = (id: ViewId): Icon => {
 		case "font":
 			return TextAaIcon;
 		default:
-			return param && param !== NEW_PARAM && isTilesetName(param)
-				? SquaresFourIcon
-				: FileImageIcon;
+			return isTileset ? SquaresFourIcon : FileImageIcon;
 	}
 };
 

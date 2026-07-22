@@ -1,6 +1,7 @@
 import { AssetRef } from "../asset-ref";
 import unknownSrc from "../assets/unknown.png";
 import { Percent } from "../percent";
+import type { BspriteRect } from "./bsprite-manifest";
 import {
 	serializable,
 	serialize,
@@ -89,6 +90,31 @@ export const spriteSource = (
 		y: 0,
 		width: image.width,
 		height: image.height,
+	};
+};
+
+/**
+ * Source rect for a `.bsprite` sprite, resolved through the facade instead of a
+ * {@link SpriteClip}. The composed sheet lays frame `i` at `x = i * width`
+ * (see the facade's `composeSheet`), and the per-tag derived content rect
+ * (`asset.contentRect(current)`) supplies the offset and extent. `sprite.frame`
+ * is the **absolute manifest frame index** here (not tag-relative), matching the
+ * sheet layout the playback system advances it against.
+ */
+export const bspriteSource = (
+	sprite: SpriteComponent,
+	asset: Readonly<{
+		width: number;
+		contentRect: (tag?: string) => BspriteRect;
+	}>,
+): SpriteSource => {
+	const rect = asset.contentRect(sprite.current);
+	return {
+		url: sprite.urlRef.path,
+		x: sprite.frame * asset.width + rect.x,
+		y: rect.y,
+		width: rect.width,
+		height: rect.height,
 	};
 };
 

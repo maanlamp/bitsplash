@@ -33,6 +33,10 @@ import {
 	nineSliceCells,
 } from "../render/nine-slice";
 import { RenderTarget } from "../render/render-target";
+import {
+	registerRenderer,
+	unregisterRenderer,
+} from "./renderer-registry";
 import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
 
 const QUAD_FLOATS = 8;
@@ -571,6 +575,7 @@ export default class Renderer2D {
 			gl.TEXTURE_MAG_FILTER,
 			gl.NEAREST,
 		);
+		registerRenderer(this);
 	}
 
 	get width(): number {
@@ -1488,6 +1493,7 @@ export default class Renderer2D {
 
 	dispose(): void {
 		const gl = this.gl;
+		unregisterRenderer(this);
 		for (const listener of this.disposeListeners) {
 			listener();
 		}

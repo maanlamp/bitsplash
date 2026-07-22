@@ -2,6 +2,14 @@ import type { TileGrid } from "../../engine/tilemap/grid";
 import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 import Vector2 from "../../engine/vector2";
 
+/**
+ * The occupied cells of the tileset preview's demonstration layout, in grid
+ * coordinates. Chosen to exercise a broad range of autotile neighbourhoods so
+ * the preview shows every corner variant: solid blocks (FULL / INV_CORNER
+ * interiors), edges and outer corners, a diagonal staircase (DIAGONAL), and
+ * isolated single tiles (four CORNERs). {@link populateSampleGrid} stamps them
+ * into a {@link TileGrid} and {@link sampleBounds} frames them for the camera.
+ */
 export const SAMPLE_CELLS: ReadonlyArray<readonly [number, number]> =
 	[
 		[0, 0],
@@ -26,6 +34,12 @@ export const SAMPLE_CELLS: ReadonlyArray<readonly [number, number]> =
 		[7, 2],
 		[1, 4],
 		[2, 5],
+		[8, 0],
+		[9, 1],
+		[10, 2],
+		[8, 4],
+		[10, 4],
+		[10, 5],
 	];
 
 export const populateSampleGrid = (grid: TileGrid): void => {

@@ -12,7 +12,7 @@ import {
 	PuzzlePieceIcon,
 	StackIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import {
 	type ReactNode,
 	useEffect,
@@ -70,7 +70,7 @@ const RowSurface = ({
 	);
 	return (
 		<div
-			className={classNames(
+			className={clsx(
 				styles.row,
 				isSelected && styles.rowSelected,
 				isHovered && styles.rowHovered,
@@ -119,7 +119,7 @@ const Row = ({
 					{hasChildItems ? (
 						<Button slot="chevron" className={styles.chevron}>
 							<CaretRightIcon
-								className={classNames(isExpanded && styles.caretOpen)}
+								className={clsx(isExpanded && styles.caretOpen)}
 							/>
 						</Button>
 					) : (

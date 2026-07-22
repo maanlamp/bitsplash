@@ -1,5 +1,4 @@
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
-import { nineSliceInsets } from "../../engine/png-metadata";
 import type { NineSliceInsets } from "../../engine/render/nine-slice";
 import type { RichLine } from "../../engine/text/rich-text";
 import {
@@ -46,10 +45,8 @@ export class DialogueHudSyncSystem implements UpdateSystem {
 			ecs.getComponent(id, DialoguePanelComponent)?.panel ?? "";
 		const lastPage = state.pageIndex >= state.pages.length - 1;
 		const showChoices = state.complete && lastPage;
-		const insets =
-			nineSliceInsets(
-				assetManager.getImageMetadata(panelUrl) || null,
-			) ?? FALLBACK_INSETS;
+		const panelAsset = assetManager.sprites.get(panelUrl);
+		const insets = panelAsset?.slice() ?? FALLBACK_INSETS;
 		const fallbackGlyph =
 			ecs.query(InteractionStateComponent)[0]?.[1].interactGlyph ??
 			"E";
@@ -72,7 +69,7 @@ export class DialogueHudSyncSystem implements UpdateSystem {
 			advanceGlyph: hint.glyph ?? fallbackGlyph,
 			advanceIcon: hint.icon,
 			advanceActivation: hint.activation ?? "press",
-			panel: assetManager.getImage(panelUrl) || null,
+			panel: panelAsset?.image ?? null,
 			insets,
 			kbdFrame: kbd.image,
 			kbdInsets: kbd.insets,

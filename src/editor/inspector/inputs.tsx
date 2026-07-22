@@ -8,7 +8,7 @@ import {
 	CheckIcon,
 	DotsSixVerticalIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useEffect, useState, type ReactNode } from "react";
 import type { SelectOption } from "../../engine/serialization/serializable-value";
 import { openFileDialog, resolveToWebPath } from "../project-io";
@@ -143,7 +143,7 @@ export const EnumSelect = ({
 					alignItemWithTrigger={false}
 				>
 					<Select.Popup
-						className={classNames(
+						className={clsx(
 							surface.surface,
 							surface.menu,
 							surface.selectPopup,

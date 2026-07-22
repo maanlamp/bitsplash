@@ -1,4 +1,4 @@
-import classNames from "classnames";
+import clsx from "clsx";
 import { Children, Fragment, type ReactNode, useRef } from "react";
 import type { SplitDirection } from "./layout";
 import Splitter from "./splitter";
@@ -35,7 +35,7 @@ const SplitContainer = ({
 	return (
 		<div
 			ref={ref}
-			className={classNames(
+			className={clsx(
 				styles.split,
 				direction === "row" ? styles.row : styles.column,
 			)}

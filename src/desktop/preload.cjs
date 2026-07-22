@@ -2,11 +2,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("bitsplashDesktop", {
 	saveLevel: (payload) => ipcRenderer.invoke("saveLevel", payload),
-	uploadAsset: (payload) =>
-		ipcRenderer.invoke("uploadAsset", payload),
+	writeAssetAtomic: (payload) =>
+		ipcRenderer.invoke("writeAssetAtomic", payload),
 	getAssetsRoot: () => ipcRenderer.invoke("getAssetsRoot"),
 	readTextFile: (payload) =>
 		ipcRenderer.invoke("readTextFile", payload),
+	readBinaryFile: (payload) =>
+		ipcRenderer.invoke("readBinaryFile", payload),
 	capturePage: () => ipcRenderer.invoke("capturePage"),
 	listDir: (payload) => ipcRenderer.invoke("listDir", payload),
 	listAssetsDeep: () => ipcRenderer.invoke("listAssetsDeep"),

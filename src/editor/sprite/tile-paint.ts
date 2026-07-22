@@ -1,6 +1,7 @@
 import { tileUV } from "../../engine/render/renderer-2d";
 import { cornerSlots } from "../../engine/tilemap/autotile";
 import type { TileGrid } from "../../engine/tilemap/grid";
+import { HALF_TILE_SIZE, TILE_SIZE } from "../../engine/tilemap/tile";
 
 export type SourcePixel = Readonly<{ x: number; y: number }>;
 
@@ -77,5 +78,41 @@ export const resolveSourcePixel = (
 		u,
 		v,
 		srcSize,
+	);
+};
+
+/**
+ * The tileset paint-through inverse: map a world-space point in the preview back
+ * to the source-sprite pixel it displays, or `null` when the covering autotile
+ * cell is empty. Converts the world point to its tile cell and in-tile `(u, v)`
+ * fraction, then delegates to {@link resolveSourcePixel} for the cap/fill
+ * selection and UV unwrap. `alphaAt` reads the composite (what-you-see) alpha, so
+ * a cap pixel wins only where the on-screen tile is actually opaque.
+ *
+ * Pure — the game-view panel supplies the world point (from the camera) and the
+ * composite reader; this holds the whole cell/UV math so the mapping is unit
+ * tested without a panel or a renderer.
+ */
+export const resolveWorldPixel = (
+	grid: TileGrid,
+	rows: number,
+	srcSize: number,
+	wx: number,
+	wy: number,
+	alphaAt: (x: number, y: number) => number,
+): SourcePixel | null => {
+	const cx = Math.floor((wx + HALF_TILE_SIZE) / TILE_SIZE);
+	const cy = Math.floor((wy + HALF_TILE_SIZE) / TILE_SIZE);
+	const x0 = cx * TILE_SIZE - HALF_TILE_SIZE;
+	const y0 = cy * TILE_SIZE - HALF_TILE_SIZE;
+	return resolveSourcePixel(
+		grid,
+		rows,
+		srcSize,
+		cx,
+		cy,
+		(wx - x0) / TILE_SIZE,
+		(wy - y0) / TILE_SIZE,
+		alphaAt,
 	);
 };

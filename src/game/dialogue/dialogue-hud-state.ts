@@ -5,7 +5,6 @@ import type { FontSettings } from "../../engine/text/font-settings";
 import type { RichLine } from "../../engine/text/rich-text";
 import type { ActivationMarker } from "../ui/key-cap";
 import type { ResolvedInputIcon } from "../ui/input-icon-atlas";
-import { KBD_INSETS } from "../ui/kbd-frame";
 
 export type DialogueSnapshot = Readonly<{
 	open: boolean;
@@ -20,7 +19,7 @@ export type DialogueSnapshot = Readonly<{
 	panel: TileSource | null;
 	insets: NineSliceInsets;
 	kbdFrame: TileSource | null;
-	kbdInsets: NineSliceInsets;
+	kbdInsets: NineSliceInsets | undefined;
 	bodyFont: FontSettings | null;
 	uiFont: FontSettings | null;
 }>;
@@ -46,7 +45,7 @@ const CLOSED: DialogueSnapshot = {
 	panel: null,
 	insets: FALLBACK_INSETS,
 	kbdFrame: null,
-	kbdInsets: KBD_INSETS,
+	kbdInsets: undefined,
 	bodyFont: null,
 	uiFont: null,
 };

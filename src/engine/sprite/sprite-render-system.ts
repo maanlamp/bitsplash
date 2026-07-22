@@ -1,11 +1,8 @@
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../sprite/sprite-component";
+import { SpriteComponent } from "../sprite/sprite-component";
 import { TransformComponent } from "../transform-component";
 import { RenderSystem, type RenderContext } from "../system";
 import { resolveRenderLayer } from "../render/render-layers";
+import { resolveSpriteDraw } from "./resolve-sprite-draw";
 
 export class SpriteRenderSystem implements RenderSystem {
 	render({ renderer, ecs, assetManager }: RenderContext): void {
@@ -13,11 +10,11 @@ export class SpriteRenderSystem implements RenderSystem {
 			SpriteComponent,
 			TransformComponent,
 		)) {
-			const image = assetManager.getImage(spriteImageUrl(sprite));
-			if (!image) {
+			const draw = resolveSpriteDraw(sprite, assetManager);
+			if (!draw) {
 				continue;
 			}
-			const source = spriteSource(sprite, image);
+			const { image, source } = draw;
 			const layer = resolveRenderLayer(
 				ecs,
 				sprite.renderLayer,

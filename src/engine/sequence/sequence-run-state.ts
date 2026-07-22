@@ -14,7 +14,6 @@ export class SequenceRunState implements ValueType {
 		return true;
 	}
 
-	@serialize() started = false;
 	@serialize() completed: string[] = [];
 	@serialize() memory: Record<string, SerializableValue> = {};
 	@serialize() blackboard: Record<string, string | number> = {};

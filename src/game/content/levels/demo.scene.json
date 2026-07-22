@@ -306,7 +306,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/engine/assets/unknown.png"
+						"path": "/src/game/content/assets/player.bsprite"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -316,6 +316,9 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"StaticAnimation": {
+					"tag": "idle"
 				}
 			}
 		},
@@ -2086,12 +2089,6 @@
 							"x": -45,
 							"y": 24,
 							"w": 18,
-							"h": 1
-						},
-						{
-							"x": -1,
-							"y": 24,
-							"w": 1,
 							"h": 1
 						},
 						{
@@ -4710,8 +4707,8 @@
 				"Transform": {
 					"position": {
 						"$type": "Vector2",
-						"x": 56.8138642063061,
-						"y": -102.08630653781616
+						"x": -2904,
+						"y": 720
 					},
 					"rotation": {
 						"$type": "Angle",
@@ -4836,8 +4833,8 @@
 				"Transform": {
 					"position": {
 						"$type": "Vector2",
-						"x": 128,
-						"y": 0
+						"x": 0,
+						"y": 752
 					},
 					"rotation": {
 						"$type": "Angle",
@@ -4899,8 +4896,8 @@
 				"Transform": {
 					"position": {
 						"$type": "Vector2",
-						"x": 160,
-						"y": 0
+						"x": -64,
+						"y": 80
 					},
 					"rotation": {
 						"$type": "Angle",

@@ -39,15 +39,6 @@ export const launchGameWindow = async (): Promise<void> => {
 	await bridge?.openGameWindow?.();
 };
 
-const blobToBase64 = async (blob: Blob): Promise<string> => {
-	const bytes = new Uint8Array(await blob.arrayBuffer());
-	let binary = "";
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte);
-	}
-	return btoa(binary);
-};
-
 export const fsProtocolUrl = (absolutePath: string): string =>
 	`bitsplash-fs://local/${encodeURIComponent(absolutePath)}`;
 
@@ -58,14 +49,22 @@ export const saveLevel = async (
 	await getBridge().saveLevel({ sceneId, json });
 };
 
+/**
+ * Persist a blob to the project's assets directory through the desktop shell's
+ * atomic writer: the main process writes a unique temp file in the destination
+ * directory, `fsync`s it, then renames it over the final path (retrying the
+ * transient lock errors Windows raises), so a reader never observes a partial
+ * file. Returns `existed: true` without writing when `overwrite` is false and
+ * the target already exists.
+ */
 export const uploadAsset = async (
 	filename: string,
 	data: Blob,
 	overwrite: boolean,
 ): Promise<{ url: string; existed: boolean }> => {
-	return getBridge().uploadAsset({
+	return getBridge().writeAssetAtomic({
 		filename,
-		dataBase64: await blobToBase64(data),
+		data: await data.arrayBuffer(),
 		overwrite,
 	});
 };
@@ -82,6 +81,37 @@ export const getAssetsRoot = async (): Promise<string> =>
  */
 export const readTextFile = async (path: string): Promise<string> =>
 	(await getBridge().readTextFile({ path })).text;
+
+/**
+ * Read a file's raw bytes through the desktop bridge (main-process `fs`), the
+ * binary counterpart to {@link readTextFile}. Use this for asset bytes
+ * (`.bsprite` archives, imports) rather than a cross-origin `fetch` to
+ * `bitsplash-fs://`, which COEP `credentialless` blocks in `cors` mode.
+ */
+export const readBinaryFile = async (
+	path: string,
+): Promise<ArrayBuffer> =>
+	(await getBridge().readBinaryFile({ path })).data;
+
+const ASSET_URL_PREFIX = "/src/game/content/assets/";
+
+/**
+ * Read an asset's raw bytes from its web URL (`/src/game/content/assets/…`, as
+ * returned by {@link uploadAsset}). Resolves the URL to an absolute filesystem
+ * path under the assets root and reads it through {@link readBinaryFile} — the
+ * bridge path, not a cross-origin `fetch` (which COEP `credentialless` blocks for
+ * the `bitsplash-fs://` scheme). Used to load `.bsprite` archive bytes.
+ */
+export const readAssetBytes = async (
+	url: string,
+): Promise<ArrayBuffer> => {
+	const clean = (url.split("?")[0] ?? url).split("#")[0]!;
+	const rel = clean.startsWith(ASSET_URL_PREFIX)
+		? clean.slice(ASSET_URL_PREFIX.length)
+		: (clean.split("/").pop() ?? clean);
+	const root = await getAssetsRoot();
+	return readBinaryFile(`${root.replace(/\\/g, "/")}/${rel}`);
+};
 
 export const listDir = (path: string) =>
 	getBridge().listDir({ path });
@@ -120,9 +150,7 @@ export const resolveToWebPath = async (
 		return `/src/game/content/assets/${path.slice(root.length + 1)}`;
 	}
 	const name = path.split("/").pop() ?? "asset";
-	const blob = await fetch(fsProtocolUrl(absolutePath)).then(
-		(response) => response.blob(),
-	);
-	const { url } = await uploadAsset(name, blob, false);
+	const bytes = await readBinaryFile(absolutePath);
+	const { url } = await uploadAsset(name, new Blob([bytes]), false);
 	return url;
 };

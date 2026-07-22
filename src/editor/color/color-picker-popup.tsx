@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import classNames from "classnames";
+import clsx from "clsx";
 import { useState, useSyncExternalStore } from "react";
 import surface from "../styles/surface.module.scss";
 import type { ColorPickerModel } from "./color-model";
@@ -24,13 +24,13 @@ const ColorPickerPopup = ({
 	return (
 		<Popover.Root open={open} onOpenChange={setOpen}>
 			<Popover.Trigger
-				className={classNames(styles.colorButton, triggerClassName)}
+				className={clsx(styles.colorButton, triggerClassName)}
 				style={{ background: swatchBackground(model.css) }}
 			/>
 			<Popover.Portal>
 				<Popover.Positioner sideOffset={8} align="start">
 					<Popover.Popup
-						className={classNames(surface.surface, styles.colorPanel)}
+						className={clsx(surface.surface, styles.colorPanel)}
 					>
 						<ColorPanel model={model} />
 					</Popover.Popup>

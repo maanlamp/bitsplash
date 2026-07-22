@@ -16,7 +16,7 @@ import {
 	TextAaIcon,
 	TrashIcon,
 } from "@phosphor-icons/react";
-import classNames from "classnames";
+import clsx from "clsx";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { DirEntry } from "../../project-rpc";
 import type { AssetCreateActions } from "../asset-context-menu";
@@ -24,6 +24,7 @@ import { writeDragPayload } from "../asset-drop-registry";
 import { type AssetType, classifyAsset } from "../assets";
 import type { History } from "../history";
 import { fsProtocolUrl, listDir } from "../project-io";
+import { BspriteThumbnail } from "../sprite/bsprite-thumbnail";
 import surface from "../styles/surface.module.scss";
 import styles from "./asset-browser.module.scss";
 import {
@@ -45,6 +46,9 @@ const TYPE_ICONS: Record<AssetType, Icon> = {
 
 const isImage = (type: AssetType): boolean =>
 	type === "sprite" || type === "tileset";
+
+const isBsprite = (name: string): boolean =>
+	name.toLowerCase().endsWith(".bsprite");
 
 const segments = (
 	path: string,
@@ -257,9 +261,7 @@ export const AssetBrowser = ({
 				>
 					<div className={styles.grid}>
 						{creating && (
-							<div
-								className={classNames(styles.cell, styles.editing)}
-							>
+							<div className={clsx(styles.cell, styles.editing)}>
 								<div className={styles.thumb}>
 									<FolderIcon className={styles.icon} />
 								</div>
@@ -273,7 +275,7 @@ export const AssetBrowser = ({
 						{entries.map((entry) => {
 							const type = entry.isDirectory
 								? null
-								: classifyAsset(entry.name);
+								: classifyAsset(entry.name, entry.kind);
 							const TypeIcon = entry.isDirectory
 								? FolderIcon
 								: TYPE_ICONS[type!];
@@ -289,7 +291,10 @@ export const AssetBrowser = ({
 										writeDragPayload(event.dataTransfer, {
 											type: "asset-drag",
 											path: entry.path,
-											assetType: classifyAsset(entry.name),
+											assetType: classifyAsset(
+												entry.name,
+												entry.kind,
+											),
 										});
 									}}
 									onDoubleClick={() => open(entry)}
@@ -297,12 +302,20 @@ export const AssetBrowser = ({
 								>
 									<div className={styles.thumb}>
 										{type && isImage(type) ? (
-											<img
-												className={styles.thumbImage}
-												src={fsProtocolUrl(entry.path)}
-												alt={entry.name}
-												loading="lazy"
-											/>
+											isBsprite(entry.name) ? (
+												<BspriteThumbnail
+													className={styles.thumbImage}
+													path={entry.path}
+													alt={entry.name}
+												/>
+											) : (
+												<img
+													className={styles.thumbImage}
+													src={fsProtocolUrl(entry.path)}
+													alt={entry.name}
+													loading="lazy"
+												/>
+											)
 										) : (
 											<TypeIcon className={styles.icon} />
 										)}
@@ -324,7 +337,7 @@ export const AssetBrowser = ({
 				<ContextMenu.Portal>
 					<ContextMenu.Positioner>
 						<ContextMenu.Popup
-							className={classNames(surface.surface, surface.menu)}
+							className={clsx(surface.surface, surface.menu)}
 						>
 							{contextTarget ? (
 								<EntryMenu

@@ -21,9 +21,10 @@ Constraints: strict layering (Engine ← Editor, Engine ← Game); vertical feat
 
 ## Decision
 
-**Own the format.** `.bsprite` is a zip container (fflate, already an engine dependency via `.font.zip`): layer-cel PNGs stored STORED, a JSON manifest, and **baked flattened frame PNGs written at save time by the editor** (ORA's `mergedimage.png` generalized per frame). The engine is a first-class reader of `.bsprite` — but it reads *only* baked frames + manifest and never composites layers or sees blend modes. Compositing happens exactly once, in the editor, on the CPU canvas path (`willReadFrequently`), deterministically per version rather than per GPU.
+**Own the format.** `.bsprite` is a zip container (fflate, already an engine dependency via `.font.zip`): layer-cel PNGs stored STORED, a JSON manifest, and **baked flattened frame PNGs written at save time by the editor** (ORA's `mergedimage.png` generalized per frame). The engine is a first-class reader of `.bsprite` — but it reads _only_ baked frames + manifest and never composites layers or sees blend modes. Compositing happens exactly once, in the editor, on the CPU canvas path (`willReadFrequently`), deterministically per version rather than per GPU.
 
 **Manifest carries (v1 — every field has a shipping consumer):**
+
 - format `version` int (plain future-proofing, no deferral ceremony — fields are added whenever a new consumer appears)
 - canvas size; layers: name, opacity, visibility, blend mode — the 17 modes already curated in `src/editor/sprite/blend-modes.ts` (the W3C set canvas2d implements natively) **plus the legacy pixel-math modes** needed for pdn/aseprite parity (Subtract, Divide, Reflect, Glow, Negation; one-line per-channel formulas). The editor compositor is hybrid: canvas2d for native modes, integer pixel loop for the legacy ones (both bake and live preview). The engine never evaluates any of them
 - frames with per-frame duration ms; cels (layer × frame); tags: name, frame range, loop flag
@@ -82,7 +83,7 @@ Two parallel-capable workstreams first (shared contract: the `.bsprite` schema, 
 16. **Timeline UI**: frames × layers grid (the rebuilt layers panel is this grid's vertical axis — one component, fixing the space-between layout), per-frame duration editing, tag create/rename/range/loop, frame add/delete/reorder, cel drag.
 17. **Onion skinning** (prev/next counts, opacity falloff, tint) and **live 1x preview panel** playing the active tag while editing.
 18. **Hot-reload validation**: headless integration test — boot ECS + scene with a `.bsprite`-referencing sprite, save through the editor document path, assert the running scene view picks up new pixels and dimension changes (extend `test/support/sequence-harness.ts`).
-18b. **`.aseprite` importer** (moved here from Phase 4 — step 19 depends on it, and phases must stay serially completable): cels/layers/tags/durations via the existing JS read-parser approach, producing a `.bsprite` document.
+    18b. **`.aseprite` importer** (moved here from Phase 4 — step 19 depends on it, and phases must stay serially completable): cels/layers/tags/durations via the existing JS read-parser approach, producing a `.bsprite` document.
 19. **Actor migration (proving consumer)**: the step-18b importer converts the six strips' `.aseprite` sources into `player.bsprite` with tags for all nine player clips (`fps:0` freeze-frames — `jump`, `wallslide`, `dash`, `walljump` — become 1-frame tags); **all eight prefabs** referencing the strips (`player`, `companion`, `critter`, `enemy`, `guard`, `pickup-tutor`, `quest-giver`, `quickfoot`) rewrite clips → tags; hand-authored content rects dropped in favor of bake-derived; `sprite.finished` consumers (`player-animation-system.ts`) verified; strip PNGs + `.aseprite` sources deleted. **Bow attachment**: author a per-frame grip point on the player; bow-holding system reads a new `spriteAttachment()` query (flipX-mirrored, `undefined` when absent); optional nock point on the bow for arrow spawn.
 
 ### Phase 2 — Drawing suite
@@ -119,7 +120,7 @@ Already done in the planning session (2026-07-20): the design-session bullet was
 - **`.pdn` is NRBF (publicly specced by Microsoft) + gzip**, proven parseable by pypdn — not a dead end; a read-only importer is bounded work validated against exactly three files.
 - **Data-loss = trust-death** (GameMaker "months of work" reports) → atomic writes are non-negotiable v1; zip mid-write corruption loses the whole archive (central directory at EOF).
 - **Codebase**: renderer invalidation primitives exist (`invalidateImage`/`invalidateTileArray`) but `AssetManager` has no eviction; render systems re-poll every frame so eviction self-heals most consumers; the iTXt 9-slice channel has readers but no writer anywhere; the editor's canvas panels are already tiny ECS games, which the tileset paint-through loop builds on.
-- **Sizing critique**: full scope ≈ 35–50 focused FTE-weeks by solo-human math — irrelevant as calendar here (agentic implementation), but the *ordering* findings stand: foundations-before-tools, undo-split-before-cels, layers-panel-as-timeline-axis; foundations + Phase 1 deliver ~80% of the stated value.
+- **Sizing critique**: full scope ≈ 35–50 focused FTE-weeks by solo-human math — irrelevant as calendar here (agentic implementation), but the _ordering_ findings stand: foundations-before-tools, undo-split-before-cels, layers-panel-as-timeline-axis; foundations + Phase 1 deliver ~80% of the stated value.
 
 ## Risks & open questions
 
@@ -128,3 +129,102 @@ Already done in the planning session (2026-07-20): the design-session bullet was
 - **Cels undo/selection state machine** is the highest-complexity editor surface (Aseprite spent years on floating-selection bugs); the commit-semantics rules in steps 12/22 are the guardrail, and Phase 3 lands after the document model has stabilized.
 - **Scope**: this is the largest plan in the repo. Phase boundaries are chosen so a pause after any phase leaves a coherent tool (research: half-done ships are punished hardest).
 - No open questions — all decisions above were made explicitly in the planning session.
+
+## Implementation status & handoff (added mid-implementation, 2026-07-22)
+
+**The entire plan (Workstream A, B foundations, Phases 1–4) is implemented on the
+private branch `feature/2026-07-20-sprite-editor`.** `bun check` is green (604
+tests, 0 fail) and `bun run build` (production) succeeds. This section exists so a
+fresh session can continue without re-deriving; the prior session ran out of
+context.
+
+### Handoff protocol (important)
+
+- The branch is **private, unpushed, unmerged** — do NOT push/PR/merge it.
+- It has NOT been collapsed to main. The collapse (delete this plan file →
+  `git switch main` → `git merge --squash` → `git reset`, leaving uncommitted
+  changes on main) happens ONLY after the user gives an explicit all-clear
+  **after playtesting**. Until then, keep working on the branch as throwaway
+  checkpoints.
+- An unrelated `docs/plans/2026-07-21-feature-weather-system.md` lives on this
+  branch (committed) and must be preserved verbatim — it rides into main with the
+  collapse; only THIS plan file is `git rm`'d at all-clear.
+- The `.aseprite` sources were deleted (user-authorized); `player.bsprite` (7
+  limb layers) and `kbd.bsprite` are the layered sources of truth now. Do NOT
+  regenerate those `.bsprite` files casually.
+
+### Crash fixes already applied this session (all validated in the real app)
+
+- Rapier/Vite dev wasm heap desync (`vite.config` `optimizeDeps.exclude`).
+- Eraser lag (per-stamp full recomposite) + brush/eraser gesture dead-state
+  (introduced a `GestureController` discriminated-union owner) + Space-release
+  cursor refresh.
+- Outline shader missing on `.bsprite` (shared `resolveSpriteDraw` helper).
+- Editor crashed on ANY asset open — `tool-options.tsx` passed an unstable
+  `getSnapshot` to `useSyncExternalStore` → infinite render loop.
+
+### Open decisions for the user's feedback session (nothing blocks; all changeable)
+
+- **Importers not wired to a UI action.** `.aseprite`/`.pdn`/`.ora` importers
+  exist as modules but there is NO in-editor path to import one → `.bsprite`
+  document. Only `.png`/`.bsprite` open through a view. Wiring an import action
+  (drop/open a source file → produce a `.bsprite`) is the main functional gap
+  vs the plan's step-23 intent. **Decision needed: wire it, or leave importers
+  as programmatic/migration tools?**
+- **Actor art:** run/run-backwards render in the canonical limb z-order
+  (`LARM,LLEG,TORSO,HEAD,RLEG,RARM`), ~3–4% pixel diff from the old shipped
+  strips — needs a visual OK. `kbd.bsprite` was generated from the shipping
+  16×16 PNG (not the 32×32 `.pdn`, which has non-runtime marker layers); a
+  layered re-author from the `.pdn` is a possible follow-up.
+- **Floating toolbar → tools-only?** Undo/redo (and color picker?) still live in
+  the floating toolbar; the plan implied moving them to the docked top toolbar.
+  Not done — pending user call.
+
+### UX defaults chosen during implementation (review + adjust in feedback session)
+
+All conventional pixel-editor picks, easy to change:
+
+- **Tools/keys:** SPACE = hold-pan; Alt = hold-eyedropper (suppressed while a
+  selection/transform tool is active, where Alt = subtract / skew); brush size 1
+  / round; symmetry axis = image center; fill contiguous + tolerance 0; shape
+  fill off; custom-brush shortcut `t`, dither `d`, gradient `n`, scatter `k`,
+  attachment `A`, free-transform `Ctrl/Cmd+T`; `Shift+H`/`Shift+V` flip;
+  `Shift+arrows` wrap-shift; arrow keys = cel navigation.
+- **Brush dynamics:** stabilizer 0–100 (0 off); linear pressure curves; dither
+  = Bayer 4×4 only (pattern selection deferred); gradient runs active-color →
+  transparent (no secondary color slot exists — a real 2-color gradient wants
+  one); "foliage" ships as a plain scatter brush.
+- **Inks:** shading ink is forward-only (no reverse-shift gesture); off-palette /
+  non-opaque pixels unchanged; replace-color operates on the active cel only.
+- **Palette:** floating bottom-left, localStorage-persisted, workspace-wide
+  singleton (not per-doc, not in the manifest — palette-in-manifest is deferred);
+  no OS save dialog, so `.gpl`/`.hex` export writes into the project assets dir.
+- **Selection:** internal clipboard only (no system clipboard); paste at the
+  copied origin; Enter commits / Escape cancels; selection + its transforms are
+  texture-view-only (not wired to the tileset paint-through view); selection
+  transforms fold into the single float-commit undo entry (not individually
+  undoable); no-selection flip/rotate falls back to whole-image; wrap-shift is
+  whole active-cel only.
+- **Free transform:** numeric panel (scale/rotate/skew/pivot) is solid; the
+  on-canvas handle hit-testing/drag geometry is coarse and needs interactive
+  tuning. RotSprite = Scale2x×8 → rotate → majority downscale (cardinals exact).
+- **Timeline:** bottom strip; cel-drag = move, Alt = copy; new tag spans all
+  frames + loops; new-frame duration 100ms; deleting the last frame refused.
+- **Onion:** off by default; prev = red, next = blue; prev1/next1. **Preview:**
+  top-right, 1×. **Attachment tool:** placing is inert until a point name is
+  selected/added (want click-to-create?); pixel-center snapping; right-click
+  clears the frame's point.
+- **Save:** new sprites are always `.bsprite`; a legacy `.png` opened is silently
+  converted to `.bsprite` on save; load/save errors surface minimally; a loaded
+  tileset with width not a multiple of `SHEET_COLUMNS` shows a non-blocking toast.
+
+### Known limitations / follow-ups (not blocking)
+
+- All editor UI/interaction is built to spec but only its **logic** is headlessly
+  tested — the visual/interactive behavior (drawing feel, overlays, panels,
+  transforms, marching ants, onion, preview, bow placement) needs a real
+  `bun run dev` playtest. That is the outstanding validation.
+- The optional end-of-run **API-shape tightening pass** (skill step 5) was
+  skipped to prioritize a runnable build; available as a follow-up.
+- `docs/bsprite-format.md` still references the now-deleted `png-metadata.ts` as
+  historical rationale (harmless).
