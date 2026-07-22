@@ -25,7 +25,7 @@ export const MainMenu = ({ snap, actions }: MainMenuProps) => {
 	return (
 		<View style={OVERLAY}>
 			<View style={PANEL}>
-				<Text style={TITLE}>Bitsplash</Text>
+				<Text style={TITLE}>Fantasy Platformer</Text>
 				<MenuButton label="New Game" onActivate={actions.newGame} />
 				<MenuButton
 					label="Continue"

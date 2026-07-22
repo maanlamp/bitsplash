@@ -1,9 +1,16 @@
 # Bitsplash
 
-A 2D platformer game running in the browser on an HTML `<canvas>`, built with a
-hand-rolled Entity-Component-System (ECS) and a **physics** layer behind an
-engine-owned abstraction (`src/engine/physics/`), backed by **Rapier**. Game and
-editor code never reference the physics backend directly.
+Bitsplash is a hand-rolled 2D game engine and its editor, focused on 2D
+platformers. It runs on an HTML `<canvas>` with a hand-rolled
+Entity-Component-System (ECS) and a **physics** layer behind an engine-owned
+abstraction (`src/engine/physics/`), backed by **Rapier**. Game and editor code
+never reference the physics backend directly.
+
+**Naming.** "Bitsplash" is the engine and toolchain, not the game. The game
+being built with it has the working title **Fantasy Platformer**; that is the
+name players see (start screen, game window title). Do not label the game
+itself "Bitsplash" — the engine namespace (`bitsplash.*`, `bitsplash-fs://`,
+the editor's own title bar) is a separate, correct use.
 
 ## Tooling
 
