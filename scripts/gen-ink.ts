@@ -172,6 +172,14 @@ const render = (knots: KnotInfo[]): string => {
 	return `${header.join("\n")}\n${body}\n`;
 };
 
+const existing = (): string | null => {
+	try {
+		return readFileSync(OUT_FILE, "utf8");
+	} catch {
+		return null;
+	}
+};
+
 export const generate = (): {
 	outFile: string;
 	knots: KnotInfo[];
@@ -186,7 +194,10 @@ export const generate = (): {
 	const container =
 		story.mainContentContainer as unknown as Container;
 	const knots = walkKnots(container, owner);
-	writeFileSync(OUT_FILE, render(knots), "utf8");
+	const rendered = render(knots);
+	if (existing() !== rendered) {
+		writeFileSync(OUT_FILE, rendered, "utf8");
+	}
 	return { outFile: OUT_FILE, knots };
 };
 

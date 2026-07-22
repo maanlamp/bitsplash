@@ -73,6 +73,7 @@ import { SelectionChannel } from "./selection-channel";
 import NewSpriteDialog from "./sprite/new-sprite-dialog";
 import type { NewSpriteConfig } from "./sprite/sprite-editor";
 import TitleBar from "./title-bar";
+import { toastError } from "./toast";
 import { Toaster } from "./toaster";
 import {
 	allViewIds,
@@ -158,6 +159,8 @@ const App = ({
 	const [running, setRunning] = useState(false);
 	const [runMode, setRunMode] = useState<"game" | "editor">("game");
 	const [runPaused, setRunPaused] = useState(false);
+	const [launchingGame, setLaunchingGame] = useState(false);
+	const launchingGameRef = useRef(false);
 	const [, forceStore] = useReducer((n: number) => n + 1, 0);
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
@@ -647,7 +650,17 @@ const App = ({
 	}, [selectedEntity, inspectingWorld]);
 
 	const playGame = (): void => {
-		void launchGameWindow();
+		if (launchingGameRef.current) {
+			return;
+		}
+		launchingGameRef.current = true;
+		setLaunchingGame(true);
+		void launchGameWindow()
+			.catch(() => toastError("Couldn't launch the game"))
+			.finally(() => {
+				launchingGameRef.current = false;
+				setLaunchingGame(false);
+			});
 	};
 
 	const onRunChange = useCallback((): void => {
@@ -802,6 +815,7 @@ const App = ({
 							update: updateSpan,
 							heap,
 							fps,
+							now: time,
 						});
 					}
 					if (host) {
@@ -1259,6 +1273,7 @@ const App = ({
 			<SceneViewPanel
 				view={view}
 				onPlay={playGame}
+				playtestLaunching={launchingGame}
 				onRun={startRun}
 				onStop={stopRun}
 				onPause={toggleRunPause}

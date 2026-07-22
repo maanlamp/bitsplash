@@ -12,17 +12,19 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { pathToFileURL } = require("node:url");
+const { spawn } = require("node:child_process");
 const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
 const { classifyBspriteBytes } = require("./bsprite-classify.cjs");
+const { GAME_READY_MESSAGE } = require("./game-ready.cjs");
+
+// Enable DRR boost (Win11 24H2+)
+app.commandLine.appendSwitch(
+	"enable-features",
+	"UseCompositorClockVSyncInterval",
+);
 
 const DEV_URL = "https://localhost:5173";
 
-/**
- * Load a dev-server URL, retrying while the connection is refused. Electron
- * reaches `loadURL` a few hundred ms before Vite is listening, so the first
- * attempt on a cold start would otherwise fail with `ERR_CONNECTION_REFUSED`
- * and leave a blank window until a manual reload.
- */
 const loadDevURL = (window, url) => {
 	const CONNECTION_ERRORS = new Set([
 		-102, -105, -106, -109, -118, -324,
@@ -42,6 +44,7 @@ const loadDevURL = (window, url) => {
 	});
 	void window.loadURL(url);
 };
+
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 const LEVELS_DIR = path.join(
 	PROJECT_ROOT,
@@ -58,7 +61,6 @@ const ASSETS_DIR = path.join(
 	"assets",
 );
 const TRASH_DIR = path.join(PROJECT_ROOT, ".trash");
-
 const FS_SCHEME = "bitsplash-fs";
 
 protocol.registerSchemesAsPrivileged([
@@ -95,13 +97,8 @@ const BSPRITE_SUFFIX = ".bsprite";
 const isBspriteName = (name) =>
 	name.toLowerCase().endsWith(BSPRITE_SUFFIX);
 
-/**
- * Manifest-driven classification of a `.bsprite` file, cached by mtime so a file
- * is re-parsed only when it changes on disk. Any stat/read failure resolves to
- * `{ kind: "unknown" }` — a corrupt or vanished file never crashes the listing.
- */
+// TODO: Move out of main.cjs
 const bspriteCache = new Map();
-
 const classifyBspriteFile = async (absPath) => {
 	try {
 		const stat = await fsp.stat(absPath);
@@ -413,29 +410,43 @@ const createWindow = async () => {
 	loadDevURL(window, DEV_URL);
 };
 
-const createGameWindow = () => {
-	const window = new BrowserWindow({
-		width: 1280,
-		height: 720,
-		backgroundColor: "#030303",
-		titleBarStyle: "hidden",
-		titleBarOverlay: {
-			color: "#030303",
-			symbolColor: "#dedede",
-			height: 40,
-		},
-		webPreferences: {
-			preload: path.join(__dirname, "preload.cjs"),
-			contextIsolation: true,
-			nodeIntegration: false,
-		},
+const launchGame = () =>
+	new Promise((resolve, reject) => {
+		const child = spawn(
+			process.execPath,
+			[path.join(__dirname, "game.cjs")],
+			{
+				stdio: ["ignore", "inherit", "inherit", "ipc"],
+				windowsHide: true,
+				env: {
+					...process.env,
+					BITSPLASH_DEV_URL: DEV_URL,
+				},
+			},
+		);
+		let ready = false;
+		child.on("message", (message) => {
+			if (message === GAME_READY_MESSAGE) {
+				ready = true;
+				resolve({ opened: true });
+			}
+		});
+		child.on("error", reject);
+		child.on("exit", (code) => {
+			if (!ready) {
+				reject(
+					new Error(`game exited before ready (exit code ${code})`),
+				);
+			}
+		});
 	});
-	loadDevURL(window, `${DEV_URL}/game.html`);
-};
 
+let gameLaunch = null;
 ipcMain.handle("openGameWindow", () => {
-	createGameWindow();
-	return { opened: true };
+	gameLaunch ??= launchGame().finally(() => {
+		gameLaunch = null;
+	});
+	return gameLaunch;
 });
 
 app.on(

@@ -17,6 +17,10 @@ import {
 	type RGBA,
 } from "../render/color-resolver";
 import {
+	nineSliceCells,
+	type NineSliceInsets,
+} from "../render/nine-slice";
+import {
 	type BlitProgram,
 	type ConicOutlineProgram,
 	createBlitProgram,
@@ -28,16 +32,12 @@ import {
 	type OutlineProgram,
 	type WorldProgram,
 } from "../render/programs";
-import {
-	type NineSliceInsets,
-	nineSliceCells,
-} from "../render/nine-slice";
 import { RenderTarget } from "../render/render-target";
+import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
 import {
 	registerRenderer,
 	unregisterRenderer,
 } from "./renderer-registry";
-import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
 
 const QUAD_FLOATS = 8;
 const TILE_FLOATS = 9;
@@ -521,15 +521,13 @@ export default class Renderer2D {
 	private clipStack: ScissorBox[] = [];
 	private disposeListeners = new Set<() => void>();
 
-	constructor(viewport: Viewport, vsync = false) {
+	constructor(viewport: Viewport) {
 		this.viewport = viewport;
 		const gl = viewport.element.getContext("webgl2", {
 			alpha: false,
 			antialias: false,
 			depth: false,
 			stencil: false,
-			desynchronized: !vsync,
-			preserveDrawingBuffer: !vsync,
 		});
 		if (!gl) {
 			throw new Error("WebGL2 not supported.");

@@ -22,7 +22,7 @@ const SPECS: ReadonlyArray<WidgetSpec> = [
 		series: "frametime",
 		color: "#5ee6a8",
 		minScale: TARGET_MS * 1.5,
-		headline: (history) => `${Math.round(history.fps)} fps`,
+		headline: (history) => `${Math.round(history.displayFps)} fps`,
 		format: (v) => v.toFixed(1),
 		spike: (stats) => stats.max > TARGET_MS * 1.5,
 	},

@@ -1,6 +1,5 @@
 import {
 	useCallback,
-	useEffect,
 	useRef,
 	useState,
 	useSyncExternalStore,
@@ -33,6 +32,7 @@ import Split from "./workspace/split";
 const SceneViewPanel = ({
 	view,
 	onPlay,
+	playtestLaunching,
 	onRun,
 	onStop,
 	onPause,
@@ -48,6 +48,7 @@ const SceneViewPanel = ({
 }: Readonly<{
 	view: SceneView;
 	onPlay: () => void;
+	playtestLaunching: boolean;
 	onRun: () => void;
 	onStop: () => void;
 	onPause: () => void;
@@ -75,14 +76,6 @@ const SceneViewPanel = ({
 	);
 	const createPosRef = useRef<Vector2 | null>(null);
 	const [menuEntity, setMenuEntity] = useState<EntityId | null>(null);
-	const [vsync, setVsync] = useState(view.vsync);
-	useEffect(() => {
-		setVsync(view.vsync);
-	}, [view]);
-	const toggleVsync = (enabled: boolean): void => {
-		view.setVsync(enabled);
-		setVsync(view.vsync);
-	};
 
 	const deps: MenuDeps = {
 		ecs,
@@ -234,6 +227,7 @@ const SceneViewPanel = ({
 				<PerfOverlay view={view} />
 				<PlaybackBar
 					onPlaytest={onPlay}
+					playtestLaunching={playtestLaunching}
 					onRun={onRun}
 					onStop={onStop}
 					onPause={onPause}
@@ -242,8 +236,6 @@ const SceneViewPanel = ({
 					inputMode={inputMode}
 					paused={paused}
 					running={running}
-					vsync={vsync}
-					onVsyncChange={toggleVsync}
 				/>
 				<Toolbar
 					mode={mode}

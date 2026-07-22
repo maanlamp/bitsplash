@@ -3,20 +3,22 @@ import { ToggleGroup } from "@base-ui/react/toggle-group";
 import {
 	CornersOutIcon,
 	GameControllerIcon,
-	MonitorIcon,
 	PauseIcon,
 	PencilIcon,
 	PlayIcon,
 	SkipForwardIcon,
+	SpinnerGapIcon,
 	StopIcon,
 } from "@phosphor-icons/react";
 import Button from "./button";
 import FloatingToolbar from "./floating-toolbar";
+import loading from "./loading.module.scss";
 import controls from "./styles/controls.module.scss";
 import Tooltip from "./tooltip";
 
 type PlaybackBarProps = Readonly<{
 	onPlaytest: () => void;
+	playtestLaunching: boolean;
 	onRun: () => void;
 	onStop: () => void;
 	onPause: () => void;
@@ -25,12 +27,11 @@ type PlaybackBarProps = Readonly<{
 	inputMode: "game" | "editor";
 	paused: boolean;
 	running: boolean;
-	vsync: boolean;
-	onVsyncChange: (enabled: boolean) => void;
 }>;
 
 const PlaybackBar = ({
 	onPlaytest,
+	playtestLaunching,
 	onRun,
 	onStop,
 	onPause,
@@ -39,8 +40,6 @@ const PlaybackBar = ({
 	inputMode,
 	paused,
 	running,
-	vsync,
-	onVsyncChange,
 }: PlaybackBarProps) => (
 	<FloatingToolbar align="top">
 		{running ? (
@@ -96,25 +95,24 @@ const PlaybackBar = ({
 						<PlayIcon />
 					</Button>
 				</Tooltip>
-				<Tooltip label="Playtest" shortcut="⇧P">
-					<Button variant="icon" onClick={onPlaytest}>
-						<CornersOutIcon />
+				<Tooltip
+					label={playtestLaunching ? "Launching…" : "Playtest"}
+					shortcut="⇧P"
+				>
+					<Button
+						variant="icon"
+						onClick={onPlaytest}
+						disabled={playtestLaunching}
+					>
+						{playtestLaunching ? (
+							<SpinnerGapIcon className={loading.spinner} />
+						) : (
+							<CornersOutIcon />
+						)}
 					</Button>
 				</Tooltip>
 			</>
 		)}
-
-		<div className={controls.toolbarSeparator} />
-
-		<Tooltip label={vsync ? "Vsync on" : "Vsync off"}>
-			<Toggle
-				pressed={vsync}
-				onPressedChange={onVsyncChange}
-				className={controls.iconButton}
-			>
-				<MonitorIcon weight={vsync ? "fill" : undefined} />
-			</Toggle>
-		</Tooltip>
 	</FloatingToolbar>
 );
 

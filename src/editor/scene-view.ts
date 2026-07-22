@@ -51,11 +51,7 @@ export class SceneView {
 	fps = 0;
 	readonly perf = new PerfHistory();
 
-	private vsyncEnabled = false;
-	private surface: RenderSurface = this.createSurface(
-		this.vsyncEnabled,
-	);
-	private attachedNode: HTMLElement | null = null;
+	private surface: RenderSurface = this.createSurface();
 
 	readonly editorCamera = new Camera2D();
 
@@ -157,30 +153,11 @@ export class SceneView {
 		return this.surface.input;
 	}
 
-	get vsync(): boolean {
-		return this.vsyncEnabled;
-	}
-
-	private createSurface(vsync: boolean): RenderSurface {
+	private createSurface(): RenderSurface {
 		const viewport = new Viewport();
-		const renderer = new Renderer2D(viewport, vsync);
+		const renderer = new Renderer2D(viewport);
 		const input = new Input(viewport.element);
 		return { viewport, renderer, input };
-	}
-
-	setVsync(enabled: boolean): void {
-		if (this.vsyncEnabled === enabled) {
-			return;
-		}
-		this.vsyncEnabled = enabled;
-		const node = this.attachedNode;
-		this.detach();
-		this.surface.input.dispose();
-		this.surface.renderer.dispose();
-		this.surface = this.createSurface(enabled);
-		if (node) {
-			this.attach(node);
-		}
 	}
 
 	/** The camera this view renders and picks its own edit world with. */
@@ -200,7 +177,6 @@ export class SceneView {
 
 	attach(node: HTMLElement): void {
 		this.detachSurface?.();
-		this.attachedNode = node;
 		this.viewport.element.style.outline = "none";
 		this.detachSurface = this.viewport.attach(node);
 		this.cursorAuthority = new CursorAuthority(this.viewport.element);
@@ -214,7 +190,6 @@ export class SceneView {
 		this.cursorToken = null;
 		this.cursorAuthority?.dispose();
 		this.cursorAuthority = null;
-		this.attachedNode = null;
 	}
 
 	/**

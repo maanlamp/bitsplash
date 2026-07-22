@@ -8,6 +8,30 @@ const {
 const path = require("node:path");
 const fsp = require("node:fs/promises");
 const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
+const { GAME_READY_MESSAGE } = require("./game-ready.cjs");
+
+app.commandLine.appendSwitch("disable-gpu-vsync");
+app.commandLine.appendSwitch("disable-frame-rate-limit");
+
+process.on("disconnect", () => {
+	app.quit();
+});
+
+const devUrl = process.env.BITSPLASH_DEV_URL;
+
+if (devUrl) {
+	app.on(
+		"certificate-error",
+		(event, _webContents, url, _error, _certificate, callback) => {
+			if (new URL(url).hostname === "localhost") {
+				event.preventDefault();
+				callback(true);
+			} else {
+				callback(false);
+			}
+		},
+	);
+}
 
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 const DIST_DIR = path.join(PROJECT_ROOT, "dist");
@@ -49,8 +73,7 @@ protocol.registerSchemesAsPrivileged([
 	},
 ]);
 
-const createGameWindow = async () => {
-	Menu.setApplicationMenu(null);
+const serveDist = () => {
 	protocol.handle(APP_SCHEME, async (request) => {
 		const { pathname } = new URL(request.url);
 		const rel =
@@ -72,6 +95,10 @@ const createGameWindow = async () => {
 			return new Response("not found", { status: 404 });
 		}
 	});
+};
+
+const createGameWindow = () => {
+	Menu.setApplicationMenu(null);
 	const window = new BrowserWindow({
 		width: 1280,
 		height: 720,
@@ -89,7 +116,15 @@ const createGameWindow = async () => {
 		},
 	});
 
-	void window.loadURL(`${APP_SCHEME}://bundle/game.html`);
+	window.webContents.once("did-finish-load", () => {
+		process.send?.(GAME_READY_MESSAGE);
+	});
+	if (devUrl) {
+		void window.loadURL(`${devUrl}/game.html`);
+	} else {
+		serveDist();
+		void window.loadURL(`${APP_SCHEME}://bundle/game.html`);
+	}
 };
 
 void app.whenReady().then(() => {
