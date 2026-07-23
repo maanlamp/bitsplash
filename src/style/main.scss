@@ -14,3 +14,11 @@ body {
 	background: var(--surface);
 	color-scheme: dark;
 }
+
+// The viewport canvas is focusable (tabIndex 0) and gets focused on play, so
+// the browser draws a focus ring that reads as a thin border around the game.
+// The editor suppresses this per-view; the game window has no equivalent, so
+// suppress it here.
+canvas {
+	outline: none;
+}

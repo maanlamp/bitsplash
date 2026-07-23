@@ -204,12 +204,16 @@
 	white-space: nowrap;
 }
 
+// A fixed square box so swapping the dirty dot for the close X never resizes
+// the tab, and both glyphs share the box's centre (flex-centred). Keeps the tab
+// bbox identical whether clean, dirty, or hovered.
 .tabClose {
 	flex: none;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: var(--unit-2);
+	width: var(--unit-20);
+	height: var(--unit-20);
 	border-radius: var(--radius-sm);
 	color: var(--on-surface-faint);
 	cursor: pointer;

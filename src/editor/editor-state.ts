@@ -66,6 +66,7 @@ const lastOf = <T>(set: ReadonlySet<T>): T | undefined => {
 
 export class EditorState extends Subscribable {
 	private _mode: EditorMode = "select";
+	private _tempModes: EditorMode[] = [];
 	private _selection: Selection = EMPTY_SELECTION;
 	private _selectionVersion = 0;
 	private _hovered: EntityId | null = null;
@@ -74,7 +75,7 @@ export class EditorState extends Subscribable {
 	private _activeLayer: EntityId | null = null;
 
 	get mode(): EditorMode {
-		return this._mode;
+		return this._tempModes.at(-1) ?? this._mode;
 	}
 
 	get activeLayer(): EntityId | null {
@@ -125,8 +126,54 @@ export class EditorState extends Subscribable {
 	}
 
 	setMode(mode: EditorMode): void {
-		if (mode !== this._mode) {
-			this._mode = mode;
+		if (mode === this._mode) {
+			return;
+		}
+		const before = this.mode;
+		this._mode = mode;
+		if (this.mode !== before) {
+			this.notify();
+		}
+	}
+
+	/**
+	 * Push a temporary mode onto the hold stack. Holding a mode's shortcut
+	 * (Space for pan) activates it; releasing pops it and restores the mode
+	 * beneath. Stacking resolves last-in-first, matching the sprite editor's
+	 * hold-tool behaviour.
+	 */
+	pushTemporaryMode(mode: EditorMode): void {
+		const before = this.mode;
+		this._tempModes.push(mode);
+		if (this.mode !== before) {
+			this.notify();
+		}
+	}
+
+	/** Pop the most recent temporary mode, restoring the one beneath it. */
+	popTemporaryMode(): void {
+		if (this._tempModes.length === 0) {
+			return;
+		}
+		const before = this.mode;
+		this._tempModes.pop();
+		if (this.mode !== before) {
+			this.notify();
+		}
+	}
+
+	/**
+	 * Drop the entire temporary-mode stack, restoring the committed mode. The
+	 * recovery path for a hold whose release was never observed — e.g. the
+	 * window lost focus between a hold-key's keydown and keyup.
+	 */
+	clearTemporaryModes(): void {
+		if (this._tempModes.length === 0) {
+			return;
+		}
+		const before = this.mode;
+		this._tempModes = [];
+		if (this.mode !== before) {
 			this.notify();
 		}
 	}

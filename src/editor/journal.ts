@@ -29,6 +29,7 @@ export class Journal {
 	private readonly undoable: JournalEntry[] = [];
 	private readonly redoable: JournalEntry[] = [];
 	private savePoint = 0;
+	private savedForward: JournalEntry | null = null;
 
 	/**
 	 * Log position a run began at. A hook for run-mode persistence; unused by
@@ -49,9 +50,19 @@ export class Journal {
 		return this.log.length;
 	}
 
-	/** Whether the log has advanced past the last recorded save point. */
+	/**
+	 * Whether the current authored state differs from the last save point.
+	 *
+	 * The log is append-only — undo appends an inverse rather than popping — so
+	 * `log.length` never returns to a save point once anything is undone.
+	 * Dirtiness is therefore measured against the undo *cursor*: the forward
+	 * entry on top of the undo stack (or `null` at the baseline), compared to the
+	 * entry captured at the last {@link markSaved}. Undoing every edit back to a
+	 * saved state — including the pristine baseline — reads clean again, while a
+	 * new edit on a diverged branch (saved entry now unreachable) reads dirty.
+	 */
 	get dirty(): boolean {
-		return this.log.length !== this.savePoint;
+		return (this.undoable.at(-1) ?? null) !== this.savedForward;
 	}
 
 	/** Apply an entry to `target`, then append it as a new forward edit. */
@@ -117,6 +128,7 @@ export class Journal {
 	/** Mark the current log position as the last saved state. */
 	markSaved(): void {
 		this.savePoint = this.log.length;
+		this.savedForward = this.undoable.at(-1) ?? null;
 	}
 
 	/**
@@ -129,6 +141,7 @@ export class Journal {
 		this.undoable.length = 0;
 		this.redoable.length = 0;
 		this.savePoint = 0;
+		this.savedForward = null;
 		this.runStart = 0;
 	}
 

@@ -18,6 +18,7 @@ import {
 	CursorAuthority,
 	type CursorToken,
 } from "../engine/cursor/cursor-authority";
+import { activeTileLayer } from "./active-layer";
 import { disposePickIndex } from "./pick-index";
 import { DebugGridSystem } from "../engine/debug/debug-grid-system";
 import Viewport from "../engine/camera/viewport";
@@ -127,6 +128,23 @@ export class SceneView {
 
 		this.scene.world.setProfiling(true);
 		this.camera.centerOnContent(this.scene.world.ecs);
+		this.selectDefaultLayer();
+	}
+
+	/**
+	 * On first mount, reflect the effective paint target in the layers panel:
+	 * with no layer explicitly selected, adopt the first tile layer (the same
+	 * fallback {@link activeTileLayer} paints through) so a freshly opened scene
+	 * shows a selected layer instead of an ambiguous none.
+	 */
+	private selectDefaultLayer(): void {
+		if (this.store.activeLayer !== null) {
+			return;
+		}
+		const active = activeTileLayer(this.scene.world.ecs, this.store);
+		if (active) {
+			this.store.setActiveLayer(active[0]);
+		}
 	}
 
 	/** The scene this view renders — the one owned by its bound document. */

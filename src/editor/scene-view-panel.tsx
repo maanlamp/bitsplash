@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import {
 	useCallback,
+	useEffect,
 	useRef,
 	useState,
 	useSyncExternalStore,
@@ -28,6 +29,8 @@ import { snap, type SnapResult } from "./snapping";
 import TileLayersPanel from "./tile-layers-panel";
 import Toolbar from "./toolbar";
 import { useEditorValue } from "./use-editor";
+import { useScopedHotkeys } from "./window/use-scoped-hotkeys";
+import { useWindowWindow } from "./window/window-context";
 import Split from "./workspace/split";
 
 const SceneViewPanel = ({
@@ -80,6 +83,44 @@ const SceneViewPanel = ({
 	);
 	const createPosRef = useRef<Vector2 | null>(null);
 	const [menuEntity, setMenuEntity] = useState<EntityId | null>(null);
+	const win = useWindowWindow();
+
+	// Hold Space to temporarily pan (released restores the previous mode),
+	// matching the sprite editor. The ref guards against keydown auto-repeat
+	// pushing pan more than once per physical hold.
+	const spaceHeld = useRef(false);
+	useScopedHotkeys(
+		"space",
+		(e) => {
+			if (e.type === "keydown") {
+				if (!spaceHeld.current) {
+					spaceHeld.current = true;
+					store.pushTemporaryMode("pan");
+				}
+			} else if (spaceHeld.current) {
+				spaceHeld.current = false;
+				store.popTemporaryMode();
+			}
+		},
+		{
+			enabled: editorEnabled,
+			keydown: true,
+			keyup: true,
+			preventDefault: true,
+		},
+		[store, editorEnabled],
+	);
+
+	// A hold's keyup goes to whichever window has focus; if focus leaves
+	// mid-hold the pan would strand on top of the stack. Reset on blur.
+	useEffect(() => {
+		const onBlur = () => {
+			spaceHeld.current = false;
+			store.clearTemporaryModes();
+		};
+		win.addEventListener("blur", onBlur);
+		return () => win.removeEventListener("blur", onBlur);
+	}, [store, win]);
 
 	const deps: MenuDeps = {
 		ecs,

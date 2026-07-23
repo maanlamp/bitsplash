@@ -18,6 +18,12 @@ const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
 const { classifyBspriteBytes } = require("./bsprite-classify.cjs");
 const { GAME_READY_MESSAGE } = require("./game-ready.cjs");
 
+// Brand the userData directory (saves, window manifest, Chromium cache) under a
+// stable "Bitsplash" folder instead of Electron's default. Distinct from the
+// playtest game's userData, so the editor and the playtest process it spawns
+// never contend for one Chromium cache dir. Must run before userData is read.
+app.setName("Bitsplash");
+
 // Enable DRR boost (Win11 24H2+)
 app.commandLine.appendSwitch(
 	"enable-features",
@@ -750,7 +756,6 @@ const launchGame = () =>
 			[path.join(__dirname, "game.cjs")],
 			{
 				stdio: ["ignore", "inherit", "inherit", "ipc"],
-				windowsHide: true,
 				env: {
 					...process.env,
 					BITSPLASH_DEV_URL: DEV_URL,

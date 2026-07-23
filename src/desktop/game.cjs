@@ -10,6 +10,13 @@ const fsp = require("node:fs/promises");
 const { registerSaveStoreIpc } = require("./fs-save-store.cjs");
 const { GAME_READY_MESSAGE } = require("./game-ready.cjs");
 
+// The playtest runs this game shell as a child of the editor. Give it its own
+// "Bitsplash Playtest" userData so it never shares the editor's Chromium cache
+// dir — the source of the shared-cache "Access is denied" launch failures — and
+// reads as the editor's test harness rather than the shipped game. Must run
+// before userData is read.
+app.setName("Bitsplash Playtest");
+
 app.commandLine.appendSwitch("disable-gpu-vsync");
 app.commandLine.appendSwitch("disable-frame-rate-limit");
 
