@@ -1,8 +1,34 @@
 export type ViewId = string;
 
+/**
+ * Identifier for an editor window. The hub (main) window always carries
+ * {@link HUB_WINDOW_ID}; satellite (torn-out) windows get generated ids.
+ * Window bounds/maximized state are NOT part of the layout schema — the
+ * Electron main process owns those, keyed by this same id.
+ */
+export type WindowId = string;
+
+/**
+ * Stable identifier for a {@link TabsNode}. Assigned on creation and preserved
+ * across pure tree transforms, so the closed-stack reopen fallback chain can
+ * refer back to the exact tab group a view was closed from.
+ */
+export type TabGroupId = string;
+
 export type SplitDirection = "row" | "column";
 
 export type DockZone = "center" | "top" | "bottom" | "left" | "right";
+
+/**
+ * The fixed id of the hub (main) window; distinguishes it from satellites.
+ *
+ * The Electron main process keeps its own copy of this literal
+ * (`HUB_WINDOW_ID` in `src/desktop/main.cjs`) rather than importing this one:
+ * main is a separate architectural layer (desktop) from the editor renderer,
+ * and a shared module would cross the layer boundary the project forbids. The
+ * two are a hand-kept cross-layer contract — keep them in sync if either changes.
+ */
+export const HUB_WINDOW_ID: WindowId = "hub";
 
 export type SplitNode = Readonly<{
 	type: "split";
@@ -13,21 +39,82 @@ export type SplitNode = Readonly<{
 
 export type TabsNode = Readonly<{
 	type: "tabs";
+	id: TabGroupId;
 	views: ReadonlyArray<ViewId>;
 	active: ViewId;
 }>;
 
 export type LayoutNode = SplitNode | TabsNode;
 
-export type Workspace = Readonly<{
-	version: number;
+/**
+ * One editor window's content: its layout tree and window-local focused view.
+ * Bounds/maximized state live in the main process's manifest, keyed by `id`.
+ */
+export type WindowLayout = Readonly<{
+	id: WindowId;
 	root: LayoutNode;
 	focused: ViewId | null;
 }>;
 
-export const WORKSPACE_VERSION = 3;
+/**
+ * The full multi-window workspace. Exactly one window carries
+ * {@link HUB_WINDOW_ID}; the rest are satellites. Every operation over a
+ * `Workspace` is a pure transform (readonly in, readonly out).
+ */
+export type Workspace = Readonly<{
+	version: number;
+	windows: ReadonlyArray<WindowLayout>;
+}>;
+
+export const WORKSPACE_VERSION = 4;
 
 const MIN_SIZE = 0.08;
+
+const makeCounter = (prefix: string): (() => string) => {
+	let n = 0;
+	return () => `${prefix}-${++n}`;
+};
+
+let tabGroupGen: () => TabGroupId = () => crypto.randomUUID();
+let windowGen: () => WindowId = () => crypto.randomUUID();
+
+/** Mint a fresh tab-group id from the active generator. */
+export const nextTabGroupId = (): TabGroupId => tabGroupGen();
+
+/** Mint a fresh satellite window id from the active generator. */
+export const nextWindowId = (): WindowId => windowGen();
+
+/** Install a custom tab-group id generator (used by tests for determinism). */
+export const setTabGroupIdGenerator = (
+	gen: () => TabGroupId,
+): void => {
+	tabGroupGen = gen;
+};
+
+/** Install a custom window id generator (used by tests for determinism). */
+export const setWindowIdGenerator = (gen: () => WindowId): void => {
+	windowGen = gen;
+};
+
+/**
+ * Reset both id generators to deterministic, restart-from-1 counters
+ * (`tg-1`, `win-1`, …). Intended for tests so tree shapes are reproducible.
+ */
+export const resetLayoutIds = (): void => {
+	tabGroupGen = makeCounter("tg");
+	windowGen = makeCounter("win");
+};
+
+const tabs = (
+	views: ReadonlyArray<ViewId>,
+	active?: ViewId,
+	id: TabGroupId = nextTabGroupId(),
+): TabsNode => ({
+	type: "tabs",
+	id,
+	views,
+	active: active ?? views[0] ?? "",
+});
 
 const renormalize = (
 	sizes: ReadonlyArray<number>,
@@ -136,11 +223,37 @@ export const allViewIds = (
 	return root.children.flatMap(allViewIds);
 };
 
-const emptyTabs = (): TabsNode => ({
-	type: "tabs",
-	views: [],
-	active: "",
-});
+/**
+ * The id of the tab group directly containing `viewId`, or `null` if the view
+ * is not in this tree. Used to stamp closed-view records with their origin.
+ */
+export const tabGroupOfView = (
+	root: LayoutNode,
+	viewId: ViewId,
+): TabGroupId | null => {
+	if (root.type === "tabs") {
+		return root.views.includes(viewId) ? root.id : null;
+	}
+	for (const child of root.children) {
+		const found = tabGroupOfView(child, viewId);
+		if (found) {
+			return found;
+		}
+	}
+	return null;
+};
+
+const firstTabsPath = (
+	root: LayoutNode,
+	path: ReadonlyArray<number> = [],
+): ReadonlyArray<number> => {
+	if (root.type === "tabs") {
+		return path;
+	}
+	return firstTabsPath(root.children[0]!, [...path, 0]);
+};
+
+const emptyTabs = (): TabsNode => tabs([], "");
 
 const removeFromNode = (
 	node: LayoutNode,
@@ -159,7 +272,7 @@ const removeFromNode = (
 			node.active === viewId
 				? (views[Math.min(index, views.length - 1)] ?? views[0]!)
 				: node.active;
-		return { type: "tabs", views, active };
+		return { type: "tabs", id: node.id, views, active };
 	}
 	const children: LayoutNode[] = [];
 	const sizes: number[] = [];
@@ -189,6 +302,24 @@ export const removeView = (
 	viewId: ViewId,
 ): LayoutNode => removeFromNode(root, viewId) ?? emptyTabs();
 
+/**
+ * Drop every view in `root` for which `keep` returns false, collapsing emptied
+ * tab groups and splits away (via {@link removeView}). Returns an empty tab
+ * group if nothing survives.
+ */
+export const pruneViews = (
+	root: LayoutNode,
+	keep: (id: ViewId) => boolean,
+): LayoutNode => {
+	let next = root;
+	for (const id of allViewIds(root)) {
+		if (!keep(id)) {
+			next = removeView(next, id);
+		}
+	}
+	return next;
+};
+
 export const setActive = (
 	root: LayoutNode,
 	viewId: ViewId,
@@ -217,16 +348,12 @@ export const insertView = (
 				return { ...node, active: viewId };
 			}
 			return {
-				type: "tabs",
+				...node,
 				views: [...node.views, viewId],
 				active: viewId,
 			};
 		}
-		const dropped: TabsNode = {
-			type: "tabs",
-			views: [viewId],
-			active: viewId,
-		};
+		const dropped = tabs([viewId], viewId);
 		const direction: SplitDirection =
 			zone === "left" || zone === "right" ? "row" : "column";
 		const before = zone === "left" || zone === "top";
@@ -275,7 +402,7 @@ export const setTabsViews = (
 	return updateNode(root, path, (node) =>
 		node.type === "tabs"
 			? {
-					type: "tabs",
+					...node,
 					views,
 					active: views.includes(node.active)
 						? node.active
@@ -300,56 +427,237 @@ export const resizeSplit = (
 			: node,
 	);
 
+const refocus = (
+	root: LayoutNode,
+	focused: ViewId | null,
+): ViewId | null =>
+	focused && findView(root, focused)
+		? focused
+		: (allViewIds(root)[0] ?? null);
+
+const addViewToRoot = (
+	root: LayoutNode,
+	viewId: ViewId,
+	anchorViewId: ViewId | null,
+	zone: DockZone,
+): LayoutNode => {
+	const anchorPath = anchorViewId
+		? findView(root, anchorViewId)
+		: null;
+	if (anchorPath) {
+		return insertView(root, viewId, anchorPath, zone);
+	}
+	return insertView(root, viewId, firstTabsPath(root), "center");
+};
+
+/** All windows in the workspace. */
+export const listWindows = (
+	ws: Workspace,
+): ReadonlyArray<WindowLayout> => ws.windows;
+
+/** The window with the given id, or `undefined`. */
+export const getWindow = (
+	ws: Workspace,
+	id: WindowId,
+): WindowLayout | undefined =>
+	ws.windows.find((window) => window.id === id);
+
+/** The id of the window whose tree contains `viewId`, or `null`. */
+export const windowOfView = (
+	ws: Workspace,
+	viewId: ViewId,
+): WindowId | null => {
+	for (const window of ws.windows) {
+		if (findView(window.root, viewId)) {
+			return window.id;
+		}
+	}
+	return null;
+};
+
+/** Immutably replace one window via `update`, leaving the rest untouched. */
+export const updateWindow = (
+	ws: Workspace,
+	id: WindowId,
+	update: (window: WindowLayout) => WindowLayout,
+): Workspace => ({
+	...ws,
+	windows: ws.windows.map((window) =>
+		window.id === id ? update(window) : window,
+	),
+});
+
+/** Immutably replace one window's root, re-validating its focused view. */
+export const replaceWindowRoot = (
+	ws: Workspace,
+	id: WindowId,
+	root: LayoutNode,
+): Workspace =>
+	updateWindow(ws, id, (window) => ({
+		...window,
+		root,
+		focused: refocus(root, window.focused),
+	}));
+
+/**
+ * Drop satellite windows whose tree holds no views. The hub is never dropped —
+ * it renders an empty state instead.
+ */
+export const collapseEmptyWindows = (ws: Workspace): Workspace => ({
+	...ws,
+	windows: ws.windows.filter(
+		(window) =>
+			window.id === HUB_WINDOW_ID ||
+			allViewIds(window.root).length > 0,
+	),
+});
+
+/**
+ * Move a view out of whichever window currently holds it into `target`'s
+ * window, docked at `target.anchorViewId`/`target.zone` (or, when no anchor is
+ * given, appended to the target window's first tab group). The source window
+ * is collapsed if it becomes empty (unless it is the hub).
+ */
+export const moveViewAcrossWindows = (
+	ws: Workspace,
+	viewId: ViewId,
+	target: Readonly<{
+		windowId: WindowId;
+		anchorViewId: ViewId | null;
+		zone: DockZone;
+	}>,
+): Workspace => {
+	const sourceId = windowOfView(ws, viewId);
+	if (sourceId === null || !getWindow(ws, target.windowId)) {
+		return ws;
+	}
+	const removed = updateWindow(ws, sourceId, (window) => {
+		const root = removeView(window.root, viewId);
+		return {
+			...window,
+			root,
+			focused: refocus(root, window.focused),
+		};
+	});
+	const added = updateWindow(removed, target.windowId, (window) => ({
+		...window,
+		root: addViewToRoot(
+			window.root,
+			viewId,
+			target.anchorViewId,
+			target.zone,
+		),
+		focused: viewId,
+	}));
+	return collapseEmptyWindows(added);
+};
+
+/**
+ * Tear `viewId` out into a brand-new satellite window (single tab group)
+ * removed from its source window. The source is collapsed if it empties
+ * (unless it is the hub).
+ */
+export const spawnWindowWithView = (
+	ws: Workspace,
+	viewId: ViewId,
+	windowId: WindowId = nextWindowId(),
+): Workspace => {
+	const sourceId = windowOfView(ws, viewId);
+	if (sourceId === null) {
+		return ws;
+	}
+	const removed = updateWindow(ws, sourceId, (window) => {
+		const root = removeView(window.root, viewId);
+		return {
+			...window,
+			root,
+			focused: refocus(root, window.focused),
+		};
+	});
+	const spawned: Workspace = {
+		...removed,
+		windows: [
+			...removed.windows,
+			{ id: windowId, root: tabs([viewId], viewId), focused: viewId },
+		],
+	};
+	return collapseEmptyWindows(spawned);
+};
+
+/**
+ * Fold every view of `sourceId`'s tree into `targetId`'s window (appended to
+ * the target's first tab group) and drop the now-empty source window. Used
+ * when a satellite dies or its monitor disappears and its views re-dock into
+ * the hub. The hub can never be a merge source.
+ */
+export const mergeWindows = (
+	ws: Workspace,
+	sourceId: WindowId,
+	targetId: WindowId,
+): Workspace => {
+	if (sourceId === targetId || sourceId === HUB_WINDOW_ID) {
+		return ws;
+	}
+	const source = getWindow(ws, sourceId);
+	const target = getWindow(ws, targetId);
+	if (!source || !target) {
+		return ws;
+	}
+	let root = target.root;
+	for (const viewId of allViewIds(source.root)) {
+		root = addViewToRoot(root, viewId, null, "center");
+	}
+	const merged = updateWindow(ws, targetId, (window) => ({
+		...window,
+		root,
+	}));
+	return {
+		...merged,
+		windows: merged.windows.filter(
+			(window) => window.id !== sourceId,
+		),
+	};
+};
+
 export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 	version: WORKSPACE_VERSION,
-	root: {
-		type: "split",
-		direction: "row",
-		sizes: [0.22, 0.78],
-		children: [
-			{
+	windows: [
+		{
+			id: HUB_WINDOW_ID,
+			focused: sceneView,
+			root: {
 				type: "split",
-				direction: "column",
-				sizes: [0.5, 0.5],
-				children: [
-					{ type: "tabs", views: ["tree"], active: "tree" },
-					{
-						type: "tabs",
-						views: ["asset-browser"],
-						active: "asset-browser",
-					},
-				],
-			},
-			{
-				type: "split",
-				direction: "column",
-				sizes: [0.85, 0.15],
+				direction: "row",
+				sizes: [0.22, 0.78],
 				children: [
 					{
 						type: "split",
-						direction: "row",
-						sizes: [0.75, 0.25],
+						direction: "column",
+						sizes: [0.5, 0.5],
 						children: [
-							{
-								type: "tabs",
-								views: [sceneView],
-								active: sceneView,
-							},
-							{
-								type: "tabs",
-								views: ["inspector"],
-								active: "inspector",
-							},
+							tabs(["tree"], "tree"),
+							tabs(["asset-browser"], "asset-browser"),
 						],
 					},
 					{
-						type: "tabs",
-						views: ["console", "profiler"],
-						active: "console",
+						type: "split",
+						direction: "column",
+						sizes: [0.85, 0.15],
+						children: [
+							{
+								type: "split",
+								direction: "row",
+								sizes: [0.75, 0.25],
+								children: [
+									tabs([sceneView], sceneView),
+									tabs(["inspector"], "inspector"),
+								],
+							},
+							tabs(["console", "profiler"], "console"),
+						],
 					},
 				],
 			},
-		],
-	},
-	focused: sceneView,
+		},
+	],
 });

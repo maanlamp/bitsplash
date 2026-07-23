@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import {
 	useCallback,
 	useRef,
@@ -31,8 +32,6 @@ import Split from "./workspace/split";
 
 const SceneViewPanel = ({
 	view,
-	onPlay,
-	playtestLaunching,
 	onRun,
 	onStop,
 	onPause,
@@ -41,14 +40,13 @@ const SceneViewPanel = ({
 	inputMode,
 	paused,
 	running,
+	lockedOut,
 	editorEnabled,
 	requestAddComponent,
 	undoShortcut,
 	redoShortcut,
 }: Readonly<{
 	view: SceneView;
-	onPlay: () => void;
-	playtestLaunching: boolean;
 	onRun: () => void;
 	onStop: () => void;
 	onPause: () => void;
@@ -57,6 +55,12 @@ const SceneViewPanel = ({
 	inputMode: "game" | "editor";
 	paused: boolean;
 	running: boolean;
+	/**
+	 * True when a run is active in another scene view. One run at a time: this
+	 * scene is frozen and rendered darkened, and all its controls are inert (plan
+	 * lines 146-148).
+	 */
+	lockedOut: boolean;
 	editorEnabled: boolean;
 	requestAddComponent: (entity: EntityId) => void;
 	undoShortcut: string;
@@ -85,15 +89,24 @@ const SceneViewPanel = ({
 			entity ? store.selectOne(entity) : store.clear(),
 	};
 
+	const attachedNodeRef = useRef<HTMLDivElement | null>(null);
 	const attachRef = useCallback(
 		(node: HTMLDivElement | null): void => {
 			if (node) {
+				attachedNodeRef.current = node;
 				view.attach(node);
 				if (styles.canvas) {
 					view.viewport.element.classList.add(styles.canvas);
 				}
 			} else {
-				view.detach();
+				// Detach only if this instance's node is still the mounted one: a
+				// cross-window move mounts the destination panel before this (source)
+				// panel unmounts, and a blind detach would tear down the fresh mount.
+				const prev = attachedNodeRef.current;
+				attachedNodeRef.current = null;
+				if (prev) {
+					view.detachIfCurrent(prev);
+				}
 			}
 		},
 		[view],
@@ -216,7 +229,12 @@ const SceneViewPanel = ({
 			initial={[0.78, 0.22]}
 			storageKey="scene-split-layers"
 		>
-			<div className={styles.canvasStack}>
+			<div
+				className={clsx(
+					styles.canvasStack,
+					lockedOut && styles.disabled,
+				)}
+			>
 				<EntityContextMenu
 					entity={editorEnabled ? menuEntity : null}
 					deps={editorEnabled ? deps : null}
@@ -226,8 +244,6 @@ const SceneViewPanel = ({
 				</EntityContextMenu>
 				<PerfOverlay view={view} />
 				<PlaybackBar
-					onPlaytest={onPlay}
-					playtestLaunching={playtestLaunching}
 					onRun={onRun}
 					onStop={onStop}
 					onPause={onPause}

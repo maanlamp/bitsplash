@@ -35,6 +35,7 @@ import {
 } from "./tile-layer-commands";
 import Tooltip from "./tooltip";
 import { useEditorValue } from "./use-editor";
+import { usePortalContainer } from "./window/portal-container";
 
 const COLLISION_MODES: ReadonlyArray<
 	Readonly<{ value: TileCollisionMode; label: string }>
@@ -61,6 +62,7 @@ const LayerRow = ({
 	bump: () => void;
 }>) => {
 	const doc = view.document;
+	const container = usePortalContainer();
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
 
@@ -178,7 +180,7 @@ const LayerRow = ({
 						<CaretDownIcon />
 					</Select.Icon>
 				</Select.Trigger>
-				<Select.Portal>
+				<Select.Portal container={container}>
 					<Select.Positioner
 						sideOffset={4}
 						align="start"

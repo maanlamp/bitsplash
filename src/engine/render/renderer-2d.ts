@@ -472,23 +472,36 @@ type LayerState = {
 const MAX_IDLE = 2;
 const RING_PAD = 2;
 
+type TileArrayEntry = Readonly<{
+	array: TileArray;
+	columns: number;
+	srcSize: number;
+}>;
+
+type PrewarmedContext = {
+	canvas: HTMLCanvasElement;
+	gl: WebGL2RenderingContext;
+	tileArrays: Map<TileSource, TileArrayEntry>;
+};
+
 export default class Renderer2D {
 	private viewport: Viewport;
 	private gl: WebGL2RenderingContext;
+	private canvas: HTMLCanvasElement;
 
-	private quad: WorldProgram;
-	private text: WorldProgram;
-	private tile: WorldProgram;
-	private quadOutline: OutlineProgram;
-	private quadConicOutline: ConicOutlineProgram;
-	private blit: BlitProgram;
+	private quad!: WorldProgram;
+	private text!: WorldProgram;
+	private tile!: WorldProgram;
+	private quadOutline!: OutlineProgram;
+	private quadConicOutline!: ConicOutlineProgram;
+	private blit!: BlitProgram;
 
-	private quadVbo: WebGLBuffer;
-	private quadVao: WebGLVertexArrayObject;
-	private tileVbo: WebGLBuffer;
-	private tileVao: WebGLVertexArrayObject;
-	private blitVbo: WebGLBuffer;
-	private blitVao: WebGLVertexArrayObject;
+	private quadVbo!: WebGLBuffer;
+	private quadVao!: WebGLVertexArrayObject;
+	private tileVbo!: WebGLBuffer;
+	private tileVao!: WebGLVertexArrayObject;
+	private blitVbo!: WebGLBuffer;
+	private blitVao!: WebGLVertexArrayObject;
 	private blitData = new Float32Array(24);
 	private immediateVbo: WebGLBuffer | null = null;
 	private immediateVao: WebGLVertexArrayObject | null = null;
@@ -512,18 +525,30 @@ export default class Renderer2D {
 		WebGLTexture,
 		readonly [number, number]
 	>();
-	private tileArrayCache = new Map<TileSource, TileArray>();
+	private tileArrayCache = new Map<TileSource, TileArrayEntry>();
 	private fontCache = new WeakMap<LoadedFont, FontAtlas>();
-	private whiteTex: WebGLTexture;
+	private whiteTex!: WebGLTexture;
 	private colors = new ColorResolver();
 	private sceneTargets = new Map<object, RenderTarget>();
 	private presentTarget: RenderTarget | null = null;
 	private clipStack: ScissorBox[] = [];
 	private disposeListeners = new Set<() => void>();
+	private contextRestoredListeners = new Set<() => void>();
+	private prewarmed: PrewarmedContext | null = null;
 
 	constructor(viewport: Viewport) {
 		this.viewport = viewport;
-		const gl = viewport.element.getContext("webgl2", {
+		this.canvas = viewport.element;
+		this.gl = this.acquireContext(this.canvas);
+		this.buildResources();
+		this.installContextListeners(this.canvas);
+		registerRenderer(this);
+	}
+
+	private acquireContext(
+		canvas: HTMLCanvasElement,
+	): WebGL2RenderingContext {
+		const gl = canvas.getContext("webgl2", {
 			alpha: false,
 			antialias: false,
 			depth: false,
@@ -532,7 +557,18 @@ export default class Renderer2D {
 		if (!gl) {
 			throw new Error("WebGL2 not supported.");
 		}
-		this.gl = gl;
+		return gl;
+	}
+
+	/**
+	 * (Re)create every GPU object this renderer owns directly — programs,
+	 * staging buffers/VAOs, and the 1x1 white texture — against the current
+	 * {@link gl}. Cache-backed GPU state (textures, tile arrays, render targets)
+	 * is not touched here; it is dropped and re-baked lazily from CPU-side truth
+	 * by the loss/rebuild paths.
+	 */
+	private buildResources(): void {
+		const gl = this.gl;
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
@@ -549,6 +585,9 @@ export default class Renderer2D {
 		this.tileVao = this.setupTileVao(this.tileVbo);
 		this.blitVbo = gl.createBuffer()!;
 		this.blitVao = this.setupBlitVao(this.blitVbo);
+
+		this.immediateVbo = null;
+		this.immediateVao = null;
 
 		this.whiteTex = gl.createTexture()!;
 		gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -573,7 +612,6 @@ export default class Renderer2D {
 			gl.TEXTURE_MAG_FILTER,
 			gl.NEAREST,
 		);
-		registerRenderer(this);
 	}
 
 	get width(): number {
@@ -647,9 +685,30 @@ export default class Renderer2D {
 	): TileArray {
 		const cached = this.tileArrayCache.get(source);
 		if (cached) {
-			return cached;
+			return cached.array;
 		}
-		const gl = this.gl;
+		const array = this.bakeTileArray(
+			this.gl,
+			source,
+			columns,
+			srcSize,
+		);
+		this.tileArrayCache.set(source, { array, columns, srcSize });
+		return array;
+	}
+
+	/**
+	 * Bake a tileset image into a `TEXTURE_2D_ARRAY` (one layer per tile) in
+	 * `gl`. Takes the target context explicitly so it can bake into a
+	 * pre-warmed destination context (see {@link prewarm}) as well as the live
+	 * one; the caller owns caching the result.
+	 */
+	private bakeTileArray(
+		gl: WebGL2RenderingContext,
+		source: TileSource,
+		columns: number,
+		srcSize: number,
+	): TileArray {
 		const rows = Math.max(
 			1,
 			Math.round(sourceHeight(source) / srcSize),
@@ -718,9 +777,7 @@ export default class Renderer2D {
 				);
 			}
 		}
-		const result: TileArray = { texture, columns, rows };
-		this.tileArrayCache.set(source, result);
-		return result;
+		return { texture, columns, rows };
 	}
 
 	invalidateTileArray(source: TileSource): void {
@@ -728,7 +785,7 @@ export default class Renderer2D {
 		if (!cached) {
 			return;
 		}
-		this.gl.deleteTexture(cached.texture);
+		this.gl.deleteTexture(cached.array.texture);
 		this.tileArrayCache.delete(source);
 	}
 
@@ -1489,13 +1546,201 @@ export default class Renderer2D {
 		this.disposeListeners.add(listener);
 	}
 
+	/**
+	 * Register a callback fired after the WebGL context is rebuilt — either
+	 * because the browser restored a lost context, or because the view moved to
+	 * another window and {@link rebuild} reacquired a context on a fresh canvas.
+	 * Both invalidate **every** GPU object created against the old context,
+	 * including those held outside this renderer: per-renderer caches
+	 * ({@link RendererResourceCache} of `StaticBatch`es for tilemaps and
+	 * decorations) and externally-retained {@link RenderTarget}s must rebuild
+	 * their GL state in this callback. Returns an unsubscribe function.
+	 *
+	 * Render targets vended by {@link sceneTarget} and the renderer's own
+	 * caches (plain-image textures, font atlases, tile arrays, layer scratch
+	 * targets) are re-created here automatically; only GL objects the renderer
+	 * cannot reach need to subscribe.
+	 */
+	onContextRestored(listener: () => void): () => void {
+		this.contextRestoredListeners.add(listener);
+		return () => {
+			this.contextRestoredListeners.delete(listener);
+		};
+	}
+
+	private fireContextRestored(): void {
+		for (const listener of this.contextRestoredListeners) {
+			listener();
+		}
+	}
+
+	private installContextListeners(canvas: HTMLCanvasElement): void {
+		canvas.addEventListener(
+			"webglcontextlost",
+			this.handleContextLost,
+		);
+		canvas.addEventListener(
+			"webglcontextrestored",
+			this.handleContextRestored,
+		);
+	}
+
+	private removeContextListeners(canvas: HTMLCanvasElement): void {
+		canvas.removeEventListener(
+			"webglcontextlost",
+			this.handleContextLost,
+		);
+		canvas.removeEventListener(
+			"webglcontextrestored",
+			this.handleContextRestored,
+		);
+	}
+
+	private readonly handleContextLost = (event: Event): void => {
+		event.preventDefault();
+	};
+
+	private readonly handleContextRestored = (): void => {
+		this.dropGpuCaches();
+		this.buildResources();
+		this.rebakeTileArrays();
+		this.fireContextRestored();
+	};
+
+	/**
+	 * Drop references to every cache-backed GPU object. Called when the backing
+	 * context is gone (loss or move): the handles are already invalid, so this
+	 * only clears CPU-side maps. Textures, font atlases, and render targets
+	 * re-create lazily from CPU truth on the next draw; tile arrays are re-baked
+	 * eagerly by the caller so a move doesn't stall the first post-move frame.
+	 */
+	private dropGpuCaches(): void {
+		this.texCache = new WeakMap();
+		this.texelSizes = new WeakMap();
+		this.fontCache = new WeakMap();
+		this.layers.clear();
+		this.sceneTargets.clear();
+		this.presentTarget = null;
+		this.holdRingTarget = null;
+	}
+
+	private rebakeTileArrays(): void {
+		const gl = this.gl;
+		for (const [source, entry] of this.tileArrayCache) {
+			this.tileArrayCache.set(source, {
+				array: this.bakeTileArray(
+					gl,
+					source,
+					entry.columns,
+					entry.srcSize,
+				),
+				columns: entry.columns,
+				srcSize: entry.srcSize,
+			});
+		}
+	}
+
+	/**
+	 * Pre-build the destination GL state for a cross-window move on `canvas`
+	 * (a canvas in the target window's document) while the move is still a ghost
+	 * drag, so the drop doesn't hitch. Acquires a context on `canvas` and
+	 * re-bakes every cached tile array into it — the dominant upload cost
+	 * (one `texSubImage3D` per tile). {@link rebuild} then adopts this context
+	 * instead of baking on the drop frame.
+	 *
+	 * Only one pre-warm is held at a time; calling again (or for a different
+	 * canvas) discards the previous one and releases its context. If the move is
+	 * cancelled, call {@link discardPrewarm} via {@link dispose} or simply let
+	 * the next `prewarm`/`rebuild` supersede it.
+	 */
+	prewarm(canvas: HTMLCanvasElement): void {
+		this.discardPrewarm();
+		const gl = this.acquireContext(canvas);
+		const tileArrays = new Map<TileSource, TileArrayEntry>();
+		for (const [source, entry] of this.tileArrayCache) {
+			tileArrays.set(source, {
+				array: this.bakeTileArray(
+					gl,
+					source,
+					entry.columns,
+					entry.srcSize,
+				),
+				columns: entry.columns,
+				srcSize: entry.srcSize,
+			});
+		}
+		this.prewarmed = { canvas, gl, tileArrays };
+	}
+
+	private discardPrewarm(): void {
+		if (!this.prewarmed) {
+			return;
+		}
+		this.prewarmed.gl
+			.getExtension("WEBGL_lose_context")
+			?.loseContext();
+		this.prewarmed = null;
+	}
+
+	/**
+	 * Drop any pending {@link prewarm}, releasing its GL context. Call when a
+	 * cross-window move that pre-warmed a destination is cancelled (Esc, snap
+	 * home) so the extra context is not held against Chromium's ~16-context cap.
+	 */
+	cancelPrewarm(): void {
+		this.discardPrewarm();
+	}
+
+	/**
+	 * Rebuild this renderer against the viewport's **current** canvas after a
+	 * cross-window move. Call this immediately after
+	 * `Viewport.reattach(destContainer)`: the viewport now exposes a fresh
+	 * canvas (in the destination document) with no GL context, and this
+	 * reacquires a context on it and rebuilds all GPU state.
+	 *
+	 * If a matching {@link prewarm} exists for the current canvas, its
+	 * pre-uploaded tile arrays and context are adopted so the drop frame only
+	 * pays for the cheap program/buffer rebuild. The old context is released
+	 * (freeing a slot against Chromium's ~16-context cap). Fires
+	 * {@link onContextRestored} so external GL holders rebuild.
+	 */
+	rebuild(): void {
+		const canvas = this.viewport.element;
+		const oldGl = this.gl;
+		const oldCanvas = this.canvas;
+		this.removeContextListeners(oldCanvas);
+		this.dropGpuCaches();
+
+		if (this.prewarmed && this.prewarmed.canvas === canvas) {
+			this.gl = this.prewarmed.gl;
+			this.tileArrayCache = this.prewarmed.tileArrays;
+			this.prewarmed = null;
+			this.buildResources();
+		} else {
+			this.discardPrewarm();
+			this.gl = this.acquireContext(canvas);
+			this.buildResources();
+			this.rebakeTileArrays();
+		}
+
+		this.canvas = canvas;
+		if (oldGl !== this.gl) {
+			oldGl.getExtension("WEBGL_lose_context")?.loseContext();
+		}
+		this.installContextListeners(canvas);
+		this.fireContextRestored();
+	}
+
 	dispose(): void {
 		const gl = this.gl;
 		unregisterRenderer(this);
+		this.removeContextListeners(this.canvas);
+		this.discardPrewarm();
 		for (const listener of this.disposeListeners) {
 			listener();
 		}
 		this.disposeListeners.clear();
+		this.contextRestoredListeners.clear();
 		for (const target of this.sceneTargets.values()) {
 			target.dispose();
 		}
@@ -1508,8 +1753,8 @@ export default class Renderer2D {
 			layer.scratch.dispose();
 		}
 		this.layers.clear();
-		for (const array of this.tileArrayCache.values()) {
-			gl.deleteTexture(array.texture);
+		for (const entry of this.tileArrayCache.values()) {
+			gl.deleteTexture(entry.array.texture);
 		}
 		this.tileArrayCache.clear();
 		gl.deleteTexture(this.whiteTex);

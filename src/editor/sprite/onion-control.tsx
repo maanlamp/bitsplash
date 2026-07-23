@@ -6,6 +6,7 @@ import { useSyncExternalStore } from "react";
 import Button from "../button";
 import surface from "../styles/surface.module.scss";
 import Tooltip from "../tooltip";
+import { usePortalContainer } from "../window/portal-container";
 import styles from "./onion-control.module.scss";
 import type { OnionState } from "./onion-state";
 
@@ -50,6 +51,7 @@ const OnionControl = ({ onion }: Readonly<{ onion: OnionState }>) => {
 		onion.subscribe,
 		() => onion.settings,
 	);
+	const container = usePortalContainer();
 
 	return (
 		<div className={styles.control}>
@@ -72,7 +74,7 @@ const OnionControl = ({ onion }: Readonly<{ onion: OnionState }>) => {
 						<CaretDownIcon />
 					</Popover.Trigger>
 				</Tooltip>
-				<Popover.Portal>
+				<Popover.Portal container={container}>
 					<Popover.Positioner sideOffset={8}>
 						<Popover.Popup
 							className={clsx(surface.surface, styles.popup)}

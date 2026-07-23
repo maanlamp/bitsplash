@@ -91,6 +91,19 @@
 	--surface-hud: rgba(0, 0, 0, 0.75);
 	--blur-hud: blur(16px);
 
+	// Chrome-style tabview surfaces. The active tab and the content body share
+	// --tab-body so the active tab reads as merged into its tabview; the strip
+	// and inactive tabs sit on the darker --tab-strip. --tab-dirty is sized for
+	// contrast against that darker inactive background.
+	--tab-body: var(--surface-raised);
+	--tab-strip: var(--color-neutral-150);
+	--tab-inactive-hover: color-mix(
+		in oklch,
+		var(--tab-body),
+		var(--tab-strip) 45%
+	);
+	--tab-dirty: var(--on-surface-strong);
+
 	--on-surface: var(--color-neutral-800);
 	--on-surface-strong: var(--color-neutral-900);
 	--on-surface-muted: var(--color-neutral-700);

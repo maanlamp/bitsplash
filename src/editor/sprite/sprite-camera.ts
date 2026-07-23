@@ -7,6 +7,7 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import Vector2 from "../../engine/vector2";
+import type { DocumentViewState } from "../document/document-view-state";
 import { EDITOR_CAMERA_ZOOM_STEP } from "../constants";
 import type { SpriteEditorState } from "./sprite-editor-state";
 
@@ -21,20 +22,36 @@ export class SpriteCameraSystem implements UpdateSystem {
 		private state: SpriteEditorState,
 		private bounds: ViewBounds,
 		private padding: number,
+		private viewState?: DocumentViewState,
 	) {}
 
 	update({ ecs, input }: UpdateContext): void {
 		const camera = this.ensureCamera(ecs);
 		if (!this.initialized && camera.viewportWidth > 0) {
-			camera.fitBounds(
-				this.bounds.min,
-				this.bounds.max,
-				this.padding,
-			);
+			// Restore the pan/zoom a prior mount recorded (a cross-window move
+			// remounts this system); with none recorded — or no view-state, as in
+			// the tileset game-view preview — fit the bounds as usual.
+			const pose = this.viewState?.camera;
+			if (pose) {
+				camera.position.x = pose.x;
+				camera.position.y = pose.y;
+				camera.zoom = pose.zoom;
+			} else {
+				camera.fitBounds(
+					this.bounds.min,
+					this.bounds.max,
+					this.padding,
+				);
+			}
 			this.initialized = true;
 		}
 		this.pan(input, camera);
 		this.zoom(input, camera);
+		this.viewState?.setCamera({
+			x: camera.position.x,
+			y: camera.position.y,
+			zoom: camera.zoom,
+		});
 	}
 
 	private center(): Vector2 {

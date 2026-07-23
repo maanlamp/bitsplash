@@ -14,6 +14,7 @@ import type { SelectOption } from "../../engine/serialization/serializable-value
 import { openFileDialog, resolveToWebPath } from "../project-io";
 import controls from "../styles/controls.module.scss";
 import surface from "../styles/surface.module.scss";
+import { usePortalContainer } from "../window/portal-container";
 import styles from "./inputs.module.scss";
 
 export const NumberInput = ({
@@ -120,6 +121,7 @@ export const EnumSelect = ({
 	onCommit: (v: string | number) => void;
 }>) => {
 	const entries = optionEntries(options);
+	const container = usePortalContainer();
 	return (
 		<Select.Root<string | number>
 			value={value}
@@ -136,7 +138,7 @@ export const EnumSelect = ({
 					<CaretDownIcon />
 				</Select.Icon>
 			</Select.Trigger>
-			<Select.Portal>
+			<Select.Portal container={container}>
 				<Select.Positioner
 					sideOffset={4}
 					align="start"

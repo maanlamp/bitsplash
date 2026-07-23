@@ -37,10 +37,12 @@ export class CursorAuthority {
 	private seq = 0;
 	private applied: CursorValue | null = null;
 	private pressed = false;
+	private readonly view: Window;
 
 	constructor(private readonly element: HTMLElement) {
+		this.view = element.ownerDocument.defaultView ?? window;
 		element.addEventListener("pointerdown", this.onPointerDown);
-		window.addEventListener("pointerup", this.onPointerUp);
+		this.view.addEventListener("pointerup", this.onPointerUp);
 	}
 
 	/**
@@ -73,7 +75,7 @@ export class CursorAuthority {
 			"pointerdown",
 			this.onPointerDown,
 		);
-		window.removeEventListener("pointerup", this.onPointerUp);
+		this.view.removeEventListener("pointerup", this.onPointerUp);
 		this.element.style.cursor = "";
 	}
 

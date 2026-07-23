@@ -5,6 +5,7 @@ import Vector2 from "../../engine/vector2";
 import styles from "./sprite-editor.module.scss";
 import { CursorAuthority } from "../../engine/cursor/cursor-authority";
 import { clientToCanvas } from "../client-to-canvas";
+import type { DocumentViewState } from "../document/document-view-state";
 import type { History } from "../history";
 import { GestureController } from "./gesture-controller";
 import type { SelectionController } from "./selection-controller";
@@ -31,6 +32,7 @@ const TexturePanel = ({
 	history,
 	selection,
 	onion,
+	viewState,
 	isTileset,
 }: Readonly<{
 	doc: SpriteDocument;
@@ -38,9 +40,19 @@ const TexturePanel = ({
 	history: History;
 	selection: SelectionController;
 	onion: OnionState;
+	viewState: DocumentViewState;
 	isTileset: boolean;
 }>) => {
 	const containerRef = useRef<HTMLDivElement>(null);
+	// The camera pose is restored on a fresh mount (a cross-window move) but must
+	// re-fit whenever the preview game is rebuilt in place — a document reload or
+	// a rotate (dimensions change). Detecting a genuine re-init (vs. the initial
+	// mount, and StrictMode's re-invoke where the identity is unchanged) and
+	// clearing the recorded pose makes the system fall back to fitting the bounds.
+	const reinitRef = useRef<{
+		doc: SpriteDocument;
+		dims: number;
+	} | null>(null);
 	// Rebuild the preview game when the canvas dimensions change (a rotate), so
 	// the camera bounds, checker and grid re-read `doc.width`/`height`. The
 	// composite canvas object identity is stable across the change.
@@ -54,6 +66,15 @@ const TexturePanel = ({
 		if (!container) {
 			return;
 		}
+
+		const prev = reinitRef.current;
+		if (
+			prev &&
+			(prev.doc !== doc || prev.dims !== dimensionsVersion)
+		) {
+			viewState.clearCamera();
+		}
+		reinitRef.current = { doc, dims: dimensionsVersion };
 
 		const { game, scene } = createPreviewGame();
 		const detach = game.viewport.attach(container);
@@ -75,6 +96,7 @@ const TexturePanel = ({
 					max: new Vector2(doc.width, doc.height),
 				},
 				padding,
+				viewState,
 			),
 		);
 		scene.ecs.addRenderSystem(
@@ -297,6 +319,7 @@ const TexturePanel = ({
 		history,
 		selection,
 		onion,
+		viewState,
 		isTileset,
 		dimensionsVersion,
 	]);

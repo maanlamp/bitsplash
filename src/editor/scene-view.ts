@@ -65,6 +65,8 @@ export class SceneView {
 	private cursorAuthority: CursorAuthority | null = null;
 	private cursorToken: CursorToken | null = null;
 	private suspended = false;
+	private prewarmCanvas: HTMLCanvasElement | null = null;
+	private mountedNode: HTMLElement | null = null;
 
 	constructor(
 		readonly id: string,
@@ -160,6 +162,31 @@ export class SceneView {
 		return { viewport, renderer, input };
 	}
 
+	/**
+	 * Pre-bake this view's renderer GPU state into `doc` ahead of a cross-window
+	 * move into that window (called during the ghost drag). A canvas is created
+	 * in `doc` and the renderer re-bakes its tile arrays into a context on it —
+	 * the dominant upload cost — so the drop-frame {@link attach} adopts the
+	 * warmed context instead of baking. A no-op if already warmed for `doc`.
+	 */
+	prewarmMove(doc: Document): void {
+		if (this.prewarmCanvas?.ownerDocument === doc) {
+			return;
+		}
+		const canvas = doc.createElement("canvas");
+		this.prewarmCanvas = canvas;
+		this.renderer.prewarm(canvas);
+	}
+
+	/** Drop a pending {@link prewarmMove} (move cancelled, snapped home). */
+	cancelPrewarmMove(): void {
+		if (!this.prewarmCanvas) {
+			return;
+		}
+		this.prewarmCanvas = null;
+		this.renderer.cancelPrewarm();
+	}
+
 	/** The camera this view renders and picks its own edit world with. */
 	displayCamera(): Camera2D {
 		return this.editorCamera;
@@ -175,15 +202,73 @@ export class SceneView {
 		this.suspended = false;
 	}
 
+	/**
+	 * Mount this view's canvas into `node`. When `node` lives in a **different
+	 * document** than the current canvas — a cross-window move — a WebGL canvas
+	 * cannot survive `adoptNode`, so the viewport recreates the canvas in the
+	 * destination document ({@link Viewport.reattach}, adopting a pre-warmed
+	 * canvas from {@link prewarmMove} when present), the renderer reacquires its
+	 * GL context ({@link Renderer2D.rebuild}, which fires `onContextRestored` so
+	 * external GL holders rebuild), and input + the cursor authority are rebound
+	 * to the fresh canvas. Same-document mounts take the cheap `attach` path.
+	 */
 	attach(node: HTMLElement): void {
+		// Compare the canvas's own document, not a remembered one: a view whose
+		// first-ever mount is into a satellite still needs the reattach path (the
+		// canvas is born in the hub document), otherwise `appendChild` would adopt
+		// it cross-document and silently kill the GL context.
+		const crossDocument =
+			this.viewport.element.ownerDocument !== node.ownerDocument;
 		this.detachSurface?.();
 		this.viewport.element.style.outline = "none";
-		this.detachSurface = this.viewport.attach(node);
+		if (crossDocument) {
+			const warmed =
+				this.prewarmCanvas?.ownerDocument === node.ownerDocument
+					? this.prewarmCanvas
+					: undefined;
+			this.prewarmCanvas = null;
+			this.detachSurface = this.viewport.reattach(node, warmed);
+			this.renderer.rebuild();
+			this.rebindInput();
+		} else {
+			this.detachSurface = this.viewport.attach(node);
+		}
 		this.cursorAuthority = new CursorAuthority(this.viewport.element);
 		this.cursorToken = this.cursorAuthority.request("default");
+		this.mountedNode = node;
+	}
+
+	/**
+	 * Unmount this view **only if** `node` is still the container it is mounted
+	 * in. A cross-window move remounts this view in two independent React roots:
+	 * the destination window mounts (calling {@link attach}) before the source
+	 * window's now-stale subtree unmounts. Without this guard the stale unmount's
+	 * {@link detach} would tear down the freshly attached destination surface —
+	 * removing the just-mounted canvas and leaving the view blank (the
+	 * satellite→hub move regression). Comparing the container node makes the stale
+	 * unmount a no-op while a genuine close still tears down.
+	 */
+	detachIfCurrent(node: HTMLElement): void {
+		if (this.mountedNode === node) {
+			this.detach();
+		}
+	}
+
+	/**
+	 * Rebind input to the current `viewport.element` after a cross-window move.
+	 * The old {@link Input} held DOM listeners on the now-discarded canvas; it is
+	 * disposed and a fresh one is created against the new canvas.
+	 */
+	private rebindInput(): void {
+		this.surface.input.dispose();
+		this.surface = {
+			...this.surface,
+			input: new Input(this.viewport.element),
+		};
 	}
 
 	detach(): void {
+		this.mountedNode = null;
 		this.detachSurface?.();
 		this.detachSurface = null;
 		this.cursorToken?.dispose();

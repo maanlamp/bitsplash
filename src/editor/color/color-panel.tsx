@@ -9,6 +9,7 @@ import { eyeDropperSupported, pickScreenColor } from "./eyedropper";
 import GradientSlider from "./gradient-slider";
 import OklchField from "./oklch-field";
 import SliderValue from "./slider-value";
+import { useWindowDocument } from "../window/window-context";
 
 const HUE_TRACK =
 	"linear-gradient(to right in oklch longer hue, oklch(0.7 0.2 0), oklch(0.7 0.2 360))";
@@ -28,9 +29,10 @@ const ColorPanel = ({
 		(listener) => model.subscribe(listener),
 		() => model.css,
 	);
+	const doc = useWindowDocument();
 	const commit = () => model.commit?.();
 	const eyedrop = async () => {
-		const picked = await pickScreenColor();
+		const picked = await pickScreenColor(doc);
 		if (picked) {
 			model.setColor(picked);
 			commit();

@@ -33,26 +33,28 @@ const hexToRgb = (
 };
 
 // Samples a colour from the app window. Prefers the custom in-app loupe
-// (which we can style); falls back to the native browser eyedropper when the
-// desktop capture bridge is unavailable. Resolves null if cancelled.
-export const pickScreenColor =
-	async (): Promise<OklchColor | null> => {
-		if (captureSupported()) {
-			return pickWithLoupe();
-		}
-		const EyeDropper = ctor();
-		if (!EyeDropper) {
+// (which we can style, and which renders in `doc` — the owning window's
+// document); falls back to the native browser eyedropper when the desktop
+// capture bridge is unavailable. Resolves null if cancelled.
+export const pickScreenColor = async (
+	doc: Document,
+): Promise<OklchColor | null> => {
+	if (captureSupported()) {
+		return pickWithLoupe(doc);
+	}
+	const EyeDropper = ctor();
+	if (!EyeDropper) {
+		return null;
+	}
+	try {
+		const { sRGBHex } = await new EyeDropper().open();
+		const rgb = hexToRgb(sRGBHex);
+		if (!rgb) {
 			return null;
 		}
-		try {
-			const { sRGBHex } = await new EyeDropper().open();
-			const rgb = hexToRgb(sRGBHex);
-			if (!rgb) {
-				return null;
-			}
-			const { l, c, h } = rgbToOklch(rgb.r, rgb.g, rgb.b);
-			return { l, c, h, alpha: 1 };
-		} catch {
-			return null;
-		}
-	};
+		const { l, c, h } = rgbToOklch(rgb.r, rgb.g, rgb.b);
+		return { l, c, h, alpha: 1 };
+	} catch {
+		return null;
+	}
+};

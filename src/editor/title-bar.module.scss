@@ -1,4 +1,5 @@
 .titleBar {
+	position: relative;
 	flex: none;
 	width: 100%;
 	height: env(titlebar-area-height, var(--unit-40));
@@ -22,8 +23,13 @@
 	letter-spacing: 0.02em;
 }
 
-.commandSlot {
-	flex: 1;
-	min-width: 0;
-	height: 100%;
+.actions {
+	-webkit-app-region: no-drag;
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: var(--unit-4);
 }

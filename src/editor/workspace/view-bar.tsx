@@ -1,7 +1,9 @@
+import clsx from "clsx";
 import Button from "../button";
 import Tooltip, { TooltipProvider } from "../tooltip";
 import type { ViewId } from "./layout";
 import styles from "./view-bar.module.scss";
+import type { ViewBarState } from "./view-bar-state";
 import {
 	makeViewId,
 	type ViewKind,
@@ -23,26 +25,43 @@ const VIEWS: ReadonlyArray<ViewKind> = [
 
 /**
  * Left-edge rail for opening the always-available editor views. Each button
- * opens (or focuses, if already open) its singleton view; the currently focused
- * view's button is filled.
+ * summons its singleton view: if open anywhere it activates the existing tab in
+ * place (never raising another window); if closed it opens here. The icon
+ * reflects the view's {@link ViewBarState} — filled when open in this window,
+ * dimmed fill (with an "in another window" tooltip) when open elsewhere, plain
+ * when closed.
+ *
+ * The editor-global playtest action does not live here — it sits in the window
+ * titlebar ({@link TitleBar}).
  */
 const ViewBar = ({
 	onOpen,
-	focusedKind,
+	stateOf,
 }: Readonly<{
 	onOpen: (id: ViewId) => void;
-	focusedKind: ViewKind | null;
+	stateOf: (kind: ViewKind) => ViewBarState;
 }>) => (
 	<div className={styles.bar}>
 		<TooltipProvider>
 			{VIEWS.map((kind) => {
 				const id = makeViewId(kind);
 				const Icon = viewIcon(id);
+				const state = stateOf(kind);
+				const label =
+					state === "elsewhere"
+						? `${viewTitle(id)} (in another window)`
+						: viewTitle(id);
 				return (
-					<Tooltip key={kind} label={viewTitle(id)} side="right">
-						<Button variant="icon" onClick={() => onOpen(id)}>
+					<Tooltip key={kind} label={label} side="right">
+						<Button
+							variant="icon"
+							className={clsx(
+								state === "elsewhere" && styles.elsewhere,
+							)}
+							onClick={() => onOpen(id)}
+						>
 							<Icon
-								weight={focusedKind === kind ? "fill" : undefined}
+								weight={state === "closed" ? undefined : "fill"}
 							/>
 						</Button>
 					</Tooltip>

@@ -1,73 +1,92 @@
-import { useEffect, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
-import { History } from "./history";
-import type { Subscribable } from "./subscribable";
-
-type EditableDocument = Subscribable & Readonly<{ dirty: boolean }>;
+import {
+	useEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
+import { useScopedHotkeys } from "./window/use-scoped-hotkeys";
+import type {
+	DocumentFactory,
+	EditableDocument,
+} from "./document/document-entry";
+import type { DocumentViewState } from "./document/document-view-state";
+import { acquireDocument } from "./document/document-store";
+import type { History } from "./history";
+import type { ViewId } from "./workspace/layout";
 
 type Undoable = Readonly<{ canUndo: boolean; canRedo: boolean }>;
 
-export const useDocumentEditor = <D extends EditableDocument>(
+/**
+ * Consume the shell-level {@link acquireDocument} store for a sprite/audio view.
+ * The document, undo {@link History}, controllers, and declared view-state live
+ * in the store keyed by `viewId`, so this hook owns no document state itself: it
+ * subscribes the component to the entry for re-render, forwards dirtiness and
+ * change notifications to the shell, and binds undo/redo. The view component
+ * therefore survives a cross-window move (a remount) with its document and undo
+ * history intact.
+ *
+ * Behavior matches the pre-store hook in a single window: a fresh view creates a
+ * fresh entry, loading exactly as before; a `loadKey` change reloads in place.
+ */
+export const useDocumentEditor = <D extends EditableDocument, C>(
+	viewId: ViewId,
 	options: Readonly<{
-		deps: ReadonlyArray<unknown>;
+		loadKey: ReadonlyArray<unknown>;
 		load: () => D | Promise<D>;
+		createControllers: (history: History) => C;
+		disposeControllers?: (controllers: C) => void;
+		onReset?: (controllers: C) => void;
 		active: boolean;
 		onDirty: (dirty: boolean) => void;
-		onReset?: () => void;
 		onChange?: () => void;
 	}>,
 ): Readonly<{
 	doc: D | null;
-	dirty: boolean;
 	history: History;
+	controllers: C;
+	viewState: DocumentViewState;
 	undoable: Undoable;
 }> => {
-	const { deps, load, active, onDirty, onReset, onChange } = options;
-	const [history] = useState(() => new History());
-	const [doc, setDoc] = useState<D | null>(null);
-	const [dirty, setDirty] = useState(false);
+	const {
+		loadKey,
+		load,
+		createControllers,
+		disposeControllers,
+		onReset,
+		active,
+		onDirty,
+		onChange,
+	} = options;
+
+	const factory: DocumentFactory<D, C> = {
+		loadKey,
+		load,
+		createControllers,
+		disposeControllers,
+		onReset,
+	};
+	const entry = acquireDocument<D, C>(viewId, factory);
+	useSyncExternalStore(entry.subscribe, () => entry.version);
+
+	const doc = entry.document;
+	const { history, viewState, controllers } = entry;
+
 	const [undoable, setUndoable] = useState<Undoable>({
-		canUndo: false,
-		canRedo: false,
+		canUndo: history.canUndo,
+		canRedo: history.canRedo,
 	});
 
-	const loadRef = useRef(load);
-	loadRef.current = load;
-	const resetRef = useRef(onReset);
-	resetRef.current = onReset;
 	const changeRef = useRef(onChange);
 	changeRef.current = onChange;
 	const dirtyCbRef = useRef(onDirty);
 	dirtyCbRef.current = onDirty;
 
 	useEffect(() => {
-		let cancelled = false;
-		resetRef.current?.();
-		history.clear();
-		setDoc(null);
-		setDirty(false);
-		dirtyCbRef.current(false);
-		const result = loadRef.current();
-		if (result instanceof Promise) {
-			void result.then((loaded) => {
-				if (!cancelled) {
-					setDoc(loaded);
-				}
-			});
-		} else {
-			setDoc(result);
-		}
-		return () => {
-			cancelled = true;
-		};
-	}, [history, ...deps]);
-
-	useEffect(() => {
 		if (!doc) {
+			dirtyCbRef.current(false);
 			return;
 		}
 		const sync = () => {
-			setDirty(doc.dirty);
 			dirtyCbRef.current(doc.dirty);
 			changeRef.current?.();
 		};
@@ -86,7 +105,7 @@ export const useDocumentEditor = <D extends EditableDocument>(
 		[history],
 	);
 
-	useHotkeys(
+	useScopedHotkeys(
 		"mod+z",
 		(e) => {
 			e.preventDefault();
@@ -95,7 +114,7 @@ export const useDocumentEditor = <D extends EditableDocument>(
 		{ preventDefault: true, enabled: active },
 		[history, active],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"mod+y",
 		(e) => {
 			e.preventDefault();
@@ -105,5 +124,5 @@ export const useDocumentEditor = <D extends EditableDocument>(
 		[history, active],
 	);
 
-	return { doc, dirty, history, undoable };
+	return { doc, history, controllers, viewState, undoable };
 };

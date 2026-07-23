@@ -26,6 +26,7 @@ import type { History } from "../history";
 import { fsProtocolUrl, listDir } from "../project-io";
 import { BspriteThumbnail } from "../sprite/bsprite-thumbnail";
 import surface from "../styles/surface.module.scss";
+import { usePortalContainer } from "../window/portal-container";
 import styles from "./asset-browser.module.scss";
 import {
 	createFolder,
@@ -92,6 +93,7 @@ export const AssetBrowser = ({
 		null,
 	);
 
+	const container = usePortalContainer();
 	const pathRef = useRef(path);
 	useEffect(() => {
 		pathRef.current = path;
@@ -334,7 +336,7 @@ export const AssetBrowser = ({
 						})}
 					</div>
 				</ContextMenu.Trigger>
-				<ContextMenu.Portal>
+				<ContextMenu.Portal container={container}>
 					<ContextMenu.Positioner>
 						<ContextMenu.Popup
 							className={clsx(surface.surface, surface.menu)}

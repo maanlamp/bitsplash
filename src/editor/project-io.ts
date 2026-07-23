@@ -26,19 +26,6 @@ export const isDesktop = (): boolean =>
 	!!(globalThis as { bitsplashDesktop?: DesktopBridge })
 		.bitsplashDesktop;
 
-/**
- * Launch the real game in a separate desktop window (plan D9). No-op outside
- * the Electron shell, where no second window exists.
- */
-export const launchGameWindow = async (): Promise<void> => {
-	const bridge = (
-		globalThis as {
-			bitsplashDesktop?: { openGameWindow?: () => Promise<unknown> };
-		}
-	).bitsplashDesktop;
-	await bridge?.openGameWindow?.();
-};
-
 export const fsProtocolUrl = (absolutePath: string): string =>
 	`bitsplash-fs://local/${encodeURIComponent(absolutePath)}`;
 

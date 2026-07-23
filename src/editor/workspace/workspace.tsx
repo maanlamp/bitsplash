@@ -1,12 +1,13 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
 	type LayoutNode,
 	resizeSplit,
+	setActive,
 	type ViewId,
-	type Workspace as WorkspaceState,
+	type WindowLayout,
 } from "./layout";
 import SplitContainer from "./split-container";
-import TabsView, { type TabApi, useTabDocking } from "./tabs";
+import TabsView, { type TabApi } from "./tabs";
 import styles from "./workspace.module.scss";
 
 type ResizeHandler = (
@@ -53,29 +54,44 @@ const Node = ({
 	);
 };
 
+/**
+ * One window's layout tree. Tab drags are owned by the app-global
+ * {@link import("./tab-drag-controller").TabDragController} (reached by tabs
+ * through context), which paints its ghost and drop indicator imperatively into
+ * whichever window the cursor is over — so no per-window drop overlay renders
+ * here. Tab activation and split resizing remain local window mutations.
+ */
 const Workspace = ({
-	workspace,
+	windowLayout,
 	onChange,
 	renderView,
 	onCloseView,
+	onMoveToNewWindow,
 	dirtyViews,
 	isTilesetView,
+	windowFocused,
 }: Readonly<{
-	workspace: WorkspaceState;
+	windowLayout: WindowLayout;
 	onChange: (
-		workspace:
-			| WorkspaceState
-			| ((prev: WorkspaceState) => WorkspaceState),
+		window: WindowLayout | ((prev: WindowLayout) => WindowLayout),
 	) => void;
 	renderView: (id: ViewId) => ReactNode;
 	onCloseView: (id: ViewId) => void;
+	onMoveToNewWindow: (id: ViewId) => void;
 	dirtyViews: ReadonlySet<ViewId>;
 	isTilesetView: (id: ViewId) => boolean;
+	windowFocused: boolean;
 }>) => {
-	const { dragging, drop, activate, dragProps } = useTabDocking(
-		workspace,
-		onChange,
-	);
+	const activate = (id: ViewId): void => {
+		if (windowLayout.focused === id) {
+			return;
+		}
+		onChange((prev) => ({
+			...prev,
+			root: setActive(prev.root, id),
+			focused: id,
+		}));
+	};
 
 	const onResize: ResizeHandler = (path, dividerIndex, delta) =>
 		onChange((prev) => ({
@@ -84,39 +100,27 @@ const Workspace = ({
 		}));
 
 	const api: TabApi = {
+		windowId: windowLayout.id,
 		activate,
 		close: onCloseView,
-		dragging,
-		focused: workspace.focused,
+		moveToNewWindow: onMoveToNewWindow,
+		focused: windowLayout.focused,
+		windowFocused,
 		isDirty: (id) => dirtyViews.has(id),
 		isTileset: isTilesetView,
-		dragProps,
 	};
 
 	return (
 		<div className={styles.workspace}>
 			<div className={styles.rootCell}>
 				<Node
-					node={workspace.root}
+					node={windowLayout.root}
 					path={[]}
 					renderView={renderView}
 					onResize={onResize}
 					api={api}
 				/>
 			</div>
-			{drop && (
-				<div
-					className={styles.dropOverlay}
-					style={
-						{
-							"--left": `${drop.rect.left}px`,
-							"--top": `${drop.rect.top}px`,
-							"--width": `${drop.rect.width}px`,
-							"--height": `${drop.rect.height}px`,
-						} as CSSProperties
-					}
-				/>
-			)}
 		</div>
 	);
 };

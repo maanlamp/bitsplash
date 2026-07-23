@@ -7,6 +7,7 @@ import {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import surface from "./styles/surface.module.scss";
+import { usePortalContainer } from "./window/portal-container";
 
 export type AssetCreateActions = Readonly<{
 	onNewSprite: () => void;
@@ -14,17 +15,20 @@ export type AssetCreateActions = Readonly<{
 	onNewAudio: () => void;
 }>;
 
-const Popup = ({ children }: Readonly<{ children: ReactNode }>) => (
-	<ContextMenu.Portal>
-		<ContextMenu.Positioner>
-			<ContextMenu.Popup
-				className={clsx(surface.surface, surface.menu)}
-			>
-				{children}
-			</ContextMenu.Popup>
-		</ContextMenu.Positioner>
-	</ContextMenu.Portal>
-);
+const Popup = ({ children }: Readonly<{ children: ReactNode }>) => {
+	const container = usePortalContainer();
+	return (
+		<ContextMenu.Portal container={container}>
+			<ContextMenu.Positioner>
+				<ContextMenu.Popup
+					className={clsx(surface.surface, surface.menu)}
+				>
+					{children}
+				</ContextMenu.Popup>
+			</ContextMenu.Positioner>
+		</ContextMenu.Portal>
+	);
+};
 
 export const AssetContextMenu = ({
 	actions,

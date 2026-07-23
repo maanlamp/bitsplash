@@ -24,6 +24,7 @@ import {
 	removeComponent,
 } from "./commands";
 import type { SceneDocument } from "./scene-document";
+import { usePortalContainer } from "./window/portal-container";
 
 export type MenuDeps = Readonly<{
 	ecs: ECS;
@@ -32,17 +33,20 @@ export type MenuDeps = Readonly<{
 	select: (entity: EntityId | null) => void;
 }>;
 
-const Popup = ({ children }: Readonly<{ children: ReactNode }>) => (
-	<ContextMenu.Portal>
-		<ContextMenu.Positioner>
-			<ContextMenu.Popup
-				className={clsx(surface.surface, surface.menu)}
-			>
-				{children}
-			</ContextMenu.Popup>
-		</ContextMenu.Positioner>
-	</ContextMenu.Portal>
-);
+const Popup = ({ children }: Readonly<{ children: ReactNode }>) => {
+	const container = usePortalContainer();
+	return (
+		<ContextMenu.Portal container={container}>
+			<ContextMenu.Positioner>
+				<ContextMenu.Popup
+					className={clsx(surface.surface, surface.menu)}
+				>
+					{children}
+				</ContextMenu.Popup>
+			</ContextMenu.Positioner>
+		</ContextMenu.Portal>
+	);
+};
 
 const EntityItems = ({
 	entity,
@@ -161,6 +165,7 @@ export const AddComponentPicker = ({
 	onClose: () => void;
 }>) => {
 	const { ecs, document } = deps;
+	const container = usePortalContainer();
 	const attached = new Set(
 		ecs
 			.componentsOf(entity)
@@ -189,7 +194,7 @@ export const AddComponentPicker = ({
 				}
 			}}
 		>
-			<Dialog.Portal>
+			<Dialog.Portal container={container}>
 				<Dialog.Backdrop className={surface.backdrop} />
 				<Dialog.Popup
 					aria-label="Add component"
@@ -201,7 +206,7 @@ export const AddComponentPicker = ({
 							placeholder="Add component…"
 							className={surface.pickerInput}
 						/>
-						<Autocomplete.Portal>
+						<Autocomplete.Portal container={container}>
 							<Autocomplete.Positioner sideOffset={4}>
 								<Autocomplete.Popup
 									className={clsx(surface.surface, surface.menu)}

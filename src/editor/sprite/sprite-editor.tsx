@@ -3,7 +3,8 @@ import {
 	ArrowUUpRightIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
+import { useWindowWindow } from "../window/window-context";
 import {
 	SHEET_COLUMNS,
 	isValidTilesetWidth,
@@ -23,6 +24,7 @@ import FloatingToolbar from "../floating-toolbar";
 import controls from "../styles/controls.module.scss";
 import Tooltip, { TooltipProvider } from "../tooltip";
 import Split from "../workspace/split";
+import { makeViewId, NEW_PARAM } from "../workspace/view-registry";
 import { useDocumentEditor } from "../use-document-editor";
 import AttachmentPanel from "./attachment-panel";
 import { snapshotFromDocument } from "./bsprite-document-adapter";
@@ -106,29 +108,39 @@ const SpriteEditor = ({
 	onCreated: (url: string) => void;
 	active: boolean;
 }>) => {
-	const [state] = useState(() => new SpriteEditorState());
-	const [onion] = useState(() => new OnionState());
 	const [selection, setSelection] =
 		useState<SelectionController | null>(null);
+	const win = useWindowWindow();
 	const assetManager = useAssetManager();
-	const { doc, history, undoable } = useDocumentEditor({
-		deps: [assetUrl, create?.filename, create?.width, create?.height],
-		load: async () => {
-			if (assetUrl === null) {
-				return new SpriteDocument(
-					create?.width ?? 32,
-					create?.height ?? 32,
-				);
-			}
-			if (isBspriteUrl(assetUrl)) {
-				const bytes = await readAssetBytes(assetUrl);
-				return SpriteDocument.fromBsprite(new Uint8Array(bytes));
-			}
-			return SpriteDocument.load(assetUrl);
-		},
-		onDirty,
-		active,
-	});
+	const { doc, history, controllers, viewState, undoable } =
+		useDocumentEditor(makeViewId("sprite", assetUrl ?? NEW_PARAM), {
+			loadKey: [
+				assetUrl,
+				create?.filename,
+				create?.width,
+				create?.height,
+			],
+			load: async () => {
+				if (assetUrl === null) {
+					return new SpriteDocument(
+						create?.width ?? 32,
+						create?.height ?? 32,
+					);
+				}
+				if (isBspriteUrl(assetUrl)) {
+					const bytes = await readAssetBytes(assetUrl);
+					return SpriteDocument.fromBsprite(new Uint8Array(bytes));
+				}
+				return SpriteDocument.load(assetUrl);
+			},
+			createControllers: () => ({
+				state: new SpriteEditorState(),
+				onion: new OnionState(),
+			}),
+			onDirty,
+			active,
+		});
+	const { state, onion } = controllers;
 
 	// The selection controller owns the marquee/floating state and registers the
 	// B12 choke-point bridges on the document; it is scoped to one document, so a
@@ -159,7 +171,7 @@ const SpriteEditor = ({
 		}
 	}, [doc, isTileset]);
 
-	useHotkeys(
+	useScopedHotkeys(
 		TOOL_REGISTRY.map((t) => t.shortcut).join(","),
 		(_e, handler) => {
 			const key = handler.keys?.[0];
@@ -177,7 +189,7 @@ const SpriteEditor = ({
 	// memory from Aseprite/Photoshop. The ref guards against keydown auto-repeat
 	// pushing the tool more than once per physical hold.
 	const spaceHeld = useRef(false);
-	useHotkeys(
+	useScopedHotkeys(
 		"space",
 		(e) => {
 			if (e.type === "keydown") {
@@ -224,13 +236,13 @@ const SpriteEditor = ({
 				state.popTemporaryTool();
 			}
 		};
-		window.addEventListener("keydown", onKeyDown);
-		window.addEventListener("keyup", onKeyUp);
+		win.addEventListener("keydown", onKeyDown);
+		win.addEventListener("keyup", onKeyUp);
 		return () => {
-			window.removeEventListener("keydown", onKeyDown);
-			window.removeEventListener("keyup", onKeyUp);
+			win.removeEventListener("keydown", onKeyDown);
+			win.removeEventListener("keyup", onKeyUp);
 		};
-	}, [active, state]);
+	}, [active, state, win]);
 
 	// A hold-key's keyup is delivered to whichever window has focus. If focus
 	// leaves mid-hold (alt-tab), the keyup never reaches the handlers above and
@@ -243,9 +255,9 @@ const SpriteEditor = ({
 			altHeld.current = false;
 			state.clearTemporaryTools();
 		};
-		window.addEventListener("blur", onBlur);
-		return () => window.removeEventListener("blur", onBlur);
-	}, [state]);
+		win.addEventListener("blur", onBlur);
+		return () => win.removeEventListener("blur", onBlur);
+	}, [state, win]);
 
 	const serialize = (
 		document: SpriteDocument,
@@ -347,7 +359,7 @@ const SpriteEditor = ({
 		hotReload(assetUrl);
 	};
 
-	useHotkeys(
+	useScopedHotkeys(
 		"mod+s",
 		(e) => {
 			e.preventDefault();
@@ -360,36 +372,42 @@ const SpriteEditor = ({
 	// Selection commit/cancel and internal clipboard. Enter stamps a floating
 	// selection into the cel; Escape cancels the float or clears the marquee.
 	// Copy/cut/paste route through the internal editor clipboard.
-	useHotkeys(
+	useScopedHotkeys(
 		"enter",
 		() => selection?.confirmOrCommit(),
 		{ enabled: active },
 		[active, selection],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"escape",
 		() => selection?.escape(),
 		{ enabled: active },
 		[active, selection],
 	);
-	useHotkeys("mod+c", () => selection?.copy(), { enabled: active }, [
-		active,
-		selection,
-	]);
-	useHotkeys("mod+x", () => selection?.cut(), { enabled: active }, [
-		active,
-		selection,
-	]);
-	useHotkeys("mod+v", () => selection?.paste(), { enabled: active }, [
-		active,
-		selection,
-	]);
+	useScopedHotkeys(
+		"mod+c",
+		() => selection?.copy(),
+		{ enabled: active },
+		[active, selection],
+	);
+	useScopedHotkeys(
+		"mod+x",
+		() => selection?.cut(),
+		{ enabled: active },
+		[active, selection],
+	);
+	useScopedHotkeys(
+		"mod+v",
+		() => selection?.paste(),
+		{ enabled: active },
+		[active, selection],
+	);
 
 	// Ctrl/Cmd+T opens the free-transform gizmo on the current selection (the
 	// conventional transform shortcut — a flagged default). Switching to the
 	// transform tool auto-begins the session; calling begin here covers the case
 	// where the tool is already active.
-	useHotkeys(
+	useScopedHotkeys(
 		"mod+t",
 		(e) => {
 			e.preventDefault();
@@ -402,13 +420,13 @@ const SpriteEditor = ({
 
 	// Flip the active selection (or, with none, the whole image). Shift+H/V match
 	// the conventional pixel-editor flip shortcuts; rotate-90 stays toolbar-only.
-	useHotkeys(
+	useScopedHotkeys(
 		"shift+h",
 		() => doc && flipHorizontalCommand(doc, history, selection),
 		{ enabled: active },
 		[active, doc, history, selection],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"shift+v",
 		() => doc && flipVerticalCommand(doc, history, selection),
 		{ enabled: active },
@@ -417,7 +435,7 @@ const SpriteEditor = ({
 
 	// Wrap-around shift of the active cel (seamless-tile tool): Shift+arrows move
 	// the pixels one cell, wrapping across the opposite edge, one undo entry each.
-	useHotkeys(
+	useScopedHotkeys(
 		"shift+left,shift+right,shift+up,shift+down",
 		(e) => {
 			if (!doc || isEditableTarget()) {
@@ -447,7 +465,7 @@ const SpriteEditor = ({
 	// of scrolling the grid: left/right step the frame, up/down step the layer in
 	// display order (up = the layer shown above). `preventDefault` suppresses the
 	// grid scroll; the guard yields the keys to a focused field's caret.
-	useHotkeys(
+	useScopedHotkeys(
 		"up,down,left,right",
 		(e) => {
 			if (!doc || isEditableTarget() || e.shiftKey) {
@@ -517,6 +535,7 @@ const SpriteEditor = ({
 												history={history}
 												selection={selection}
 												onion={onion}
+												viewState={viewState}
 												isTileset
 											/>
 										</div>
@@ -536,6 +555,7 @@ const SpriteEditor = ({
 										history={history}
 										selection={selection}
 										onion={onion}
+										viewState={viewState}
 										isTileset={false}
 									/>
 								)
@@ -589,7 +609,12 @@ const SpriteEditor = ({
 					</div>
 					<div className={styles.spriteTimeline}>
 						{doc && (
-							<Timeline doc={doc} history={history} onion={onion} />
+							<Timeline
+								doc={doc}
+								history={history}
+								onion={onion}
+								viewState={viewState}
+							/>
 						)}
 					</div>
 				</Split>

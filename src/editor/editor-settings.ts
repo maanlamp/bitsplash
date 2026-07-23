@@ -10,6 +10,10 @@ import { Subscribable } from "./subscribable";
  * - `nudgeStep` — the world-unit distance of a `Shift`+arrow "big nudge"
  *   (plain arrow is always 1 unit, `Shift+Ctrl`+arrow is always one grid cell).
  * - `snapThreshold` — the world-unit distance within which a smart-guide snaps.
+ * - `zoom` — the current editor zoom as a whole-number percentage. This is a
+ *   read-only **mirror**: the main process owns zoom (Ctrl+`=`/`−`/`0`, applied
+ *   via Chromium's per-host zoom map) and pushes changes over IPC; the mirror
+ *   exists so the renderer can display the value.
  *
  * Values are validated only against the invalid domain (finite and `> 0`);
  * there is no arbitrary min/max clamp.
@@ -17,11 +21,13 @@ import { Subscribable } from "./subscribable";
 export class EditorSettings extends Subscribable {
 	private _nudgeStep: number;
 	private _snapThreshold: number;
+	private _zoom: number;
 
 	constructor() {
 		super();
 		this._nudgeStep = read(NUDGE_KEY, TILE_SIZE / 4);
 		this._snapThreshold = read(THRESHOLD_KEY, DEFAULT_SNAP_THRESHOLD);
+		this._zoom = read(ZOOM_KEY, 100);
 	}
 
 	get nudgeStep(): number {
@@ -48,6 +54,18 @@ export class EditorSettings extends Subscribable {
 		);
 	}
 
+	get zoom(): number {
+		return this._zoom;
+	}
+
+	/**
+	 * Mirror the main process's zoom (a whole-number percentage) for display.
+	 * Main is the source of truth; this only records the last broadcast value.
+	 */
+	setZoom(percent: number): void {
+		this._zoom = this.setNumber(ZOOM_KEY, this._zoom, percent);
+	}
+
 	/**
 	 * Persist `value` under `key` and notify, returning the value that should back
 	 * the field. Rejects the invalid domain (non-finite, `<= 0`) and no-op writes
@@ -69,6 +87,7 @@ export class EditorSettings extends Subscribable {
 
 const NUDGE_KEY = "editor.nudgeStep";
 const THRESHOLD_KEY = "editor.snapThreshold";
+const ZOOM_KEY = "editor.zoom";
 
 const read = (key: string, fallback: number): number => {
 	try {

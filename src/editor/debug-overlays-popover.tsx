@@ -13,6 +13,7 @@ import styles from "./debug-overlays-popover.module.scss";
 import surface from "./styles/surface.module.scss";
 import Tooltip from "./tooltip";
 import { useEditorValue } from "./use-editor";
+import { usePortalContainer } from "./window/portal-container";
 
 const DebugOverlayRow = ({
 	flags,
@@ -45,33 +46,36 @@ const DebugOverlayRow = ({
 
 const DebugOverlaysPopover = ({
 	flags,
-}: Readonly<{ flags: DebugFlags }>) => (
-	<Popover.Root>
-		<Tooltip label="Debug overlays">
-			<Popover.Trigger
-				render={
-					<Button variant="icon">
-						<EyeIcon />
-					</Button>
-				}
-			/>
-		</Tooltip>
-		<Popover.Portal>
-			<Popover.Positioner sideOffset={8}>
-				<Popover.Popup
-					className={clsx(surface.surface, styles.popup)}
-				>
-					{DEBUG_OVERLAYS.map((overlay) => (
-						<DebugOverlayRow
-							key={overlay.id}
-							flags={flags}
-							overlay={overlay}
-						/>
-					))}
-				</Popover.Popup>
-			</Popover.Positioner>
-		</Popover.Portal>
-	</Popover.Root>
-);
+}: Readonly<{ flags: DebugFlags }>) => {
+	const container = usePortalContainer();
+	return (
+		<Popover.Root>
+			<Tooltip label="Debug overlays">
+				<Popover.Trigger
+					render={
+						<Button variant="icon">
+							<EyeIcon />
+						</Button>
+					}
+				/>
+			</Tooltip>
+			<Popover.Portal container={container}>
+				<Popover.Positioner sideOffset={8}>
+					<Popover.Popup
+						className={clsx(surface.surface, styles.popup)}
+					>
+						{DEBUG_OVERLAYS.map((overlay) => (
+							<DebugOverlayRow
+								key={overlay.id}
+								flags={flags}
+								overlay={overlay}
+							/>
+						))}
+					</Popover.Popup>
+				</Popover.Positioner>
+			</Popover.Portal>
+		</Popover.Root>
+	);
+};
 
 export default DebugOverlaysPopover;

@@ -39,22 +39,29 @@ const RADIUS = (COUNT * PIXEL) / 2;
 
 // Shows a frozen screenshot with a circular magnifier under the cursor and
 // resolves to the clicked pixel (or null if cancelled with Esc / right-click).
-const runLoupe = (img: HTMLImageElement): Promise<Rgb | null> => {
-	const vw = window.innerWidth;
-	const vh = window.innerHeight;
+// Renders the overlay and binds listeners in `doc` — the owning window's
+// document — so the loupe appears and captures input in the window it was
+// launched from rather than the main realm.
+const runLoupe = (
+	img: HTMLImageElement,
+	doc: Document,
+): Promise<Rgb | null> => {
+	const view = doc.defaultView ?? window;
+	const vw = view.innerWidth;
+	const vh = view.innerHeight;
 	const scaleX = img.width / vw;
 	const scaleY = img.height / vh;
-	const dpr = window.devicePixelRatio || 1;
+	const dpr = view.devicePixelRatio || 1;
 
 	// 1:1 buffer for exact pixel reads.
-	const sample = document.createElement("canvas");
+	const sample = doc.createElement("canvas");
 	sample.width = img.width;
 	sample.height = img.height;
 	const sctx = sample.getContext("2d", { willReadFrequently: true })!;
 	sctx.drawImage(img, 0, 0);
 	const data = sctx.getImageData(0, 0, img.width, img.height).data;
 
-	const overlay = document.createElement("canvas");
+	const overlay = doc.createElement("canvas");
 	overlay.width = Math.round(vw * dpr);
 	overlay.height = Math.round(vh * dpr);
 	overlay.style.position = "fixed";
@@ -63,7 +70,7 @@ const runLoupe = (img: HTMLImageElement): Promise<Rgb | null> => {
 	overlay.style.height = "100%";
 	overlay.style.zIndex = "2147483647";
 	overlay.style.cursor = "none";
-	document.body.appendChild(overlay);
+	doc.body.appendChild(overlay);
 
 	const ctx = overlay.getContext("2d")!;
 	ctx.scale(dpr, dpr);
@@ -148,10 +155,10 @@ const runLoupe = (img: HTMLImageElement): Promise<Rgb | null> => {
 		let cy = vh / 2;
 
 		const cleanup = (result: Rgb | null): void => {
-			window.removeEventListener("pointermove", onMove, true);
-			window.removeEventListener("pointerdown", onDown, true);
-			window.removeEventListener("keydown", onKey, true);
-			window.removeEventListener("contextmenu", onContext, true);
+			view.removeEventListener("pointermove", onMove, true);
+			view.removeEventListener("pointerdown", onDown, true);
+			view.removeEventListener("keydown", onKey, true);
+			view.removeEventListener("contextmenu", onContext, true);
 			overlay.remove();
 			resolve(result);
 		};
@@ -185,22 +192,25 @@ const runLoupe = (img: HTMLImageElement): Promise<Rgb | null> => {
 			e.preventDefault();
 		};
 
-		window.addEventListener("pointermove", onMove, true);
-		window.addEventListener("pointerdown", onDown, true);
-		window.addEventListener("keydown", onKey, true);
-		window.addEventListener("contextmenu", onContext, true);
+		view.addEventListener("pointermove", onMove, true);
+		view.addEventListener("pointerdown", onDown, true);
+		view.addEventListener("keydown", onKey, true);
+		view.addEventListener("contextmenu", onContext, true);
 		draw(cx, cy);
 	});
 };
 
-// Picks a colour from anywhere in the app window using a custom magnifier.
-export const pickWithLoupe = async (): Promise<OklchColor | null> => {
+// Picks a colour from anywhere in the app window using a custom magnifier
+// rendered in `doc` — the owning window's document.
+export const pickWithLoupe = async (
+	doc: Document,
+): Promise<OklchColor | null> => {
 	const dataUrl = await captureWindow();
 	if (!dataUrl) {
 		return null;
 	}
 	const img = await loadImage(dataUrl);
-	const rgb = await runLoupe(img);
+	const rgb = await runLoupe(img, doc);
 	if (!rgb) {
 		return null;
 	}

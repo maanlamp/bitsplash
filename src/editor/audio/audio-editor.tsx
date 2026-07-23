@@ -11,7 +11,7 @@ import {
 	TrashIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
 import type AudioManager from "../../engine/audio/audio";
 import type { PlaybackHandle } from "../../engine/audio/audio";
 import Button from "../button";
@@ -27,6 +27,7 @@ import type {
 	ClipChangeMode,
 	TimelineTrack,
 } from "../timeline/timeline-types";
+import { makeViewId, NEW_PARAM } from "../workspace/view-registry";
 import { useDocumentEditor } from "../use-document-editor";
 import { useEditorValue } from "../use-editor";
 import { AudioDocument } from "./audio-document";
@@ -56,8 +57,6 @@ const AudioEditor = ({
 	onCreated: (url: string) => void;
 	active: boolean;
 }>) => {
-	const [state] = useState(() => new AudioEditorState());
-	const [recorder] = useState(() => new AudioRecorder());
 	const [, setTick] = useState(0);
 	const [playhead, setPlayhead] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
@@ -68,26 +67,37 @@ const AudioEditor = ({
 	const handleRef = useRef<PlaybackHandle | null>(null);
 	const rafRef = useRef(0);
 
+	const { doc, history, controllers, viewState, undoable } =
+		useDocumentEditor(makeViewId("audio", assetUrl ?? NEW_PARAM), {
+			loadKey: [assetUrl],
+			load: () =>
+				assetUrl === null
+					? AudioDocument.empty(audio.sampleRate)
+					: AudioDocument.load(assetUrl, audio),
+			createControllers: () => ({
+				state: new AudioEditorState(),
+				recorder: new AudioRecorder(),
+			}),
+			onReset: (c) => c.state.reset(),
+			onDirty,
+			active,
+			onChange: () => setTick((t) => t + 1),
+		});
+	const { state, recorder } = controllers;
+
 	const tool = useEditorValue(state, (s) => s.tool);
 	const selectedClipId = useEditorValue(
 		state,
 		(s) => s.selectedClipId,
 	);
 
-	const { doc, history, undoable } = useDocumentEditor({
-		deps: [assetUrl, audio],
-		load: () =>
-			assetUrl === null
-				? AudioDocument.empty(audio.sampleRate)
-				: AudioDocument.load(assetUrl, audio),
-		onDirty,
-		active,
-		onReset: () => {
-			state.reset();
-			setPlayhead(0);
-		},
-		onChange: () => setTick((t) => t + 1),
-	});
+	// Restore the timeline track height a prior mount recorded (a cross-window
+	// move remounts the editor); a fresh view keeps the default.
+	useEffect(() => {
+		if (viewState.trackHeight !== null) {
+			setTrackHeight(viewState.trackHeight);
+		}
+	}, [viewState]);
 
 	const stopPlayback = (): void => {
 		handleRef.current?.stop();
@@ -240,7 +250,7 @@ const AudioEditor = ({
 		}
 	};
 
-	useHotkeys(
+	useScopedHotkeys(
 		"mod+s",
 		(e) => {
 			e.preventDefault();
@@ -249,7 +259,7 @@ const AudioEditor = ({
 		{ preventDefault: true, enabled: active },
 		[active, doc, assetUrl],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"space",
 		(e) => {
 			e.preventDefault();
@@ -258,7 +268,7 @@ const AudioEditor = ({
 		{ preventDefault: true, enabled: active },
 		[isPlaying, doc, playhead, active],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"v",
 		() => state.setTool("select"),
 		{
@@ -266,7 +276,7 @@ const AudioEditor = ({
 		},
 		[state, active],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"r",
 		() => state.setTool("razor"),
 		{
@@ -274,7 +284,7 @@ const AudioEditor = ({
 		},
 		[state, active],
 	);
-	useHotkeys(
+	useScopedHotkeys(
 		"delete,backspace",
 		() => deleteSelected(),
 		{
@@ -402,7 +412,10 @@ const AudioEditor = ({
 							}}
 							onClipPress={onClipPress}
 							onClipChange={onClipChange}
-							onTrackResize={(_id, h) => setTrackHeight(h)}
+							onTrackResize={(_id, h) => {
+								setTrackHeight(h);
+								viewState.setTrackHeight(h);
+							}}
 							renderClip={(_track, clip) => {
 								const audioClip = doc.clips.find(
 									(c) => c.id === clip.id,

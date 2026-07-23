@@ -44,7 +44,10 @@
 .slot {
 	position: absolute;
 	inset: 0;
-	background: var(--surface-raised);
+	--tab-ring: var(--accent);
+	--tab-active-bg: var(--tab-body);
+	--tab-corner: var(--unit-10);
+	background: var(--tab-strip);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
 	display: flex;
@@ -53,61 +56,144 @@
 	transition: box-shadow var(--duration-fast) var(--ease-standard);
 }
 
+// Two-level focus: in a window that is not the OS-focused one, the accent ring
+// and the active-tab merge treatment dim by blending back toward the strip.
+.windowUnfocused {
+	--tab-ring: color-mix(
+		in oklab,
+		var(--accent) 40%,
+		var(--tab-strip)
+	);
+	--tab-active-bg: color-mix(
+		in oklab,
+		var(--tab-body) 55%,
+		var(--tab-strip)
+	);
+}
+
 .slotFocused {
-	box-shadow: 0 0 0 var(--border-width) var(--accent);
+	box-shadow: 0 0 0 var(--border-width) var(--tab-ring);
 }
 
 .strip {
 	flex: none;
 	display: flex;
 	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--unit-8);
-	padding: var(--unit-8);
+	align-items: flex-end;
+	gap: var(--tab-corner);
+	padding: var(--unit-8) var(--unit-8) 0;
 }
 
+// Every tab shares one vertical box: same height, bottom edge flush with the
+// content body below the strip. Active/inactive is conveyed by colour and
+// corners only — never by moving the tab — so switching tabs causes no
+// vertical jump.
 .tab {
 	flex: none;
 	display: flex;
 	align-items: center;
 	gap: var(--unit-8);
 	padding: var(--unit-8) var(--unit-12);
-	border-radius: var(--radius-md);
+	border-radius: var(--tab-corner) var(--tab-corner) var(--radius-sm)
+		var(--radius-sm);
 	color: var(--on-surface-muted);
 	font: var(--font-body);
-	cursor: pointer;
+	cursor: grab;
 	user-select: none;
 	transition:
 		background var(--duration-fast) var(--ease-standard),
 		color var(--duration-fast) var(--ease-standard);
 
 	&:hover {
-		background: var(--surface-control);
+		background: var(--tab-inactive-hover);
 		color: var(--on-surface);
 	}
+
+	&:active {
+		cursor: grabbing;
+	}
 }
 
+// Chrome-style active tab: the same surface as the tabview body it sits above,
+// so it reads as fused into it. Its bottom corners are squared and the body
+// colour flares OUTWARD past each side via a concave fillet painted by the
+// ::before / ::after pseudo-elements — each a body-coloured square with a
+// quarter-circle of strip masked out of its OUTER top corner, so the body edge
+// curves up to meet the tab wall (the classic inverted-radius trick). Left
+// fillet curves down-and-left, right fillet down-and-right.
 .tabActive {
-	background: var(--surface-control);
+	position: relative;
+	background: var(--tab-active-bg);
 	color: var(--on-surface-strong);
-}
-
-.tabSingle {
-	background: transparent;
-	color: var(--on-surface-strong);
-	font: var(--font-body-strong);
-	cursor: default;
+	border-radius: var(--tab-corner) var(--tab-corner) 0 0;
 
 	&:hover {
-		background: transparent;
+		background: var(--tab-active-bg);
 		color: var(--on-surface-strong);
 	}
+
+	&::before,
+	&::after {
+		content: "";
+		position: absolute;
+		bottom: 0;
+		width: var(--tab-corner);
+		height: var(--tab-corner);
+		background: var(--tab-active-bg);
+		pointer-events: none;
+	}
+
+	&::before {
+		left: calc(-1 * var(--tab-corner));
+		mask: radial-gradient(
+			circle at top left,
+			transparent var(--tab-corner),
+			black 0
+		);
+	}
+
+	&::after {
+		right: calc(-1 * var(--tab-corner));
+		mask: radial-gradient(
+			circle at top right,
+			transparent var(--tab-corner),
+			black 0
+		);
+	}
+}
+
+// A lone tab is always its group's active tab, so it wears the full active
+// treatment (see .tabActive, applied alongside). It only adds a bold label so
+// it still reads as the window's grab handle.
+.tabSingle {
+	font: var(--font-body-strong);
 }
 
 .tabDragging {
-	opacity: 0.85;
+	opacity: 0.4;
 	cursor: grabbing;
 	box-shadow: 0 0 0 var(--border-width) var(--accent);
+}
+
+// The cursor-attached ghost cloned from the dragged tab. Positioning is set
+// imperatively by the drag controller; this only gives it the lifted look and
+// keeps it out of hit-testing so it can be painted into any window's body. It
+// is a free-floating pill, so it drops the active tab's concave merge fillets.
+.tabGhost {
+	pointer-events: none;
+	opacity: 0.9;
+	margin: 0;
+	border-radius: var(--tab-corner, var(--radius-md));
+	background: var(--tab-active-bg, var(--surface-raised));
+	color: var(--on-surface-strong);
+	box-shadow:
+		0 0 0 var(--border-width) var(--accent),
+		var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.45));
+
+	&::before,
+	&::after {
+		display: none;
+	}
 }
 
 .tabIcon {
@@ -142,7 +228,7 @@
 	width: var(--unit-6);
 	height: var(--unit-6);
 	border-radius: var(--radius-full);
-	background: var(--on-surface);
+	background: var(--tab-dirty);
 }
 
 .tabX {
@@ -173,6 +259,7 @@
 	position: relative;
 	flex: 1;
 	min-height: 0;
+	background: var(--tab-body);
 }
 
 .content {

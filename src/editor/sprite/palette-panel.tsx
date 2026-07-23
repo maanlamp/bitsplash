@@ -19,6 +19,7 @@ import Button from "../button";
 import controls from "../styles/controls.module.scss";
 import surface from "../styles/surface.module.scss";
 import Tooltip from "../tooltip";
+import { usePortalContainer } from "../window/portal-container";
 import { parseGpl, serializeGpl } from "./gpl-palette";
 import { parseHex, serializeHex } from "./hex-palette";
 import {
@@ -77,6 +78,7 @@ const PalettePanel = ({
 	);
 	useSyncExternalStore(state.subscribe, () => state.css);
 	const [selected, setSelected] = useState<number | null>(null);
+	const container = usePortalContainer();
 
 	const colors = spritePalette.colors;
 	const active = activePaletteColor(state);
@@ -191,7 +193,7 @@ const PalettePanel = ({
 							<UploadSimpleIcon />
 						</Menu.Trigger>
 					</Tooltip>
-					<Menu.Portal>
+					<Menu.Portal container={container}>
 						<Menu.Positioner sideOffset={8} align="end">
 							<Menu.Popup
 								className={clsx(surface.surface, surface.menu)}
@@ -224,7 +226,7 @@ const PalettePanel = ({
 							<DownloadSimpleIcon />
 						</Menu.Trigger>
 					</Tooltip>
-					<Menu.Portal>
+					<Menu.Portal container={container}>
 						<Menu.Positioner sideOffset={8} align="end">
 							<Menu.Popup
 								className={clsx(surface.surface, surface.menu)}

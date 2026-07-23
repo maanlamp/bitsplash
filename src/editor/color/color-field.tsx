@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { ColorResolver } from "../../engine/render/color-resolver";
 import type { FieldBinding } from "../commands";
 import surface from "../styles/surface.module.scss";
+import { usePortalContainer } from "../window/portal-container";
 import { Subscribable } from "../subscribable";
 import ColorPanel, { swatchBackground } from "./color-panel";
 import type { ColorPickerModel } from "./color-model";
@@ -119,6 +120,7 @@ export const ColorField = ({
 	binding: FieldBinding;
 }>) => {
 	const [open, setOpen] = useState(false);
+	const container = usePortalContainer();
 	const [model] = useState(
 		() => new FieldColorModel(binding, "css", value),
 	);
@@ -143,7 +145,7 @@ export const ColorField = ({
 					/>
 				}
 			/>
-			<Popover.Portal>
+			<Popover.Portal container={container}>
 				<Popover.Positioner sideOffset={8} align="start">
 					<Popover.Popup
 						className={clsx(surface.surface, styles.colorPanel)}

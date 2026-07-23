@@ -76,11 +76,6 @@ export const isSceneView = (id: ViewId): boolean =>
 export const isLegacyMultiViewId = (id: ViewId): boolean =>
 	isSceneView(id) && id.includes("#");
 
-export const isClosable = (id: ViewId): boolean =>
-	isAssetView(id) ||
-	isSceneView(id) ||
-	parseViewId(id).kind === "inspector";
-
 export const viewTitle = (id: ViewId): string => {
 	const { kind, param } = parseViewId(id);
 	switch (kind) {
@@ -136,6 +131,34 @@ export const viewIcon = (id: ViewId, isTileset = false): Icon => {
 		default:
 			return isTileset ? SquaresFourIcon : FileImageIcon;
 	}
+};
+
+/**
+ * Whether `id` is structurally sound independent of any live listing — a known
+ * singleton kind, a non-legacy scene id with a param, or an asset id with a real
+ * (non-`new`) param. Used at boot to keep persisted views while the asset
+ * listing and scene registry are still loading; the full {@link isValidViewId}
+ * prunes against those lists once they resolve (fixes the asset-view boot-prune
+ * bug where views were dropped against an empty initial list).
+ */
+export const isStructurallyValidViewId = (id: ViewId): boolean => {
+	const { kind, param } = parseViewId(id);
+	if (
+		kind === "tree" ||
+		kind === "inspector" ||
+		kind === "asset-browser" ||
+		kind === "console" ||
+		kind === "profiler"
+	) {
+		return true;
+	}
+	if (kind === "scene") {
+		return !isLegacyMultiViewId(id) && !!param;
+	}
+	if (!ASSET_KINDS.includes(kind)) {
+		return false;
+	}
+	return !!param && param !== NEW_PARAM;
 };
 
 export const isValidViewId = (

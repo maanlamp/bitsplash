@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import Button from "../button";
 import surface from "../styles/surface.module.scss";
+import { usePortalContainer } from "../window/portal-container";
 import styles from "./new-sprite-dialog.module.scss";
 import { TILESET_BSPRITE_SUFFIX } from "../assets";
 import { snapTilesetWidth } from "../../engine/tilemap/autotile";
@@ -37,6 +38,7 @@ const NewSpriteDialog = ({
 	const [kind, setKind] = useState(isTileset);
 	const [width, setWidth] = useState(isTileset ? 96 : 32);
 	const [height, setHeight] = useState(isTileset ? 96 : 32);
+	const container = usePortalContainer();
 	const wasOpen = useRef(false);
 
 	useEffect(() => {
@@ -70,7 +72,7 @@ const NewSpriteDialog = ({
 				}
 			}}
 		>
-			<Dialog.Portal>
+			<Dialog.Portal container={container}>
 				<Dialog.Backdrop className={surface.backdrop} />
 				<Dialog.Popup
 					className={clsx(surface.dialogPopup, styles.newSpritePanel)}

@@ -28,10 +28,12 @@ import type { BspriteTag } from "../../engine/sprite/bsprite-manifest";
 import Button from "../button";
 import GradientSlider from "../color/gradient-slider";
 import SliderValue from "../color/slider-value";
+import type { DocumentViewState } from "../document/document-view-state";
 import type { History } from "../history";
 import controls from "../styles/controls.module.scss";
 import surface from "../styles/surface.module.scss";
 import Tooltip from "../tooltip";
+import { usePortalContainer } from "../window/portal-container";
 import { BLEND_MODES } from "./blend-modes";
 import CelThumbnail from "./cel-thumbnail";
 import { moveCel } from "./cel-commands";
@@ -258,6 +260,7 @@ const LayerAxisRow = ({
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
 	const beforeOpacity = useRef<number | null>(null);
+	const container = usePortalContainer();
 
 	const commitName = () => {
 		setEditing(false);
@@ -383,7 +386,7 @@ const LayerAxisRow = ({
 						<CaretDownIcon />
 					</Select.Icon>
 				</Select.Trigger>
-				<Select.Portal>
+				<Select.Portal container={container}>
 					<Select.Positioner
 						sideOffset={4}
 						align="start"
@@ -418,7 +421,7 @@ const LayerAxisRow = ({
 						{Math.round(layer.opacity * 100)}%
 					</Popover.Trigger>
 				</Tooltip>
-				<Popover.Portal>
+				<Popover.Portal container={container}>
 					<Popover.Positioner sideOffset={8}>
 						<Popover.Popup
 							className={clsx(surface.surface, styles.opacityPopup)}
@@ -623,10 +626,12 @@ const Timeline = ({
 	doc,
 	history,
 	onion,
+	viewState,
 }: Readonly<{
 	doc: SpriteDocument;
 	history: History;
 	onion: OnionState;
+	viewState: DocumentViewState;
 }>) => {
 	const version = useSyncExternalStore(
 		doc.subscribe,
@@ -634,6 +639,19 @@ const Timeline = ({
 	);
 	const laneRef = useRef<HTMLDivElement | null>(null);
 	const activeCelRef = useRef<HTMLDivElement | null>(null);
+	const scrollRef = useRef<HTMLDivElement | null>(null);
+
+	// Restore the scroll offset a prior mount recorded (a cross-window move
+	// remounts the timeline). With none recorded — a fresh view — leave the grid
+	// at its natural origin, exactly as before, and let the active-cel effect
+	// below govern visibility.
+	useEffect(() => {
+		const scroll = viewState.timelineScroll;
+		if (scroll && scrollRef.current) {
+			scrollRef.current.scrollLeft = scroll.left;
+			scrollRef.current.scrollTop = scroll.top;
+		}
+	}, [viewState]);
 
 	const frames = doc.frames;
 	const frameCount = frames.length;
@@ -714,7 +732,16 @@ const Timeline = ({
 					</Button>
 				</Tooltip>
 			</div>
-			<div className={styles.scroll}>
+			<div
+				ref={scrollRef}
+				className={styles.scroll}
+				onScroll={(e) =>
+					viewState.setTimelineScroll({
+						left: e.currentTarget.scrollLeft,
+						top: e.currentTarget.scrollTop,
+					})
+				}
+			>
 				<div className={styles.grid} style={gridStyle}>
 					<div
 						className={styles.corner}

@@ -16,6 +16,7 @@ import type { TileGrid } from "../../engine/tilemap/grid";
 export class TilesetPreviewSystem implements RenderSystem {
 	private batch: StaticBatch | null = null;
 	private batchRenderer: Renderer2D | null = null;
+	private unsubscribeRestored: (() => void) | null = null;
 	private version = -1;
 
 	constructor(
@@ -38,9 +39,15 @@ export class TilesetPreviewSystem implements RenderSystem {
 			SHEET_COLUMNS,
 			srcSize,
 		);
+		// The batch's VAO/VBO belong to the renderer's GL context; a cross-window
+		// move (or context loss) rebuilds it, so re-bake on the next frame.
 		if (this.batchRenderer !== renderer) {
+			this.unsubscribeRestored?.();
 			this.batchRenderer = renderer;
 			this.batch = null;
+			this.unsubscribeRestored = renderer.onContextRestored(() => {
+				this.batch = null;
+			});
 		}
 		if (!this.batch) {
 			this.batch = renderer.createStaticBatch();

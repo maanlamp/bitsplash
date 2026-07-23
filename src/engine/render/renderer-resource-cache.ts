@@ -2,11 +2,13 @@ import type Renderer2D from "./renderer-2d";
 
 /**
  * The slice of {@link Renderer2D} a {@link RendererResourceCache} depends on:
- * only a hook to learn when the renderer is disposed. Declared structurally so
- * the cache can be unit-tested without a live WebGL context.
+ * a hook to learn when the renderer is disposed, and one to learn when its GL
+ * context was rebuilt (context loss recovery, or a cross-window move). Declared
+ * structurally so the cache can be unit-tested without a live WebGL context.
  */
 export interface DisposableRenderer {
 	onDispose(listener: () => void): void;
+	onContextRestored(listener: () => void): () => void;
 }
 
 /**
@@ -46,13 +48,23 @@ export class RendererResourceCache<
 		}
 		const value = this.create(renderer);
 		this.entries.set(renderer, value);
-		renderer.onDispose(() => {
+		// Drop the entry when its renderer is disposed, and also when the
+		// renderer rebuilds its GL context: the cached value holds GPU objects
+		// (VAOs/VBOs) bound to the old context and is invalid across a rebuild, so
+		// it is destroyed and the next `get` re-creates + re-bakes it against the
+		// new context.
+		let unsubscribeRestored: (() => void) | null = null;
+		const drop = (): void => {
 			const current = this.entries.get(renderer);
 			if (current !== undefined) {
 				this.destroy(current);
 				this.entries.delete(renderer);
 			}
-		});
+			unsubscribeRestored?.();
+			unsubscribeRestored = null;
+		};
+		renderer.onDispose(drop);
+		unsubscribeRestored = renderer.onContextRestored(drop);
 		return value;
 	}
 

@@ -2,6 +2,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { Project } from "../src/editor/project";
 import {
 	allViewIds,
+	getWindow,
+	HUB_WINDOW_ID,
 	type Workspace,
 	WORKSPACE_VERSION,
 } from "../src/editor/workspace/layout";
@@ -95,14 +97,22 @@ describe("workspace persistence migration", () => {
 		focused: string,
 	): Workspace => ({
 		version: WORKSPACE_VERSION,
-		root: { type: "tabs", views, active: focused },
-		focused,
+		windows: [
+			{
+				id: HUB_WINDOW_ID,
+				focused,
+				root: { type: "tabs", id: "tg-test", views, active: focused },
+			},
+		],
 	});
+
+	const hub = (workspace: Workspace) =>
+		getWindow(workspace, HUB_WINDOW_ID)!;
 
 	test("a legacy layout with only a primary scene id loads unchanged", () => {
 		persist(tabsWorkspace(["scene:demo"], "scene:demo"));
 
-		const loaded = loadWorkspace(isValid, "scene:demo");
+		const loaded = hub(loadWorkspace(isValid, "scene:demo"));
 
 		expect(allViewIds(loaded.root)).toEqual(["scene:demo"]);
 		expect(loaded.focused).toBe("scene:demo");
@@ -113,7 +123,7 @@ describe("workspace persistence migration", () => {
 			tabsWorkspace(["scene:demo", "scene:demo#2"], "scene:demo#2"),
 		);
 
-		const loaded = loadWorkspace(isValid, "scene:demo");
+		const loaded = hub(loadWorkspace(isValid, "scene:demo"));
 
 		expect([...allViewIds(loaded.root)]).toEqual(["scene:demo"]);
 		// The dropped id can no longer be the focused view; focus clears to
@@ -126,7 +136,7 @@ describe("workspace persistence migration", () => {
 			tabsWorkspace(["scene:demo#2", "scene:demo#3"], "scene:demo#2"),
 		);
 
-		const loaded = loadWorkspace(isValid, "scene:demo");
+		const loaded = hub(loadWorkspace(isValid, "scene:demo"));
 
 		// Every persisted view was legacy; the default workspace is restored,
 		// which contains a single primary scene view.
