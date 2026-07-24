@@ -21,12 +21,16 @@ const Node = ({
 	path,
 	renderView,
 	onResize,
+	onDragStart,
+	onDragEnd,
 	api,
 }: Readonly<{
 	node: LayoutNode;
 	path: ReadonlyArray<number>;
 	renderView: (id: ViewId) => ReactNode;
 	onResize: ResizeHandler;
+	onDragStart?: () => void;
+	onDragEnd?: () => void;
 	api: TabApi;
 }>) => {
 	if (node.type === "tabs") {
@@ -39,6 +43,8 @@ const Node = ({
 			onResize={(dividerIndex, delta) =>
 				onResize(path, dividerIndex, delta)
 			}
+			onDragStart={onDragStart}
+			onDragEnd={onDragEnd}
 		>
 			{node.children.map((child, i) => (
 				<Node
@@ -47,6 +53,8 @@ const Node = ({
 					path={[...path, i]}
 					renderView={renderView}
 					onResize={onResize}
+					onDragStart={onDragStart}
+					onDragEnd={onDragEnd}
 					api={api}
 				/>
 			))}
@@ -70,6 +78,8 @@ const Workspace = ({
 	dirtyViews,
 	isTilesetView,
 	windowFocused,
+	onSplitDragStart,
+	onSplitDragEnd,
 }: Readonly<{
 	windowLayout: WindowLayout;
 	onChange: (
@@ -81,6 +91,8 @@ const Workspace = ({
 	dirtyViews: ReadonlySet<ViewId>;
 	isTilesetView: (id: ViewId) => boolean;
 	windowFocused: boolean;
+	onSplitDragStart?: () => void;
+	onSplitDragEnd?: () => void;
 }>) => {
 	const activate = (id: ViewId): void => {
 		if (windowLayout.focused === id) {
@@ -118,6 +130,8 @@ const Workspace = ({
 					path={[]}
 					renderView={renderView}
 					onResize={onResize}
+					onDragStart={onSplitDragStart}
+					onDragEnd={onSplitDragEnd}
 					api={api}
 				/>
 			</div>

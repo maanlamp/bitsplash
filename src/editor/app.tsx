@@ -413,6 +413,34 @@ const App = ({
 		markActive(windowId, updated?.focused ?? null);
 	};
 
+	/**
+	 * Freeze (or resume) backing-store reallocation for every scene view in a
+	 * window while one of its splitters is being dragged. Suspending letterboxes
+	 * the frozen frame instead of reallocating the WebGL backing store every
+	 * frame; resuming re-syncs each viewport once so the next rendered frame is
+	 * crisp. Scoped to the dragged window — views elsewhere keep resizing live.
+	 */
+	const setWindowResizeSuspended = (
+		windowId: WindowId,
+		suspended: boolean,
+	): void => {
+		const window = getWindow(workspaceRef.current, windowId);
+		if (!window) {
+			return;
+		}
+		for (const id of allViewIds(window.root)) {
+			if (!isSceneView(id)) {
+				continue;
+			}
+			const viewport = sceneViewsRef.current.get(id)?.viewport;
+			if (suspended) {
+				viewport?.suspendResize();
+			} else {
+				viewport?.resumeResize();
+			}
+		}
+	};
+
 	const saveScene = async (
 		sceneId: string,
 		view: SceneView,
@@ -1810,6 +1838,12 @@ const App = ({
 					onMoveToNewWindow={moveToNewWindow}
 					dirtyViews={dirtyViews}
 					isTilesetView={isTilesetView}
+					onSplitDragStart={() =>
+						setWindowResizeSuspended(windowId, true)
+					}
+					onSplitDragEnd={() =>
+						setWindowResizeSuspended(windowId, false)
+					}
 					viewBarState={(kind) =>
 						viewBarState(workspace, kind, windowId)
 					}

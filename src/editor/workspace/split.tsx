@@ -58,11 +58,9 @@ const Split = ({
 	);
 
 	const onResize = (dividerIndex: number, delta: number) => {
-		setSizes((prev) => {
-			const next = adjustSizes(prev, dividerIndex, delta);
-			saveSizes(storageKey, next);
-			return next;
-		});
+		const next = adjustSizes(sizes, dividerIndex, delta);
+		setSizes(next);
+		saveSizes(storageKey, next);
 	};
 
 	return (

@@ -52,6 +52,8 @@ const WindowShell = ({
 	playtestPhase,
 	windowFocused,
 	showTitleBar,
+	onSplitDragStart,
+	onSplitDragEnd,
 	children,
 }: Readonly<{
 	windowId: WindowLayout["id"];
@@ -73,6 +75,8 @@ const WindowShell = ({
 	playtestPhase: PlaytestPhase;
 	windowFocused: boolean;
 	showTitleBar: boolean;
+	onSplitDragStart?: () => void;
+	onSplitDragEnd?: () => void;
 	children?: ReactNode;
 }>) => {
 	const empty = allViewIds(windowLayout.root).length === 0;
@@ -104,6 +108,8 @@ const WindowShell = ({
 										dirtyViews={dirtyViews}
 										isTilesetView={isTilesetView}
 										windowFocused={windowFocused}
+										onSplitDragStart={onSplitDragStart}
+										onSplitDragEnd={onSplitDragEnd}
 									/>
 								)}
 							</div>
