@@ -1,12 +1,54 @@
 import type { Camera2D } from "../camera/camera-2d";
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
+import { CameraFollowBorrowComponent } from "../camera/camera-follow-borrow-component";
+import { CameraTransitionComponent } from "../camera/camera-transition-component";
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
 import { TransformComponent } from "../transform-component";
 import type { ECS, EntityId } from "../ecs";
 import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import Vector2 from "../vector2";
+
+/**
+ * Record the gameplay follow state as borrowed by `owner`, so
+ * {@link Camera2DFollowSystem} hands it back when that entity is gone. Called by
+ * every sequence op that drives the camera; idempotent, and a later borrower
+ * (a chained cutscene) takes over the existing snapshot rather than overwriting
+ * it with an intermediate cutscene framing.
+ *
+ * @example
+ * borrowCameraFollow(ctx.ecs, ctx.entityId); // then reframe freely
+ */
+export const borrowCameraFollow = (
+	ecs: ECS,
+	owner: EntityId,
+): void => {
+	const entry = ecs.query(
+		Camera2DComponent,
+		Camera2DFollowComponent,
+	)[0];
+	if (!entry) {
+		return;
+	}
+	const [cameraEntity, , follow] = entry;
+	const existing = ecs.getComponent(
+		cameraEntity,
+		CameraFollowBorrowComponent,
+	);
+	if (existing) {
+		existing.owner.set(owner);
+		return;
+	}
+	ecs.addComponent(
+		cameraEntity,
+		new CameraFollowBorrowComponent(
+			owner,
+			follow.targets,
+			follow.zoom,
+		),
+	);
+};
 
 const clamp = (value: number, limit: number): number =>
 	Math.max(-limit, Math.min(limit, value));
@@ -33,10 +75,11 @@ const deadzoned = (
 export class Camera2DFollowSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = dt / 1000;
-		for (const [, cameraComponent, follow] of ecs.query(
+		for (const [cameraEntity, cameraComponent, follow] of ecs.query(
 			Camera2DComponent,
 			Camera2DFollowComponent,
 		)) {
+			this.reclaimFromDeadBorrower(ecs, cameraEntity, follow);
 			const camera = cameraComponent.camera;
 			const points = this.resolveTargets(ecs, follow.targets);
 			if (points.length === 0) {
@@ -85,6 +128,35 @@ export class Camera2DFollowSystem implements UpdateSystem {
 				camera.confineTo(follow.bounds);
 			}
 		}
+	}
+
+	/**
+	 * Give the camera back to gameplay once the cutscene that borrowed it no
+	 * longer exists: restore the borrowed follow targets and zoom, and drop any
+	 * transition the vanished sequence left mid-glide. This is the only release
+	 * path, so it covers a cutscene that ended, one that was skipped, and one
+	 * whose entity was destroyed outright.
+	 */
+	private reclaimFromDeadBorrower(
+		ecs: ECS,
+		cameraEntity: EntityId,
+		follow: Camera2DFollowComponent,
+	): void {
+		const borrow = ecs.getComponent(
+			cameraEntity,
+			CameraFollowBorrowComponent,
+		);
+		if (!borrow) {
+			return;
+		}
+		const owner = borrow.owner.id;
+		if (owner !== null && ecs.componentsOf(owner).length > 0) {
+			return;
+		}
+		follow.targets = [...borrow.targets];
+		follow.zoom = borrow.zoom;
+		ecs.removeComponent(cameraEntity, CameraTransitionComponent);
+		ecs.removeComponent(cameraEntity, CameraFollowBorrowComponent);
 	}
 
 	private resolveTargets(

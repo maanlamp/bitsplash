@@ -189,6 +189,15 @@ export type CameraToParams = Readonly<{
 	follow?: boolean;
 }>;
 
+/**
+ * Move the camera to a point or an actor, optionally tracking it afterwards
+ * (`follow: true`). Exclusive sequences only, and camera control is
+ * sequence-scoped: whatever the cutscene frames, gameplay gets its follow
+ * targets and zoom back when the sequence ends, is skipped, or is destroyed.
+ *
+ * @example
+ * cameraTo("ambush.frame-player", { target: "player", zoom: 3, duration: 1, follow: true })
+ */
 export const cameraTo = (
 	stepId: string,
 	params: CameraToParams,
@@ -199,6 +208,13 @@ export type FocusOnParams = Readonly<{
 	framing: SequenceFraming;
 }>;
 
+/**
+ * {@link cameraTo} with a named framing (zoom, mode, duration, tile offset), and
+ * the same sequence-scoped camera ownership.
+ *
+ * @example
+ * focusOn("campfire.settle", { target: "companion", framing: { zoom: 4, duration: 1.5 } })
+ */
 export const focusOn = (
 	stepId: string,
 	params: FocusOnParams,
@@ -208,6 +224,14 @@ export type FollowParams = Readonly<{
 	actors: readonly ActorRef[];
 }>;
 
+/**
+ * Point the camera's follow at these actors for the rest of the sequence (one
+ * actor tracks it, several frame them all). Sequence-scoped like the other
+ * camera ops, so it never needs a trailing step to hand the camera back.
+ *
+ * @example
+ * follow("npc-chat.frame", { actors: ["player", "npc"] })
+ */
 export const follow = (
 	stepId: string,
 	params: FollowParams,

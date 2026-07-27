@@ -1,5 +1,6 @@
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
+import { borrowCameraFollow } from "../camera/camera-2d-follow-system";
 import {
 	type CameraTransitionConfig,
 	CameraTransitionComponent,
@@ -48,12 +49,19 @@ const fadeExecutor: OpExecutor = {
 	},
 };
 
-const requireExclusive = (ctx: OpContext, op: string): void => {
+/**
+ * Assert the sequence may drive the camera and record the gameplay follow state
+ * as borrowed by this sequence, so the camera is handed back when the sequence
+ * is gone however it ends. Every camera op goes through here, which is what
+ * keeps camera control sequence-scoped by construction.
+ */
+const takeCamera = (ctx: OpContext, op: string): void => {
 	if (ctx.sequenceClass !== "exclusive") {
 		throw new Error(
 			`sequence op "${op}" is exclusive-only; an ambient sequence may not drive the camera`,
 		);
 	}
+	borrowCameraFollow(ctx.ecs, ctx.entityId);
 };
 
 const resolveCameraTarget = (
@@ -98,7 +106,7 @@ const cameraTransitionActive = (ctx: OpContext): boolean =>
 
 const cameraToExecutor: OpExecutor = {
 	arm(ctx, params, memory) {
-		requireExclusive(ctx, OP_TYPES.cameraTo);
+		takeCamera(ctx, OP_TYPES.cameraTo);
 		if (memory.issued === true) {
 			return;
 		}
@@ -119,7 +127,7 @@ const cameraToExecutor: OpExecutor = {
 		return !cameraTransitionActive(ctx);
 	},
 	skip(ctx, params, memory) {
-		requireExclusive(ctx, OP_TYPES.cameraTo);
+		takeCamera(ctx, OP_TYPES.cameraTo);
 		startCameraTransition(
 			ctx.ecs,
 			cameraConfig(
@@ -186,7 +194,7 @@ const focusConfig = (
 
 const focusOnExecutor: OpExecutor = {
 	arm(ctx, params, memory) {
-		requireExclusive(ctx, OP_TYPES.focusOn);
+		takeCamera(ctx, OP_TYPES.focusOn);
 		if (memory.issued === true) {
 			return;
 		}
@@ -197,7 +205,7 @@ const focusOnExecutor: OpExecutor = {
 		return !cameraTransitionActive(ctx);
 	},
 	skip(ctx, params, memory) {
-		requireExclusive(ctx, OP_TYPES.focusOn);
+		takeCamera(ctx, OP_TYPES.focusOn);
 		startCameraTransition(
 			ctx.ecs,
 			focusConfig(ctx, params),
@@ -223,14 +231,14 @@ const applyFollow = (ctx: OpContext, params: OpParams): void => {
 
 const followExecutor: OpExecutor = {
 	arm(ctx, params) {
-		requireExclusive(ctx, OP_TYPES.follow);
+		takeCamera(ctx, OP_TYPES.follow);
 		applyFollow(ctx, params);
 	},
 	poll() {
 		return true;
 	},
 	skip(ctx, params) {
-		requireExclusive(ctx, OP_TYPES.follow);
+		takeCamera(ctx, OP_TYPES.follow);
 		applyFollow(ctx, params);
 	},
 };
