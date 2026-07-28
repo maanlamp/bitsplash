@@ -1,11 +1,19 @@
 import type { DialogueBindings } from "../../engine/dialogue/dialogue-system";
 import type { Seconds } from "../../engine/duration";
 import { ACTION_IDS } from "../input/action-ids";
-import { DIALOGUE_UI, dialogueTextWidth } from "./dialogue-ui";
+import { BUBBLE_MAX_TEXT_WIDTH } from "./conversation-view";
+import { presentDialogue } from "./dialogue-handoff";
 
+/**
+ * The typewriter counts the **same wrap the panel paints**: the width is
+ * `BUBBLE_MAX_TEXT_WIDTH`, and `presentDialogue` puts the speaker's own font and
+ * the message's own markup on the session. Wrapping the same string at two widths
+ * (or in two typefaces) yields different line counts and, because a wrap drops
+ * the space at each break, different glyph counts — so `revealed` would count
+ * against a total the panel never paints.
+ */
 export const platformerDialogueBindings: DialogueBindings = {
-	textWidth: dialogueTextWidth,
-	maxLines: DIALOGUE_UI.maxTextLines,
+	textWidth: BUBBLE_MAX_TEXT_WIDTH,
 	charactersPerSecond: 24,
 	commaPauseChars: 8,
 	midPauseChars: 13,
@@ -17,7 +25,5 @@ export const platformerDialogueBindings: DialogueBindings = {
 		actions.fired(ACTION_IDS.dialogueAdvance),
 	consumeAdvance: ({ actions }) =>
 		actions.consume(ACTION_IDS.dialogueAdvance),
-	navUpHeld: ({ actions }) => actions.fired(ACTION_IDS.dialogueNavUp),
-	navDownHeld: ({ actions }) =>
-		actions.fired(ACTION_IDS.dialogueNavDown),
+	present: presentDialogue,
 };

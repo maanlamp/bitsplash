@@ -52,6 +52,10 @@ export interface TextProps {
 	children?: string | number;
 }
 
+/**
+ * An `image` node has no measure function, so it lays out 0×0 unless `style`
+ * gives it an explicit `width` and `height`.
+ */
 export interface ImageProps {
 	style?: Style;
 	src: TileSource;
@@ -59,6 +63,8 @@ export interface ImageProps {
 	srcY?: number;
 	srcW?: number;
 	srcH?: number;
+	/** Mirrors the drawn image horizontally; layout is unaffected. */
+	flipX?: boolean;
 }
 
 export interface GlyphTextProps {

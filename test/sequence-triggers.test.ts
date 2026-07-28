@@ -34,7 +34,7 @@ const CHECKPOINT_INK = [
 	"Toll bridge, friend.",
 	"-> DONE",
 	"= demand",
-	"Papers, please.",
+	"Papers, please. # speaker: pennywhistle",
 	"+ [Bribe] # id: bribe",
 	"+ [Refuse] # id: refuse",
 	"- -> DONE",
@@ -45,7 +45,7 @@ const CHECKPOINT_INK = [
 	"I am watching you.",
 	"-> DONE",
 	"= wave_through",
-	"Go on, then.",
+	"Go on, then. # speaker: pennywhistle",
 	"-> DONE",
 	"",
 ].join("\n");

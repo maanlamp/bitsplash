@@ -53,6 +53,37 @@
 			"jumpSpeed": 320
 		},
 		"NpcTag": {},
+		"Faction": {
+			"faction": "folk"
+		},
+		"Perception": {
+			"viewDistanceTiles": 6,
+			"viewAngle": {
+				"$type": "Angle",
+				"radians": 0.9
+			},
+			"detectTime": {
+				"$type": "Duration",
+				"seconds": 0.5
+			},
+			"forgetTime": {
+				"$type": "Duration",
+				"seconds": 4
+			},
+			"noticeProximityTiles": 10
+		},
+		"NpcScan": {
+			"dwell": {
+				"$type": "Duration",
+				"seconds": 2.5
+			}
+		},
+		"Character": {
+			"character": "quartermaster"
+		},
+		"Reaction": {
+			"table": "npc"
+		},
 		"QuestGiverTag": {},
 		"DialogueSource": {
 			"knot": "pickup_tutor"

@@ -169,10 +169,16 @@ const tickNode = (node: OpNode, ctx: OpContext): boolean => {
 const tickNodeOrDone = (node: OpNode, ctx: OpContext): boolean =>
 	ctx.run.isDone(node.stepId) ? true : tickNode(node, ctx);
 
-export const nodeSkippable = (
-	node: OpNode,
-	ctx: OpContext,
-): boolean => {
+/**
+ * Whether a fast-forward is worth offering here — what drives the skip HUD and
+ * gates the skip input. It is deliberately conservative: `seq` and `parallel`
+ * answer for *every* child, reached or not, so one unskippable step makes the
+ * whole sequence unskippable throughout.
+ *
+ * It is not a precondition of {@link skipSequence}: handlers decline for
+ * themselves by returning `false` from `skip`, and a `waitUntil` always does.
+ */
+const nodeSkippable = (node: OpNode, ctx: OpContext): boolean => {
 	const run = ctx.run;
 	if (run.isDone(node.stepId)) {
 		return true;
@@ -191,9 +197,8 @@ export const nodeSkippable = (
 			return chosen === null || nodeSkippable(chosen, ctx);
 		}
 		case "wait":
-			return true;
 		case "waitUntil":
-			return false;
+			return true;
 		case "op": {
 			const executor = lookupOpType(node.type);
 			return (
@@ -211,9 +216,6 @@ const skipNode = (node: OpNode, ctx: OpContext): boolean => {
 	const run = ctx.run;
 	if (run.isDone(node.stepId)) {
 		return true;
-	}
-	if (!nodeSkippable(node, ctx)) {
-		return false;
 	}
 	switch (node.kind) {
 		case "seq": {
@@ -247,14 +249,19 @@ const skipNode = (node: OpNode, ctx: OpContext): boolean => {
 			}
 			return false;
 		}
-		case "wait":
-		case "waitUntil": {
+		case "wait": {
 			run.markDone(node.stepId);
 			return true;
 		}
+		case "waitUntil":
+			return false;
 		case "op": {
 			const executor = lookupOpType(node.type);
-			executor.skip(ctx, node.params, run.memoryFor(node.stepId));
+			if (
+				!executor.skip(ctx, node.params, run.memoryFor(node.stepId))
+			) {
+				return false;
+			}
 			run.markDone(node.stepId);
 			return true;
 		}

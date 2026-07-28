@@ -7,23 +7,41 @@ import {
 	serialize,
 } from "../serialization/serializable";
 import { FontSettings } from "../text/font-settings";
-import type { RichLine } from "../text/rich-text";
+import type { WrappedText } from "./dialogue-text";
 
 export type DialoguePhase = "entering" | "open" | "closing";
 
 @serializable("Dialogue")
 export class DialogueComponent {
 	@serialize() source: EntityRef;
+	/**
+	 * The typeface {@link text} is wrapped in — the speaker's own, written by the
+	 * `present` binding each time it puts a message up, so the typewriter counts
+	 * the glyphs the presentation layer paints.
+	 */
 	@serialize() font: FontSettings;
+	/**
+	 * The raw `# speaker:` tag in effect where the story last stopped, empty when
+	 * nothing has been attributed yet. It stays a raw string because the
+	 * vocabulary it draws from is game content; the game layer feeds it back into
+	 * `gatherMessages` so a line reached through a choice keeps its speaker.
+	 */
 	@serialize() speaker = "";
+	/** The raw `# emotion:` tag in effect, carried alongside {@link speaker}. */
+	@serialize() emotion = "";
 
+	/**
+	 * The message on screen as **rich-text markup**, ready to wrap — the same
+	 * string the presentation layer wraps to paint it, tags and all.
+	 */
 	@serialize() text = "";
-	@serialize() paginated = false;
-	@serialize() pages: RichLine[][] = [];
-	pausesByPage: number[][] = [];
-	speedsByPage: number[][] = [];
-	@serialize() pageIndex = 0;
 	@serialize() revealed = 0;
+	/**
+	 * {@link text} laid out for display, rebuilt by `DialogueSystem` whenever
+	 * `text` changes. Transient: it is derived from `text` and the loaded font,
+	 * so a restored save re-wraps against whatever font is loaded then.
+	 */
+	wrapped: WrappedText | null = null;
 	cps = 0;
 	pause = 0 as Seconds;
 	complete = false;
@@ -33,12 +51,10 @@ export class DialogueComponent {
 	@serialize() selectedOption = 0;
 
 	@serialize() opened = false;
-	navUpHeld = false;
-	navDownHeld = false;
 	pendingConfirm = false;
 
 	@serialize() phase: DialoguePhase = "entering";
-	slide = new Tween();
+	@serialize() slide = new Tween();
 
 	constructor(
 		source: EntityId | null = null,

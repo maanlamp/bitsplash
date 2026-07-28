@@ -12,6 +12,13 @@ import type { FocusDirection } from "./ui-event";
 const ORTHOGONAL_WEIGHT_LEFT_RIGHT = 30;
 const ORTHOGONAL_WEIGHT_UP_DOWN = 2;
 
+const RE_RESOLVE_ORDER: readonly FocusDirection[] = [
+	"down",
+	"up",
+	"right",
+	"left",
+];
+
 type Edges = {
 	left: number;
 	top: number;
@@ -198,6 +205,26 @@ export class FocusNav {
 		return this.bestCandidate(direction, from, candidates);
 	}
 
+	/**
+	 * Re-points focus after `node` has left the tree. Focus never lingers on a
+	 * detached node: it moves to the nearest remaining chain neighbour — an
+	 * explicit `focusNeighbors` target first, then the best geometric candidate
+	 * from the departing node's last known position, then the first focusable
+	 * left standing.
+	 *
+	 * Call with `node` already detached from `root` but still carrying its
+	 * `layoutRect`. Returns the node focus landed on, or `null` when `node` did
+	 * not hold focus or nothing focusable remains.
+	 */
+	nodeRemoved(root: UiNode, node: UiNode): UiNode | null {
+		if (this.focused !== node) {
+			return null;
+		}
+		const replacement = this.replacementFor(root, node);
+		this.focus(replacement);
+		return replacement;
+	}
+
 	move(root: UiNode, direction: FocusDirection): UiNode | null {
 		const target = this.resolve(root, direction);
 		if (target) {
@@ -235,6 +262,33 @@ export class FocusNav {
 			return list[0]!;
 		}
 		return null;
+	}
+
+	private replacementFor(root: UiNode, node: UiNode): UiNode | null {
+		const neighbors = focusNeighborsOf(node);
+		const scope = this.trapRoot ?? root;
+		if (neighbors) {
+			for (const direction of RE_RESOLVE_ORDER) {
+				const id = neighbors[direction];
+				const target = id ? findById(scope, id) : null;
+				if (target && isFocusable(target) && target.layoutRect) {
+					return target;
+				}
+			}
+		}
+		const candidates = collectFocusables(root, this.trapRoot).filter(
+			(candidate) => candidate !== node,
+		);
+		const from = edgesOf(node);
+		if (from) {
+			for (const direction of RE_RESOLVE_ORDER) {
+				const best = this.bestCandidate(direction, from, candidates);
+				if (best) {
+					return best;
+				}
+			}
+		}
+		return candidates.length ? candidates[0]! : null;
 	}
 
 	private bestCandidate(

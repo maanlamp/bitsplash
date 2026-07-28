@@ -1,5 +1,7 @@
 import type { DeviceSnapshot } from "../../input/device-snapshot";
+import { token } from "../../input/edge-detector";
 import type { GamepadState } from "../../input/gamepad";
+import Vector2 from "../../vector2";
 
 export const WHEEL_TOKEN = "mouse:wheel";
 
@@ -89,7 +91,31 @@ const padHasConsumed = (
 			return true;
 		}
 	}
+	for (const pair in state.axes) {
+		if (
+			consumed.has(token.stick(pad, pair, "x")) ||
+			consumed.has(token.stick(pad, pair, "y"))
+		) {
+			return true;
+		}
+	}
 	return false;
+};
+
+const maskAxes = (
+	pad: string,
+	axes: Readonly<Record<string, Vector2>>,
+	consumed: ReadonlySet<string>,
+): Readonly<Record<string, Vector2>> => {
+	const out: Record<string, Vector2> = {};
+	for (const pair in axes) {
+		const stick = axes[pair]!;
+		const x = consumed.has(token.stick(pad, pair, "x")) ? 0 : stick.x;
+		const y = consumed.has(token.stick(pad, pair, "y")) ? 0 : stick.y;
+		out[pair] =
+			x === stick.x && y === stick.y ? stick : new Vector2(x, y);
+	}
+	return out;
 };
 
 const maskPad = (
@@ -112,7 +138,7 @@ const maskPad = (
 	}
 	return {
 		buttons,
-		axes: state.axes,
+		axes: maskAxes(pad, state.axes, consumed),
 		id: state.id,
 		mapping: state.mapping,
 	};

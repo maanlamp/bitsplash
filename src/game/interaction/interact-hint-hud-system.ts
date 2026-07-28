@@ -1,9 +1,5 @@
-import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../../engine/sprite/sprite-component";
+import { isExclusiveSequenceRunning } from "../../engine/sequence/sequence-system";
+import { entityTop } from "../../engine/sprite/entity-top";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -27,6 +23,11 @@ import { profiler } from "../../engine/profiling/profiler";
 
 const GAP = 20;
 
+/**
+ * Places the "press E" keycap above the interactable in range. Cleared whenever
+ * an exclusive sequence is running — matching `DialogueTriggerSystem`'s gate, so
+ * the keycap never promises an interaction that would be silently swallowed.
+ */
 @profiler("Interact hint HUD", "HUD")
 export class InteractHintHudSystem implements UpdateSystem {
 	constructor(
@@ -46,7 +47,7 @@ export class InteractHintHudSystem implements UpdateSystem {
 			? ecs.getComponent(inRange, TransformComponent)
 			: null;
 		if (
-			isExclusiveSequenceActive(ecs) ||
+			isExclusiveSequenceRunning(ecs) ||
 			!state ||
 			!inRange ||
 			!interactable ||
@@ -78,19 +79,11 @@ export class InteractHintHudSystem implements UpdateSystem {
 		if (!node) {
 			return;
 		}
-		let halfHeight = 0;
-		const sprite = ecs.getComponent(inRange, SpriteComponent);
-		if (sprite) {
-			const image = assetManager.getImage(spriteImageUrl(sprite));
-			if (image) {
-				halfHeight =
-					(spriteSource(sprite, image).height * transform.scale.y) /
-					2;
-			}
-		}
 		this.dyn.set(node.id, {
 			worldX: transform.position.x - HINT_HALF_WIDTH,
-			worldY: transform.position.y - halfHeight - GAP,
+			worldY:
+				entityTop(ecs, assetManager, inRange, GAP) ??
+				transform.position.y - GAP,
 		});
 	}
 }

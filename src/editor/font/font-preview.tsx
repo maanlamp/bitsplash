@@ -282,8 +282,9 @@ const FontPreview = ({
 						className={controls.toggleGroup}
 					>
 						{STYLE_OPTIONS.map((option) => {
+							const synthetic = font?.faces[option.id].synthetic;
 							const isSynth =
-								font?.faces[option.id].synthetic != null;
+								synthetic !== null && synthetic !== undefined;
 							return (
 								<Tooltip
 									key={option.id}

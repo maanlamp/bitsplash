@@ -36,7 +36,8 @@ const GAMEPLAY_ZOOM = 3;
 
 describe("npc-chat camera framing", () => {
 	test("frames player and npc during the chat, restores to player after", async () => {
-		const ink = "=== gossip ===\nThe well ran dry.\n-> DONE\n";
+		const ink =
+			"=== gossip ===\nThe well ran dry. # speaker: quartermaster\n-> DONE\n";
 		let player: EntityId = "" as EntityId;
 		let npc: EntityId = "" as EntityId;
 		const fixture = await SequenceFixture.create(

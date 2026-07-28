@@ -1,9 +1,9 @@
 import type AssetManager from "../engine/assets";
 import { PhysicsBodyComponent } from "../engine/physics/physics-body-component";
+import { resolveSpriteDraw } from "../engine/sprite/resolve-sprite-draw";
 import {
 	SpriteComponent,
 	spriteImageUrl,
-	spriteSource,
 } from "../engine/sprite/sprite-component";
 import { TransformComponent } from "../engine/transform-component";
 import type { EntityId, ReadonlyECS } from "../engine/ecs";
@@ -62,10 +62,10 @@ export const entityGeometry = (
 		});
 	}
 	const sprite = ecs.getComponent(id, SpriteComponent);
-	if (sprite) {
-		const image = assetManager?.getImage(spriteImageUrl(sprite));
-		if (image) {
-			const source = spriteSource(sprite, image);
+	if (sprite && assetManager) {
+		const draw = resolveSpriteDraw(sprite, assetManager);
+		if (draw) {
+			const { source } = draw;
 			pieces.push({
 				role: "sprite",
 				center: transform.position.clone(),

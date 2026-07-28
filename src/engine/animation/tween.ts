@@ -23,7 +23,7 @@ export class Tween implements ValueType {
 	@serialize() to: number;
 	@serialize() duration: Duration;
 	@serialize() easing: Easing;
-	elapsed = 0 as Seconds;
+	@serialize() elapsed = 0 as Seconds;
 
 	constructor(from = 0, to = 1, duration = 0.3, easing = "linear") {
 		this.from = from;

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { decodePng } from "../../src/editor/sprite/png-codec";
 import AssetManager, {
@@ -160,6 +160,15 @@ export class SequenceFixture {
 		return this.runtimeValue.world.ecs;
 	}
 
+	/**
+	 * The asset manager systems see, for pre-warming an asynchronous load before
+	 * stepping — {@link step} is synchronous, so a system that needs a loaded
+	 * asset (a font, to wrap and reveal dialogue text) never gets one otherwise.
+	 */
+	get assetManager(): AssetManager {
+		return this.assets;
+	}
+
 	private buildContext(): UpdateContext {
 		this.clock.advance(FRAME_MS);
 		const time = this.clock.snapshot(FRAME_MS);
@@ -206,8 +215,50 @@ export class SequenceFixture {
 }
 
 /** Flush pending microtasks and the macrotask queue so async loads settle. */
-const flushEventLoop = (): Promise<void> =>
+export const flushEventLoop = (): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Serve `fetch` from disk for the asset paths Bun's `?url` imports produce, so a
+ * `.font.zip` really loads headlessly and dialogue text can be wrapped and
+ * revealed by the real {@link AssetManager}. Returns a restore function.
+ *
+ * @example
+ * const restore = useDiskFetch();
+ * fixture.assetManager.getFontFamilies(DEFAULT_FONT.fontRef.path, DEFAULT_FONT.size);
+ * await settleAssets();
+ * restore();
+ */
+const requestUrl = (input: RequestInfo | URL): string => {
+	if (typeof input === "string") {
+		return input;
+	}
+	return input instanceof URL ? input.href : input.url;
+};
+
+export const useDiskFetch = (): (() => void) => {
+	const original = globalThis.fetch;
+	globalThis.fetch = ((
+		input: RequestInfo | URL,
+		init?: RequestInit,
+	): Promise<Response> => {
+		const url = requestUrl(input);
+		if (!url.includes("://") && existsSync(url)) {
+			return Promise.resolve(new Response(readFileSync(url)));
+		}
+		return original(input as RequestInfo, init);
+	}) as typeof fetch;
+	return () => {
+		globalThis.fetch = original;
+	};
+};
+
+/** Pump the event loop until in-flight asset loads have settled. */
+export const settleAssets = async (rounds = 20): Promise<void> => {
+	for (let i = 0; i < rounds; i++) {
+		await flushEventLoop();
+	}
+};
 
 /**
  * A headless {@link SheetComposer} substituting the engine's default DOM

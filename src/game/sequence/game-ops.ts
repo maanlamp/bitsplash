@@ -5,6 +5,7 @@ import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import { mirrorInkState } from "../../engine/ink/story";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import { DialogueClosedEvent } from "../../engine/dialogue/events";
+import { NO_SPEAKER_TAGS } from "../../engine/dialogue/gather-messages";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
@@ -29,16 +30,24 @@ import {
 	OP_TYPES,
 	PREDICATE_IDS,
 } from "../../engine/sequence/builder";
+import type { FontSettings } from "../../engine/text/font-settings";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
 import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
+import { CharacterComponent } from "../character/character-component";
+import { characterById } from "../character/character-descriptor";
 import { ChronicleComponent } from "../chronicle/chronicle-component";
 import { BarkComponent } from "../dialogue/bark-component";
-import { DialoguePanelComponent } from "../dialogue/dialogue-panel-component";
-import { fontForTag } from "../dialogue/ink-fonts";
-import { panelForTag } from "../dialogue/ink-panels";
+import {
+	conversationFor,
+	dialogueHandoff,
+	fastForwardMessages,
+	resumeDialogue,
+	trailingOf,
+} from "../dialogue/dialogue-handoff";
+import { DEFAULT_FONT } from "../dialogue/ink-fonts";
 import { ensureStory } from "../dialogue/ink-bindings";
-import { tagValue } from "../dialogue/ink-tags";
+import { tagValue } from "../../engine/ink/ink-tags";
 import { FollowComponent } from "../follow/follow-component";
 import { HealthComponent } from "../health/health-component";
 import { PickupComponent } from "../pickup/pickup-component";
@@ -232,6 +241,7 @@ const walkToExecutor: OpExecutor = {
 		if (actor) {
 			teleportX(ctx.ecs, actor, params.x as number);
 		}
+		return true;
 	},
 };
 
@@ -355,7 +365,7 @@ const moveToExecutor: OpExecutor = {
 	skip(ctx, params, memory) {
 		const actor = resolveActor(ctx.run, params.actor as ActorRef);
 		if (!actor) {
-			return;
+			return true;
 		}
 		const dest = moveToDest(ctx, params);
 		if (dest) {
@@ -364,6 +374,7 @@ const moveToExecutor: OpExecutor = {
 		if (memory.mode === "nav") {
 			moveToCleanup(ctx, actor, memory);
 		}
+		return true;
 	},
 };
 
@@ -490,12 +501,12 @@ const escortExecutor: OpExecutor = {
 		);
 		const leader = resolveActor(ctx.run, params.leader as ActorRef);
 		if (!follower || !leader) {
-			return;
+			return true;
 		}
 		const dest = pinnedPoint(ctx, params.to as PointRef, memory);
 		if (!dest) {
 			escortCleanup(ctx, follower, memory);
-			return;
+			return true;
 		}
 		teleportX(ctx.ecs, leader, dest.x);
 		const lp = ctx.ecs.getComponent(leader, TransformComponent);
@@ -509,6 +520,7 @@ const escortExecutor: OpExecutor = {
 			}
 		}
 		escortCleanup(ctx, follower, memory);
+		return true;
 	},
 };
 
@@ -541,6 +553,7 @@ const spawnExecutor: OpExecutor = {
 	},
 	skip(ctx, params, memory) {
 		spawnExecutor.arm(ctx, params, memory);
+		return true;
 	},
 };
 
@@ -556,6 +569,7 @@ const despawnExecutor: OpExecutor = {
 	},
 	skip(ctx, params, memory) {
 		despawnExecutor.arm(ctx, params, memory);
+		return true;
 	},
 };
 
@@ -584,6 +598,7 @@ const setFlagExecutor: OpExecutor = {
 			params.flag as string,
 			params.value as string,
 		);
+		return true;
 	},
 };
 
@@ -613,6 +628,21 @@ const barkText = (ctx: OpContext, knot: string): string => {
 	}
 };
 
+/**
+ * The actor's own typeface, when the entity says which character it is. Anything
+ * without a `Character` — a prop, a nameless spawn — keeps `BarkComponent`'s
+ * fallback font.
+ */
+const barkFont = (
+	ctx: OpContext,
+	actor: EntityId,
+): FontSettings | undefined => {
+	const character = ctx.ecs.getComponent(actor, CharacterComponent);
+	return character
+		? characterById(character.character).font
+		: undefined;
+};
+
 const barkExecutor: OpExecutor = {
 	arm(ctx, params, memory) {
 		if (memory.attached === true) {
@@ -626,7 +656,12 @@ const barkExecutor: OpExecutor = {
 		const text = barkText(ctx, params.knot as string);
 		ctx.ecs.addComponent(
 			actor,
-			new BarkComponent(text, new Duration(seconds)),
+			new BarkComponent(
+				text,
+				new Duration(seconds),
+				undefined,
+				barkFont(ctx, actor),
+			),
 		);
 		memory.attached = true;
 	},
@@ -635,6 +670,7 @@ const barkExecutor: OpExecutor = {
 	},
 	skip(ctx, params, memory) {
 		barkExecutor.arm(ctx, params, memory);
+		return true;
 	},
 	skippable() {
 		return true;
@@ -672,10 +708,26 @@ const dialogueKnot = (ctx: OpContext, params: OpParams): string => {
 	return params.knot as string;
 };
 
-const openDialogue = (
+const dialogueSource = (
 	ctx: OpContext,
 	params: OpParams,
-): EntityId | null => {
+): EntityId | null =>
+	params.source !== undefined
+		? resolveActor(ctx.run, params.source as ActorRef)
+		: null;
+
+/**
+ * Position the story at the op's knot, returning the ink component so the caller
+ * can mirror the snapshot once it has finished driving the story.
+ */
+const enterKnot = (
+	ctx: OpContext,
+	params: OpParams,
+): Readonly<{
+	ink: InkStoryComponent;
+	story: Story;
+	knot: string;
+}> | null => {
 	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
 	if (!inkEntry) {
 		return null;
@@ -683,32 +735,28 @@ const openDialogue = (
 	const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
 	const knot = dialogueKnot(ctx, params);
 	assertKnotResolves(story, knot);
-	const tags = story.TagsForContentAtPath(knot);
-	const knotTags = knot.includes(".")
-		? story.TagsForContentAtPath(knot.split(".")[0]!)
-		: tags;
-	const font = fontForTag(
-		tagValue(tags, "font") ?? tagValue(knotTags, "font"),
-	);
-	const panel = panelForTag(
-		tagValue(tags, "panel") ?? tagValue(knotTags, "panel"),
-	);
-	const source =
-		params.source !== undefined
-			? resolveActor(ctx.run, params.source as ActorRef)
-			: null;
 	story.ChoosePathString(knot);
-	mirrorInkState(inkEntry[1]);
-	const component = new DialogueComponent(source, font);
-	component.speaker =
-		(params.speaker as string | undefined) ??
-		tagValue(tags, "speaker") ??
-		tagValue(knotTags, "speaker") ??
-		"";
-	return ctx.ecs.createEntity([
-		component,
-		new DialoguePanelComponent(panel),
-	]);
+	return { ink: inkEntry[1], story, knot };
+};
+
+const openDialogue = (
+	ctx: OpContext,
+	params: OpParams,
+): EntityId | null => {
+	const entered = enterKnot(ctx, params);
+	if (!entered) {
+		return null;
+	}
+	const { id } = dialogueHandoff({
+		ecs: ctx.ecs,
+		story: entered.story,
+		sequence: ctx.entityId,
+		source: dialogueSource(ctx, params),
+		font: DEFAULT_FONT,
+		resumed: null,
+	});
+	mirrorInkState(entered.ink);
+	return id;
 };
 
 const choiceLabel = (
@@ -724,6 +772,14 @@ const choiceLabel = (
 	);
 };
 
+/**
+ * Arm the op's `capture` with the label of the option selected right now, so the
+ * last selection standing is the one captured when the session closes.
+ *
+ * Called every frame the choices are up, and once more the moment a fast-forward
+ * halts on them: `DialogueSystem` runs upstream of `SequenceSystem`, so a player
+ * already pressing advance can answer the choice before `poll` ever sees it.
+ */
 const recordChoice = (
 	state: DialogueComponent,
 	params: OpParams,
@@ -750,6 +806,91 @@ const captureChoice = (
 	) {
 		ctx.run.blackboard[capture] = memory.lastChoice;
 	}
+};
+
+const closeDialogue = (
+	ctx: OpContext,
+	id: EntityId,
+	state: DialogueComponent,
+): void => {
+	ctx.ecs.destroy(id);
+	ctx.events.emit(new DialogueClosedEvent(id, state.source.id));
+};
+
+/**
+ * Fast-forward a session the player is already looking at: mark what is on
+ * screen read, play the rest of its knot into the transcript, then close — or
+ * decline and hand the panel back if the knot reaches choices.
+ */
+const fastForwardOpen = (
+	ctx: OpContext,
+	params: OpParams,
+	memory: OpMemory,
+	id: EntityId,
+	state: DialogueComponent,
+): boolean => {
+	if (state.choices.length > 0) {
+		recordChoice(state, params, memory);
+		return false;
+	}
+	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
+	if (!inkEntry) {
+		closeDialogue(ctx, id, state);
+		return true;
+	}
+	const story = ensureStory(inkEntry[1], ctx.events, ctx.ecs);
+	const conversation = conversationFor(ctx.ecs, ctx.entityId);
+	const { trailing, halted } = fastForwardMessages(
+		conversation,
+		story,
+		trailingOf(state),
+	);
+	if (halted) {
+		resumeDialogue(ctx.ecs, ctx.entityId, state, story, trailing);
+		recordChoice(state, params, memory);
+		mirrorInkState(inkEntry[1]);
+		return false;
+	}
+	mirrorInkState(inkEntry[1]);
+	captureChoice(ctx, params, memory);
+	closeDialogue(ctx, id, state);
+	return true;
+};
+
+/**
+ * Fast-forward a `dialogue` op the run never reached: open its knot, play it into
+ * the transcript with no session entity at all, and only build one when the knot
+ * stops on choices.
+ */
+const fastForwardKnot = (
+	ctx: OpContext,
+	params: OpParams,
+	memory: OpMemory,
+): boolean => {
+	const entered = enterKnot(ctx, params);
+	if (!entered) {
+		return true;
+	}
+	const conversation = conversationFor(ctx.ecs, ctx.entityId);
+	const { trailing, halted } = fastForwardMessages(
+		conversation,
+		entered.story,
+		NO_SPEAKER_TAGS,
+	);
+	if (halted) {
+		const session = dialogueHandoff({
+			ecs: ctx.ecs,
+			story: entered.story,
+			sequence: ctx.entityId,
+			source: dialogueSource(ctx, params),
+			font: DEFAULT_FONT,
+			resumed: trailing,
+		});
+		memory.dialogueRef = session.id;
+		recordChoice(session.state, params, memory);
+	}
+	mirrorInkState(entered.ink);
+	return !halted;
 };
 
 const dialogueExecutor: OpExecutor = {
@@ -783,19 +924,31 @@ const dialogueExecutor: OpExecutor = {
 		const state = ctx.ecs.getComponent(id, DialogueComponent);
 		return !state || state.choices.length === 0;
 	},
+	/**
+	 * Fast-forward: play the knot out as if the player had read it, recording
+	 * every block in the transcript and letting its externals fire, then close.
+	 *
+	 * Declines (`false`) when the knot offers choices, because only the player can
+	 * answer them — handing the session over through {@link dialogueHandoff} so
+	 * the choices are already on screen. A knot with nothing to choose never
+	 * creates an entity at all: `DialogueSystem` reads only the first
+	 * `DialogueComponent` in the world and `ecs.destroy` is deferred to frame end,
+	 * so an entity per fast-forwarded op would hide the one that matters.
+	 */
 	skip(ctx, params, memory) {
-		const id = memory.dialogueRef as EntityId | undefined;
-		if (id === undefined) {
-			return;
+		const open = memory.dialogueRef as EntityId | undefined;
+		const state =
+			open === undefined
+				? undefined
+				: ctx.ecs.getComponent(open, DialogueComponent);
+		if (state && open !== undefined) {
+			return fastForwardOpen(ctx, params, memory, open, state);
 		}
-		const state = ctx.ecs.getComponent(id, DialogueComponent);
-		if (!state) {
-			return;
+		if (open !== undefined) {
+			captureChoice(ctx, params, memory);
+			return true;
 		}
-		recordChoice(state, params, memory);
-		captureChoice(ctx, params, memory);
-		ctx.ecs.destroy(id);
-		ctx.events.emit(new DialogueClosedEvent(id, state.source.id));
+		return fastForwardKnot(ctx, params, memory);
 	},
 };
 

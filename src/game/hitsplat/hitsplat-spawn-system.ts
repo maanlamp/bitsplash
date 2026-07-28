@@ -1,9 +1,5 @@
 import type AssetManager from "../../engine/assets";
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../../engine/sprite/sprite-component";
+import { entityTop } from "../../engine/sprite/entity-top";
 import { TransformComponent } from "../../engine/transform-component";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type { Seconds } from "../../engine/duration";
@@ -60,14 +56,10 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 		if (!transform) {
 			return;
 		}
-		const halfHeight = this.spriteHalfHeight(
-			ecs,
-			assetManager,
-			event.target,
-		);
 		const position = new Vector2(
 			transform.position.x,
-			transform.position.y - halfHeight - SPAWN_MARGIN,
+			entityTop(ecs, assetManager, event.target, SPAWN_MARGIN) ??
+				transform.position.y - SPAWN_MARGIN,
 		);
 
 		const { text, flavour } = this.describe(style, event);
@@ -165,23 +157,5 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 			}
 		}
 		return Math.random() < 0.5 ? -1 : 1;
-	}
-
-	private spriteHalfHeight(
-		ecs: ECS,
-		assetManager: AssetManager,
-		target: EntityId,
-	): number {
-		const sprite = ecs.getComponent(target, SpriteComponent);
-		const transform = ecs.getComponent(target, TransformComponent);
-		if (!sprite || !transform) {
-			return 0;
-		}
-		const image = assetManager.getImage(spriteImageUrl(sprite));
-		if (!image) {
-			return 0;
-		}
-		const source = spriteSource(sprite, image);
-		return (source.height * transform.scale.y) / 2;
 	}
 }

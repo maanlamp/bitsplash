@@ -115,7 +115,8 @@ describe("sequence save/load acceptance scenarios", () => {
 			cast: {},
 			root: seq("root", dialogue("line", { knot: "greet" })),
 		});
-		const ink = "=== greet ===\nHello there, traveler.\n-> DONE\n";
+		const ink =
+			"=== greet ===\nHello there, traveler. # speaker: quartermaster\n-> DONE\n";
 		const fixture = await SequenceFixture.create(
 			gameSequenceSceneConfig({
 				def,
@@ -208,7 +209,7 @@ describe("sequence save/load acceptance scenarios", () => {
 
 	test("save mid-NPC-chat restores in a fresh process (regression)", async () => {
 		const ink =
-			"=== gossip ===\nThe well ran dry, they say.\n-> DONE\n";
+			"=== gossip ===\nThe well ran dry, they say. # speaker: quartermaster\n-> DONE\n";
 		let npc: EntityId = "" as EntityId;
 		const fixture = await SequenceFixture.create(
 			gameSequenceSceneConfig({

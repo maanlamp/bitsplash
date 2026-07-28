@@ -78,6 +78,25 @@ export class UiEventDispatcher {
 		}
 	}
 
+	/**
+	 * Keeps focus and the modal trap consistent with the tree when `node`
+	 * leaves it. Focus re-resolves to the nearest remaining chain neighbour
+	 * (firing its `onFocus`) rather than being stranded on a detached node,
+	 * where confirm/cancel would silently dispatch to nothing.
+	 */
+	nodeRemoved(root: UiNode, node: UiNode): void {
+		if (this.modalNode === node) {
+			this.setModal(null);
+		}
+		if (this.focusNav.trap === node) {
+			this.focusNav.clearTrap();
+		}
+		const replacement = this.focusNav.nodeRemoved(root, node);
+		if (replacement) {
+			this.fireSimple(replacement, "onFocus");
+		}
+	}
+
 	maskedInput(source: DeviceSnapshot): DeviceSnapshot {
 		return maskedInput(source, this.consumedTokens, this.modal);
 	}
@@ -94,7 +113,13 @@ export class UiEventDispatcher {
 	): void {
 		this.consumedTokens.clear();
 		this.queue.clear();
-		this.normalizer.sample(input, this.queue, uiScale, dt);
+		this.normalizer.sample(
+			input,
+			this.queue,
+			uiScale,
+			dt,
+			this.focusNav.trap !== null,
+		);
 
 		const hitRoot = this.modalNode ?? root;
 		const pointer = this.router.toUiSpace(

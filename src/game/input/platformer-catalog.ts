@@ -45,16 +45,6 @@ const actions: ActionDef[] = [
 		essential: false,
 	},
 	{
-		id: ACTION_IDS.dialogueNavUp,
-		kind: "discrete",
-		essential: false,
-	},
-	{
-		id: ACTION_IDS.dialogueNavDown,
-		kind: "discrete",
-		essential: false,
-	},
-	{
 		id: ACTION_IDS.cutsceneSkip,
 		kind: "continuous",
 		essential: false,
@@ -123,26 +113,6 @@ const defaults: Binding[] = [
 		action: ACTION_IDS.dialogueFastForward,
 		source: ref(ACTION_IDS.interact),
 		activation: "whileHeld",
-	},
-	{
-		action: ACTION_IDS.dialogueNavUp,
-		source: tokens(kbd("W")),
-		activation: "press",
-	},
-	{
-		action: ACTION_IDS.dialogueNavUp,
-		source: tokens(kbd("ARROWUP")),
-		activation: "press",
-	},
-	{
-		action: ACTION_IDS.dialogueNavDown,
-		source: tokens(kbd("S")),
-		activation: "press",
-	},
-	{
-		action: ACTION_IDS.dialogueNavDown,
-		source: tokens(kbd("ARROWDOWN")),
-		activation: "press",
 	},
 	{
 		action: ACTION_IDS.cutsceneSkip,
@@ -248,16 +218,6 @@ const defaults: Binding[] = [
 		action: ACTION_IDS.attackPrimary,
 		source: tokens(pad("r2")),
 		activation: "whileHeld",
-	},
-	{
-		action: ACTION_IDS.dialogueNavUp,
-		source: tokens(pad("dpadUp")),
-		activation: "press",
-	},
-	{
-		action: ACTION_IDS.dialogueNavDown,
-		source: tokens(pad("dpadDown")),
-		activation: "press",
 	},
 	{
 		action: ACTION_IDS.pause,

@@ -1,6 +1,4 @@
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
-import type { NineSliceInsets } from "../../engine/render/nine-slice";
-import type { RichLine } from "../../engine/text/rich-text";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -10,43 +8,55 @@ import { InteractionStateComponent } from "../interaction/interaction-state-comp
 import { ACTION_IDS } from "../input/action-ids";
 import { resolveHint } from "../ui/input-glyph-resolver";
 import { resolveKbdFrame } from "../ui/kbd-frame";
-import { DialoguePanelComponent } from "./dialogue-panel-component";
+import { resolveBubbleFrame } from "./bubble-frame";
+import { ConversationComponent } from "./conversation-component";
+import { presentedMessageIndex } from "./conversation-nodes";
+import { ConversationPops } from "./conversation-pops";
+import { ConversationWraps } from "./conversation-wraps";
 import type { DialogueHudState } from "./dialogue-hud-state";
 import { UI_FONT } from "./dialogue-ui";
 import { profiler } from "../../engine/profiling/profiler";
 
-const FALLBACK_INSETS: NineSliceInsets = {
-	left: 6,
-	right: 6,
-	top: 6,
-	bottom: 7,
-	gap: 2,
-};
-
-const EMPTY_LINES: readonly RichLine[] = [];
-
+/**
+ * Publishes the conversation window for React and advances the window's pop
+ * animations.
+ *
+ * Wrapping happens here rather than in the components because it needs a loaded
+ * font and the transcript stores raw text — and it is done only for the two or
+ * three messages the window shows, lazily, so a fast-forward can keep appending
+ * to the transcript before any font has resolved.
+ */
 @profiler("Dialogue HUD sync", "HUD")
 export class DialogueHudSyncSystem implements UpdateSystem {
+	private readonly wraps = new ConversationWraps();
+	private readonly pops = new ConversationPops();
+
 	constructor(
 		private readonly hud: DialogueHudState,
 		private readonly lastUsed: LastUsedDevice,
 	) {}
 
-	update({ ecs, assetManager, actions, input }: UpdateContext): void {
+	update({
+		dt,
+		ecs,
+		assetManager,
+		actions,
+		input,
+	}: UpdateContext): void {
 		const entry = ecs.query(DialogueComponent)[0];
-		if (!entry) {
+		const conversation = ecs.query(ConversationComponent)[0]?.[1];
+		if (!entry || !conversation) {
 			this.hud.close();
+			this.wraps.reset();
+			this.pops.reset();
 			return;
 		}
-		const [id, state] = entry;
+		const [, state] = entry;
 		this.hud.setComponent(state);
+		this.hud.setConversation(conversation);
+		this.hud.markInteractive();
+		this.pops.step(conversation, dt);
 
-		const panelUrl =
-			ecs.getComponent(id, DialoguePanelComponent)?.panel ?? "";
-		const lastPage = state.pageIndex >= state.pages.length - 1;
-		const showChoices = state.complete && lastPage;
-		const panelAsset = assetManager.sprites.get(panelUrl);
-		const insets = panelAsset?.slice() ?? FALLBACK_INSETS;
 		const fallbackGlyph =
 			ecs.query(InteractionStateComponent)[0]?.[1].interactGlyph ??
 			"E";
@@ -61,19 +71,25 @@ export class DialogueHudSyncSystem implements UpdateSystem {
 		const kbd = resolveKbdFrame(assetManager);
 		this.hud.setSnapshot({
 			open: true,
-			speaker: state.speaker,
-			glyphs: state.pages[state.pageIndex] ?? EMPTY_LINES,
-			choices: showChoices ? state.choices : [],
-			selectedOption: state.selectedOption,
-			more: state.complete && !lastPage,
+			messages: this.wraps.messageViews(
+				conversation,
+				assetManager,
+				presentedMessageIndex(ecs),
+			),
+			choices: state.complete
+				? this.wraps.choiceViews(
+						state.choices,
+						state.selectedOption,
+						UI_FONT,
+						assetManager,
+					)
+				: [],
+			frame: resolveBubbleFrame(assetManager),
 			advanceGlyph: hint.glyph ?? fallbackGlyph,
 			advanceIcon: hint.icon,
 			advanceActivation: hint.activation ?? "press",
-			panel: panelAsset?.image ?? null,
-			insets,
 			kbdFrame: kbd.image,
 			kbdInsets: kbd.insets,
-			bodyFont: state.font,
 			uiFont: UI_FONT,
 		});
 	}

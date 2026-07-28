@@ -118,7 +118,7 @@ export const cachedBabel = async (
 			// miss (or torn entry) — fall through to Babel
 		}
 		const result = await inner.call(this, code, id, opts);
-		if (result?.code != null) {
+		if (result?.code !== null && result?.code !== undefined) {
 			try {
 				const tmp = `${file}.${process.pid}.${counter++}.tmp`;
 				writeFileSync(tmp, JSON.stringify(result));

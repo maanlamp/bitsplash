@@ -22,7 +22,13 @@ export class YogaBridge {
 		}
 	}
 
+	/**
+	 * Retires a node from layout: releases its yoga node and drops its
+	 * `layoutRect`, so consumers that key off a rect (focus collection, hit
+	 * testing, painting) stop seeing a node that is no longer in the tree.
+	 */
 	free(node: UiNode): void {
+		node.layoutRect = undefined;
 		const yoga = yogaOf(node);
 		if (!yoga) {
 			return;

@@ -10,6 +10,15 @@ export const token = {
 	gamepad(pad: string | number, button: string): string {
 		return `pad${pad}:${button}`;
 	},
+	/**
+	 * Token for one axis of one analogue stick, e.g. `"pad0:stick0x"` for the
+	 * horizontal axis of pad 0's left stick. Sticks carry no press/release
+	 * edges, so these tokens exist purely so a consumer can mask an axis it has
+	 * already spent (see `maskedInput`).
+	 */
+	stick(pad: string | number, pair: string, axis: "x" | "y"): string {
+		return `pad${pad}:stick${pair}${axis}`;
+	},
 };
 
 export type ParsedToken = Readonly<{

@@ -1,9 +1,5 @@
 import type { EntityId } from "../../engine/ecs";
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../../engine/sprite/sprite-component";
+import { entityTop } from "../../engine/sprite/entity-top";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -47,19 +43,12 @@ export class QuestMarkerHudSystem implements UpdateSystem {
 			if (!node) {
 				continue;
 			}
-			let half = 0;
-			const sprite = ecs.getComponent(id, SpriteComponent);
-			if (sprite) {
-				const image = assetManager.getImage(spriteImageUrl(sprite));
-				if (image) {
-					half =
-						(spriteSource(sprite, image).height * transform.scale.y) /
-						2;
-				}
-			}
+			const gap = GAP + bob;
 			this.dyn.set(node.id, {
 				worldX: transform.position.x,
-				worldY: transform.position.y - half - GAP - bob,
+				worldY:
+					entityTop(ecs, assetManager, id, gap) ??
+					transform.position.y - gap,
 			});
 		}
 		this.store.setIds(ids);

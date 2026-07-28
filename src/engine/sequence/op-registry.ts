@@ -26,7 +26,13 @@ export type OpContext = Readonly<{
 export type OpExecutor = Readonly<{
 	arm(ctx: OpContext, params: OpParams, memory: OpMemory): void;
 	poll(ctx: OpContext, params: OpParams, memory: OpMemory): boolean;
-	skip(ctx: OpContext, params: OpParams, memory: OpMemory): void;
+	/**
+	 * Fast-forward this op to its finished state. Return `true` when the op is
+	 * done and the interpreter may mark the step complete, or `false` to halt the
+	 * fast-forward pass here and hand control back — what an op does when it
+	 * needs the player, such as a dialogue with choices pending.
+	 */
+	skip(ctx: OpContext, params: OpParams, memory: OpMemory): boolean;
 	skippable?(
 		ctx: OpContext,
 		params: OpParams,

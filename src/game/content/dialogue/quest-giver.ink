@@ -1,6 +1,6 @@
 == quest_giver ==
-# speaker: Stranger
-# font: doublehomicide
+# speaker: stranger
+# emotion: determined
 {quest_massacre == "active": -> qg_in_progress}
 {quest_massacre == "return": -> qg_return}
 {quest_massacre == "complete": -> qg_complete}
@@ -13,9 +13,9 @@
 - else:
     Still here? Five patrols. Dead. You in or not?
 }
-+ [Accept] -> qg_accepted
++ # narrate [Accept] -> qg_accepted
 + [Decline] -> qg_declined
-* [Why me?] -> qg_why
+* # narrate [Why me?] -> qg_why
 + [Leave] -> END
 
 = qg_accepted
@@ -32,8 +32,8 @@ Suit yourself. The wood doesn't care either way.
 
 = qg_why
 I like to see the life drain out of the ones who think they own these roads. No one mourns a ghost's handiwork.
-* [Damn, you're cool.] -> qg_offer
-* [Um, alright...] -> qg_offer
+* # narrate [Damn, you're cool.] -> qg_offer
+* # narrate [Um, alright...] -> qg_offer
 
 = qg_in_progress
 Have you slaughtered them yet? Five. I'll know if you lie.

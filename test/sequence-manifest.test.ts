@@ -11,7 +11,7 @@ import {
 } from "../src/engine/sequence/op-registry";
 import { sequenceDefById } from "../src/engine/sequence/sequence-system";
 import type { SequenceDef } from "../src/engine/sequence/sequence-def";
-import { tagValue } from "../src/game/dialogue/ink-tags";
+import { tagValue } from "../src/engine/ink/ink-tags";
 import {
 	registerSequenceContent,
 	SEQUENCE_DEFS,

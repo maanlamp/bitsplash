@@ -1,11 +1,13 @@
 == critter ==
 
 = mew
-# speaker: Critter
+# speaker: critter
+# emotion: curious
 Mrp? ...Mew!
 -> DONE
 
 = call
-# speaker: Critter
+# speaker: critter
+# emotion: happy
 Mrrrow! (This way! It's THIS way! Follow the tiny important creature!)
 -> DONE

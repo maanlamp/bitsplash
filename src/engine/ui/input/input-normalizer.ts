@@ -11,6 +11,7 @@ import type { UiEventQueue } from "./ui-event-queue";
 const INITIAL_DELAY = 0.25;
 const REPEAT_INTERVAL = 0.08;
 const STICK_THRESHOLD = 0.5;
+const FOCUS_STICK_PAIR = "0";
 
 const CONFIRM_KEYS: readonly string[] = ["ENTER", "SPACE"];
 const CANCEL_KEYS: readonly string[] = ["ESCAPE"];
@@ -29,6 +30,22 @@ const DIRECTION_KEYS: Record<FocusDirection, string> = {
 	down: "ARROWDOWN",
 	left: "ARROWLEFT",
 	right: "ARROWRIGHT",
+};
+
+/**
+ * Keys that move focus **only while a focus trap is up**, on top of
+ * {@link DIRECTION_KEYS}.
+ *
+ * `W`/`S` are `moveUp`/`moveDown` in gameplay, so they may not be direction keys
+ * globally: an unconditional entry here would strip them from the action layer
+ * every frame the player walks. Scoped to a trap, the conversation panel gets
+ * `W`/`S` read-back while gameplay keeps them everywhere else.
+ */
+const TRAPPED_DIRECTION_KEYS: Partial<
+	Record<FocusDirection, string>
+> = {
+	up: "W",
+	down: "S",
 };
 
 const DIRECTION_PAD: Record<FocusDirection, string> = {
@@ -76,11 +93,20 @@ export class InputNormalizer {
 		return this.tokens.get(entry) ?? [];
 	}
 
+	/**
+	 * Turn one device snapshot into UI events.
+	 *
+	 * `trapped` says whether a focus trap currently owns navigation; it widens the
+	 * direction keys by {@link TRAPPED_DIRECTION_KEYS} so a trapped panel can be
+	 * walked with `W`/`S` without those keys leaving the action layer at all other
+	 * times.
+	 */
 	sample(
 		input: DeviceSnapshot,
 		queue: UiEventQueue,
 		uiScale: number,
 		dt: number,
+		trapped = false,
 	): void {
 		this.tokens.clear();
 		this.edges.step(input);
@@ -158,13 +184,14 @@ export class InputNormalizer {
 			this.emit(queue, { type: "cancel" }, cancelTokens);
 		}
 
-		this.sampleDirections(input, queue, dt);
+		this.sampleDirections(input, queue, dt, trapped);
 	}
 
 	private sampleDirections(
 		input: DeviceSnapshot,
 		queue: UiEventQueue,
 		dt: number,
+		trapped: boolean,
 	): void {
 		const held: Record<FocusDirection, boolean> = {
 			up: false,
@@ -180,10 +207,19 @@ export class InputNormalizer {
 		};
 
 		for (const direction of DIRECTIONS) {
-			const keyToken = token.keyboard(DIRECTION_KEYS[direction]);
-			if (this.edges.isDown(keyToken)) {
-				held[direction] = true;
-				sources[direction].push(keyToken);
+			const keys = [DIRECTION_KEYS[direction]];
+			const trappedKey = trapped
+				? TRAPPED_DIRECTION_KEYS[direction]
+				: undefined;
+			if (trappedKey !== undefined) {
+				keys.push(trappedKey);
+			}
+			for (const key of keys) {
+				const keyToken = token.keyboard(key);
+				if (this.edges.isDown(keyToken)) {
+					held[direction] = true;
+					sources[direction].push(keyToken);
+				}
 			}
 			for (const pad in input.gamepads) {
 				const padToken = token.gamepad(pad, DIRECTION_PAD[direction]);
@@ -195,19 +231,25 @@ export class InputNormalizer {
 		}
 
 		for (const pad in input.gamepads) {
-			const stick = input.gamepads[pad]!.axes["0"];
+			const stick = input.gamepads[pad]!.axes[FOCUS_STICK_PAIR];
 			if (!stick) {
 				continue;
 			}
+			const horizontal = token.stick(pad, FOCUS_STICK_PAIR, "x");
+			const vertical = token.stick(pad, FOCUS_STICK_PAIR, "y");
 			if (stick.x < -STICK_THRESHOLD) {
 				held.left = true;
+				sources.left.push(horizontal);
 			} else if (stick.x > STICK_THRESHOLD) {
 				held.right = true;
+				sources.right.push(horizontal);
 			}
 			if (stick.y < -STICK_THRESHOLD) {
 				held.up = true;
+				sources.up.push(vertical);
 			} else if (stick.y > STICK_THRESHOLD) {
 				held.down = true;
+				sources.down.push(vertical);
 			}
 		}
 

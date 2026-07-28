@@ -1,0 +1,77 @@
+{
+	"table": "npc",
+	"reactions": [
+		{
+			"id": "npc-greet",
+			"stimulus": "noticed-friendly",
+			"emotion": "happy",
+			"standings": ["warm"],
+			"priority": 30,
+			"cooldown": 0,
+			"once": true,
+			"enter": 0.15,
+			"hold": 2.5,
+			"exit": 0.25
+		},
+		{
+			"id": "npc-nod",
+			"stimulus": "noticed-friendly",
+			"emotion": "neutral",
+			"standings": ["neutral"],
+			"priority": 25,
+			"cooldown": 0,
+			"once": true,
+			"enter": 0.15,
+			"hold": 2,
+			"exit": 0.25
+		},
+		{
+			"id": "npc-wary",
+			"stimulus": "noticed-friendly",
+			"emotion": "thinking",
+			"standings": ["wary"],
+			"priority": 25,
+			"cooldown": 0,
+			"once": true,
+			"enter": 0.15,
+			"hold": 2,
+			"exit": 0.25
+		},
+		{
+			"id": "npc-cheer",
+			"stimulus": "noticed-friendly",
+			"emotion": "curious",
+			"standings": ["warm"],
+			"priority": 10,
+			"cooldown": 120,
+			"once": false,
+			"enter": 0.15,
+			"hold": 2,
+			"exit": 0.25
+		},
+		{
+			"id": "npc-farewell",
+			"stimulus": "lost-sight",
+			"emotion": "sad",
+			"standings": ["warm"],
+			"priority": 15,
+			"cooldown": 120,
+			"once": false,
+			"enter": 0.15,
+			"hold": 2,
+			"exit": 0.25
+		},
+		{
+			"id": "npc-startle",
+			"stimulus": "took-damage",
+			"emotion": "afraid",
+			"standings": ["cold", "wary", "neutral", "warm"],
+			"priority": 90,
+			"cooldown": 15,
+			"once": false,
+			"enter": 0.1,
+			"hold": 1.5,
+			"exit": 0.2
+		}
+	]
+}

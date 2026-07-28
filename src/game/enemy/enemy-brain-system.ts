@@ -1,5 +1,4 @@
 import { AiStateComponent } from "../../engine/debug/ai-state-component";
-import { DebugTagComponent } from "../../engine/debug/debug-tag-component";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import { stepMachine } from "../../engine/fsm/step-machine";
@@ -220,13 +219,17 @@ export class EnemyBrainSystem implements UpdateSystem {
 		}
 	}
 
+	/**
+	 * The startle hop. The `!` that used to appear over a surprised enemy was a
+	 * `DebugTagComponent`; the visible reaction is now `enemy-alert`, which
+	 * `ReactionSystem` fires off the same sighting through the authored table.
+	 */
 	private applyEffects(
 		ecs: ECS,
 		id: EntityId,
 		brain: EnemyBrainComponent,
 	): void {
 		if (brain.entered.includes("surprised")) {
-			ecs.addComponent(id, new DebugTagComponent("!"));
 			const rb = ecs.getComponent(id, PhysicsBodyComponent);
 			if (rb?.body) {
 				rb.body.linearVelocity = {
@@ -234,9 +237,6 @@ export class EnemyBrainSystem implements UpdateSystem {
 					y: -HOP_SPEED,
 				};
 			}
-		}
-		if (brain.exited.includes("surprised")) {
-			ecs.removeComponent(id, DebugTagComponent);
 		}
 		if (brain.entered.includes("patrol")) {
 			const agent = ecs.getComponent(id, NavAgentComponent);

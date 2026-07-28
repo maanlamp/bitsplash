@@ -11,6 +11,7 @@ import type { YogaBridge } from "./yoga-bridge";
 export type UiRootOptions = {
 	yoga?: YogaBridge;
 	onAfterCommit?(): void;
+	onNodeRemoved?(node: UiNode): void;
 };
 
 const noop = (): void => {};
@@ -45,6 +46,7 @@ export class UiRoot {
 		const config: HostConfigOptions = {
 			yoga: options.yoga,
 			onAfterCommit: () => options.onAfterCommit?.(),
+			onNodeRemoved: (node) => options.onNodeRemoved?.(node),
 		};
 		this.reconciler = Reconciler(createHostConfig(config));
 		this.root = this.reconciler.createContainer(

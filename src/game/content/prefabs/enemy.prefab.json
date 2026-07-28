@@ -60,6 +60,12 @@
 		"Faction": {
 			"faction": "margrave"
 		},
+		"Character": {
+			"character": "raider"
+		},
+		"Reaction": {
+			"table": "enemy"
+		},
 		"Perception": {
 			"viewDistanceTiles": 8,
 			"viewAngle": {
@@ -73,7 +79,8 @@
 			"forgetTime": {
 				"$type": "Duration",
 				"seconds": 4
-			}
+			},
+			"noticeProximityTiles": 10
 		},
 		"Locomotion": {
 			"maxSpeed": 64,

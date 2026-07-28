@@ -1,7 +1,7 @@
 import type { EntityId } from "../../engine/ecs";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
 import {
-	isExclusiveSequenceActive,
+	isExclusiveSequenceRunning,
 	startSequence,
 } from "../../engine/sequence/sequence-system";
 import {
@@ -15,10 +15,19 @@ import { ACTION_IDS } from "../input/action-ids";
 import { npcChatSequence } from "../sequence/npc-chat-sequence";
 import { profiler } from "../../engine/profiling/profiler";
 
+/**
+ * Turns an {@link InteractEvent} on an NPC carrying a
+ * {@link DialogueSourceComponent} into an `npc-chat` sequence.
+ *
+ * Gated on a *running* exclusive sequence rather than an *active* one: a
+ * cutscene that has released control (a `waitUntil` mid-drill, say) is still the
+ * exclusive sequence, and starting a chat then only queues it onto that
+ * sequence, so the chat would open minutes later out of context.
+ */
 @profiler("Dialogue triggers", "Dialogue")
 export class DialogueTriggerSystem implements UpdateSystem {
 	update({ ecs, events, actions }: UpdateContext): void {
-		if (isExclusiveSequenceActive(ecs)) {
+		if (isExclusiveSequenceRunning(ecs)) {
 			return;
 		}
 		for (const event of events.read(InteractEvent)) {

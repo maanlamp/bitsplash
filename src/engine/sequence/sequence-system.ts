@@ -160,10 +160,22 @@ export class SequenceSystem extends UpdateSystem {
 		};
 	}
 
+	/**
+	 * Whether the hold-to-skip gesture has just completed.
+	 *
+	 * Held time is zeroed both when the gesture fires and whenever the sequence
+	 * reports itself unskippable, so it banks nothing across a halt: the player
+	 * re-earns the full {@link SKIP_HOLD_SECONDS} after every choice, `waitUntil`
+	 * or unskippable step, and nothing is ever skipped by inertia.
+	 */
 	private pollSkip(
 		ctx: UpdateContext,
 		component: SequenceComponent,
 	): boolean {
+		if (!component.currentSkippable) {
+			component.skipHeldTime = 0;
+			return false;
+		}
 		component.skipHeldTime = this.bindings.skipHeld(ctx)
 			? component.skipHeldTime + ctx.time.dt
 			: 0;
@@ -189,6 +201,11 @@ export class SequenceSystem extends UpdateSystem {
 			return;
 		}
 		const nextDef = sequenceDefById(next);
+		if (nextDef.class !== "exclusive") {
+			throw new Error(
+				`sequence "${next}" is queued behind "${component.defId}" but is ${nextDef.class}; only exclusive defs may be queued, because reuse hands this entity — and everything else attached to it — to the queued sequence`,
+			);
+		}
 		component.defId = next;
 		component.sequenceClass = nextDef.class;
 		component.run = new SequenceRunState();

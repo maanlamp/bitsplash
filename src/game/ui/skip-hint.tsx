@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { Overlay } from "../../engine/ui/components/overlay";
 import { Text, View } from "../../engine/ui/reconciler/ui-elements";
 import type { Style } from "../../engine/ui/style/style";
 import { UI_FONT } from "../dialogue/dialogue-ui";
@@ -27,28 +26,20 @@ export const SkipHint = ({ store }: SkipHintProps) => {
 		return null;
 	}
 	return (
-		<Overlay
+		<View
 			id={SKIP_HINT_ID}
-			style={{
-				flexDirection: "column",
-				justifyContent: "flex-end",
-				alignItems: "flex-end",
-				padding: 8,
-				pointerEvents: "none",
-			}}
+			style={{ flexDirection: "row", alignItems: "center" }}
 		>
-			<View style={{ flexDirection: "row", alignItems: "center" }}>
-				<Text style={LABEL}>Skip</Text>
-				<KeyCap
-					glyph={snap.glyph}
-					activation={snap.activation}
-					icon={snap.icon}
-					id={SKIP_KEYCAP_ID}
-					frame={snap.frame}
-					insets={snap.insets}
-					font={UI_FONT}
-				/>
-			</View>
-		</Overlay>
+			<Text style={LABEL}>Skip</Text>
+			<KeyCap
+				glyph={snap.glyph}
+				activation={snap.activation}
+				icon={snap.icon}
+				id={SKIP_KEYCAP_ID}
+				frame={snap.frame}
+				insets={snap.insets}
+				font={UI_FONT}
+			/>
+		</View>
 	);
 };

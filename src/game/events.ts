@@ -57,20 +57,6 @@ export class PickupCollectedEvent {
 	) {}
 }
 
-export class StartQuestEvent {
-	constructor(
-		public quest: string,
-		public stage: string = "offered",
-	) {}
-}
-
-export class AdvanceQuestEvent {
-	constructor(
-		public quest: string,
-		public to: string,
-	) {}
-}
-
 export class QuestDeclinedEvent {
 	constructor(public quest: string) {}
 }

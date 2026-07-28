@@ -41,3 +41,16 @@ for (const mod of Object.values(modules)) {
 
 export const getQuest = (id: string): QuestDef | null =>
 	quests.get(id) ?? null;
+
+/**
+ * Register an authored quest def outside the `import.meta.glob` sweep, which is
+ * a Vite transform and so yields nothing under Bun. Lets a headless test feed
+ * the committed `*.json` artifact straight in.
+ *
+ * @example
+ * import massacre from "../src/game/content/quests/massacre.json";
+ * registerQuest(massacre as QuestDef);
+ */
+export const registerQuest = (def: QuestDef): void => {
+	quests.set(def.id, def);
+};

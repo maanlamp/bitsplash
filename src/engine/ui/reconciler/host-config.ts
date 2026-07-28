@@ -35,6 +35,13 @@ export type UiHostConfig = Reconciler.HostConfig<
 export type HostConfigOptions = {
 	yoga?: YogaBridge;
 	onAfterCommit?(): void;
+	/**
+	 * Called once per node leaving the tree, deepest first, after the node is
+	 * detached from its parent but before its layout state is released — so a
+	 * listener can still read `layoutRect` while re-resolving what the node
+	 * was holding on to (focus, per-node dyn values).
+	 */
+	onNodeRemoved?(node: UiNode): void;
 };
 
 const TEXT_NODE = "#text";
@@ -104,10 +111,8 @@ export const createHostConfig = (
 		for (const child of node.children) {
 			freeSubtree(child);
 		}
-		if (node.yoga !== undefined) {
-			yoga?.free(node);
-			node.yoga = undefined;
-		}
+		options.onNodeRemoved?.(node);
+		yoga?.free(node);
 	};
 
 	const transitionContext = createContext<null>(
@@ -278,10 +283,11 @@ export const createHostConfig = (
 		},
 
 		clearContainer(container) {
-			for (const child of container.children) {
+			const removed = [...container.children];
+			container.children.length = 0;
+			for (const child of removed) {
 				freeSubtree(child);
 			}
-			container.children.length = 0;
 		},
 	};
 };

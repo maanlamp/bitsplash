@@ -1,6 +1,6 @@
 == pickup_tutor ==
-# speaker: Quartermaster
-# font: cartridge
+# speaker: quartermaster
+# emotion: neutral
 {quest_pickup_tour == "active": -> pt_in_progress}
 {quest_pickup_tour == "return": -> pt_return}
 {quest_pickup_tour == "complete": -> pt_done}
@@ -13,7 +13,7 @@
 - else:
     Still want me to walk you through the gear?
 }
-+ [Accept] -> pt_accept
++ # narrate [Accept] -> pt_accept
 + [Decline] -> pt_decline
 + [Leave] -> END
 
@@ -23,43 +23,50 @@
 -> END
 
 = pt_intro_walk
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: happy
 Come, walk with me.
 -> DONE
 
 = pt_intro
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: determined
 The wilds are littered with old gear. Watch close, I'll show you where it hides.
 -> DONE
 
 = pt_line_wall_slide
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: neutral
 Grab this and you'll cling to walls, sliding down slow instead of dropping like a stone. Buys you a breath to think.
 -> DONE
 
 = pt_line_wall_jump
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: neutral
 With this you kick off walls. Slide, then leap the other way - chain them to climb shafts with no floor at all.
 -> DONE
 
 = pt_line_dash
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: determined
 Pure burst. Slam it and you'll lunge forward faster than anything can track - across gaps that swallow careful jumpers.
 -> DONE
 
 = pt_line_extra_jump
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: neutral
 This one grants an extra jump in mid-air. Tap again at the apex and you'll vault higher than any wall expects.
 -> DONE
 
 = pt_wrap
-# speaker: Quartermaster
+# speaker: quartermaster
+# emotion: happy
 Got all that? Good, now collect them.
 -> DONE
 
 = pt_smooch
-# speaker: You
-# font: comicoro
+# speaker: player
+# emotion: embarrassed
 Thanks, guy! <wave>smooch</wave>
 -> DONE
 
@@ -74,7 +81,7 @@ The gear's still out there. Go on, collect it.
 
 = pt_return
 You found every piece. Good. Here - you've earned an extra spring in your step.
-+ [Thank him]
++ # narrate [Thank him]
     ~ advance_quest("pickup_tour", "complete")
     ~ start_cutscene("pickup-tour-kiss")
     -> END

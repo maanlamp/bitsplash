@@ -66,7 +66,10 @@ const RowSurface = ({
 }>) => {
 	const isHovered = useSyncExternalStore(
 		store.subscribeHover,
-		() => entity != null && store.hovered === entity,
+		() =>
+			entity !== null &&
+			entity !== undefined &&
+			store.hovered === entity,
 	);
 	return (
 		<div

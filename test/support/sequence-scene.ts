@@ -38,6 +38,7 @@ export const TEST_OP = {
 	hold: "test.hold",
 	mark: "test.mark",
 	setBlackboard: "test.setBlackboard",
+	gated: "test.gated",
 } as const;
 
 export const testOp = (
@@ -73,6 +74,7 @@ export const registerTestSequenceOps = (): void => {
 				bump(ctx, params.counter as string);
 				memory.fired = true;
 			}
+			return true;
 		},
 	});
 
@@ -92,6 +94,21 @@ export const registerTestSequenceOps = (): void => {
 				bump(ctx, params.counter as string);
 				memory.fired = true;
 			}
+			return true;
+		},
+	});
+
+	registerOpType(TEST_OP.gated, {
+		arm() {},
+		poll() {
+			return false;
+		},
+		skip(ctx, params) {
+			bump(ctx, params.counter as string);
+			return true;
+		},
+		skippable(ctx, params) {
+			return ctx.run.blackboard[params.gate as string] === "yes";
 		},
 	});
 
@@ -108,6 +125,7 @@ export const registerTestSequenceOps = (): void => {
 			ctx.run.blackboard[params.key as string] = params.value as
 				| string
 				| number;
+			return true;
 		},
 	});
 };

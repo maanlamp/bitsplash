@@ -1,25 +1,23 @@
 import type AudioManager from "../../engine/audio/audio";
-import bruteUrl from "../content/assets/voice_bank_brute.wav?url";
-import childUrl from "../content/assets/voice_bank_child.wav?url";
-import gruntUrl from "../content/assets/voice_bank_grunt.wav?url";
-import signUrl from "../content/assets/voice_bank_sign.wav?url";
-import sillyUrl from "../content/assets/voice_bank_silly.wav?url";
-import smoothUrl from "../content/assets/voice_bank_smooth.wav?url";
+import {
+	VOICE_BANK_URLS,
+	VoiceBanks,
+} from "../content/assets/assets.gen";
+import type { VoiceBankId } from "./voice-bank-id";
 import {
 	detectVoicedSegments,
 	type VoicedSegment,
 } from "./voiced-segments";
 
-export const VOICE_BANKS: Readonly<Record<string, string>> = {
-	brute: bruteUrl,
-	child: childUrl,
-	grunt: gruntUrl,
-	sign: signUrl,
-	silly: sillyUrl,
-	smooth: smoothUrl,
-};
+/**
+ * Fetchable URL per bank id, generated from the `voice_bank_*.wav` assets, so the
+ * id vocabulary and the URL map cannot disagree. Reach an individual id through
+ * {@link VoiceBanks} rather than a bare string.
+ */
+export const VOICE_BANKS: Readonly<Record<string, string>> =
+	VOICE_BANK_URLS;
 
-export const DEFAULT_VOICE_BANK = "sign";
+export const DEFAULT_VOICE_BANK: VoiceBankId = VoiceBanks.sign;
 
 export const VOWEL_COUNT = 5;
 

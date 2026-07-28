@@ -43,6 +43,26 @@ export class PerceptionSystem implements UpdateSystem {
 		}
 	}
 
+	/**
+	 * Resolves both of a perceiver's outputs over one sweep of candidates:
+	 * {@link PerceptionComponent.noticed}, which has no stance filter, and
+	 * {@link PerceptionComponent.targetId}, which keeps it.
+	 *
+	 * The notice set is sticky and {@link PerceptionComponent.targetId} is not:
+	 * an entity already noticed stays noticed while it is within
+	 * `noticeProximityTiles`, sighted or not, so a head sweep no longer reads as a
+	 * departure. Targeting keeps its own decay through `detection` and
+	 * `forgetTime`, untouched.
+	 *
+	 * The two share a loop rather than a second sweep because visibility is the
+	 * expensive part — up to three cone tests and three raycasts per candidate —
+	 * and both answers derive from that one result. The stance filter therefore
+	 * sits *after* the visibility test, gating only the targeting bookkeeping.
+	 *
+	 * A candidate is anything with a faction and a transform. Health is
+	 * deliberately not required: NPCs are perceivable on a faction alone and must
+	 * never become damageable to earn it.
+	 */
 	private sight(
 		ecs: ECS,
 		world: World,
@@ -53,6 +73,7 @@ export class PerceptionSystem implements UpdateSystem {
 		s: number,
 	): void {
 		const range = perception.viewDistanceTiles * TILE_SIZE;
+		const proximity = perception.noticeProximityTiles * TILE_SIZE;
 		const minCos = Math.cos(perception.viewAngle.radians);
 		const eye = transform.position;
 		let bestId: EntityId | null = null;
@@ -61,15 +82,12 @@ export class PerceptionSystem implements UpdateSystem {
 		let viewId: EntityId | null = null;
 		let viewPos: Vector2 | null = null;
 		let viewDist = Infinity;
-		for (const [candId, , , candTransform] of ecs.query(
-			HealthComponent,
+		const noticed: EntityId[] = [];
+		for (const [candId, , candTransform] of ecs.query(
 			FactionComponent,
 			TransformComponent,
 		)) {
 			if (candId === id) {
-				continue;
-			}
-			if (getReaction(ecs, id, candId) !== "hostile") {
 				continue;
 			}
 			const center = candTransform.position;
@@ -84,6 +102,15 @@ export class PerceptionSystem implements UpdateSystem {
 				range,
 				minCos,
 			);
+			if (
+				visible ||
+				(dist <= proximity && perception.noticed.includes(candId))
+			) {
+				noticed.push(candId);
+			}
+			if (getReaction(ecs, id, candId) !== "hostile") {
+				continue;
+			}
 			if (inView && dist < viewDist) {
 				viewDist = dist;
 				viewId = candId;
@@ -95,6 +122,7 @@ export class PerceptionSystem implements UpdateSystem {
 				bestPos = center;
 			}
 		}
+		this.recordNoticed(perception, noticed);
 
 		this.recordSamples(
 			ecs,
@@ -136,6 +164,28 @@ export class PerceptionSystem implements UpdateSystem {
 			perception.lastStimulusPos = null;
 			perception.timeSinceSeen = Infinity;
 		}
+	}
+
+	/**
+	 * Swap in this frame's noticed set and report the difference.
+	 *
+	 * The notice set is rebuilt from live candidates every frame, so a destroyed
+	 * or teleported-away entity leaves it and shows up in
+	 * {@link PerceptionComponent.noticedExited} — losing an entity and losing
+	 * sight of it are the same event to a perceiver.
+	 */
+	private recordNoticed(
+		perception: PerceptionComponent,
+		noticed: readonly EntityId[],
+	): void {
+		const before = perception.noticed;
+		perception.noticedEntered = noticed.filter(
+			(candId) => !before.includes(candId),
+		);
+		perception.noticedExited = before.filter(
+			(candId) => !noticed.includes(candId),
+		);
+		perception.noticed = [...noticed];
 	}
 
 	private perceive(

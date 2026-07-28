@@ -46,6 +46,7 @@ const fadeExecutor: OpExecutor = {
 	skip(ctx, params, memory) {
 		startFade(ctx.ecs, params.to as number, 0 as Seconds).complete();
 		memory.issued = true;
+		return true;
 	},
 };
 
@@ -140,6 +141,7 @@ const cameraToExecutor: OpExecutor = {
 			),
 		).complete();
 		memory.issued = true;
+		return true;
 	},
 };
 
@@ -211,6 +213,7 @@ const focusOnExecutor: OpExecutor = {
 			focusConfig(ctx, params),
 		).complete();
 		memory.issued = true;
+		return true;
 	},
 };
 
@@ -240,6 +243,7 @@ const followExecutor: OpExecutor = {
 	skip(ctx, params) {
 		takeCamera(ctx, OP_TYPES.follow);
 		applyFollow(ctx, params);
+		return true;
 	},
 };
 
@@ -252,6 +256,7 @@ const controlExecutor = (released: boolean): OpExecutor => ({
 	},
 	skip(ctx) {
 		ctx.run.controlReleased = released;
+		return true;
 	},
 	skippable() {
 		return true;

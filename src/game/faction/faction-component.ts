@@ -2,12 +2,14 @@ import {
 	serializable,
 	serialize,
 } from "../../engine/serialization/serializable";
+import { FACTION_IDS, type FactionId } from "./faction-ids";
 
 @serializable("Faction")
 export class FactionComponent {
-	@serialize() faction: string;
+	@serialize({ options: FACTION_IDS })
+	faction: FactionId;
 
-	constructor(faction: string = "neutral") {
+	constructor(faction: FactionId = "neutral") {
 		this.faction = faction;
 	}
 }

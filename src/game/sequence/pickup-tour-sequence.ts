@@ -93,6 +93,7 @@ const setupPickupTourQuestExecutor: OpExecutor = {
 	},
 	skip(ctx: OpContext) {
 		setupQuest(ctx.ecs);
+		return true;
 	},
 	skippable() {
 		return true;

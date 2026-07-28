@@ -1,8 +1,10 @@
 import { useSyncExternalStore } from "react";
+import type { BarkHudState } from "../dialogue/bark-hud-state";
 import type { DialogueHudState } from "../dialogue/dialogue-hud-state";
 import type { HealthBarHudState } from "../health/health-bar-hud-state";
 import type { InteractHintHudState } from "../interaction/interact-hint-hud-state";
 import type { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
+import type { EmotionIconHudState } from "../reaction/emotion-icon-hud-state";
 import type { GameUiActions } from "./game-ui-actions";
 import type { GameUiState } from "./game-ui-state";
 import type { HudState } from "./hud-state";
@@ -18,9 +20,11 @@ export type GameUiProps = Readonly<{
 	actions: GameUiActions;
 	hud: HudState;
 	dialogue: DialogueHudState;
+	barks: BarkHudState;
 	healthBars: HealthBarHudState;
 	interactHint: InteractHintHudState;
 	questMarkers: QuestMarkerHudState;
+	emotionIcons: EmotionIconHudState;
 	skipHint: SkipHintState;
 }>;
 
@@ -29,9 +33,11 @@ export const GameUI = ({
 	actions,
 	hud,
 	dialogue,
+	barks,
 	healthBars,
 	interactHint,
 	questMarkers,
+	emotionIcons,
 	skipHint,
 }: GameUiProps) => {
 	const snap = useSyncExternalStore(
@@ -44,9 +50,11 @@ export const GameUI = ({
 				<PlayingHud
 					hud={hud}
 					dialogue={dialogue}
+					barks={barks}
 					healthBars={healthBars}
 					interactHint={interactHint}
 					questMarkers={questMarkers}
+					emotionIcons={emotionIcons}
 					skipHint={skipHint}
 				/>
 			)}

@@ -25,7 +25,8 @@ const classifyBspriteBytes = (bytes) => {
 			return { kind: "unknown" };
 		}
 		const manifest = JSON.parse(strFromU8(raw));
-		const tileset = manifest.tileset != null;
+		const tileset =
+			manifest.tileset !== null && manifest.tileset !== undefined;
 		const columns =
 			tileset && typeof manifest.tileset.columns === "number"
 				? manifest.tileset.columns

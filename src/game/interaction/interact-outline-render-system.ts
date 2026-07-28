@@ -1,4 +1,4 @@
-import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system";
+import { isExclusiveSequenceRunning } from "../../engine/sequence/sequence-system";
 import { resolveRenderLayer } from "../../engine/render/render-layers";
 import { resolveSpriteDraw } from "../../engine/sprite/resolve-sprite-draw";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
@@ -9,11 +9,16 @@ import {
 import { TransformComponent } from "../../engine/transform-component";
 import { InteractionStateComponent } from "./interaction-state-component";
 
+/**
+ * Outlines the interactable in range. Hidden whenever an exclusive sequence is
+ * running — matching `DialogueTriggerSystem`'s gate, so the outline never
+ * promises an interaction that would be silently swallowed.
+ */
 export class InteractOutlineRenderSystem implements RenderSystem {
 	constructor(private outlineLayer: string) {}
 
 	render({ renderer, ecs, assetManager }: RenderContext): void {
-		if (isExclusiveSequenceActive(ecs)) {
+		if (isExclusiveSequenceRunning(ecs)) {
 			return;
 		}
 		const stateEntry = ecs.query(InteractionStateComponent)[0];

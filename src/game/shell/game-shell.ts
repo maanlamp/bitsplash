@@ -10,10 +10,12 @@ import { SaveManager } from "../../engine/save/save-manager";
 import { Scene, SceneConfig } from "../../engine/scene/scene";
 import { createPlatformerActions } from "../input/platformer-actions";
 import { UI_FONT } from "../dialogue/dialogue-ui";
+import { BarkHudState } from "../dialogue/bark-hud-state";
 import { DialogueHudState } from "../dialogue/dialogue-hud-state";
 import { HealthBarHudState } from "../health/health-bar-hud-state";
 import { InteractHintHudState } from "../interaction/interact-hint-hud-state";
 import { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
+import { EmotionIconHudState } from "../reaction/emotion-icon-hud-state";
 import type { GameUiActions } from "../ui/game-ui-actions";
 import { GameUiState } from "../ui/game-ui-state";
 import { GameUI } from "../ui/game-ui";
@@ -43,9 +45,11 @@ export class GameShell {
 	private readonly uiState = new GameUiState();
 	private readonly hudState = new HudState();
 	private readonly dialogueHud = new DialogueHudState();
+	private readonly barkHud = new BarkHudState();
 	private readonly healthBars = new HealthBarHudState();
 	private readonly interactHint = new InteractHintHudState();
 	private readonly questMarkers = new QuestMarkerHudState();
+	private readonly emotionIcons = new EmotionIconHudState();
 	private readonly skipHint = new SkipHintState();
 	private readonly lastUsedDevice = new LastUsedDevice();
 
@@ -72,9 +76,11 @@ export class GameShell {
 				actions: this.actions,
 				hud: this.hudState,
 				dialogue: this.dialogueHud,
+				barks: this.barkHud,
 				healthBars: this.healthBars,
 				interactHint: this.interactHint,
 				questMarkers: this.questMarkers,
+				emotionIcons: this.emotionIcons,
 				skipHint: this.skipHint,
 			}),
 			{
@@ -286,9 +292,11 @@ export class GameShell {
 					{
 						hud: this.hudState,
 						dialogue: this.dialogueHud,
+						barks: this.barkHud,
 						healthBars: this.healthBars,
 						interactHint: this.interactHint,
 						questMarkers: this.questMarkers,
+						emotionIcons: this.emotionIcons,
 						skipHint: this.skipHint,
 					},
 					this.lastUsedDevice,

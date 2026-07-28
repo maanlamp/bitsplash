@@ -1,142 +1,59 @@
 import { useSyncExternalStore } from "react";
 import { Overlay } from "../../engine/ui/components/overlay";
-import {
-	GlyphText,
-	Text,
-	View,
-} from "../../engine/ui/reconciler/ui-elements";
 import type { Style } from "../../engine/ui/style/style";
-import type { FontSettings } from "../../engine/text/font-settings";
-import { KeyCap } from "../ui/key-cap";
-import { DIALOGUE_UI } from "./dialogue-ui";
+import { ConversationPanel } from "./conversation-panel";
+import { CONVERSATION_PANEL_ID } from "./conversation-nodes";
+import { CONVERSATION_UI } from "./conversation-view";
 import type { DialogueHudState } from "./dialogue-hud-state";
 
-export const DIALOGUE_BOX_ID = "dialogue-box";
-export const DIALOGUE_GLYPHS_ID = "dialogue-glyphs";
-
-const ACCENT: [number, number, number, number] = [
-	0.478, 0.329, 0.063, 1,
-];
-const TEXT: [number, number, number, number] = [0, 0, 0, 1];
+/**
+ * The panel is anchored bottom-centre and the overlay around it is
+ * **pointer-transparent**: `PointerRouter` treats an unset `pointerEvents` as
+ * opaque, so a full-screen overlay would report a hover every frame dialogue is
+ * open and swallow all five mouse buttons plus the wheel — taking mouse-right
+ * `interact` / `dialogueAdvance` / `cutsceneSkip` with them. `pointerEvents`
+ * inherits, so `ChoiceOption` opts back in on its own.
+ */
+const ANCHOR: Style = {
+	flexDirection: "column",
+	justifyContent: "flex-end",
+	alignItems: "center",
+	paddingBottom: CONVERSATION_UI.marginBottom,
+	pointerEvents: "none",
+};
 
 export type DialogueHudProps = Readonly<{
 	store: DialogueHudState;
 }>;
 
-type ChoiceRowProps = Readonly<{
-	index: number;
-	text: string;
-	selected: boolean;
-	font: FontSettings | undefined;
-	store: DialogueHudState;
-}>;
-
-const ChoiceRow = ({
-	index,
-	text,
-	selected,
-	font,
-	store,
-}: ChoiceRowProps) => (
-	<View
-		focusable
-		focusGroup="dialogue-choices"
-		style={{ flexDirection: "row" }}
-		onFocus={() => store.select(index)}
-		onClick={() => store.confirm(index)}
-		onConfirm={() => store.confirm(index)}
-	>
-		<Text style={{ font, color: selected ? ACCENT : TEXT }}>
-			{`${selected ? "> " : "  "}${text}`}
-		</Text>
-	</View>
-);
-
+/**
+ * The conversation on screen: a bounded window of message bubbles with the
+ * pending choices below them, over an undimmed world.
+ *
+ * Messages outside the window are **unmounted**, not clipped: `walkFocusables`
+ * has no clip awareness and `edgesOf` scores candidates from the yoga rect rather
+ * than the dyn offset, so a clipped window would keep handing focus to rows that
+ * are no longer drawn where they are scored.
+ */
 export const DialogueHud = ({ store }: DialogueHudProps) => {
 	const snap = useSyncExternalStore(
 		store.subscribe,
 		store.getSnapshot,
 	);
-	if (!snap.open) {
+	if (!snap.open || snap.messages.length === 0) {
 		return null;
 	}
-	const bodyFont = snap.bodyFont ?? undefined;
-	const uiFont = snap.uiFont ?? undefined;
-	const panelStyle: Style = {
-		width: DIALOGUE_UI.panelWidth,
-		padding: DIALOGUE_UI.padding,
-		flexDirection: "column",
-		...(snap.panel
-			? { nineSlice: { image: snap.panel, insets: snap.insets } }
-			: null),
-	};
 	return (
-		<Overlay
-			style={{
-				flexDirection: "column",
-				justifyContent: "flex-end",
-				alignItems: "center",
-				paddingBottom: DIALOGUE_UI.marginBottom,
-			}}
-		>
-			<View
-				id={DIALOGUE_BOX_ID}
-				style={{
-					width: DIALOGUE_UI.panelWidth,
-					flexDirection: "column",
-					alignItems: "flex-start",
-				}}
-			>
-				{snap.speaker.length > 0 && (
-					<Text style={{ color: ACCENT, font: uiFont }}>
-						{snap.speaker}
-					</Text>
-				)}
-				<View style={panelStyle}>
-					<GlyphText
-						id={DIALOGUE_GLYPHS_ID}
-						glyphs={snap.glyphs}
-						style={{ font: bodyFont }}
-					/>
-					{snap.more && (
-						<View
-							style={{
-								flexDirection: "row",
-								justifyContent: "flex-end",
-								marginTop: DIALOGUE_UI.optionGap,
-							}}
-						>
-							<KeyCap
-								glyph={snap.advanceGlyph}
-								font={uiFont}
-								frame={snap.kbdFrame}
-								insets={snap.kbdInsets}
-								icon={snap.advanceIcon}
-								activation={snap.advanceActivation}
-							/>
-						</View>
-					)}
-					{snap.choices.length > 0 && (
-						<View
-							style={{
-								flexDirection: "column",
-								marginTop: DIALOGUE_UI.optionGap,
-							}}
-						>
-							{snap.choices.map((choice, index) => (
-								<ChoiceRow
-									key={index}
-									index={index}
-									text={choice}
-									selected={index === snap.selectedOption}
-									font={uiFont}
-									store={store}
-								/>
-							))}
-						</View>
-					)}
-				</View>
-			</View>
+		<Overlay style={ANCHOR}>
+			<ConversationPanel
+				id={CONVERSATION_PANEL_ID}
+				messages={snap.messages}
+				choices={snap.choices}
+				frame={snap.frame}
+				onChoiceFocus={(index) => store.select(index)}
+				onChoiceConfirm={(index) => store.confirm(index)}
+				onReadBack={() => store.readBack()}
+			/>
 		</Overlay>
 	);
 };

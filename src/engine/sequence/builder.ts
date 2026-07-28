@@ -109,7 +109,6 @@ export type DialogueParams = Readonly<{
 	knot?: string;
 	knotKey?: string;
 	source?: ActorRef;
-	speaker?: string;
 	capture?: string;
 }>;
 

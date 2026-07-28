@@ -45,7 +45,6 @@ import {
 } from "./constants";
 import knickKnacksUrl from "./content/assets/knick-knacks-grass.png";
 import tileDecorationsUrl from "./content/assets/tile-decorations.png";
-import { BarkRenderSystem } from "./dialogue/bark-render-system";
 import { BarkSystem } from "./dialogue/bark-system";
 import { platformerDialogueBindings } from "./dialogue/dialogue-bindings";
 import { DialogueTriggerSystem } from "./dialogue/dialogue-trigger-system";
@@ -62,6 +61,7 @@ import { ACTION_IDS } from "./input/action-ids";
 import { InteractOutlineRenderSystem } from "./interaction/interact-outline-render-system";
 import { InteractionSystem } from "./interaction/interaction-system";
 import { NpcAnimationSystem } from "./npc/npc-animation-system";
+import { NpcScanSystem } from "./npc/npc-scan-system";
 import { PickupSystem } from "./pickup/pickup-system";
 import { GroundDetectionSystem } from "./player/ground-detection-system";
 import { PlayerAnimationSystem } from "./player/player-animation-system";
@@ -69,6 +69,7 @@ import { PlayerIntentSystem } from "./player/player-intent-system";
 import { PlayerMovementSystem } from "./player/player-movement-system";
 import { QuestNoticeSystem } from "./quest/quest-notice-system";
 import { QuestSystem } from "./quest/quest-system";
+import { ReactionSystem } from "./reaction/reaction-system";
 import { DeathNoticeSystem } from "./respawn/death-notice-system";
 import { DeathSystem } from "./respawn/death-system";
 import { SpawnSystem } from "./respawn/spawn-system";
@@ -94,6 +95,7 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new AimSystem(settings),
 	new PlayerIntentSystem(),
 	new EnemyBrainSystem(),
+	new NpcScanSystem(),
 	new FacingSystem(),
 	new PlayerAnimationSystem(),
 	new NpcAnimationSystem(),
@@ -120,6 +122,7 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new DamageTriggerSystem(),
 	new HealthSystem(),
 	new PerceptionSystem(),
+	new ReactionSystem(),
 	new DamageShakeSystem(),
 	new HitsplatSpawnSystem(),
 	new HitsplatSystem(),
@@ -165,7 +168,6 @@ const renderSystems = (): RenderSystem[] => {
 		new DecorationsRenderSystem(tileDecorations),
 		new DebugTagSystem("overlay"),
 		new InteractOutlineRenderSystem("entities"),
-		new BarkRenderSystem("overlay"),
 		new SpriteRenderSystem(),
 		new BowRenderSystem(),
 		new TilemapRenderSystem(),

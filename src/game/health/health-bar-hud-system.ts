@@ -1,6 +1,7 @@
 import type { EntityId } from "../../engine/ecs";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { fadeAlpha } from "../../engine/render/color-resolver";
+import { entityTop } from "../../engine/sprite/entity-top";
 import {
 	type UpdateContext,
 	UpdateSystem,
@@ -18,6 +19,17 @@ import { profiler } from "../../engine/profiling/profiler";
 const FADE = 1;
 const BAR_WIDTH = 32;
 
+/**
+ * Clearance between the top of an entity's art and the bottom of its bar.
+ *
+ * Larger than the other overhead HUDs' gaps on purpose: the bar hangs 5px below
+ * its own anchor, and a bar tucked against the head reads as part of the
+ * character. This keeps it roughly where the pre-`.bsprite` fixed `-36` put it,
+ * while anchoring off the sprite content rect so it holds for entities whose art
+ * does not happen to match a 16-unit physics half-height.
+ */
+const GAP = 16;
+
 @profiler("Health bar HUD", "HUD")
 export class HealthBarHudSystem implements UpdateSystem {
 	constructor(
@@ -26,7 +38,7 @@ export class HealthBarHudSystem implements UpdateSystem {
 		private readonly dyn: DynStore,
 	) {}
 
-	update({ ecs }: UpdateContext): void {
+	update({ ecs, assetManager }: UpdateContext): void {
 		const ids: EntityId[] = [];
 		for (const [id, health, transform, rb] of ecs.query(
 			HealthComponent,
@@ -48,7 +60,9 @@ export class HealthBarHudSystem implements UpdateSystem {
 			this.dyn.set(container.id, {
 				alpha: fadeAlpha(bar.visible, FADE),
 				worldX: transform.position.x,
-				worldY: transform.position.y + rb.halfExtents.y * -2 - 4,
+				worldY:
+					entityTop(ecs, assetManager, id, GAP) ??
+					transform.position.y - rb.halfExtents.y * 2 - GAP,
 			});
 			this.setColor(
 				`${healthNodeId(id)}-bg`,

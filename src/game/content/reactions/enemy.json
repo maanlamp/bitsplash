@@ -1,0 +1,29 @@
+{
+	"table": "enemy",
+	"reactions": [
+		{
+			"id": "enemy-alert",
+			"stimulus": "noticed-hostile",
+			"emotion": "surprised",
+			"standings": ["cold", "wary", "neutral", "warm"],
+			"priority": 20,
+			"cooldown": 45,
+			"once": false,
+			"enter": 0.1,
+			"hold": 1.5,
+			"exit": 0.2
+		},
+		{
+			"id": "enemy-taunt",
+			"stimulus": "noticed-hostile",
+			"emotion": "smug",
+			"standings": ["cold", "wary", "neutral", "warm"],
+			"priority": 10,
+			"cooldown": 30,
+			"once": false,
+			"enter": 0.1,
+			"hold": 2,
+			"exit": 0.2
+		}
+	]
+}

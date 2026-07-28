@@ -64,7 +64,7 @@ const inkBounds = (
 	return { minX, maxX, minY, maxY };
 };
 import { UI_LAYER_MIN } from "../../ui";
-import type { DynStore } from "../bypass/dyn-store";
+import type { DynStore, DynValues } from "../bypass/dyn-store";
 import type { UiNode } from "../reconciler/ui-node";
 import type { UiRoot } from "../reconciler/ui-root";
 import type { Style } from "../style/style";
@@ -78,6 +78,19 @@ const styleOf = (node: UiNode): Style | undefined =>
 
 const isOverflowHidden = (style: Style | undefined): boolean =>
 	(style as { overflow?: string } | undefined)?.overflow === "hidden";
+
+/**
+ * A world-anchored node that supplies a dyn offset is placing itself relative
+ * to its own measured size (a bubble centring on `-w / 2`, say), so painting it
+ * before layout has produced a width would put it at the wrong place for one
+ * frame. Nodes that anchor by their top-left supply no offset and are unaffected.
+ */
+const awaitsMeasurement = (
+	values: DynValues,
+	rect: Readonly<{ w: number }>,
+): boolean =>
+	(values.offsetX !== undefined || values.offsetY !== undefined) &&
+	rect.w === 0;
 
 export class UiRenderSystem extends RenderSystem {
 	constructor(
@@ -127,12 +140,13 @@ export class UiRenderSystem extends RenderSystem {
 			const values = this.dyn.get(node.id);
 			if (
 				values?.worldX === undefined ||
-				values?.worldY === undefined
+				values?.worldY === undefined ||
+				awaitsMeasurement(values, rect)
 			) {
 				return;
 			}
-			offsetX = values.worldX - rect.x;
-			offsetY = values.worldY - rect.y;
+			offsetX = values.worldX - rect.x + this.dyn.offsetX(node);
+			offsetY = values.worldY - rect.y + this.dyn.offsetY(node);
 		} else {
 			offsetX = inheritedOffsetX + this.dyn.offsetX(node);
 			offsetY = inheritedOffsetY + this.dyn.offsetY(node);
@@ -274,6 +288,7 @@ export class UiRenderSystem extends RenderSystem {
 			srcY: node.props.srcY as number | undefined,
 			srcW: node.props.srcW as number | undefined,
 			srcH: node.props.srcH as number | undefined,
+			flipX: node.props.flipX as boolean | undefined,
 			tint,
 			alpha,
 		});

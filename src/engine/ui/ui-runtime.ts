@@ -41,7 +41,13 @@ export class UiRuntime {
 		this.bridge = new YogaBridge(
 			createTextMeasureProvider(options.resolveFont),
 		);
-		this.root = new UiRoot({ yoga: this.bridge });
+		this.root = new UiRoot({
+			yoga: this.bridge,
+			onNodeRemoved: (node) => {
+				this.dyn.clear(node.id);
+				this.dispatcher.nodeRemoved(this.root.tree, node);
+			},
+		});
 		this.anchor = new AnchorSystem(this.root, this.dyn, {
 			inset: options.anchorInset,
 		});

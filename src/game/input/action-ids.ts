@@ -10,8 +10,6 @@ export const ACTION_IDS = {
 	attackPrimary: "attack.primary",
 	dialogueAdvance: "dialogue.advance",
 	dialogueFastForward: "dialogue.fastforward",
-	dialogueNavUp: "dialogue.navUp",
-	dialogueNavDown: "dialogue.navDown",
 	cutsceneSkip: "cutscene.skip",
 	menuConfirm: "menu.confirm",
 	menuCancel: "menu.cancel",

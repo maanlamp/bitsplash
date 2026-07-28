@@ -5,156 +5,47 @@ import { InkStoryComponent } from "../ink/ink-story-component";
 import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type EventBus from "../events";
-import type { LoadedFont } from "../load";
 import { mirrorInkState } from "../ink/story";
 import { profiler } from "../profiling/profiler";
 import { resolveFont } from "../text/resolve-font";
-import {
-	parseRichText,
-	type RichLine,
-	type StyledChar,
-	wrapRichText,
-} from "../text/rich-text";
 import { type UpdateContext, UpdateSystem } from "../system";
+import {
+	EMPTY_WRAPPED_TEXT,
+	type PauseBindings,
+	wrapDialogueText,
+	type WrappedText,
+} from "./dialogue-text";
 import {
 	CharacterRevealedEvent,
 	DialogueClosedEvent,
 	DialogueOpenedEvent,
 } from "./events";
 
-export type DialogueBindings = Readonly<{
-	textWidth: number;
-	maxLines: number;
-	charactersPerSecond: number;
-	commaPauseChars: number;
-	midPauseChars: number;
-	stopPauseChars: number;
-	ellipsisPauseChars: number;
-	slideIn: Seconds;
-	slideOut: Seconds;
-	advancePressed: (ctx: UpdateContext) => boolean;
-	consumeAdvance: (ctx: UpdateContext) => void;
-	navUpHeld: (ctx: UpdateContext) => boolean;
-	navDownHeld: (ctx: UpdateContext) => boolean;
-}>;
-
-const COMMA_MARKS = new Set([",", "–", "—"]);
-const MID_MARKS = new Set([";", ":"]);
-const STOP_MARKS = new Set([".", "!", "?"]);
-
-export const computePauses = (
-	chars: string[],
-	bindings: DialogueBindings,
-): number[] => {
-	const pauses = Array.from<number>({ length: chars.length }).fill(0);
-	let i = 0;
-	while (i < chars.length) {
-		const char = chars[i]!;
-		if (STOP_MARKS.has(char)) {
-			let j = i;
-			while (j + 1 < chars.length && STOP_MARKS.has(chars[j + 1]!)) {
-				j++;
-			}
-			const run = chars.slice(i, j + 1);
-			const ellipsis = run.length >= 2 && run.every((c) => c === ".");
-			pauses[j] = ellipsis
-				? bindings.ellipsisPauseChars
-				: bindings.stopPauseChars;
-			i = j + 1;
-		} else if (MID_MARKS.has(char)) {
-			pauses[i] = bindings.midPauseChars;
-			i++;
-		} else if (COMMA_MARKS.has(char)) {
-			let j = i;
-			while (j + 1 < chars.length && COMMA_MARKS.has(chars[j + 1]!)) {
-				j++;
-			}
-			pauses[j] = bindings.commaPauseChars;
-			i = j + 1;
-		} else {
-			i++;
-		}
-	}
-	return pauses;
-};
-
-const SENTENCE_END = STOP_MARKS;
-
-const splitSentences = (chars: StyledChar[]): StyledChar[][] => {
-	const sentences: StyledChar[][] = [];
-	let current: StyledChar[] = [];
-	let i = 0;
-	while (i < chars.length) {
-		current.push(chars[i]!);
-		const ch = chars[i]!.char;
-		const next = chars[i + 1]?.char;
-		if (
-			SENTENCE_END.has(ch) &&
-			(next === undefined || next === " " || next === "\n")
-		) {
-			let j = i + 1;
-			while (j < chars.length && chars[j]!.char === " ") {
-				current.push(chars[j]!);
-				j++;
-			}
-			sentences.push(current);
-			current = [];
-			i = j;
-			continue;
-		}
-		i++;
-	}
-	if (current.length > 0) {
-		sentences.push(current);
-	}
-	return sentences;
-};
-
-const paginate = (
-	font: LoadedFont,
-	chars: StyledChar[],
-	maxWidth: number,
-	maxLines: number,
-): RichLine[][] => {
-	const pages: RichLine[][] = [];
-	let current: StyledChar[] = [];
-	for (const sentence of splitSentences(chars)) {
-		const combined = current.concat(sentence);
-		if (
-			current.length > 0 &&
-			wrapRichText(font, combined, maxWidth).length > maxLines
-		) {
-			pages.push(wrapRichText(font, current, maxWidth));
-			current = sentence.slice();
-		} else {
-			current = combined;
-		}
-	}
-	if (current.length > 0) {
-		pages.push(wrapRichText(font, current, maxWidth));
-	}
-	return pages.length > 0 ? pages : [[]];
-};
-
-const pageChars = (page: RichLine[]): string[] => {
-	const chars: string[] = [];
-	for (const line of page) {
-		for (const g of line.glyphs) {
-			chars.push(g.char);
-		}
-	}
-	return chars;
-};
-
-const pageSpeeds = (page: RichLine[]): number[] => {
-	const speeds: number[] = [];
-	for (const line of page) {
-		for (const g of line.glyphs) {
-			speeds.push(g.speed);
-		}
-	}
-	return speeds;
-};
+export type DialogueBindings = PauseBindings &
+	Readonly<{
+		textWidth: number;
+		charactersPerSecond: number;
+		slideIn: Seconds;
+		slideOut: Seconds;
+		advancePressed: (ctx: UpdateContext) => boolean;
+		consumeAdvance: (ctx: UpdateContext) => void;
+		/**
+		 * Put the session's next message on screen: step to the next message the
+		 * story already produced, or drive `Continue()` for more, writing the
+		 * result into `state.text` and `state.choices`. Returns `false` — leaving
+		 * `state` untouched — when nothing is left to show, which closes the
+		 * session.
+		 *
+		 * It is a binding because recording the message in the conversation
+		 * transcript needs the game's character vocabulary, which the engine may
+		 * not import.
+		 */
+		present: (
+			ctx: UpdateContext,
+			state: DialogueComponent,
+			story: Story,
+		) => boolean;
+	}>;
 
 @profiler("Dialogue", "Dialogue")
 export class DialogueSystem implements UpdateSystem {
@@ -196,8 +87,6 @@ export class DialogueSystem implements UpdateSystem {
 				"easeOutBack",
 			);
 			events.emit(new DialogueOpenedEvent(id));
-			this.gatherBlock(story, state, assetManager);
-			mirrorInkState(inkComponent);
 		}
 
 		state.slide.tick(dt);
@@ -216,19 +105,15 @@ export class DialogueSystem implements UpdateSystem {
 			state.phase = "open";
 		}
 
-		this.ensurePages(state, assetManager);
-		if (!state.paginated) {
+		const wrapped = this.ensureWrapped(state, assetManager);
+		if (!wrapped) {
 			if (pressed) {
 				consume();
 			}
 			return;
 		}
 
-		const page = state.pages[state.pageIndex] ?? [];
-		const chars = pageChars(page);
-		const total = chars.length;
-		const speeds = state.speedsByPage[state.pageIndex] ?? [];
-		const pauses = state.pausesByPage[state.pageIndex] ?? [];
+		const total = wrapped.chars.length;
 
 		if (!state.complete) {
 			if (pressed) {
@@ -238,7 +123,7 @@ export class DialogueSystem implements UpdateSystem {
 			} else if (state.pause > 0) {
 				state.pause = Math.max(0, state.pause - dt / 1000) as Seconds;
 			} else {
-				const speed = speeds[Math.floor(state.revealed)] ?? 1;
+				const speed = wrapped.speeds[Math.floor(state.revealed)] ?? 1;
 				const cps = this.bindings.charactersPerSecond * speed;
 				state.cps = cps;
 				const prev = Math.floor(state.revealed);
@@ -248,13 +133,13 @@ export class DialogueSystem implements UpdateSystem {
 				);
 				const now = Math.floor(state.revealed);
 				if (now > prev && state.revealed < total) {
-					const char = chars[now - 1];
+					const char = wrapped.chars[now - 1];
 					if (char && char.trim().length > 0) {
 						events.emit(
 							new CharacterRevealedEvent(id, char, now - 1),
 						);
 					}
-					const extra = pauses[now - 1] ?? 0;
+					const extra = wrapped.pauses[now - 1] ?? 0;
 					if (extra > 0) {
 						state.pause = (extra / cps) as Seconds;
 					}
@@ -266,22 +151,14 @@ export class DialogueSystem implements UpdateSystem {
 			return;
 		}
 
-		const lastPage = state.pageIndex >= state.pages.length - 1;
-		if (!lastPage) {
-			if (pressed) {
-				consume();
-				state.pageIndex += 1;
-				state.revealed = 0;
-				state.pause = 0 as Seconds;
-				state.complete = false;
-			}
-			return;
-		}
-
 		if (state.choices.length === 0) {
 			if (pressed) {
 				consume();
-				this.beginClose(state);
+				const advanced = this.bindings.present(ctx, state, story);
+				mirrorInkState(inkComponent);
+				if (!advanced) {
+					this.beginClose(state);
+				}
 			}
 			return;
 		}
@@ -290,12 +167,11 @@ export class DialogueSystem implements UpdateSystem {
 			state.selectedOption,
 			state.choices.length - 1,
 		);
-		this.handleNavigation(ctx, state);
 
 		if (pressed || uiConfirm) {
 			consume();
 			story.ChooseChoiceIndex(state.selectedOption);
-			const advanced = this.gatherBlock(story, state, assetManager);
+			const advanced = this.bindings.present(ctx, state, story);
 			mirrorInkState(inkComponent);
 			if (!advanced) {
 				this.beginClose(state);
@@ -303,95 +179,33 @@ export class DialogueSystem implements UpdateSystem {
 		}
 	}
 
-	private gatherBlock(
-		story: Story,
+	private ensureWrapped(
 		state: DialogueComponent,
 		assetManager: AssetManager,
-	): boolean {
-		let text = "";
-		while (story.canContinue) {
-			const line = story.Continue();
-			if (line && line.trim().length > 0) {
-				text += (text.length > 0 ? " " : "") + line.trim();
+	): WrappedText | null {
+		if (state.wrapped?.source !== state.text) {
+			if (state.text.length === 0) {
+				state.wrapped = EMPTY_WRAPPED_TEXT;
+			} else {
+				const font = resolveFont(state.font, assetManager);
+				if (!font) {
+					return null;
+				}
+				state.wrapped = wrapDialogueText(
+					state.text,
+					font,
+					this.bindings.textWidth,
+					this.bindings,
+				);
 			}
+			state.revealed = Math.min(
+				state.revealed,
+				state.wrapped.chars.length,
+			);
+			state.pause = 0 as Seconds;
+			state.complete = state.revealed >= state.wrapped.chars.length;
 		}
-		state.choices = story.currentChoices.map((choice) => choice.text);
-		state.choiceTags = story.currentChoices.map(
-			(choice) => choice.tags ?? [],
-		);
-		state.text = text;
-		state.paginated = false;
-		state.pages = [[]];
-		state.pageIndex = 0;
-		state.revealed = 0;
-		state.pause = 0 as Seconds;
-		state.complete = false;
-		state.selectedOption = 0;
-		this.ensurePages(state, assetManager);
-		return text.length > 0 || state.choices.length > 0;
-	}
-
-	private ensurePages(
-		state: DialogueComponent,
-		assetManager: AssetManager,
-	): void {
-		if (state.paginated) {
-			if (state.speedsByPage.length !== state.pages.length) {
-				this.rehydratePages(state);
-			}
-			return;
-		}
-		const font = resolveFont(state.font, assetManager);
-		if (state.text.length > 0 && !font) {
-			return;
-		}
-		state.pages =
-			state.text.length > 0 && font
-				? paginate(
-						font,
-						parseRichText(state.text),
-						this.bindings.textWidth,
-						this.bindings.maxLines,
-					)
-				: [[]];
-		state.pausesByPage = state.pages.map((page) =>
-			computePauses(pageChars(page), this.bindings),
-		);
-		state.speedsByPage = state.pages.map((page) => pageSpeeds(page));
-		state.pageIndex = 0;
-		state.revealed = 0;
-		state.pause = 0 as Seconds;
-		state.complete = state.text.length === 0;
-		state.paginated = true;
-	}
-
-	private rehydratePages(state: DialogueComponent): void {
-		state.pausesByPage = state.pages.map((page) =>
-			computePauses(pageChars(page), this.bindings),
-		);
-		state.speedsByPage = state.pages.map((page) => pageSpeeds(page));
-		const page = state.pages[state.pageIndex] ?? [];
-		state.revealed = pageChars(page).length;
-		state.pause = 0 as Seconds;
-		state.complete = true;
-	}
-
-	private handleNavigation(
-		ctx: UpdateContext,
-		state: DialogueComponent,
-	): void {
-		const count = state.choices.length;
-		const upHeld = this.bindings.navUpHeld(ctx);
-		const downHeld = this.bindings.navDownHeld(ctx);
-		if (upHeld && !state.navUpHeld) {
-			state.selectedOption =
-				(state.selectedOption - 1 + count) % count;
-		}
-		if (downHeld && !state.navDownHeld) {
-			state.selectedOption = (state.selectedOption + 1) % count;
-		}
-		state.navUpHeld = upHeld;
-		state.navDownHeld = downHeld;
+		return state.wrapped;
 	}
 
 	private beginClose(state: DialogueComponent): void {

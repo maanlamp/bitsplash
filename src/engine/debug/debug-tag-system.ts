@@ -1,14 +1,12 @@
 import { PhysicsBodyComponent } from "../physics/physics-body-component";
-import {
-	SpriteComponent,
-	spriteImageUrl,
-	spriteSource,
-} from "../sprite/sprite-component";
+import { entityTop } from "../sprite/entity-top";
 import { TransformComponent } from "../transform-component";
 import { resolveFont } from "../text/resolve-font";
 import { type RenderContext, RenderSystem } from "../system";
 import { DebugTagComponent } from "../debug/debug-tag-component";
 import { resolveRenderLayer } from "../render/render-layers";
+
+const GAP = 4;
 
 export class DebugTagSystem implements RenderSystem {
 	private layer: string;
@@ -27,19 +25,11 @@ export class DebugTagSystem implements RenderSystem {
 				return;
 			}
 			const phys = ecs.getComponent(id, PhysicsBodyComponent);
-			const sprite = ecs.getComponent(id, SpriteComponent);
-			let spriteHeight = 0;
-			if (sprite) {
-				const image = assetManager.getImage(spriteImageUrl(sprite));
-				if (image) {
-					spriteHeight =
-						spriteSource(sprite, image).height * transform.scale.y;
-				}
-			}
 			const top =
+				entityTop(ecs, assetManager, id, GAP) ??
 				transform.position.y -
-				(spriteHeight || (phys?.body ? phys.halfExtents.y : 0)) -
-				4;
+					(phys?.body ? phys.halfExtents.y : 0) -
+					GAP;
 
 			renderer.drawText(
 				resolveRenderLayer(ecs, this.layer),

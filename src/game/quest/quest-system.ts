@@ -1,4 +1,3 @@
-import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type EventBus from "../../engine/events";
@@ -9,13 +8,12 @@ import {
 import { QuestComponent } from "../quest/quest-component";
 import { questLifecycleMachine } from "../quest/quest-lifecycle-def";
 import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
+import { mirrorQuestStage } from "../quest/quest-mutations";
 import { QuestNoticeComponent } from "../quest/quest-notice-component";
 import {
-	AdvanceQuestEvent,
 	DeathEvent,
 	PickupCollectedEvent,
 	QuestRewardEvent,
-	StartQuestEvent,
 } from "../events";
 import { getQuest, type QuestReward } from "../quest/loader";
 import { profiler } from "../../engine/profiling/profiler";
@@ -33,12 +31,6 @@ const rewardHandlers: Record<string, (reward: QuestReward) => void> =
 @profiler("Quests", "Quest")
 export class QuestSystem implements UpdateSystem {
 	update({ ecs, events }: UpdateContext): void {
-		for (const event of events.read(StartQuestEvent)) {
-			this.startQuest(ecs, event.quest, event.stage);
-		}
-		for (const event of events.read(AdvanceQuestEvent)) {
-			this.setPending(ecs, event.quest, event.to);
-		}
 		for (const event of events.read(DeathEvent)) {
 			const marker = ecs
 				.componentsOf(event.entity)
@@ -74,52 +66,6 @@ export class QuestSystem implements UpdateSystem {
 				quest.stage = result.next.current;
 				quest.pending = null;
 				this.onStageEnter(ecs, events, id, result.next.current);
-			}
-		}
-	}
-
-	private startQuest(ecs: ECS, questId: string, stage: string): void {
-		for (const [, quest] of ecs.query(QuestComponent)) {
-			if (quest.id === questId) {
-				return;
-			}
-		}
-		const def = getQuest(questId);
-		if (!def) {
-			return;
-		}
-		const counters: Record<string, number> = {};
-		const goals: Record<string, number> = {};
-		for (const objective of def.objectives) {
-			counters[objective.tag] = 0;
-			goals[objective.tag] = objective.count;
-		}
-		ecs.createEntity([
-			new QuestComponent(questId, stage, counters, goals, null),
-		]);
-		this.mirrorStage(ecs, questId, stage);
-	}
-
-	private mirrorStage(
-		ecs: ECS,
-		questId: string,
-		stage: string,
-	): void {
-		const story = ecs.query(InkStoryComponent)[0]?.[1].story;
-		if (!story) {
-			return;
-		}
-		const key = `quest_${questId}`;
-		if (story.variablesState[key] !== null) {
-			story.variablesState[key] = stage;
-		}
-	}
-
-	private setPending(ecs: ECS, questId: string, to: string): void {
-		for (const [, quest] of ecs.query(QuestComponent)) {
-			if (quest.id === questId) {
-				quest.pending = to;
-				return;
 			}
 		}
 	}
@@ -161,7 +107,7 @@ export class QuestSystem implements UpdateSystem {
 			return;
 		}
 		quest.stage = state;
-		this.mirrorStage(ecs, quest.id, state);
+		mirrorQuestStage(ecs, quest.id, state);
 		const def = getQuest(quest.id);
 		if (!def) {
 			return;
