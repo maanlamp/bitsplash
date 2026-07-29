@@ -1,0 +1,63 @@
+.popup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--unit-12);
+	width: 13rem;
+	padding: var(--unit-12);
+}
+
+.empty {
+	font: var(--font-caption);
+	color: var(--on-surface-faint);
+}
+
+.scrub {
+	display: flex;
+	align-items: center;
+	gap: var(--unit-8);
+}
+
+.control {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	align-items: center;
+	height: var(--unit-20);
+	touch-action: none;
+}
+
+.track {
+	position: relative;
+	width: 100%;
+	height: var(--unit-4);
+	border-radius: var(--radius-full);
+	background: var(--surface-inset);
+}
+
+.indicator {
+	border-radius: var(--radius-full);
+	background: var(--accent);
+}
+
+.thumb {
+	width: var(--unit-12);
+	height: var(--unit-12);
+	border-radius: var(--radius-full);
+	background: var(--on-surface);
+	outline: var(--border-width) solid transparent;
+	outline-offset: var(--focus-ring-offset);
+	transition: outline-color var(--duration-fast) var(--ease-standard);
+
+	&:focus-visible {
+		outline-color: var(--accent);
+	}
+}
+
+.value {
+	flex: none;
+	width: var(--unit-36);
+	font: var(--font-caption);
+	color: var(--on-surface-muted);
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}

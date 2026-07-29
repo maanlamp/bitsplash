@@ -40,6 +40,8 @@ import { PhysicsShapeDebugSystem } from "./systems/physics-shape-debug";
 import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
 import { TransformGizmoDebugSystem } from "./systems/transform-gizmo-debug";
+import { silenceWeatherAudio } from "./weather/silence-weather-audio";
+import { WeatherPreviewStore } from "./weather/weather-preview-store";
 
 type RenderSurface = Readonly<{
 	viewport: Viewport;
@@ -55,6 +57,12 @@ export class SceneView {
 	private surface: RenderSurface = this.createSurface();
 
 	readonly editorCamera = new Camera2D();
+
+	/**
+	 * This view's weather preview scrub. Per view because the preview is per
+	 * world; the store is the only writer of this world's preview entry.
+	 */
+	readonly weatherPreview: WeatherPreviewStore;
 
 	private readonly camera: EditorCamera2DSystem;
 	private readonly entityEditor: EntityEditorSystem;
@@ -76,6 +84,9 @@ export class SceneView {
 		readonly debugFlags: DebugFlags,
 		private readonly services: GlobalServices,
 	) {
+		this.weatherPreview = new WeatherPreviewStore(
+			this.scene.world.ecs,
+		);
 		this.camera = new EditorCamera2DSystem(store, this.editorCamera);
 		this.entityEditor = new EntityEditorSystem(store, this.document);
 		this.tileEditor = new TileEditorSystem(store, this.document);
@@ -334,6 +345,9 @@ export class SceneView {
 			camera: this.displayCamera(),
 		};
 		this.scene.world.ecs.update(ctx);
+		if (this.weatherPreview.muted) {
+			silenceWeatherAudio(this.services.audio);
+		}
 		if (this.suspended) {
 			return;
 		}
@@ -421,5 +435,6 @@ export class SceneView {
 		this.detach();
 		this.renderer.dispose();
 		disposePickIndex(this.scene.world.ecs);
+		this.weatherPreview.dispose();
 	}
 }

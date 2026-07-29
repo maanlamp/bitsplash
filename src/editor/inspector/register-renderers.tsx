@@ -8,9 +8,11 @@ import { Percent } from "../../engine/percent";
 import { SpriteComponent } from "../../engine/sprite/sprite-component";
 import { FontSettings } from "../../engine/text/font-settings";
 import Vector2 from "../../engine/vector2";
+import { SceneClimateComponent } from "../../engine/weather/scene-climate-component";
 import { ColorField } from "../color/color-field";
 import FontSettingsField from "../font/font-settings-field";
 import SpriteField from "../sprite/sprite-field";
+import SceneClimateField from "../weather/scene-climate-field";
 import { AngleInput } from "./angle-input";
 import { AssetRefInput } from "./asset-ref-input";
 import { DurationInput } from "./duration-input";
@@ -72,4 +74,8 @@ registerValueRenderer(FontSettings, ({ value, binding }) => (
 
 registerValueRenderer(SpriteComponent, ({ value, binding }) => (
 	<SpriteField value={value} binding={binding} />
+));
+
+registerValueRenderer(SceneClimateComponent, ({ value, binding }) => (
+	<SceneClimateField value={value} binding={binding} />
 ));

@@ -305,6 +305,7 @@ const SceneViewPanel = ({
 					undoShortcut={undoShortcut}
 					redoShortcut={redoShortcut}
 					debugFlags={view.debugFlags}
+					weatherPreview={view.weatherPreview}
 				/>
 			</div>
 			<TileLayersPanel view={view} editorEnabled={editorEnabled} />

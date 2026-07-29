@@ -12,6 +12,8 @@ import FloatingToolbar from "./floating-toolbar";
 import { MODES } from "./modes";
 import controls from "./styles/controls.module.scss";
 import Tooltip from "./tooltip";
+import WeatherPreviewPopover from "./weather/weather-preview-popover";
+import type { WeatherPreviewStore } from "./weather/weather-preview-store";
 
 type ToolbarProps = Readonly<{
 	mode: EditorMode;
@@ -24,6 +26,7 @@ type ToolbarProps = Readonly<{
 	undoShortcut: string;
 	redoShortcut: string;
 	debugFlags: DebugFlags;
+	weatherPreview: WeatherPreviewStore;
 }>;
 
 const Toolbar = ({
@@ -37,6 +40,7 @@ const Toolbar = ({
 	undoShortcut,
 	redoShortcut,
 	debugFlags,
+	weatherPreview,
 }: ToolbarProps) => {
 	return (
 		<FloatingToolbar>
@@ -85,6 +89,8 @@ const Toolbar = ({
 			</ToggleGroup>
 
 			<div className={controls.toolbarSeparator} />
+
+			<WeatherPreviewPopover store={weatherPreview} />
 
 			<DebugOverlaysPopover flags={debugFlags} />
 		</FloatingToolbar>
