@@ -1,6 +1,7 @@
 import type { Camera2D } from "../camera/camera-2d";
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import type { ReadonlyECS } from "../ecs";
+import { quantizeToTexel } from "../render/quantize";
 import type Renderer2D from "../render/renderer-2d";
 import type { RenderTarget } from "../render/render-target";
 import type { Scene } from "../scene/scene";
@@ -43,10 +44,14 @@ export const renderSceneToTexture = (
 		const spanX = vw / z;
 		const spanY = vh / z;
 		target.setSpan(spanX, spanY);
-		const snappedX =
-			Math.round((camera.position.x + camera.shake.x) * z) / z;
-		const snappedY =
-			Math.round((camera.position.y + camera.shake.y) * z) / z;
+		const snappedX = quantizeToTexel(
+			camera.position.x + camera.shake.x,
+			z,
+		);
+		const snappedY = quantizeToTexel(
+			camera.position.y + camera.shake.y,
+			z,
+		);
 		target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
 		renderer.renderTo(
 			target,

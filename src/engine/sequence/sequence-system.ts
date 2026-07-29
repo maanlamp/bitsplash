@@ -10,7 +10,10 @@ import {
 import type { OpContext } from "./op-registry";
 import type { SequenceDef } from "./sequence-def";
 import { SequenceComponent } from "./sequence-component";
-import { SequenceRunState } from "./sequence-run-state";
+import {
+	releaseOwnedOverrides,
+	SequenceRunState,
+} from "./sequence-run-state";
 
 export const SKIP_HOLD_SECONDS = 0.6;
 
@@ -186,11 +189,20 @@ export class SequenceSystem extends UpdateSystem {
 		return false;
 	}
 
+	/**
+	 * Retire a sequence that reached its end: destroy the entity, or hand it to
+	 * the next queued def.
+	 *
+	 * Owned weather overrides go first, before the rollover path replaces the
+	 * run-state and loses the record of them. Destroying the entity would let the
+	 * scheduler's reclaim poll catch them anyway; a reused entity would not.
+	 */
 	private finish(
 		ctx: UpdateContext,
 		id: EntityId,
 		component: SequenceComponent,
 	): void {
+		releaseOwnedOverrides(ctx.ecs, component.run);
 		if (component.sequenceClass !== "exclusive") {
 			ctx.ecs.destroy(id);
 			return;

@@ -29,6 +29,12 @@ import { TileCollisionSystem } from "../engine/tilemap/tile-collision-system";
 import { TilemapRenderSystem } from "../engine/tilemap/tilemap-render-system";
 import { TimerSystem } from "../engine/timer/timer-system";
 import { TriggerVolumeSystem } from "../engine/trigger/trigger-volume-system";
+import { createVfxSystems } from "../engine/vfx/vfx-systems";
+import type { VfxUpdateSystem } from "../engine/vfx/vfx-update-system";
+import { AmbientClockSystem } from "../engine/weather/ambient-clock";
+import { WeatherAudioSystem } from "../engine/weather/weather-audio-system";
+import { WeatherPresentationSystem } from "../engine/weather/weather-presentation-system";
+import { WeatherSchedulerSystem } from "../engine/weather/weather-scheduler-system";
 import { AimSystem } from "./aim/aim-system";
 import { ChronicleInkMirrorSystem } from "./chronicle/chronicle-ink-mirror-system";
 import { Layer } from "./collision";
@@ -134,6 +140,7 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 			actions.active(ACTION_IDS.cutsceneSkip),
 	}),
 	new TimerSystem(),
+	new WeatherSchedulerSystem(),
 	new SpawnSystem(),
 	new DeathNoticeSystem(),
 	new QuestNoticeSystem(),
@@ -143,6 +150,33 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new ScreenFadeSystem(),
 	new CameraTransitionSystem(),
 	new CameraShakeSystem(),
+];
+
+/**
+ * Ambient presentation systems: the shared ambient clock, the per-frame weather
+ * publication consumers read, the particle sim, and the weather ambience.
+ * Present in the bundled game and in the editor's edit mode, so weather and VFX
+ * are live while authoring.
+ *
+ * Everything in this list is derivation, and every world that gets it steps it
+ * exactly once — `game` spreads it after {@link gameplaySystems} so it sits past
+ * the camera, and `editorEdit` spreads it after {@link editWorldSystems}. Nothing
+ * here may create an entity carrying a `@serializable` component or write a
+ * `@serialize`d field: the editor's save path diffs a journal replay against the
+ * live edit world serialized whole and hard-crashes on drift. Ambient state
+ * belongs in a non-serialized store keyed by the ECS or owned by a system
+ * instance. The weather *scheduler* is the one system that owns serialized state,
+ * which is why it lives in {@link gameplaySystems} instead.
+ *
+ * VFX takes its update system as an argument because that system shares a store
+ * instance with a render system, so the pair is built by the caller (see
+ * {@link createVfxSystems}) and its halves land in two different lists.
+ */
+const ambientSystems = (vfx: VfxUpdateSystem): UpdateSystem[] => [
+	new AmbientClockSystem(),
+	new WeatherPresentationSystem(),
+	vfx,
+	new WeatherAudioSystem(),
 ];
 
 /**
@@ -175,24 +209,32 @@ const renderSystems = (): RenderSystem[] => {
 };
 
 /**
- * The bundled game: edit-world maintenance, the full gameplay list, and the
- * render list, all added to one world.
+ * The bundled game: edit-world maintenance, the full gameplay list, the ambient
+ * list, and the render list, all added to one world.
  */
 export const game: Composition = ({
 	settings,
 	gravityY,
-}): CompositionSystems => ({
-	update: [
-		...editWorldSystems(gravityY),
-		...gameplaySystems(settings),
-	],
-	render: renderSystems(),
-});
+}): CompositionSystems => {
+	const vfx = createVfxSystems();
+	return {
+		update: [
+			...editWorldSystems(gravityY),
+			...gameplaySystems(settings),
+			...ambientSystems(vfx.update),
+		],
+		render: [...renderSystems(), vfx.render],
+	};
+};
 
 /**
- * The editor run host: the same gameplay list as {@link game}, plus the HUD
- * systems. Edit-world maintenance and the base render list belong to the edit
- * composition that is already live on the world.
+ * Dead code, kept only because {@link GameModule.compositions} still declares the
+ * field. Nothing calls it.
+ *
+ * The editor's run world is not built from here: `RunHost` asks the game module
+ * for a runtime, and `platformer-runtime.registerSystems` gives that fresh world
+ * the {@link game} composition, while `RunHost.mountUi` adds the HUD separately.
+ * Do not add systems here expecting them to run in the editor — they will not.
  */
 export const editorRun: Composition = ({
 	settings,
@@ -203,13 +245,20 @@ export const editorRun: Composition = ({
 });
 
 /**
- * The editor edit world: render systems plus tile-collision and nav-graph
- * maintenance only. No gameplay, no physics — the authored world is drawn and
- * kept consistent while editing, never simulated.
+ * The editor edit world: render systems, tile-collision and nav-graph
+ * maintenance, and the ambient list. No gameplay, no physics — the authored world
+ * is drawn, kept consistent, and shows live weather while editing, never
+ * simulated.
  */
 export const editorEdit: Composition = ({
 	gravityY,
-}): CompositionSystems => ({
-	update: editWorldSystems(gravityY),
-	render: renderSystems(),
-});
+}): CompositionSystems => {
+	const vfx = createVfxSystems();
+	return {
+		update: [
+			...editWorldSystems(gravityY),
+			...ambientSystems(vfx.update),
+		],
+		render: [...renderSystems(), vfx.render],
+	};
+};

@@ -4,6 +4,7 @@ import {
 	mergedSolidCells,
 	solidBounds,
 	solidTileLayers,
+	tileLayerSignature,
 } from "../tilemap/occupancy";
 import { NavGraphComponent } from "./nav-graph-component";
 import { NavSurface } from "./nav-surface";
@@ -19,9 +20,7 @@ export class NavGraphSystem implements UpdateSystem {
 	}
 
 	update({ ecs }: UpdateContext): void {
-		const signature = solidTileLayers(ecs)
-			.map(([id, layer]) => `${id}:${layer.grid.version}`)
-			.join("|");
+		const signature = tileLayerSignature(solidTileLayers(ecs));
 
 		let entry = ecs.query(NavGraphComponent)[0];
 		if (!entry) {

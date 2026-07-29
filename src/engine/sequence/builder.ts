@@ -85,6 +85,7 @@ export const OP_TYPES = {
 	focusOn: "focusOn",
 	follow: "follow",
 	fade: "fade",
+	weatherOverride: "weatherOverride",
 	setFlag: "setFlag",
 	releaseControl: "releaseControl",
 	lockControl: "lockControl",
@@ -246,6 +247,50 @@ export const fade = (
 	stepId: string,
 	params: FadeParams,
 ): LeafOpNode => leaf(OP_TYPES.fade, stepId, params);
+
+export type WeatherOverrideParams = Readonly<{
+	/**
+	 * Preset whose targets to impose, resolved from the **catalog-wide** preset
+	 * table — so it may name a preset the active climate would never roll, which
+	 * is the whole point of a director's tool. Omit to adjust only the scalars.
+	 */
+	presetId?: string;
+	/** Wind target `0..1`, winning over `presetId`. */
+	wind?: number;
+	/** Precipitation target `0..1`, winning over `presetId`. */
+	precipitation?: number;
+	/** Signed base direction `-1..1`, winning over `presetId`. */
+	direction?: number;
+	/** Highest priority wins among live overrides. Defaults to `0`. */
+	priority?: number;
+}>;
+
+/**
+ * Impose weather targets for as long as this sequence owns them.
+ *
+ * The step completes the tick it is reached — it arms an override and moves on,
+ * rather than blocking — and the override lives until the sequence ends, is
+ * skipped, rolls over to a queued def, or is destroyed outright. Because an
+ * override supplies *targets* and never values, both arming and releasing it
+ * ramp like any other weather transition; consumers only ever read the eased
+ * scalars, so there are no hard cuts to author around. Indoor suppression still
+ * applies, deliberately: the director gets the storm heard through the walls,
+ * not painted inside them.
+ *
+ * Ambient sequences may use it. Unlike the camera — one resource, no
+ * arbitration, hence exclusive-only — overrides are priority-arbitrated, so
+ * concurrent claimants have a defined winner rather than a conflict, and an
+ * area's ambient loop is exactly where "a storm rolls in here" belongs.
+ *
+ * @example
+ * weatherOverride("ambush.storm", { presetId: "storm", priority: 10 })
+ * @example
+ * weatherOverride("duel.stillness", { wind: 0, precipitation: 0 })
+ */
+export const weatherOverride = (
+	stepId: string,
+	params: WeatherOverrideParams,
+): LeafOpNode => leaf(OP_TYPES.weatherOverride, stepId, params);
 
 export type SetFlagParams = Readonly<{
 	flag: string;

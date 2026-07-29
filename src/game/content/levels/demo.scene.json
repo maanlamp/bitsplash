@@ -2860,6 +2860,7 @@
 						"path": "/src/game/content/assets/dirt.tileset.png"
 					},
 					"collision": "solid",
+					"rainBlocking": "auto",
 					"renderLayer": "terrain",
 					"order": 0
 				}
@@ -4401,6 +4402,7 @@
 						"path": "/src/game/content/assets/dirt-background.tileset.png"
 					},
 					"collision": "none",
+					"rainBlocking": "auto",
 					"renderLayer": "background",
 					"order": 0
 				}
@@ -4438,6 +4440,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4473,6 +4489,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4508,6 +4538,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4543,6 +4587,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4578,6 +4636,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4613,6 +4685,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4648,6 +4734,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -4985,6 +5085,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -5020,6 +5134,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -5055,6 +5183,20 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
 				}
 			}
 		},
@@ -5090,6 +5232,51 @@
 					"clips": {},
 					"renderLayer": "entities",
 					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
+					}
+				}
+			}
+		},
+		{
+			"id": "4f1c0a92-6d3e-4a1b-9c07-2b8f5e10d3a4",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "rain",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
 				}
 			}
 		}

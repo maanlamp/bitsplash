@@ -15,8 +15,10 @@ import { ScreenFadeComponent } from "../fade/screen-fade-component";
 import { TILE_SIZE } from "../tilemap/tile";
 import { TransformComponent } from "../transform-component";
 import Vector2 from "../vector2";
+import { WeatherOverrideComponent } from "../weather/weather-override-component";
 import { resolveActor } from "./interpreter";
-import type { OpContext, OpExecutor } from "./op-registry";
+import { releaseOwnedOverride } from "./sequence-run-state";
+import type { OpContext, OpExecutor, OpMemory } from "./op-registry";
 import { registerOpType, registerPredicate } from "./op-registry";
 import type { ActorRef, OpParams, Vec2 } from "./op";
 import { OP_TYPES, PREDICATE_IDS } from "./builder";
@@ -263,6 +265,50 @@ const controlExecutor = (released: boolean): OpExecutor => ({
 	},
 });
 
+/**
+ * The override this step owns: `undefined` before it arms, an entity id while it
+ * is live, `null` once released. One serialized key holds all three states, so
+ * "armed but with no override" is unrepresentable and the whole thing is
+ * idempotent across a save — `arm` runs every tick the step is live, and the
+ * memory record is what stops it spawning a fresh storm each frame.
+ */
+const ownedOverride = (
+	memory: OpMemory,
+): EntityId | null | undefined =>
+	memory.overrideId as EntityId | null | undefined;
+
+const weatherOverrideExecutor: OpExecutor = {
+	arm(ctx, params, memory) {
+		if (ownedOverride(memory) !== undefined) {
+			return;
+		}
+		const override = new WeatherOverrideComponent();
+		override.presetId =
+			(params.presetId as string | undefined) ?? null;
+		override.wind = (params.wind as number | undefined) ?? null;
+		override.precipitation =
+			(params.precipitation as number | undefined) ?? null;
+		override.direction =
+			(params.direction as number | undefined) ?? null;
+		override.priority = (params.priority as number | undefined) ?? 0;
+		override.owner = ctx.entityId;
+		const id = ctx.ecs.createEntity([override]);
+		memory.overrideId = id;
+		ctx.run.ownedOverrides.push(id);
+	},
+	poll() {
+		return true;
+	},
+	skip(ctx, _params, memory) {
+		const id = ownedOverride(memory);
+		if (id !== undefined && id !== null) {
+			releaseOwnedOverride(ctx.ecs, ctx.run, id);
+		}
+		memory.overrideId = null;
+		return true;
+	},
+};
+
 const blackboardEqualsPredicate = (
 	ctx: OpContext,
 	params: OpParams,
@@ -296,6 +342,7 @@ export const registerEngineSequenceOps = (): void => {
 	}
 	registered = true;
 	registerOpType(OP_TYPES.fade, fadeExecutor);
+	registerOpType(OP_TYPES.weatherOverride, weatherOverrideExecutor);
 	registerOpType(OP_TYPES.cameraTo, cameraToExecutor);
 	registerOpType(OP_TYPES.focusOn, focusOnExecutor);
 	registerOpType(OP_TYPES.follow, followExecutor);

@@ -2,7 +2,11 @@ import type { RigidBody } from "../physics/rigid-body";
 import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import type { World } from "../world";
-import { mergedSolidCells, solidTileLayers } from "./occupancy";
+import {
+	mergedSolidCells,
+	solidTileLayers,
+	tileLayerSignature,
+} from "./occupancy";
 import { TILE_SIZE } from "./tile";
 
 type Point = Readonly<{
@@ -21,9 +25,7 @@ export class TileCollisionSystem implements UpdateSystem {
 	}
 
 	update({ ecs, world }: UpdateContext): void {
-		const signature = solidTileLayers(ecs)
-			.map(([id, layer]) => `${id}:${layer.grid.version}`)
-			.join("|");
+		const signature = tileLayerSignature(solidTileLayers(ecs));
 		if (signature === this.signature) {
 			return;
 		}

@@ -2,6 +2,8 @@ import { registerSceneFile } from "../engine/scene/registry";
 import type { SceneFile } from "../engine/scene/scene";
 import "./register-prefabs";
 import "./sequence/sequence-manifest";
+import "./vfx/vfx-catalog";
+import "./weather/climate-catalog";
 
 /**
  * All load-bearing registration side-effects for the game, in one place,

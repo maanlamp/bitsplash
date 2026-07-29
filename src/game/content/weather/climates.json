@@ -1,0 +1,103 @@
+{
+	"defaultClimateId": "temperate",
+	"presets": [
+		{
+			"id": "calm",
+			"wind": 0.08,
+			"precipitation": 0,
+			"direction": 1
+		},
+		{
+			"id": "breezy",
+			"wind": 0.3,
+			"precipitation": 0,
+			"direction": 1
+		},
+		{
+			"id": "blustery",
+			"wind": 0.62,
+			"precipitation": 0.05,
+			"direction": -1
+		},
+		{
+			"id": "drizzle",
+			"wind": 0.22,
+			"precipitation": 0.35,
+			"direction": 1
+		},
+		{
+			"id": "storm",
+			"wind": 0.9,
+			"precipitation": 0.95,
+			"direction": -1
+		}
+	],
+	"climates": [
+		{
+			"id": "temperate",
+			"defaultPreset": "drizzle",
+			"entries": [
+				{
+					"preset": "calm",
+					"weight": 4,
+					"dwellMin": 8,
+					"dwellMax": 16
+				},
+				{
+					"preset": "breezy",
+					"weight": 5,
+					"dwellMin": 10,
+					"dwellMax": 20
+				},
+				{
+					"preset": "blustery",
+					"weight": 2,
+					"dwellMin": 8,
+					"dwellMax": 16
+				},
+				{
+					"preset": "drizzle",
+					"weight": 3,
+					"dwellMin": 10,
+					"dwellMax": 20
+				},
+				{
+					"preset": "storm",
+					"weight": 1,
+					"dwellMin": 8,
+					"dwellMax": 14
+				}
+			]
+		},
+		{
+			"id": "storm-coast",
+			"defaultPreset": "blustery",
+			"entries": [
+				{
+					"preset": "breezy",
+					"weight": 2,
+					"dwellMin": 10,
+					"dwellMax": 20
+				},
+				{
+					"preset": "blustery",
+					"weight": 4,
+					"dwellMin": 8,
+					"dwellMax": 16
+				},
+				{
+					"preset": "drizzle",
+					"weight": 3,
+					"dwellMin": 10,
+					"dwellMax": 20
+				},
+				{
+					"preset": "storm",
+					"weight": 4,
+					"dwellMin": 8,
+					"dwellMax": 14
+				}
+			]
+		}
+	]
+}
