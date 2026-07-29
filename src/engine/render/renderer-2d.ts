@@ -8,8 +8,9 @@ import {
 } from "../load";
 import {
 	applyCompositeBlend,
-	applyLayerBlend,
+	applyQuadBlend,
 	BlendMode,
+	type QuadBlend,
 } from "../render/blend";
 import {
 	type ColorInput,
@@ -44,6 +45,8 @@ const TILE_FLOATS = 9;
 const VERTS_PER_QUAD = 6;
 const WHITE: RGBA = [1, 1, 1, 1];
 const TRANSPARENT: RGBA = [0, 0, 0, 0];
+const SOLID_UV: ReadonlyArray<number> = [0, 0, 0, 0, 0, 0, 0, 0];
+const FULL_UV: ReadonlyArray<number> = [0, 0, 1, 0, 1, 1, 0, 1];
 
 export type DrawImageOpts = Readonly<{
 	x: number;
@@ -58,6 +61,15 @@ export type DrawImageOpts = Readonly<{
 	srcH?: number;
 	tint?: ColorInput;
 	alpha?: number;
+	/**
+	 * World-unit horizontal displacement of the **top two corners only**, so
+	 * the quad leans while staying pinned along its bottom edge — the shape
+	 * foliage sway needs. Applied after `rotation`, in world space. Because the
+	 * displaced edges stay parallel the deformation is affine, so texels shear
+	 * cleanly with no seam across the quad's diagonal. Defaults to 0.
+	 */
+	shear?: number;
+	blend?: QuadBlend;
 }>;
 
 export type DrawTileOpts = Readonly<{
@@ -72,6 +84,7 @@ export type DrawTileOpts = Readonly<{
 	flipX?: boolean;
 	tint?: ColorInput;
 	alpha?: number;
+	blend?: QuadBlend;
 }>;
 
 export type DrawRectOpts = Readonly<{
@@ -84,6 +97,42 @@ export type DrawRectOpts = Readonly<{
 	stroke?: ColorInput;
 	lineWidth?: number;
 	alpha?: number;
+	blend?: QuadBlend;
+}>;
+
+/**
+ * An arbitrary four-cornered quad, for geometry no axis-aligned draw can
+ * express: velocity-stretched particle stripes, beams, oriented decals.
+ *
+ * Corners are ordered **TL, TR, BR, BL**, and world y points **down** — so
+ * `px[0]`/`py[0]` and `px[1]`/`py[1]` are the top corners. `uv` pairs up with
+ * them in the same order (`[u0,v0, u1,v0, u1,v1, u0,v1]` reproduces a plain
+ * upright image).
+ *
+ * Only affine shapes map texels cleanly: translating one edge (a shear) keeps
+ * the two triangles' UV interpolation consistent, but *scaling* one edge into a
+ * trapezoid does not, and shows a visible seam along the quad's diagonal.
+ * Stretch particles along their velocity, don't taper them.
+ *
+ * Omitting `image` draws a flat `tint` — no texture needed. Every such quad
+ * shares one batch key, so thousands of contiguous solid particles collapse
+ * into a single draw call.
+ */
+export type DrawCornerQuadOpts = Readonly<{
+	/** X of each corner, in TL, TR, BR, BL order. Length 4. */
+	px: ReadonlyArray<number>;
+	/** Y of each corner, in TL, TR, BR, BL order. Length 4. */
+	py: ReadonlyArray<number>;
+	/** Source image; omit to draw a solid `tint`-colored quad. */
+	image?: TileSource;
+	/**
+	 * Normalized `[u,v]` per corner, in corner order. Length 8. Defaults to the
+	 * whole image; ignored when `image` is omitted.
+	 */
+	uv?: ReadonlyArray<number>;
+	tint?: ColorInput;
+	alpha?: number;
+	blend?: QuadBlend;
 }>;
 
 export type DrawHoldRingOpts = Readonly<{
@@ -108,6 +157,7 @@ export type DrawTextOpts = Readonly<{
 	scale?: number;
 	rotation?: number;
 	alpha?: number;
+	blend?: QuadBlend;
 }>;
 
 export type ClipRect = Readonly<{
@@ -430,6 +480,7 @@ type Batch = {
 	kind: "batch";
 	format: QuadFormat | "tile";
 	texture: WebGLTexture;
+	blend: QuadBlend;
 	start: number;
 	count: number;
 };
@@ -570,6 +621,10 @@ export default class Renderer2D {
 	private buildResources(): void {
 		const gl = this.gl;
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+		// Load-bearing: every texture this renderer uploads keeps straight
+		// (non-premultiplied) alpha, which is what the source factors in
+		// `applyQuadBlend` are derived for. Flipping this would silently
+		// double-darken normal draws and blow out additive ones.
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
 		this.quad = createQuadProgram(gl);
@@ -902,6 +957,7 @@ export default class Renderer2D {
 		layer: LayerState,
 		format: QuadFormat,
 		texture: WebGLTexture,
+		blend: QuadBlend,
 		start: number,
 	): void {
 		const last = layer.commands[layer.commands.length - 1];
@@ -910,6 +966,7 @@ export default class Renderer2D {
 			last.kind === "batch" &&
 			last.format === format &&
 			last.texture === texture &&
+			last.blend === blend &&
 			last.start + last.count === start
 		) {
 			last.count += VERTS_PER_QUAD;
@@ -919,6 +976,7 @@ export default class Renderer2D {
 			kind: "batch",
 			format,
 			texture,
+			blend,
 			start,
 			count: VERTS_PER_QUAD,
 		});
@@ -932,13 +990,14 @@ export default class Renderer2D {
 		py: ReadonlyArray<number>,
 		uv: ReadonlyArray<number>,
 		color: RGBA,
+		blend: QuadBlend,
 	): void {
 		const layer = this.getLayer(id);
 		this.ensureQuadCapacity();
 		const start = this.quadVerts;
 		writeQuad(this.quadData, start * QUAD_FLOATS, px, py, uv, color);
 		this.quadVerts += VERTS_PER_QUAD;
-		this.recordQuad(layer, format, texture, start);
+		this.recordQuad(layer, format, texture, blend, start);
 	}
 
 	private withAlpha(color: RGBA, alpha?: number): RGBA {
@@ -979,6 +1038,9 @@ export default class Renderer2D {
 			ly,
 			opts.rotation ?? 0,
 		);
+		const shear = opts.shear ?? 0;
+		px[0]! += shear;
+		px[1]! += shear;
 		const du = padTexels / iw;
 		const dv = padTexels / ih;
 		let u0 = sx / iw - du;
@@ -1014,6 +1076,55 @@ export default class Renderer2D {
 			quad.py,
 			quad.uv,
 			color,
+			opts.blend ?? "normal",
+		);
+	}
+
+	/**
+	 * Draw a quad from four arbitrary corners — the escape hatch for geometry
+	 * `drawImage` cannot express, such as velocity-stretched particle stripes.
+	 * See {@link DrawCornerQuadOpts} for corner order, the affine-only
+	 * constraint, and the untextured solid-color form.
+	 *
+	 * @example
+	 * renderer.drawCornerQuad(layer, {
+	 *   px: [x - hw, x + hw, x + hw + dx, x - hw + dx],
+	 *   py: [y0, y0, y1, y1],
+	 *   tint: "#9cf",
+	 *   alpha: 0.6,
+	 *   blend: "additive",
+	 * });
+	 */
+	drawCornerQuad(id: number, opts: DrawCornerQuadOpts): void {
+		const color = this.withAlpha(
+			this.resolveTint(opts.tint),
+			opts.alpha,
+		);
+		if (!opts.image) {
+			this.pushQuadShape(
+				id,
+				this.whiteTex,
+				"quad",
+				opts.px,
+				opts.py,
+				SOLID_UV,
+				color,
+				opts.blend ?? "normal",
+			);
+			return;
+		}
+		if (sourceWidth(opts.image) === 0) {
+			return;
+		}
+		this.pushQuadShape(
+			id,
+			this.getTexture(opts.image),
+			"quad",
+			opts.px,
+			opts.py,
+			opts.uv ?? FULL_UV,
+			color,
+			opts.blend ?? "normal",
 		);
 	}
 
@@ -1038,6 +1149,7 @@ export default class Renderer2D {
 			quad.py,
 			quad.uv,
 			color,
+			opts.blend ?? "normal",
 		);
 	}
 
@@ -1094,12 +1206,14 @@ export default class Renderer2D {
 			color,
 		);
 		this.tileVerts += VERTS_PER_QUAD;
+		const blend = opts.blend ?? "normal";
 		const last = layer.commands[layer.commands.length - 1];
 		if (
 			last &&
 			last.kind === "batch" &&
 			last.format === "tile" &&
 			last.texture === array.texture &&
+			last.blend === blend &&
 			last.start + last.count === start
 		) {
 			last.count += VERTS_PER_QUAD;
@@ -1108,6 +1222,7 @@ export default class Renderer2D {
 				kind: "batch",
 				format: "tile",
 				texture: array.texture,
+				blend,
 				start,
 				count: VERTS_PER_QUAD,
 			});
@@ -1122,6 +1237,7 @@ export default class Renderer2D {
 		h: number,
 		rotation: number,
 		color: RGBA,
+		blend: QuadBlend,
 	): void {
 		const cx = x + w / 2;
 		const cy = y + h / 2;
@@ -1134,13 +1250,15 @@ export default class Renderer2D {
 			"quad",
 			px,
 			py,
-			[0, 0, 0, 0, 0, 0, 0, 0],
+			SOLID_UV,
 			color,
+			blend,
 		);
 	}
 
 	drawRect(id: number, opts: DrawRectOpts): void {
 		const rotation = opts.rotation ?? 0;
+		const blend = opts.blend ?? "normal";
 		if (opts.fill) {
 			this.fillRect(
 				id,
@@ -1150,6 +1268,7 @@ export default class Renderer2D {
 				opts.height,
 				rotation,
 				this.withAlpha(this.colors.resolve(opts.fill), opts.alpha),
+				blend,
 			);
 		}
 		if (opts.stroke) {
@@ -1183,6 +1302,7 @@ export default class Renderer2D {
 					py[j]!,
 					w,
 					color,
+					blend,
 				);
 			}
 		}
@@ -1196,6 +1316,7 @@ export default class Renderer2D {
 		y1: number,
 		width: number,
 		color: RGBA,
+		blend: QuadBlend,
 	): void {
 		const dx = x1 - x0;
 		const dy = y1 - y0;
@@ -1214,8 +1335,9 @@ export default class Renderer2D {
 			"quad",
 			px,
 			py,
-			[0, 0, 0, 0, 0, 0, 0, 0],
+			SOLID_UV,
 			color,
+			blend,
 		);
 	}
 
@@ -1227,6 +1349,7 @@ export default class Renderer2D {
 		y1: number,
 		color: ColorInput,
 		width = 1,
+		blend: QuadBlend = "normal",
 	): void {
 		this.strokeSegment(
 			id,
@@ -1236,9 +1359,15 @@ export default class Renderer2D {
 			y1,
 			width,
 			this.colors.resolve(color),
+			blend,
 		);
 	}
 
+	/**
+	 * Queue a pre-committed static tile batch. Static batches carry no per-quad
+	 * state, so they always draw with `"normal"` blend; anything needing
+	 * additive must go through the per-draw quad path.
+	 */
 	drawStaticBatch(
 		id: number,
 		batch: StaticBatch,
@@ -1293,6 +1422,7 @@ export default class Renderer2D {
 		);
 		const scale = opts.scale ?? 1;
 		const rotation = opts.rotation ?? 0;
+		const blend = opts.blend ?? "normal";
 		const texture = atlas.texture;
 		if (opts.outline) {
 			const outline = this.withAlpha(
@@ -1312,6 +1442,7 @@ export default class Renderer2D {
 						scale,
 						rotation,
 						outline,
+						blend,
 					);
 				}
 			}
@@ -1328,6 +1459,7 @@ export default class Renderer2D {
 				scale,
 				rotation,
 				color,
+				blend,
 			);
 		}
 	}
@@ -1343,6 +1475,7 @@ export default class Renderer2D {
 		scale: number,
 		rotation: number,
 		color: RGBA,
+		blend: QuadBlend,
 	): void {
 		const x0 = q.x + offsetX;
 		const x1 = q.x + q.w + offsetX;
@@ -1375,6 +1508,7 @@ export default class Renderer2D {
 			py,
 			[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
 			color,
+			blend,
 		);
 	}
 
@@ -1386,6 +1520,7 @@ export default class Renderer2D {
 		x: number,
 		y: number,
 		color: ColorInput,
+		blend: QuadBlend = "normal",
 	): void {
 		const atlas = this.getFontAtlas(font);
 		const q = atlas.quadAt(glyphId, style, x, y);
@@ -1403,6 +1538,7 @@ export default class Renderer2D {
 			1,
 			0,
 			this.colors.resolve(color),
+			blend,
 		);
 	}
 
@@ -1839,8 +1975,8 @@ export default class Renderer2D {
 			this.paintHoldRing(cmd, target, texW, texH, scratchFbo);
 			return;
 		}
-		applyLayerBlend(gl);
 		if (cmd.kind === "static") {
+			applyQuadBlend(gl, "normal");
 			const prog = this.tile;
 			gl.useProgram(prog.program);
 			gl.uniform2f(prog.uResolution, target.spanX, target.spanY);
@@ -1853,6 +1989,7 @@ export default class Renderer2D {
 			gl.bindVertexArray(null);
 			return;
 		}
+		applyQuadBlend(gl, cmd.blend);
 		const prog =
 			cmd.format === "tile"
 				? this.tile
@@ -1937,7 +2074,7 @@ export default class Renderer2D {
 		gl.viewport(0, 0, rtW, rtH);
 		gl.clearColor(0, 0, 0, 0);
 		gl.clear(gl.COLOR_BUFFER_BIT);
-		applyLayerBlend(gl);
+		applyQuadBlend(gl, "normal");
 		const quadProg = this.quad;
 		gl.useProgram(quadProg.program);
 		gl.uniform2f(quadProg.uResolution, cmd.width, cmd.height);
@@ -1976,7 +2113,7 @@ export default class Renderer2D {
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, scratchFbo);
 		gl.viewport(0, 0, texW, texH);
-		applyLayerBlend(gl);
+		applyQuadBlend(gl, "normal");
 		const prog = this.quadConicOutline;
 		gl.useProgram(prog.program);
 		gl.uniform2f(prog.uResolution, target.spanX, target.spanY);

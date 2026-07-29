@@ -109,6 +109,22 @@ export class ECS {
 		this.cleanupHooks.set(cls, hook as CleanupHook);
 	}
 
+	/**
+	 * Whether a cleanup hook is already installed for a component class.
+	 *
+	 * {@link onDestroy} is last-writer-wins, so a second registration silently
+	 * unhooks the first. A registration site that owns its component's cleanup
+	 * asserts on this first, turning that silent loss into a crash.
+	 *
+	 * @example
+	 * if (ecs.hasDestroyHook(EmitterComponent)) {
+	 *   throw new Error("another owner already claimed emitter cleanup");
+	 * }
+	 */
+	hasDestroyHook(cls: ConcreteComponentClass): boolean {
+		return this.cleanupHooks.has(cls);
+	}
+
 	destroy(entity: EntityId): void {
 		this.pendingDestroy.add(entity);
 	}
