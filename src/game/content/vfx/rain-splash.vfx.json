@@ -1,0 +1,28 @@
+{
+	"id": "rain-splash",
+	"parts": [
+		{
+			"kind": "emitter",
+			"layer": "overlay",
+			"order": 0,
+			"blend": "normal",
+			"space": "world",
+			"emission": { "rate": 0, "burst": 4 },
+			"spawn": { "shape": "point" },
+			"lifetime": { "min": 0.14, "max": 0.26 },
+			"size": { "min": 1, "max": 2 },
+			"speed": { "min": 50, "max": 140 },
+			"angle": { "min": -160, "max": -20 },
+			"gravity": 700,
+			"stretch": 0.01,
+			"collision": { "mode": "none" },
+			"tracks": {
+				"color": [{ "t": 0, "value": "#dcebff" }],
+				"alpha": [
+					{ "t": 0, "value": 0.85 },
+					{ "t": 1, "value": 0 }
+				]
+			}
+		}
+	]
+}

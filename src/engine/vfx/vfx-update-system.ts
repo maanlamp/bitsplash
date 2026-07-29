@@ -1,0 +1,557 @@
+import type { Camera2D } from "../camera/camera-2d";
+import type { Seconds } from "../duration";
+import type { ECS, ReadonlyECS } from "../ecs";
+import { profiler } from "../profiling/profiler";
+import { type UpdateContext, UpdateSystem } from "../system";
+import {
+	mergedRainBlockingCells,
+	mergedSolidCells,
+	tileCellKey,
+} from "../tilemap/occupancy";
+import { TILE_SIZE } from "../tilemap/tile";
+import { TransformComponent } from "../transform-component";
+import { ambientTime } from "../weather/ambient-clock";
+import {
+	type ExposureField,
+	exposureField,
+} from "../weather/exposure-field";
+import { sampleWind } from "../weather/sample-wind";
+import {
+	type WeatherFrame,
+	weatherFrame,
+} from "../weather/weather-frame";
+import {
+	EmitterComponent,
+	readonlyEmitter,
+} from "./emitter-component";
+import type { VfxDef, VfxEmitterPart } from "./vfx-def";
+import { hasVfxDefs, resolveVfxDef } from "./vfx-registry";
+import type {
+	VfxEffect,
+	VfxEmitOrigin,
+	VfxPool,
+	VfxStore,
+} from "./vfx-store";
+
+/**
+ * Longest frame the particle sim will integrate, in seconds.
+ *
+ * Raw `requestAnimationFrame` gaps — a tab regaining focus, a slow asset load,
+ * an editor panel resize — arrive as multi-second deltas. Integrated straight,
+ * a spawn accumulator would dump its whole debt in one frame and a pool would
+ * flash full; clamping trades a moment of slow motion for never doing that.
+ */
+const MAX_STEP = 1 / 15;
+
+/**
+ * Whether a part is precipitation — the one authored flag that turns on both
+ * weather-classified collision and the sheltered-column confinement below.
+ */
+const isPrecipitation = (part: VfxEmitterPart): boolean =>
+	part.collision.mode === "tiles" &&
+	part.collision.cells === "rain-blocking";
+
+/** Whether any of a def's parts places itself from the camera. */
+const tracksCamera = (def: VfxDef): boolean =>
+	def.parts.some((part) => part.spawn.kind === "camera-band");
+
+/**
+ * Advance a particle's position and velocity by `t` seconds in closed form,
+ * writing back into the pool.
+ *
+ * Used for seed-by-age, which places a steady-state population without
+ * stepping: the drag model `dv/dt = a - k v` integrates exactly, so a particle
+ * born "1.4 seconds ago" lands where 84 frames of Euler would have put it for
+ * the cost of one `exp`. Wind is deliberately not part of it — the wind signal
+ * is a function of time the closed form cannot see, and seeding predates the
+ * frame anyway.
+ */
+const advanceAnalytically = (
+	pool: VfxPool,
+	i: number,
+	part: VfxEmitterPart,
+	t: number,
+): void => {
+	const k = part.drag;
+	const g = part.gravity;
+	const vx = pool.vx[i]!;
+	const vy = pool.vy[i]!;
+	if (k > 0) {
+		const decay = Math.exp(-k * t);
+		const terminal = g / k;
+		pool.x[i] = pool.x[i]! + (vx * (1 - decay)) / k;
+		pool.y[i] =
+			pool.y[i]! + ((vy - terminal) * (1 - decay)) / k + terminal * t;
+		pool.vx[i] = vx * decay;
+		pool.vy[i] = (vy - terminal) * decay + terminal;
+	} else {
+		pool.x[i] = pool.x[i]! + vx * t;
+		pool.y[i] = pool.y[i]! + vy * t + 0.5 * g * t * t;
+		pool.vy[i] = vy + g * t;
+	}
+	pool.rotation[i] = pool.rotation[i]! + pool.spin[i]! * t;
+	pool.age[i] = t;
+};
+
+/**
+ * Spawns, advects, collides, and ages every particle in the world.
+ *
+ * Placed in `ambientSystems()`, which the shipped game spreads after
+ * `gameplaySystems` — so VFX steps past `CameraShakeSystem` (camera-tracked
+ * emitters read the current-frame pose) and before the end-of-frame event clear
+ * — and which the editor's edit composition spreads for live authoring preview.
+ * **Never** `editWorldSystems`, which the game composition also spreads: that
+ * would double-step VFX in the shipped game, at the wrong position.
+ *
+ * Emitter config is re-read from scratch every frame and nothing derived is
+ * cached. The ECS emits no field-mutation events, so re-reading is the only
+ * structurally safe change detection — and it is what makes def hot-reload,
+ * inspector edits, and undo/redo take effect with no invalidation protocol.
+ *
+ * The time base is the shared ambient clock, not a VFX-owned counter, so
+ * particles, foliage sway, and wind gusts stay phase-coherent by construction.
+ */
+@profiler("VFX", "VFX")
+export class VfxUpdateSystem implements UpdateSystem {
+	private hooked: ECS | null = null;
+	private solidCells: Set<string> | null = null;
+	private rainCells: Set<string> | null = null;
+	private shelter: ExposureField | null = null;
+	private shelterCenterX = 0;
+	private shelterCenterY = 0;
+	private cameraCentreX: number | null = null;
+	private cameraCentreY: number | null = null;
+	private cameraCut = false;
+
+	constructor(readonly store: VfxStore) {}
+
+	update(ctx: UpdateContext): void {
+		const { ecs } = ctx;
+		this.installCleanupHook(ecs);
+		if (!hasVfxDefs()) {
+			return;
+		}
+		const dt = Math.min(Math.max(ctx.time.dt, 0), MAX_STEP);
+		this.solidCells = null;
+		this.rainCells = null;
+		this.shelter = null;
+		this.shelterCenterX = ctx.camera?.position.x ?? 0;
+		this.shelterCenterY = ctx.camera?.position.y ?? 0;
+		this.cameraCut = this.detectCameraCut(ctx.camera);
+		this.store.evict(ecs);
+		this.syncEmitters(ctx, dt);
+		const time = ambientTime(ecs);
+		for (const effect of this.store.effects()) {
+			this.advance(ecs, effect, dt, time);
+		}
+		this.store.pruneLoose();
+	}
+
+	/**
+	 * Claim emitter cleanup on this world, once.
+	 *
+	 * `ecs.onDestroy` is a bare last-writer-wins `Map.set`, so a second owner
+	 * would silently unhook this one and leave dead hosts emitting forever. The
+	 * assertion turns that into a crash at wiring time.
+	 */
+	private installCleanupHook(ecs: ECS): void {
+		if (this.hooked === ecs) {
+			return;
+		}
+		if (ecs.hasDestroyHook(EmitterComponent)) {
+			throw new Error(
+				"VfxUpdateSystem: a cleanup hook for EmitterComponent is already installed on this world. ecs.onDestroy is last-writer-wins, so two owners would silently unhook each other — add exactly one VFX system pair per world (see createVfxSystems).",
+			);
+		}
+		ecs.onDestroy(EmitterComponent, (_component, id) => {
+			this.store.detach(id);
+		});
+		this.hooked = ecs;
+	}
+
+	/**
+	 * Reconcile the store against the world's emitters, then spawn this frame's
+	 * particles.
+	 */
+	private syncEmitters(ctx: UpdateContext, dt: number): void {
+		const { ecs } = ctx;
+		const weather = weatherFrame(ecs);
+		for (const [id, emitter, transform] of ecs.query(
+			EmitterComponent,
+			TransformComponent,
+		)) {
+			const config = readonlyEmitter(emitter);
+			if (config.defId.length === 0) {
+				this.store.dropAttached(id);
+				continue;
+			}
+			const def = resolveVfxDef(config.defId);
+			const originX = transform.position.x + config.offset.x;
+			const originY = transform.position.y + config.offset.y;
+			let effect = this.store.attachedEffect(id);
+			if (
+				!effect ||
+				effect.def !== def ||
+				(this.cameraCut && tracksCamera(def))
+			) {
+				effect = this.store.replaceAttached(
+					id,
+					def,
+					originX,
+					originY,
+				);
+				this.start(ctx, effect, weather, config.rateScale);
+			}
+			effect.originX = originX;
+			effect.originY = originY;
+			effect.emitting = config.enabled;
+			if (!effect.emitting) {
+				continue;
+			}
+			for (let p = 0; p < effect.def.parts.length; p++) {
+				const part = effect.def.parts[p]!;
+				const pool = effect.pools[p]!;
+				if (part.rate === 0) {
+					continue;
+				}
+				pool.accumulator +=
+					emissionRate(part, config.rateScale, weather) * dt;
+				const count = Math.floor(pool.accumulator);
+				if (count === 0) {
+					continue;
+				}
+				pool.accumulator -= count;
+				const origin = this.originFor(ctx.camera, effect, part);
+				if (origin) {
+					const before = pool.count;
+					this.store.emit(pool, part, count, origin);
+					this.cullSheltered(ecs, part, pool, before, effect);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Whether the view moved discontinuously since the last frame — a cut, a
+	 * teleport, a scene entry — measured as more than half a viewport in one step.
+	 *
+	 * A camera-band part's population is placed relative to the view, so a jump
+	 * leaves it stranded and the band would refill over a whole particle lifetime.
+	 * Rebuilding those effects re-runs seed-by-age, which is the pre-warm.
+	 */
+	private detectCameraCut(camera: Camera2D | null): boolean {
+		if (!camera) {
+			this.cameraCentreX = null;
+			this.cameraCentreY = null;
+			return false;
+		}
+		const bounds = camera.visibleBounds();
+		const centreX = (bounds.min.x + bounds.max.x) / 2;
+		const centreY = (bounds.min.y + bounds.max.y) / 2;
+		const previousX = this.cameraCentreX;
+		const previousY = this.cameraCentreY;
+		this.cameraCentreX = centreX;
+		this.cameraCentreY = centreY;
+		if (previousX === null || previousY === null) {
+			return false;
+		}
+		return (
+			Math.abs(centreX - previousX) >
+				(bounds.max.x - bounds.min.x) / 2 ||
+			Math.abs(centreY - previousY) >
+				(bounds.max.y - bounds.min.y) / 2
+		);
+	}
+
+	/**
+	 * Bring a freshly (re)created effect up to its steady state: fire each part's
+	 * authored burst, then **seed by age** — spawn the population a continuous
+	 * emitter would already have produced, with randomized ages and positions
+	 * advanced in closed form.
+	 *
+	 * This is what makes VFX run-state safely non-restorable. A thaw, a scene
+	 * revisit, a def hot-reload, and an undo all rebuild the effect, and seeding
+	 * means a restored save shows a full drift of leaves on its first frame
+	 * instead of an empty sky filling in over the next two seconds.
+	 */
+	private start(
+		ctx: UpdateContext,
+		effect: VfxEffect,
+		weather: WeatherFrame,
+		rateScale: number,
+	): void {
+		for (let p = 0; p < effect.def.parts.length; p++) {
+			const part = effect.def.parts[p]!;
+			const pool = effect.pools[p]!;
+			const origin = this.originFor(ctx.camera, effect, part);
+			if (!origin) {
+				continue;
+			}
+			if (part.burst > 0) {
+				this.store.emit(pool, part, part.burst, origin);
+			}
+			const rate = emissionRate(part, rateScale, weather);
+			if (rate > 0) {
+				const meanLife = (part.lifetime.min + part.lifetime.max) / 2;
+				const steady = Math.round(rate * meanLife);
+				const before = pool.count;
+				this.store.emit(pool, part, steady, origin);
+				for (let i = before; i < pool.count; i++) {
+					advanceAnalytically(
+						pool,
+						i,
+						part,
+						this.store.random() * pool.life[i]!,
+					);
+				}
+			}
+			this.cullSheltered(ctx.ecs, part, pool, 0, effect);
+		}
+	}
+
+	/**
+	 * Drop the precipitation particles in `[from, count)` that sit under cover.
+	 *
+	 * Spawn placement knows nothing about roofs — a camera band stretches across
+	 * whatever the view happens to contain, and seed-by-age scatters particles down
+	 * through it — so this is where "rain only exists where the sky reaches" is
+	 * enforced, for a frame's spawns and for a seeded population alike. Particles
+	 * are killed rather than {@link die}d: an on-death splash under an eave is
+	 * exactly the artefact this prevents.
+	 */
+	private cullSheltered(
+		ecs: ReadonlyECS,
+		part: VfxEmitterPart,
+		pool: VfxPool,
+		from: number,
+		effect: VfxEffect,
+	): void {
+		if (!isPrecipitation(part) || pool.count === from) {
+			return;
+		}
+		const field = this.shelterField(ecs);
+		const baseX = pool.local ? effect.originX : 0;
+		const baseY = pool.local ? effect.originY : 0;
+		let i = from;
+		while (i < pool.count) {
+			if (sheltered(field, baseX + pool.x[i]!, baseY + pool.y[i]!)) {
+				pool.kill(i);
+			} else {
+				i++;
+			}
+		}
+	}
+
+	/**
+	 * Where a part spawns this frame, or `null` when it cannot — a camera-band
+	 * part in a world with no active camera, which is a still editor view rather
+	 * than an error.
+	 */
+	private originFor(
+		camera: Camera2D | null,
+		effect: VfxEffect,
+		part: VfxEmitterPart,
+	): VfxEmitOrigin | null {
+		const shape = part.spawn;
+		if (shape.kind === "camera-band") {
+			if (!camera) {
+				return null;
+			}
+			const bounds = camera.visibleBounds();
+			return {
+				x: (bounds.min.x + bounds.max.x) / 2,
+				y: bounds.min.y + shape.offsetY,
+				spreadX: (bounds.max.x - bounds.min.x) * shape.widthScale,
+				spreadY: shape.height,
+				angle: 0,
+			};
+		}
+		const local = part.space === "local";
+		return {
+			x: local ? 0 : effect.originX,
+			y: local ? 0 : effect.originY,
+			spreadX: shape.kind === "box" ? shape.width : 0,
+			spreadY: shape.kind === "box" ? shape.height : 0,
+			angle: 0,
+		};
+	}
+
+	/** Integrate, collide, and age one effect's pools. */
+	private advance(
+		ecs: ReadonlyECS,
+		effect: VfxEffect,
+		dt: number,
+		time: Seconds,
+	): void {
+		for (let p = 0; p < effect.def.parts.length; p++) {
+			const part = effect.def.parts[p]!;
+			const pool = effect.pools[p]!;
+			if (pool.count === 0) {
+				continue;
+			}
+			const baseX = pool.local ? effect.originX : 0;
+			const baseY = pool.local ? effect.originY : 0;
+			const wind =
+				part.wind === 0
+					? 0
+					: part.wind * sampleWind(ecs, baseX, time);
+			const response =
+				part.collision.mode === "tiles"
+					? part.collision.response
+					: "passThrough";
+			const shelter = isPrecipitation(part)
+				? this.shelterField(ecs)
+				: null;
+			let i = 0;
+			while (i < pool.count) {
+				const age = pool.age[i]! + dt;
+				if (age >= pool.life[i]!) {
+					this.die(part, pool, i, baseX, baseY);
+					continue;
+				}
+				pool.age[i] = age;
+				if (pool.resting(i)) {
+					i++;
+					continue;
+				}
+				const vx =
+					pool.vx[i]! + (wind - part.drag * pool.vx[i]!) * dt;
+				const vy =
+					pool.vy[i]! + (part.gravity - part.drag * pool.vy[i]!) * dt;
+				pool.vx[i] = vx;
+				pool.vy[i] = vy;
+				pool.x[i] = pool.x[i]! + vx * dt;
+				pool.y[i] = pool.y[i]! + vy * dt;
+				pool.rotation[i] = pool.rotation[i]! + pool.spin[i]! * dt;
+				if (
+					response !== "passThrough" &&
+					pool.reacts(i) &&
+					this.inBlockingCell(
+						ecs,
+						part,
+						baseX + pool.x[i]!,
+						baseY + pool.y[i]!,
+					)
+				) {
+					if (response === "rest") {
+						pool.rest(i);
+					} else {
+						this.die(part, pool, i, baseX, baseY);
+						continue;
+					}
+				}
+				if (
+					shelter &&
+					sheltered(shelter, baseX + pool.x[i]!, baseY + pool.y[i]!)
+				) {
+					pool.kill(i);
+					continue;
+				}
+				i++;
+			}
+		}
+	}
+
+	/**
+	 * Retire a particle, firing its part's on-death sub-effect at the world
+	 * position it died in — how a raindrop becomes a splash without either def
+	 * knowing about the other's parts.
+	 */
+	private die(
+		part: VfxEmitterPart,
+		pool: VfxPool,
+		i: number,
+		baseX: number,
+		baseY: number,
+	): void {
+		if (part.onDeath !== null) {
+			this.store.spawnBurst(
+				part.onDeath,
+				baseX + pool.x[i]!,
+				baseY + pool.y[i]!,
+			);
+		}
+		pool.kill(i);
+	}
+
+	/**
+	 * Whether a world point sits in a tile that stops this part, against the merged
+	 * cell set its `collision.cells` classification names — built at most once per
+	 * frame per classification, and only when some part actually collides.
+	 *
+	 * Rebuilt each frame rather than cached across frames: the version-keyed cache
+	 * is a shared utility the blood workstream lands, and re-merging is still far
+	 * cheaper than `isSolidCell`'s per-call layer query per particle.
+	 */
+	private inBlockingCell(
+		ecs: ReadonlyECS,
+		part: VfxEmitterPart,
+		x: number,
+		y: number,
+	): boolean {
+		const cells = isPrecipitation(part)
+			? (this.rainCells ??= mergedRainBlockingCells(ecs))
+			: (this.solidCells ??= mergedSolidCells(ecs));
+		return cells.has(
+			tileCellKey(
+				Math.floor(x / TILE_SIZE),
+				Math.floor(y / TILE_SIZE),
+			),
+		);
+	}
+
+	/**
+	 * The world's shelter geometry, resolved once per frame.
+	 *
+	 * `exposureField` polls a cache key that queries layers and builds a signature
+	 * string, which is fine once a frame and ruinous once a particle.
+	 *
+	 * The window centres on this frame's camera, which is the same point the
+	 * weather audio uses as its listener, so both share one cached field instead of
+	 * rebuilding it out from under each other twice a frame.
+	 */
+	private shelterField(ecs: ReadonlyECS): ExposureField {
+		return (this.shelter ??= exposureField(
+			ecs,
+			this.shelterCenterX,
+			this.shelterCenterY,
+		));
+	}
+}
+
+/**
+ * Whether a world point sits under cover — below the topmost rain-blocking tile
+ * of its column.
+ *
+ * `rainHeight` answers in grid rows and covers every authored column rather than
+ * only the derived window, so this is valid off-screen, where a camera band's
+ * edges and a seeded population both reach.
+ */
+const sheltered = (
+	field: ExposureField,
+	x: number,
+	y: number,
+): boolean => {
+	const roof = field.rainHeight(Math.floor(x / TILE_SIZE));
+	return roof !== null && y > roof * TILE_SIZE;
+};
+
+/**
+ * A part's particles per second this frame: its authored rate, the emitter's
+ * per-instance scale, and the live weather.
+ *
+ * Each weather influence interpolates between "ignore it" (factor one) and
+ * "track it exactly" (factor becomes the scalar), and the two multiply. The
+ * scalars are the **indoor-masked** ones, so an indoor scene stills every
+ * weather-driven emitter without any def knowing what indoors means.
+ */
+const emissionRate = (
+	part: VfxEmitterPart,
+	rateScale: number,
+	weather: WeatherFrame,
+): number =>
+	part.rate *
+	rateScale *
+	(1 +
+		part.weather.precipitation * (weather.visiblePrecipitation - 1)) *
+	(1 + part.weather.wind * (weather.visibleWind - 1));
