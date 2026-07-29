@@ -29,6 +29,7 @@ import { game as gameComposition } from "../src/game/compositions";
 import { registerPrefab } from "../src/game/prefabs";
 import { newGameSeed } from "../src/game/runtime/new-game-seed";
 import { toSceneDefinition } from "../src/game/runtime/scene-runtime";
+import { registerClimateContent } from "../src/game/weather/climate-catalog";
 import { migrateLegacyTiles } from "../src/game/scenes/migrate-legacy-tiles";
 import { SequenceFixture } from "./support/sequence-harness";
 
@@ -74,6 +75,10 @@ const registerGameContent = async (): Promise<void> => {
 		await import(toImportPath(path));
 	}
 	await import("../src/game/sequence/sequence-manifest");
+	// Called rather than merely imported: the module registers on import, but a
+	// second import is a no-op, so a test file that ran earlier and cleared the
+	// registry would leave the demo scene's authored weather override dangling.
+	registerClimateContent();
 	for (const path of new Glob(
 		"src/game/content/prefabs/*.prefab.json",
 	).scanSync(REPO_ROOT)) {
