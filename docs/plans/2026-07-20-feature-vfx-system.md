@@ -81,11 +81,13 @@ easing table, `Tween` internals, and `FadeTimeline`:
 - **Deleted:** `FadeTimeline`, the named-easing table + `Easing` value type,
   Tween's parallel implementation.
 - **Oscillators are not a type.** Beam pulse, mote shimmer, wind gusts =
-  `curve.sample(phase(vfxTime))` where `vfxTime` is an update-side
-  accumulated seconds counter owned by the VFX system (freezes under pause —
-  user decision: pause is a true still; `Clock.elapsed` advances during pause
-  and must not be used). Gust noise is continuous hash-noise of unbounded
-  time — no wrap, no pop.
+  `curve.sample(phase(ambientTime))`, where `ambientTime` comes from the
+  shared ambient clock (`engine/weather/ambient-clock.ts`, created by the
+  weather plan): an accumulated seconds counter stepped in `ambientSystems()`
+  (freezes under pause — user decision: pause is a true still;
+  `Clock.elapsed` advances during pause and must not be used). VFX and
+  weather read the same clock, so eye and ear stay coherent by construction.
+  Gust noise is continuous hash-noise of unbounded time — no wrap, no pop.
 - **Time-base table** (documented in code, enforced by the cleanup): new
   primitives tick in **seconds**; VFX systems consume **scaled** `time.dt`;
   migrated call sites keep their current base with an explicit conversion at
@@ -132,16 +134,17 @@ easing table, `Tween` internals, and `FadeTimeline`:
   short out-envelope. Attached decals clear on `DeathEvent` (respawn _reuses_
   entity ids — a dangling reference would teleport smears onto the
   respawned enemy).
-- **System placement:** one `VFXUpdateSystem` at the **end** of
-  `gameplaySystems` (after `CameraShakeSystem`) — DamageEvents survive until
-  the end-of-frame clear, and camera-tracked emitters read the current-frame
-  pose. For edit preview it joins `editorEdit`'s **own** update list — never
-  `editWorldSystems`, which the `game` composition also spreads
-  (`compositions.ts:180`): that would double-step VFX in the shipped game
-  _and_ at the wrong position. A `createVfxSystems()` factory returns the
-  update/render pair sharing one store instance; each composition (`game`,
-  `editorEdit`) calls it once and places the members into its update/render
-  lists (extending the decorations sharing pattern,
+- **System placement:** one `VFXUpdateSystem` in the weather plan's new
+  `ambientSystems()` category. `game` spreads that category after
+  `gameplaySystems`, so VFX still steps after `CameraShakeSystem` —
+  DamageEvents survive until the end-of-frame clear, and camera-tracked
+  emitters read the current-frame pose. `editorEdit` spreads the same
+  category for edit preview — never `editWorldSystems`, which the `game`
+  composition also spreads (`compositions.ts:180`): that would double-step
+  VFX in the shipped game _and_ at the wrong position. A
+  `createVfxSystems()` factory returns the update/render pair sharing one
+  store instance; each composition calls it once and places the members into
+  its update/render lists (extending the decorations sharing pattern,
   `compositions.ts:146-161`, across the two lists).
 - **Editor live preview** (user decision: crucial): the edit world steps VFX
   via the existing focused-view tick (`app.tsx:779-784` → `SceneView.update`)
@@ -158,13 +161,20 @@ easing table, `Tween` internals, and `FadeTimeline`:
   editor's blend UI is disjoint Canvas2D machinery). The composite hardcodes
   premultiplied-normal.
 - **Add per-draw blend**: quad draws accept `blend: "normal" | "additive"`.
-  Additive fill is exactly `blendFuncSeparate(SRC_ALPHA, ONE, ZERO, ONE)` —
-  add color, leave coverage untouched — which through the premultiplied
-  scratch + normal composite is _derivation-verified_ identical to per-quad
-  additive over the scene, with correct occlusion in both draw orders. The
-  blend flag joins the batch-merge key at **both** merge sites (`recordQuad`
-  and `drawTile`'s inline merge). Straight-alpha texture upload
-  (no `UNPACK_PREMULTIPLY_ALPHA`) is documented as a load-bearing invariant.
+  Additive fill is `blendFuncSeparate(SRC_ALPHA, ONE, ONE, ONE_MINUS_SRC_ALPHA)`
+  — add color, accumulate coverage the same way normal fill does. **Corrected
+  during implementation:** this section previously specified
+  `(SRC_ALPHA, ONE, ZERO, ONE)` on the premise of a premultiplied scratch, but
+  the scratch is fed by straight-alpha textures
+  (`UNPACK_PREMULTIPLY_ALPHA_WEBGL = false`, `renderer-2d.ts:572-573`) and the
+  normal fill path is `blendFuncSeparate(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ONE,
+ONE_MINUS_SRC_ALPHA)`. The `ZERO, ONE` alpha pair would have pinned scratch
+  coverage and broken the composite. The straight-alpha upload is a load-bearing
+  invariant and is documented as such at the texture-creation site. The blend
+  flag joins the batch-merge key at **both** merge sites (`recordQuad` and
+  `drawTile`'s inline merge), so interleaved modes split into separate
+  `drawArrays` calls while preserving submission order — which is what gives
+  correct occlusion in both draw orders.
 - **Public textured-corner quad API** (thin wrapper over the private
   `pushQuadShape`) for velocity-stretched particles and beam geometry.
 - **No new render layers, no layer migration.** Effects draw into existing
@@ -174,15 +184,26 @@ easing table, `Tween` internals, and `FadeTimeline`:
 - RGBA8 clamping bounds additive stacking at 1.0 — accepted; "over the top"
   comes from shape, motion, and scale, not HDR.
 
-**4. Wind stub + seam** (user decision: weather is a future system that will
-_drive_ consumers; this plan only defines how a consumer listens):
+**4. Wind seam** (weather owns the provider; this plan defines only how a
+consumer listens):
 
-- Engine `WindComponent` — scene-authored singleton (the `RenderLayers`
-  precedent): data params only (direction, strength, gustiness, and a
-  registry key for the signal behavior — never closures on serialized
-  fields; the op-registry precedent). `sampleWind(ecs, x, t)` is the seam:
-  **position-aware signature, v1 ignores `x`**. The future weather plan
-  replaces the provider; leaves and rain never change.
+- `sampleWind(ecs, x, t)` is the seam — a plain engine function with a
+  **position-aware signature whose `x` is reserved** (v1 ignores it). It is
+  **weather-backed**, living at `engine/weather/sample-wind.ts` and derived
+  from effective weather (`2026-07-21-feature-weather-system.md`). Until the
+  weather core lands it returns a calm default, so leaves and rain can be
+  built and tuned against the real signature.
+- There is **no `WindComponent`** and no registry key for signal behavior.
+  Both were dropped by user ruling: weather is engine-owned, so a
+  registry-key indirection would only smuggle behavior across the layer
+  boundary. Wind parameters are authored weather data, not a scene singleton.
+- **Amended consumer contract.** "Leaves and rain never change" does not
+  survive weather. Three named hooks in the effect layer are weather-aware by
+  design: rain's kill predicate tests the **rain-blocking classification**
+  rather than raw solidity; rain spawn/cull consults `rainHeightAt`; and
+  emitter defs carry a **weather-scaling** field whose factor the VFX update
+  re-reads per frame (defs themselves stay frozen config). Nothing else about
+  a consumer changes.
 
 ### Events
 
@@ -216,9 +237,12 @@ Effect defs are JSON (hot-reloaded via Vite, hard-error validated at load).
   Additive quads + particle motes, local-space, validated via a debug
   trigger. The loot plan is amended to call this seam (see Deliverables).
 - **Rain** — camera-tracking spawn band above the viewport; velocity-
-  stretched stripe quads (textured-corner API); wind-slanted; occupancy-test
-  kill → splash micro-burst + brief ground mark; pre-warms on camera cuts and
-  restore; debug toggle (weather _scheduling_ is explicitly out of scope).
+  stretched stripe quads (textured-corner API); wind-slanted; splash
+  micro-burst + brief ground mark on kill; pre-warms on camera cuts and
+  restore. The three weather hooks of the amended contract apply: the kill
+  predicate tests the rain-blocking classification, spawn/cull consults
+  `rainHeightAt` so rain stops under overhangs, and emission scales with
+  effective precipitation. Scheduling belongs to the weather plan.
 - **Fire** — flipbook-frame particles (def carries frame metadata:
   width/count/fps; the renderer already samples source rects — no renderer
   work), color-over-life ramp into additive glow, smoke wisps. Debug-
@@ -265,8 +289,8 @@ the name "Timeline" with the existing editor `<Timeline>` clip widget
   save tripwires. The inverted storage model makes the illegal states
   unrepresentable.
 - **Runtime layered-sprite ingestion + rustle, procedural wind audio, weather
-  states** — parked to the roadmap (weather system; sprite-editor design
-  session). This plan ships only the wind seam + stub.
+  states** — parked to the weather plan and the sprite-editor design session.
+  This plan ships only the consumer side of the wind seam.
 
 ## Approach / steps
 
@@ -315,11 +339,18 @@ a separate later session.
    `LayerState.blend/opacity`; hardcode the premultiplied-normal composite at
    **all three** call sites — the layer loop (`renderer-2d.ts:1444-1448`) and
    the present pass (`:1826`, `:1833`).
-8. Per-draw blend flag on quad commands; `blendFuncSeparate(SRC_ALPHA, ONE,
-ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
-   in `recordQuad` **and** `drawTile`'s inline merge; document the
-   straight-alpha upload invariant where textures are created.
-9. Public textured-corner quad API (wraps `pushQuadShape`).
+8. **Done.** Per-draw blend flag on quad commands;
+   `blendFuncSeparate(SRC_ALPHA, ONE, ONE, ONE_MINUS_SRC_ALPHA)` (corrected —
+   see the per-draw-blend bullet above) applied per batch in `runCommand`;
+   blend joins the merge key in `recordQuad` **and** `drawTile`'s inline merge;
+   the straight-alpha upload invariant documented where textures are created.
+   Shipped as `QuadBlend` + `applyQuadBlend` (`render/blend.ts`), which replaced
+   `applyLayerBlend`; step 7's per-layer rip-out was deliberately left undone.
+9. **Done.** Public textured-corner quad API `drawCornerQuad(id, opts)` (wraps
+   `pushQuadShape`); omitting `image` draws a solid tint through `whiteTex` on
+   one shared merge key. Also shipped alongside: `shear` on `DrawImageOpts`
+   (top-two-corner displacement, for foliage sway) and
+   `quantizeToTexel(value, zoom)` (`render/quantize.ts`).
 10. Visual validation per AGENTS.md: temporary logging + `bun run dev`,
     additive over/under normal sprites in one band, then remove logs. (Blend
     math is not headlessly assertable in this stack; the derivation is in
@@ -343,16 +374,23 @@ ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
 12. `emitter-component.ts` — pure config, dev-build frozen;
     `vfx-store.ts` — instance-owned SoA pools + decal ring buffer + spawn
     accumulators, keyed by entity id; eviction (entity ∧ component, plus
-    `ecs.onDestroy`); `vfxTime` accumulator (pause-frozen).
+    `ecs.onDestroy`). The time base is the shared ambient clock
+    (`engine/weather/ambient-clock.ts`), not a VFX-owned `vfxTime`.
 13. `vfx-update-system.ts` — spawn/advect/collide/age; per-frame config
     re-read; dt clamp; seed-by-age on emitter (re)appearance; host-death
-    live-out. Registered end of `gameplaySystems` (after `CameraShakeSystem`)
-    and in `editWorldSystems` (edit preview). `@profiler("VFX", …)` labels.
+    live-out. Registered in `ambientSystems()` (the weather plan's new
+    composition category), which `game` spreads after `gameplaySystems` — so
+    VFX still steps after `CameraShakeSystem`, before the end-of-frame event
+    clear — and which `editorEdit` spreads for edit preview. **Never
+    `editWorldSystems`**, which `game` also spreads: that would double-step
+    VFX in the shipped game and at the wrong position.
+    `@profiler("VFX", …)` labels.
 14. `vfx-render-system.ts` — pools/decals/beams via `(layer, order)`;
     additive flag per draw; shares the store instance via factory wiring in
     `compositions.ts`.
-15. `wind-component.ts` + `sampleWind(ecs, x, t)` (engine); registry-key
-    signal resolution; gust = continuous hash-noise of unbounded `vfxTime`.
+15. Consume `sampleWind(ecs, x, t)` from `engine/weather/sample-wind.ts` — no
+    component, no registry key (pillar 4). Gust = continuous hash-noise of
+    the unbounded ambient clock, owned by the weather slice.
 16. Harness test (SequenceFixture): boot ECS + VFX systems, author an
     emitter, run N frames, `capture → restore → continue`; assert the
     snapshot contains **zero** VFX run-state and no orphan entities; assert
@@ -379,7 +417,8 @@ ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
     loudest); debug trigger (console/keybind).
 23. **Rain**: camera-band emitter (current-frame camera — placement per
     step 13); stretched stripes; splash micro-bursts + ground marks;
-    cut/restore pre-warm; debug toggle.
+    cut/restore pre-warm; the three weather hooks (rain-blocking kill
+    predicate, `rainHeightAt` spawn/cull, precipitation-scaled emission).
 24. **Fire**: flipbook def + color ramp + smoke; debug trigger.
 25. Each effect: tune via JSON hot-reload in `bun run dev`; state in the
     summary what was run and observed (AGENTS.md visual-validation rule).
@@ -436,11 +475,17 @@ ZERO, ONE)` applied per batch in `runCommand`; blend joins the merge key
   one-for-one (bounded, ticked, drives curves); stdlib "Timer" means
   delayed-callback — which is exactly `TimerComponent`, already correctly
   named.
-- **Blend derivation** (verified both draw orders): additive
-  `(SRC_ALPHA, ONE, ZERO, ONE)` into the premultiplied scratch followed by
-  the normal composite equals per-quad additive over the scene with correct
-  occlusion. Per-layer blend machinery had zero callers and two operational
-  hazards (idle-dispose blend revert; empty-layer scratch pinning).
+- **Blend derivation** — the original derivation assumed a premultiplied
+  scratch and concluded additive `(SRC_ALPHA, ONE, ZERO, ONE)`. That premise was
+  **wrong and was corrected during implementation**: textures upload
+  straight-alpha (`UNPACK_PREMULTIPLY_ALPHA_WEBGL = false`) and the scratch's
+  normal fill is `(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ONE, ONE_MINUS_SRC_ALPHA)`,
+  so additive is `(SRC_ALPHA, ONE, ONE, ONE_MINUS_SRC_ALPHA)` — the alpha pair
+  must keep accumulating coverage, not pin it. Order-correct occlusion comes
+  from blend joining the batch-merge key (submission order preserved), not from
+  the blend factors. Per-layer blend machinery had zero callers and two
+  operational hazards (idle-dispose blend revert; empty-layer scratch pinning);
+  ripping it out was deferred out of this implementation's scope.
 - **Codebase structure facts**: event bus clears end-of-frame (late systems
   still see same-frame events); respawn reuses entity ids; compositions
   construct fresh system instances per world; the editor ticks only the
