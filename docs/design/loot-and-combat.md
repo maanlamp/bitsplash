@@ -6,7 +6,7 @@ single implementation plan.
 ## The item is five layers
 
 Every item instance is data assembled from five layers. This anatomy is the
-answer to "how do weapon parts translate to armor" — it generalizes to every
+answer to "how do weapon parts translate to armor", and it generalizes to every
 category:
 
 1. **Category** — Weapon | Armor | Accessory.
@@ -15,9 +15,9 @@ category:
    visual. Different archetypes have different slots (a sword's `{blade, guard,
 grip, pommel}` vs a cuirass's `{plating, lining, trim}`).
 3. **Parts** — one per archetype slot. Each carries stat contributions, a
-   damage-type lean, a **material**, and a quality weight. **Parts drive
-   appearance** — a serrated blade looks serrated. Material is load-bearing: it
-   drives visuals _and_, on armor, the resistance profile.
+   damage-type lean, a **material**, and a quality weight. Parts drive
+   appearance: a serrated blade looks serrated. Material does double duty, driving
+   visuals _and_, on armor, the resistance profile.
 4. **Affixes** — rolled modifier lines, each with a tier and value range. The
    variance layer.
 5. **Rarity** — Common/Uncommon/Rare/Epic.
@@ -34,19 +34,19 @@ grip, pommel}` vs a cuirass's `{plating, lining, trim}`).
   god-roll chase lives _inside_ a fixed identity. Because sources are
   re-challengeable, every unique stays farmable.
 
-## Rarity carries power — and that is deliberate
+## Rarity carries power, deliberately
 
 Rarity is an honest, at-a-glance power signal: higher is better. The consequence
 is accepted head-on: **low-rarity instances become salvage fodder over time.**
 "No straight-to-trash loot / every weapon has a reason" is therefore a claim at
 the **archetype + matchup** level, not the individual-instance level. What keeps
 this from becoming the "99% trash" firehose the genre is infamous for is
-**sparsity** — few drops, each meaningful — plus a dignity hook so trash is never
+**sparsity**: few drops, each meaningful, plus a dignity hook so trash is never
 _handled_ (junk auto-converts to a coin trickle).
 
 Power also climbs by **source**: tougher enemies carry richer drop tables
-(higher rarity odds + better part pools). That is the vertical curve — gear-
-gated, with no level number.
+(higher rarity odds + better part pools). That is the vertical curve, gear-gated,
+with no level number.
 
 ## Storage: live references, recomputed
 
@@ -66,10 +66,10 @@ def-id that no longer resolves skips its contribution and logs.
   ×0.5 / immune ×0, keyed on the armor's **material**. Materials are named after
   real stuff (chain/plate/scale/hide) so players guess the matrix without
   tooltips. Symmetric for player and enemies.
-- **No shields** (wrong for medieval-fantasy) and **no durability, ever** — no
+- **No shields** (wrong for medieval-fantasy) and **no durability, ever.** No
   system punishes the player for playing.
 
-### The matchup is tactical spice, and rarity carries power — held apart by an invariant
+### One invariant holds the matchup and the rarity climb apart
 
 Rarity-carries-power and matchup-as-live-decision share one number budget. The
 invariant that keeps either from eating the other:
@@ -79,24 +79,24 @@ invariant that keeps either from eating the other:
 
 Conditional, so swapping matters when it applies without flattening the rarity
 climb. Every part/affix/rarity number is validated against this. The matchup is
-demoted to a single job — tactical spice / a reason to swap — because rarity now
-carries relevance; it is expressed as a **quick-swap loadout** (2–3 ready
-weapons, instant swap) so swapping is a _combat verb_, never an inventory dive.
+demoted to a single job, tactical spice and a reason to swap, because rarity now
+carries relevance. It is expressed as a **quick-swap loadout** (2–3 ready weapons,
+instant swap) so swapping is a _combat verb_, never an inventory dive.
 
-## Legibility is the product — but feedback is felt, not spelled out
+## Legibility is the product, and feedback is felt rather than spelled out
 
 Item **inspection** is exhaustively legible: parts and affixes both default-
 visible, each with value, tier, and range; comparison vs equipped with delta
 arrows; color reserved for rarity, keywords, and deltas. Never two items that
 look identical when they differ.
 
-Combat **feedback** stays minimal — no damage-number spam — but magnitude must
+Combat **feedback** stays minimal, with no damage-number spam, but magnitude must
 still be _learnable_, so it rides on feel: weak = meaty hit-stop + bright glyph,
 resist = dull clang + shrunk glyph, immune = absorb-flash, plus a lightweight
-per-enemy resist readout on inspect. Legibility wins over minimalism exactly
-where the matchup lives.
+per-enemy resist readout on inspect. Legibility wins over minimalism exactly where
+the matchup lives.
 
 ## Optional spice, parked (not core)
 
 Weak-points/hitzones, momentum→damage, and bypass rules ("bleed ignores armor")
-are viable enrichments layered on the matrix later — not part of the core model.
+can be layered on the matrix later. None of them is part of the core model.
