@@ -4562,7 +4562,7 @@
 					"position": {
 						"$type": "Vector2",
 						"x": -77,
-						"y": 24
+						"y": 25
 					},
 					"rotation": {
 						"$type": "Angle",
@@ -4577,7 +4577,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -4626,7 +4626,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -4675,7 +4675,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -5075,7 +5075,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -5124,7 +5124,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -5206,8 +5206,8 @@
 				"Transform": {
 					"position": {
 						"$type": "Vector2",
-						"x": -2672,
-						"y": 538
+						"x": -2640,
+						"y": 512
 					},
 					"rotation": {
 						"$type": "Angle",
@@ -5222,7 +5222,7 @@
 				"Sprite": {
 					"urlRef": {
 						"$type": "AssetRef",
-						"path": "/src/game/content/assets/birch.png"
+						"path": "/src/game/content/assets/birch2.png"
 					},
 					"opacity": {
 						"$type": "Percent",
@@ -5276,6 +5276,55 @@
 						"$type": "Vector2",
 						"x": 0,
 						"y": 0
+					}
+				}
+			}
+		},
+		{
+			"id": "5f2e150e-011a-40ba-96cc-02650e99af11",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -2816,
+						"y": 608
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Sprite": {
+					"urlRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/birch.png"
+					},
+					"opacity": {
+						"$type": "Percent",
+						"value": 1
+					},
+					"flipX": true,
+					"clips": {},
+					"renderLayer": "entities",
+					"order": 0
+				},
+				"FoliageSway": {
+					"amplitude": 0.15,
+					"pinnedBase": true
+				},
+				"Emitter": {
+					"defId": "leaves",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -72
 					}
 				}
 			}
