@@ -1,16 +1,8 @@
 # Bitsplash
 
-Bitsplash is a hand-rolled 2D game engine and its editor, focused on 2D
-platformers. It runs on an HTML `<canvas>` with a hand-rolled
-Entity-Component-System (ECS) and a **physics** layer behind an engine-owned
-abstraction (`src/engine/physics/`), backed by **Rapier**. Game and editor code
-never reference the physics backend directly.
+Bitsplash is a hand-rolled 2D game engine and its editor, focused on 2D platformers. It runs on an HTML `<canvas>` with a hand-rolled Entity-Component-System (ECS) and a **physics** layer. Game and editor code never reference the physics backend directly.
 
-**Naming.** "Bitsplash" is the engine and toolchain, not the game. The game
-being built with it has the working title **Fantasy Platformer**; that is the
-name players see (start screen, game window title). Do not label the game
-itself "Bitsplash" — the engine namespace (`bitsplash.*`, `bitsplash-fs://`,
-the editor's own title bar) is a separate, correct use.
+**Naming.** "Bitsplash" is the engine and toolchain, not the game. The game being built with it has the working title **Fantasy Platformer**; that is the name players see (start screen, game window title). Do not label the game itself "Bitsplash" — the engine namespace (`bitsplash.*`, `bitsplash-fs://`, the editor's own title bar) is a separate, correct use.
 
 ## Tooling
 
@@ -24,32 +16,17 @@ This project uses **Bun**, not npm/node. Run commands with `bun`:
 - `bun run preview` — preview the production build (the web game, not the editor)
 - `bun run fix` — lint and format (`oxlint --fix` then `oxfmt`)
 
-Linting/formatting is via **oxlint** + **oxfmt** (not ESLint/Prettier).
-TypeScript is configured across `tsconfig.app.json` (app) and the root
-`tsconfig.json`. Vite + React (`@vitejs/plugin-react`, React Compiler) host the
-canvas.
+Linting/formatting is via **oxlint** + **oxfmt** (not ESLint/Prettier). TypeScript is configured across `tsconfig.app.json` (app) and the root `tsconfig.json`. Vite + React (`@vitejs/plugin-react`, React Compiler) host the canvas.
 
 ## Testing
 
-Tests run on Bun's built-in runner (`bun test`). Test files live in `test/`
-(outside `src/`), named `*.test.ts`. They are typechecked by `tsc -b` via a
-dedicated `tsconfig.test.json` (referenced from the root `tsconfig.json`) that
-includes `test/` and pulls in `@types/bun` for the `bun:test` module.
+Tests run on Bun's built-in runner (`bun test`). Test files live in `test/` (outside `src/`), named `*.test.ts`. They are typechecked by `tsc -b` via a dedicated `tsconfig.test.json` (referenced from the root `tsconfig.json`) that includes `test/` and pulls in `@types/bun` for the `bun:test` module.
 
 ### A test is a lock. Do not write one for anything still moving.
 
-A test's existence is a claim that the behaviour it asserts is settled. That claim
-has a price: it fails when you deliberately change the thing, so it taxes exactly
-the iteration you are doing. Writing a test because you just built a feature is the
-wrong reason, and it is how this suite reached 161 files while the locked
-foundations — physics, tile batching, the renderer — had none at all. The prune that
-followed cut it to 93.
+A test's existence is a claim that the behaviour it asserts is settled. That claim has a price: it fails when you deliberately change the thing, so it taxes exactly the iteration you are doing. Writing a test because you just built a feature is the wrong reason, and it is how this suite reached 161 files while the locked foundations — physics, tile batching, the renderer — had none at all. The prune that followed cut it to 93.
 
-So the first question is never "how do I test this" but **"is this behaviour locked
-in?"** If it is not, write no test. Much of the game layer is not locked; neither is
-the sprite editor. `docs/design/game-design-document.md` and the chapters it indexes
-record what is. Locking something new is a decision taken deliberately, never a side
-effect of finishing a plan step.
+So the first question is never "how do I test this" but **"is this behaviour locked in?"** If it is not, write no test. Much of the game layer is not locked; neither is the sprite editor. `docs/design/game-design-document.md` and the chapters it indexes record what is. Locking something new is a decision taken deliberately, never a side effect of finishing a plan step.
 
 ### What a test must clear
 
@@ -65,10 +42,7 @@ Four bars, all of them:
    whatever the code happened to do the day it was written and lends it authority.
 4. **Protects something needed**, rather than recording that a feature exists.
 
-One narrow exception earns a permanent test regardless: **failures nobody can see.**
-Silent corruption of a `*.scene.json`, a component skipped at load, a codec writing
-bytes that break in three months, two code paths quietly diverging. Those need a
-tripwire because nothing else will ever surface them.
+One narrow exception earns a permanent test regardless: **failures nobody can see.** Silent corruption of a `*.scene.json`, a component skipped at load, a codec writing bytes that break in three months, two code paths quietly diverging. Those need a tripwire because nothing else will ever surface them.
 
 ### How to write one
 
@@ -238,12 +212,11 @@ Violating these boundaries is never acceptable, regardless of convenience.
 
 - Document APIs using JSDoc comments. Clearly document what things do, don't be too verbose. Provide examples. Public APIs missing comments should have them added.
 - No inline comments, except for very specific cases of required but inpenetrable code to explain it. Note that code that's not autological should initially be treated as a candidate for refactoring so it's clear, and only if that genuinely won't work or produces way more LOC, then a comment is ok.
-- Comments can and _will_ rot. Make sure any code you touch is reflected in the comments surrounding it, if at all. Prefer removing comments if they're not longer correct instead of trying to fix them. Same two rules above apply.
-- Do not handroll your own components for the editor UI; check `base-ui` (https://base-ui.com/llms.txt) first.
+- Comments can and _will_ rot. Make sure any code you touch is reflected in the comments surrounding it, if at all. Prefer removing comments if they're no longer correct instead of trying to fix them. Same two rules above apply.
+- Do not handroll your own components for the editor UI; check `base-ui` (https://base-ui.com/llms.txt) first, fall back to react-aria, and only if none of those provide building blocks can you look at handrolling.
 - Compose React `className` values with `clsx`, never raw string interpolation or ternaries: `className={clsx(styles.base, active && styles.active)}`.
 - When picking npm packages, prefer common, well-maintained ones over handrolling.
 - **No magic strings for cross-references — make them impossible by construction.** Any identifier that points at other content — ink knots, sequence ids, spawn/cast roles, prefab names, sequence tags, chronicle flags — must be reached through a type-safe mechanism, never a bare string literal at a call site. The mechanism fits the source of truth: for **TS→TS**, import/export a shared `const` (and derive literal-union types from it) so `tsc` checks every use; for content **TypeScript cannot see on its own** (e.g. ink knots compiled from `.ink`), codegen a branded accessor module from the authored source (the `scripts/gen-ink.ts` → `knots.gen.ts` pattern: run by `bun run gen`, wired into `check`/`build`/`pretest`). Either way the reference is **validated so a dangling one fails loudly** — at build for code, at load or build-over-artifacts for authored data (`.scene.json` etc.) — never silently swallowed. The bar is architectural: structure the code so a magic string _can't_ be used, not so it's merely discouraged.
-- **Rendering vocabulary is fixed, and it is defined in one place.** "Pixel space" is the bare canvas at 1:1; "art space" is that painted grid with the screen scale factor applied. Sampling is `NEAREST` everywhere and there is no anti-aliasing, ever. Manipulation happens in pixel space and is projected into art space by integer upscale, so grid-exact is the default and a free transform is the justified exception. Use these terms as defined in `docs/design/game-design-document.md` (Art direction) and do not coin new ones — this vocabulary exists because vaguer phrasings caused a real misreading of what the code does.
 - **Do not use memory**: Do not use the memory tool or any persistent memory store — it corrupts reasoning silently. Anything important to the way we work must live in AGENTS.md, not in memory.
 - **UX decisions are not yours to make**: Never make a user-experience decision without asking the user first. This applies to anything that shapes how a user (game author or player) experiences a flow: error handling and where/how failures surface, field interaction, validation behavior, when/whether something blocks an action, notifications, navigation, and the like. When such a choice arises, stop and ask — even if a default seems obvious, and even mid-task. This applies across all parts of the project (editor, game runtime, serialization, save/load). Exception: trivial, conventional accessibility/correctness choices (e.g. "a clickable element should be a `<button>`") are fine to make without asking.
 - **No sliders in player-facing game UI.** This rule is scoped to the **game runtime's** player-facing settings/options; the **editor UI is exempt** — sliders there are fine when appropriate. In the game, any player-configurable numeric value (sensitivities, input thresholds, timings, rates) is entered as a raw number input with an explicit unit label, and — where the raw value is an opaque coefficient — a live preview and/or a meaningful derived unit (e.g. `cm/360°` for aim sensitivity, `ms` for input timings, with a "hold/tap here to feel it" test affordance). Validate only against the invalid domain (e.g. `> 0`); never clamp to arbitrary min/max ranges. Arbitrary floors/caps (the classic can't-go-below-0.1 sensitivity slider) exclude users for no reason. Irreversible or accident-prone actions triggered by a hold surface a visible progress fill rather than firing silently.
