@@ -76,7 +76,7 @@ to it), `src/game/registrations.ts` (W3 climates, W9 vfx defs),
    Amended the VFX plan (pillar 3 bullet, step 8, and the research note) to match.
    **Still needs your eyes** — blend is not headlessly assertable.
 
-5. **Audio design forced by the current engine** (see notes-audio.md): availability
+5. **Audio design forced by the current engine** (see the 2026-08-02 plan): availability
    gated on `typeof AudioContext !== "undefined"` (structural, keeps the harness's
    throwing audio Proxy untouched); ONE process-wide ambience graph with
    last-writer-per-frame and a ~150 ms self-ramp to silence when nobody pushes
@@ -253,46 +253,12 @@ no special case.
     — use the editor weather preview to force a gale. Grass/decoration foliage is drawn by
     `DecorationsRenderSystem` and is NOT `SpriteComponent`-based, so it does not sway in v1.
 
-## Weather audio (INTERIM — `78e2d8a`), 1020 pass / 152 files
-
-21. Listener = the active camera (`ctx.camera ?? pickActiveCamera2D(ecs)`), falling back to
-    world origin so a camera-less world still hears weather rather than going silent (matches
-    the exposure field's own documented fallback).
-22. `audio.ts` additions are strictly additive, two methods: `createBuffer(seconds, channels=1)`
-    and `playLoop(buffer, opts): LoopVoiceHandle` building
-    `source(loop) -> filter? -> StereoPanner -> Gain -> destination`. Handle is
-    `{set({gain,pan,frequency,ramp}), silenceAfter(delay, ramp), stop()}`.
-    **`silenceAfter` is a dead-man's switch** — each push schedules a future fade that the next
-    push cancels. That is what makes the staleness ramp work with zero lifecycle machinery.
-    `playBuffer`, `play`, the existing graph and voice-bank code untouched. No buses.
-23. Five voices: wind bed (lowpass), eave + whistle (bandpass, entering on speed^2/speed^3 so a
-    breeze is bed-only), rain light/heavy (equal-power crossfade, knee 0.3). Gain AND filter
-    frequency both track `clamp01(wind x gust)` (Farnell's coupling).
-    Shelter = gain multiplier with a **0.25 floor** x distance falloff, plus spectral tilt with a
-    **0.3 floor** => sealed room is ~9% level / ~30% cutoff, **never zero**. Rain pan =
-    anchor pan x (1 - openness): centred outdoors, from the cave mouth when inside.
-24. `weatherFrame.gust` is derived from `visibleWind` (indoor-masked), so audio **recomputes**
-    `gustEnvelope(frame.time, frame.wind)` from the raw scalar at the same `t` — stays
-    frame-coherent, keeps only the deliberate raw-vs-visible difference. One-line change in
-    `weather-frame.ts` if you'd rather it carried a raw-driven gust too.
-25. `speed = clamp01(wind x gust)` saturates at full gale (gusts then only modulate downward).
-    Alternative would be normalizing by the ~1.8 gust ceiling. All gains/frequencies/knees are
-    first-guess named constants in `weather-audio-mix.ts` for tuning by ear.
-
-## What the audio-foundations plan still owes (weather audio is honestly interim)
-
-- Master + category buses (M-P1-7) with host-reachable suspend/duck. Ambience currently connects
-  straight to `ctx.destination`; no ducking under dialogue, no mixing against SFX. WS-E step 19's
-  proper bus suspend does not exist — pause works only because a paused host ticks nothing and
-  the scheduled fade fires.
-- World-scoped audio ownership / engine-driven teardown. The five voices are created once per
-  `AudioManager` and never stopped — they idle at zero gain for the process lifetime. Sounds
-  correct, but it's a permanent small node graph with no engine lifecycle story.
-- A real null/headless backend. `webAudioAvailable` is a structural gate, not an implementation,
-  so the parameter mapping is tested but the graph is not assertable in CI.
-- Shared settings state + per-host surfaces: no volume, no weather mute, nothing in a pause menu.
-- Authored beds, pink/brown noise, per-voice modulation, impulse-response reverb for the muffle
-  instead of a lowpass tilt. Per-source spatialization beyond stereo pan; a real listener concept.
+> **Superseded.** Weather audio shipped interim; decisions 21–25 (the voice graph,
+> `silenceAfter`, the gust/saturation coupling) and the list of what audio
+> foundations still owed were removed once
+> `docs/plans/2026-08-02-feature-weather-expansion.md` replaced them. That plan also
+> measured two defects this session left behind: the per-frame ramp re-issue in
+> `playLoop`, and `DEFAULT_TAU = 8 s` against the 8–20 s dwells set in decision 46.
 
 ## weatherOverride op (`c2a93ba`), 1031 pass / 153 files
 
@@ -318,7 +284,8 @@ no special case.
 
 ## Editor weather surfaces (`f20bef7`), 1045 pass / 154 files
 
-30. **The audio mute reuses the ambience contract rather than adding a bus.** `AudioManager` has
+30. ~~**The audio mute reuses the ambience contract rather than adding a bus.**~~
+    **Superseded** by the per-view bus in the 2026-08-02 plan. `AudioManager` has
     no mute/bus (unbuilt audio-foundations dependency) and the editor may not edit `src/engine/`.
     So a muted view steps its world normally (foliage still sways, rain still falls) then pushes
     an all-zero mix at the same graph — `weatherAudioMix({wind:0,precipitation:0,gust:0},
@@ -337,7 +304,8 @@ OPEN_SHELTER)`, last-push-wins. No magic numbers, no fake `AudioManager`, no eng
     fallback added deliberately: the edit world's presentation system already throws every frame
     in that case, and the picker makes dangling ids unauthorable. Seeding is lazy so it cannot
     break scene-view construction.
-33. Known pre-existing limitation, not introduced here: **two windows each with a focused scene
+33. ~~Known pre-existing limitation~~ — **fixed** by per-realm focus listeners in the
+    2026-08-02 plan. As found: **two windows each with a focused scene
     view would both push ambience** and fight over the graph frame by frame.
 34. Verified free-for-nothing (implemented nothing): only `viewId === focusedId` calls
     `view.update` (`app.tsx:1328-1331`); **no** scene view updates while a run is active

@@ -260,8 +260,11 @@ clearing all continue while paused. Callers: `game/shell/game-shell.ts:104,151,1
 => paused ⇒ no `ecs.update` ⇒ no ambient clock tick ⇒ no weather tick, while rendering
 continues. **Pause freezes stepping rather than signalling it, so any "suspend the ambience"
 behaviour must be host-driven** (`Game.setPaused`, `RunHost.setPaused`/`step`) — a system cannot
-observe pause. (This is why the notes-audio decision #2 staleness-ramp works: no ticks → the
-graph ramps itself down.)
+observe pause. (The interim weather audio leaned on this: no ticks → a scheduled fade ramped
+the graph down on its own. That mechanism is deleted by
+`docs/plans/2026-08-02-feature-weather-expansion.md` — it caused the ambience pumping — so
+`Game.setPaused` now has to publish a focus change explicitly, and this note is exactly why
+that step exists.)
 Pause is also implicitly forced by the dirty-guard dialog (`app.tsx:1303`,
 `editor/workspace/guard-signal.ts`). Editor plumbing: `app.tsx:1137`, `app.tsx:1250`,
 buttons in `editor/playback-bar.tsx`.

@@ -359,9 +359,9 @@ a separate later session.
 ### WS-C — VFX core (`engine/vfx/`) — needs A + B
 
 11. Def schema + loader (JSON, hard-error validation, hot-reload). A def is a
-    **list of parts**: particle-emitter parts and beam-quad parts (composite
-    effects — the loot beam's main beam + motes + Epic helix, fire's flames +
-    smoke — are one def with several parts). Emitter parts: emission
+    **list of parts**: particle-emitter parts and ~~beam-quad parts~~ **ribbon
+    parts** (composite effects — the loot beam's main beam + motes + Epic helix,
+    fire's flames + smoke — are one def with several parts). Emitter parts: emission
     (rate/burst), spawn shape (`point | box | camera-band`), lifetime
     `{min,max}`, velocity/gravity/drag, initial rotation + spin,
     velocity-stretch factor, over-life tracks (scale/alpha/color/rotation as
@@ -369,8 +369,18 @@ a separate later session.
     `(layer, order)`, sim space, wind influence factor, collision mode
     (`none | tiles | raycast`) with response (`die | rest | passThrough` +
     per-particle rest probability), decal spec, on-death sub-effect
-    reference (rain splash). Beam-quad parts: geometry (length/width),
-    phase-sampled pulse curve, orbit/helix params, blend, tracks.
+    reference (rain splash).
+
+    **Amended 2026-08-02** (`docs/plans/2026-08-02-feature-weather-expansion.md`):
+    beam-quad parts are replaced by a single `kind: "ribbon"` whose **path generator**
+    is the only thing that varies — vertical for the loot beam, helical for the Epic
+    helix, midpoint-displacement for a lightning bolt, wandering noise for a wind
+    line. The rest of the spec is unchanged: width profile (was length/width),
+    phase-sampled pulse curve, blend, tracks. One kind rather than two, because a beam
+    and a bolt differ only in their path — the same consolidation Niagara made, whose
+    docs state that "beams are simply ribbons with specific logic, as a separate beams
+    renderer doesn't exist".
+
 12. `emitter-component.ts` — pure config, dev-build frozen;
     `vfx-store.ts` — instance-owned SoA pools + decal ring buffer + spawn
     accumulators, keyed by entity id; eviction (entity ∧ component, plus

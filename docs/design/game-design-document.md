@@ -208,21 +208,29 @@ alive, authored where character is the point.
 **Ambience is synthesized.** Rain and wind are filtered noise beds generated into
 looping buffers at runtime rather than authored files, which is both the right
 answer acoustically and the one that doesn't spend authoring hours on a background
-texture (`docs/notes/notes-audio.md`). Dynamic weather is the ideal case for this.
+texture. Dynamic weather is the ideal case for this — a filter sweeping over live
+noise tracks changing weather where a crossfade between fixed takes cannot.
+
+**Discrete events are authored, even inside synthesized weather.** Thunder is the
+worked example: its transient is the part synthesis reliably fails at, and two spikes
+against the published state of the art confirmed it
+(`docs/plans/2026-08-02-feature-weather-expansion.md`). Sustained texture is
+synthesized; a thing that _happens_ is a recording, placed procedurally by distance.
 
 **Music and effects are authored,** because character is the whole point and no
 algorithm supplies it. The score should leave room for dynamic layering, so
 environmental change and game state add or drop layers rather than crossfading
 between fixed tracks.
 
-The only authored audio today is six `voice_bank_*.wav` vocal takes. Everything
-else waits on the audio-foundations work listed on the roadmap (buses with
-duck/suspend, looping handles, per-source filter and pan, world-scoped lifecycle),
-and weather ships silent until that lands.
+The audio foundations — buses with duck and suspend, looping handles, per-source
+filter and pan, world-scoped lifecycle, a null backend for headless tests, and shared
+settings state — are planned in
+`docs/plans/2026-08-02-feature-weather-expansion.md` rather than owed by the roadmap.
 
-Audio is the one area an agent cannot verify. `notes-audio.md` records "I cannot
-audition a `.wav` I author," so any claim about how something _sounds_ is
-human-verified by necessity.
+Audio is the one area an agent cannot verify: an agent cannot audition a `.wav`, so
+any claim about how something _sounds_ is human-verified by necessity. This is a
+structural constraint on how audio work is planned, not a caveat — every sonic
+decision routes to a listening check.
 
 ## Interface
 

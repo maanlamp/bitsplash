@@ -16,7 +16,7 @@ import type { SerializableValue } from "../serialization/serializable-value";
  * An **effect** is a list of **parts**, so one def expresses a composite (a
  * beam plus its motes, flames plus smoke) without any notion of nesting. Only
  * particle-emitter parts exist today; `kind` is the discriminant that lets
- * beam-quad parts join later without reshaping anything.
+ * ribbon parts join later without reshaping anything.
  *
  * Validation runs once, at registration, in every build — see
  * {@link validateVfxCatalog}. Everything downstream consumes the validated
@@ -28,8 +28,9 @@ import type { SerializableValue } from "../serialization/serializable-value";
  * rather than silently do nothing.
  *
  * **Deliberately absent** (the schema is shaped to grow into them, none is
- * implemented): beam-quad parts, flipbook frame metadata, decal specs, and a
- * `"raycast"` collision mode.
+ * implemented): ribbon parts, flipbook frame metadata, decal specs, and a
+ * `"raycast"` collision mode. A ribbon is a path generator plus a width profile —
+ * wind lines, lightning bolts and loot beams differ only in the path.
  */
 
 /** Authored angles are degrees; everything downstream is radians. */
@@ -205,7 +206,7 @@ export type VfxEmitterPart = Readonly<{
 	capacity: number;
 }>;
 
-/** A validated part. Beam-quad parts widen this union when they land. */
+/** A validated part. Ribbon parts widen this union when they land. */
 export type VfxPart = VfxEmitterPart;
 
 /** A validated effect: an id and its parts. */
