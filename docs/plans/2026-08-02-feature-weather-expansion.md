@@ -16,8 +16,9 @@ defects in the shipped weather audio.
 
 ## Context & problem
 
-The weather system shipped in July 2026 (`docs/notes/weather-decisions.md`) and its
-audio was explicitly interim. Five things are now blocking:
+The weather system shipped in July 2026 and its audio was explicitly interim — built
+ahead of the audio foundations it was supposed to depend on. Five things are now
+blocking:
 
 **The ambience pumps.** Reproduced outside the game and localised: `playLoop` writes
 every parameter every frame with `cancelAndHoldAtTime` followed by
@@ -28,8 +29,9 @@ event list is rewritten every 16 ms. Roughly 1,200 AudioParam events per second.
 **Weather never settles.** `DEFAULT_TAU = 8 s` against dwells of 8–20 s means the
 eased scalars are re-aimed before they arrive. Measured against the shipped catalog:
 rain is within 0.02 of its target on **9.2%** of frames for `storm-coast` and 32.8%
-for `temperate`. At the pre-#46 dwells of 15–50 s it was ~70%. Shortening the dwells
-to make weather visibly roll left tau untouched.
+for `temperate`. At the original dwells of 15–50 s it was ~70%; they were shortened to
+8–20 s so weather would visibly roll within a short session, and tau was left
+untouched.
 
 **Storms have no headroom.** `storm` is already wind 0.9 / precipitation 0.95, and
 both scalars are `0..1` end to end. VFX rate scaling is
@@ -108,8 +110,9 @@ deleting `silenceAfter` inverts the failure mode — previously anything that st
 pushing went quiet in 2 s, and afterwards a missed release would sustain ambience
 forever. Deriving it removes the class of bug rather than the instances. Focus
 listeners are installed **per realm**, so satellites and the popout window gate
-correctly and weather-decisions #33 (two windows fighting over one graph) is resolved.
-Blur mutes the game; it does not pause it.
+correctly, which resolves a known limitation of the shipped version: two windows each
+with a focused scene view both pushed at the one graph and fought over it frame by
+frame. Blur mutes the game; it does not pause it.
 
 **4. `0..1` weather scalars stay blend weights; the absolute lives in the effect
 def.** Storm headroom comes from retuning bases so `1.0` means a genuine downpour,
@@ -256,8 +259,8 @@ shape.
    world-scoped. Give a world its own bus, disposed in `World.dispose`, so loops die
    with their world by construction. This removes the last justification for the
    process-wide singleton that the deleted dead-man's switch existed to compensate for,
-   and with it weather-decisions #22's "five voices created once per `AudioManager` and
-   never stopped, idling at zero gain for the process lifetime".
+   and with it the shipped behaviour where the five ambience voices are created once per
+   `AudioManager` and never stopped, idling at zero gain for the process lifetime.
 7. **A null audio backend.** Extract the surface `AudioManager` exposes into an
    interface and add a no-op implementation selected when `AudioContext` is absent.
    `availability.ts`'s docstring currently ends "which is why no ambient system needs a
@@ -480,13 +483,16 @@ Publishes: the sway program, the ribbon draw helper.
 The doc surgery this plan supersedes was applied when the plan was accepted rather than
 deferred to implementation, so nothing here is owed:
 
-- `docs/notes/contracts-phase2.md` **deleted** — a build contract for a session that
-  recorded FINAL STATE; no consumers remain.
-- `docs/notes/notes-audio.md` **deleted** — it existed to feed an audio-foundations
-  planning session, and this is that session's output. Its three still-live facts (the
-  harness Proxy and two hand-rolled stubs) moved into WS-A step 8.
-- `docs/notes/weather-decisions.md` **trimmed** of its superseded audio sections,
-  keeping the ~44 decisions that remain the live rationale behind shipped code.
+- `docs/notes/` **deleted entirely.** It was a handoff medium invented by one
+  unsaveable session, not a convention, and every file in it had outlived its purpose
+  — `test-triage.md` said so in its own opening ("not a living index… history, not a
+  spec"). The three facts from it that were still live (the harness's throwing audio
+  Proxy and two hand-rolled `AudioManager` stubs) moved into WS-A step 8; everything
+  else was session logistics or rationale already carried by code docstrings.
+- `docs/plans/2026-07-21-feature-weather-system.md` **deleted** — it shipped in full,
+  and implemented plans are removed at All Clear. Its remaining deferrals (foliage
+  wind-weight masks, the top-toolbar audit) were already carried by the roadmap
+  independently.
 - `docs/roadmap.md` — audio foundations, weather quality toggle, sky/light tint and
   "swirly wind line particles" removed. Foliage wind-weight masks stay: this plan makes
   them an upgrade rather than a prerequisite.
@@ -501,7 +507,7 @@ deferred to implementation, so nothing here is owed:
   gain rides `speed`, `speed²` and `speed³` off a 0.5 Hz fast-attack envelope. Rain
   gains modulate **0.0 dB** — they do not ride the gust at all.
 - Rain is within 0.02 of its target on **9.2%** of frames (`storm-coast`) and 32.8%
-  (`temperate`) against the shipped catalog; at the pre-#46 dwells it was ~70%.
+  (`temperate`) against the shipped catalog; at the original 15–50 s dwells, ~70%.
 - The 3 s noise loop's filtered envelope has under **1 dB** of slow structure, so the
   loop is not audible as a pattern. Confirmed independently by the user: the thunder
   spike used the same loops and was clean.

@@ -43,7 +43,7 @@ has a price: it fails when you deliberately change the thing, so it taxes exactl
 the iteration you are doing. Writing a test because you just built a feature is the
 wrong reason, and it is how this suite reached 161 files while the locked
 foundations — physics, tile batching, the renderer — had none at all. The prune that
-followed is recorded in `docs/notes/test-triage.md`.
+followed cut it to 93.
 
 So the first question is never "how do I test this" but **"is this behaviour locked
 in?"** If it is not, write no test. Much of the game layer is not locked; neither is

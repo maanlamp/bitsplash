@@ -190,9 +190,9 @@ consumer listens):
 - `sampleWind(ecs, x, t)` is the seam — a plain engine function with a
   **position-aware signature whose `x` is reserved** (v1 ignores it). It is
   **weather-backed**, living at `engine/weather/sample-wind.ts` and derived
-  from effective weather (`2026-07-21-feature-weather-system.md`). Until the
-  weather core lands it returns a calm default, so leaves and rain can be
-  built and tuned against the real signature.
+  from effective weather. (The weather core has since shipped, so this seam is
+  live rather than a calm stub; `engine/weather/effective-weather.ts` is the
+  source of truth for what it returns.)
 - There is **no `WindComponent`** and no registry key for signal behavior.
   Both were dropped by user ruling: weather is engine-owned, so a
   registry-key indirection would only smuggle behavior across the layer

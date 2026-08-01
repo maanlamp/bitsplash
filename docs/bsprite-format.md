@@ -1,9 +1,8 @@
 # `.bsprite` format — shared contract (v1)
 
 This is the binding interface between the editor (sole writer) and the engine
-(reader). It is the shared contract for the sprite-editor plan
-(`docs/plans/2026-07-20-feature-sprite-editor.md`). Both sides build against
-this document; changes here are changes to the contract.
+(reader). Both sides build against this document; changes here are changes to the
+contract.
 
 ## What it is
 
