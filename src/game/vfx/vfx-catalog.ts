@@ -1,7 +1,11 @@
 import { registerVfxCatalog } from "../../engine/vfx/vfx-registry";
 import leavesJson from "../content/vfx/leaves.vfx.json";
+import rainHeavyJson from "../content/vfx/rain-heavy.vfx.json";
 import rainSplashJson from "../content/vfx/rain-splash.vfx.json";
 import rainJson from "../content/vfx/rain.vfx.json";
+import sandJson from "../content/vfx/sand.vfx.json";
+import snowJson from "../content/vfx/snow.vfx.json";
+import windLinesJson from "../content/vfx/wind-lines.vfx.json";
 import { VFX_DEF_IDS, type VfxDefId } from "./vfx-ids";
 
 /**
@@ -23,7 +27,11 @@ const SOURCE = "src/game/content/vfx";
 
 const DEFS: Readonly<Record<VfxDefId, unknown>> = {
 	rain: rainJson,
+	"rain-heavy": rainHeavyJson,
 	"rain-splash": rainSplashJson,
+	snow: snowJson,
+	sand: sandJson,
+	"wind-lines": windLinesJson,
 	leaves: leavesJson,
 };
 

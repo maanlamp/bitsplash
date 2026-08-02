@@ -29,7 +29,6 @@ export const sceneFileFrom = (
 			y: config.gravity.y,
 		},
 		uiScale: config.uiScale,
-		clearColor: config.clearColor.css,
 	},
 	entities,
 });

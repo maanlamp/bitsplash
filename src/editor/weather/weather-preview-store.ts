@@ -1,4 +1,5 @@
 import type { ReadonlyECS } from "../../engine/ecs";
+import type { WeatherChannel } from "../../engine/weather/channels";
 import { setWeatherPreview } from "../../engine/weather/preview";
 import { Subscribable } from "../subscribable";
 import {
@@ -25,7 +26,6 @@ import {
 export class WeatherPreviewStore extends Subscribable {
 	private scrub: WeatherPreviewState | null = null;
 	private seeded = false;
-	private silenced = false;
 
 	constructor(private readonly ecs: ReadonlyECS) {
 		super();
@@ -45,14 +45,6 @@ export class WeatherPreviewStore extends Subscribable {
 	}
 
 	/**
-	 * Whether this view's weather ambience is muted. Only the focused view ticks
-	 * its world, so this mutes what is currently audible.
-	 */
-	get muted(): boolean {
-		return this.silenced;
-	}
-
-	/**
 	 * Preview a catalog preset — including one the scene's climate would never
 	 * roll, which is the point of the picker. The scrubbed scalars are reset to
 	 * that preset's own targets so the sliders describe what is being heard.
@@ -68,19 +60,15 @@ export class WeatherPreviewStore extends Subscribable {
 		}
 	}
 
-	setPrecipitation(precipitation: number): void {
+	/** Scrub one precipitation channel, leaving the others where they are. */
+	setPrecipitation(channel: WeatherChannel, value: number): void {
 		const current = this.state;
 		if (current) {
-			this.install({ ...current, precipitation });
+			this.install({
+				...current,
+				precipitation: { ...current.precipitation, [channel]: value },
+			});
 		}
-	}
-
-	setMuted(muted: boolean): void {
-		if (this.silenced === muted) {
-			return;
-		}
-		this.silenced = muted;
-		this.notify();
 	}
 
 	/**

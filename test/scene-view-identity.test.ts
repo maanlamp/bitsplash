@@ -97,6 +97,7 @@ describe("workspace persistence migration", () => {
 		focused: string,
 	): Workspace => ({
 		version: WORKSPACE_VERSION,
+		mutedViews: [],
 		windows: [
 			{
 				id: HUB_WINDOW_ID,

@@ -4,7 +4,8 @@ import { decodePng } from "../../src/editor/sprite/png-codec";
 import AssetManager, {
 	type BspriteBytesLoader,
 } from "../../src/engine/assets";
-import type AudioManager from "../../src/engine/audio/audio";
+import type { AudioApi } from "../../src/engine/audio/audio-api";
+import { NullAudioManager } from "../../src/engine/audio/null-audio-manager";
 import { pickActiveCamera2D } from "../../src/engine/camera/camera-2d-render";
 import { Clock } from "../../src/engine/clock";
 import { ECS } from "../../src/engine/ecs";
@@ -74,8 +75,8 @@ export type HarnessConfig = Readonly<{
 	input?: DeviceSnapshot;
 	/** Action provider fed to systems each frame (defaults to a throwing stub). */
 	actions?: ActionProvider;
-	/** Audio manager fed to systems each frame (defaults to a throwing stub). */
-	audio?: AudioManager;
+	/** Audio backend fed to systems each frame. Defaults to the silent one. */
+	audio?: AudioApi;
 	/**
 	 * Asset manager fed to systems each frame. Defaults to a real headless
 	 * {@link AssetManager} that loads `.bsprite` archives from disk
@@ -102,6 +103,7 @@ export class SequenceFixture {
 	private readonly clock = new Clock();
 	private frame = 0;
 	private readonly assets: AssetManager;
+	private readonly audio: AudioApi;
 
 	private constructor(
 		runtime: Runtime,
@@ -110,6 +112,7 @@ export class SequenceFixture {
 		private readonly now: () => number,
 	) {
 		this.runtimeValue = runtime;
+		this.audio = config.audio ?? new NullAudioManager();
 		this.assets =
 			config.assetManager ??
 			new AssetManager(
@@ -181,7 +184,7 @@ export class SequenceFixture {
 			actions: this.config.actions ?? stubService("actions"),
 			assetManager: this.assets,
 			events: this.world.events,
-			audio: this.config.audio ?? stubService("audio"),
+			audio: this.audio,
 			camera: pickActiveCamera2D(this.world.ecs),
 		};
 	}

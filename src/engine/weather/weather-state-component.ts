@@ -2,6 +2,7 @@ import {
 	serializable,
 	serialize,
 } from "../serialization/serializable";
+import type { WeatherChannel } from "./channels";
 
 /**
  * The one global weather run-state, carried by a `PersistentComponent`-tagged
@@ -20,9 +21,19 @@ import {
  * There is exactly one of these per world. The scheduler adopts a single existing
  * instance (the restore path) and crashes loudly on a second — two weather states
  * would mean two authorities over one global mood.
+ *
+ * Precipitation is one eased scalar **per channel**, each stored as its own
+ * serialized field named for the channel. `implements Record<WeatherChannel,
+ * number>` is what makes that total: adding a channel to `WEATHER_CHANNELS` is a
+ * compile error here until its field exists, so run-state cannot silently lose a
+ * channel. Flat fields rather than a nested record keep the blob diffable and the
+ * inspector honest.
  */
 @serializable("WeatherState")
-export class WeatherStateComponent {
+export class WeatherStateComponent implements Record<
+	WeatherChannel,
+	number
+> {
 	/**
 	 * Resolved id of the climate the current preset was rolled for. Empty means
 	 * never seeded, which is the scheduler's first-ever-ensure signal. A scene
@@ -37,8 +48,14 @@ export class WeatherStateComponent {
 	/** Eased wind strength, `0..1`. Chases the effective wind target. */
 	@serialize() wind = 0;
 
-	/** Eased precipitation, `0..1`. Chases the effective precipitation target. */
-	@serialize() precipitation = 0;
+	/** Eased rain, `0..1`. Chases the effective `rain` target. */
+	@serialize() rain = 0;
+
+	/** Eased snowfall, `0..1`. Chases the effective `snow` target. */
+	@serialize() snow = 0;
+
+	/** Eased blowing sand, `0..1`. Chases the effective `sand` target. */
+	@serialize() sand = 0;
 
 	/** Eased signed horizontal base direction, `-1..1`. */
 	@serialize() direction = 1;

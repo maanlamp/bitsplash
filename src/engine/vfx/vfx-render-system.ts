@@ -4,12 +4,27 @@ import type {
 } from "../animation/keyframes";
 import { resolveRenderLayer } from "../render/render-layers";
 import type Renderer2D from "../render/renderer-2d";
+import { drawRibbon, type RibbonProfile } from "../render/ribbon";
 import { type RenderContext, RenderSystem } from "../system";
-import type { VfxEmitterPart } from "./vfx-def";
-import type { VfxEffect, VfxPool, VfxStore } from "./vfx-store";
+import { ambientTime } from "../weather/ambient-clock";
+import { sampleWind } from "../weather/sample-wind";
+import { weatherFrame } from "../weather/weather-frame";
+import { generateRibbonPath } from "./ribbon-path";
+import type {
+	VfxEmitterPart,
+	VfxPart,
+	VfxRibbonPart,
+} from "./vfx-def";
+import type {
+	VfxEffect,
+	VfxPool,
+	VfxRibbonBand,
+	VfxStore,
+} from "./vfx-store";
+import { vfxWeatherInfluence } from "./vfx-weather-influence";
 
 /**
- * Draws every particle pool in the store.
+ * Draws every particle pool and ribbon band in the store.
  *
  * Shares one {@link VfxStore} instance with `VfxUpdateSystem` — built by
  * `createVfxSystems` and handed to both — so what draws is exactly what was
@@ -26,12 +41,44 @@ import type { VfxEffect, VfxPool, VfxStore } from "./vfx-store";
  *   of contiguous solid quads collapse into a single `drawArrays`. Colour and
  *   alpha ride in a reused scratch tint tuple, so the hot loop allocates
  *   nothing.
+ *
+ * Ribbon paths are regenerated here rather than stored, into scratch arrays that
+ * grow once and are reused, and the {@link RibbonProfile} handed to `drawRibbon`
+ * is a single long-lived object reading scratch fields — a closure per ribbon
+ * per frame would allocate through the whole band.
  */
 export class VfxRenderSystem implements RenderSystem {
 	private readonly slots = new Map<string, number>();
 	private readonly px: number[] = [0, 0, 0, 0];
 	private readonly py: number[] = [0, 0, 0, 0];
 	private readonly tint: MutableRGBA = [1, 1, 1, 1];
+	private readonly pathX: number[] = [];
+	private readonly pathY: number[] = [];
+
+	/** Scratch state the ribbon profile reads, written per ribbon before the draw. */
+	private ribbonPart: VfxRibbonPart | null = null;
+	private ribbonWidth = 0;
+
+	private readonly ribbonProfile: RibbonProfile = {
+		width: (t: number): number => {
+			const part = this.ribbonPart;
+			if (!part) {
+				return 0;
+			}
+			const { width } = part;
+			return (
+				this.ribbonWidth *
+				taperFactor(t, width.taperHead, width.taperTail) *
+				(width.profile ? width.profile.sample(t) : 1)
+			);
+		},
+		tint: (_t: number, out: MutableRGBA): void => {
+			out[0] = this.tint[0];
+			out[1] = this.tint[1];
+			out[2] = this.tint[2];
+			out[3] = this.tint[3];
+		},
+	};
 
 	constructor(readonly store: VfxStore) {}
 
@@ -41,29 +88,42 @@ export class VfxRenderSystem implements RenderSystem {
 			return;
 		}
 		this.slots.clear();
+		const time = ambientTime(ecs);
+		const weather = weatherFrame(ecs);
 		for (const effect of effects) {
-			for (let p = 0; p < effect.def.parts.length; p++) {
-				const pool = effect.pools[p]!;
-				if (pool.count === 0) {
+			for (const state of effect.parts) {
+				if (state.kind === "ribbon") {
+					if (state.band.count === 0) {
+						continue;
+					}
+					this.drawBand(
+						renderer,
+						this.slot(ecs, state.part),
+						effect,
+						state.part,
+						state.band,
+						sampleWind(ecs, effect.originX, time),
+						vfxWeatherInfluence(state.part.weather, weather),
+						time,
+					);
 					continue;
 				}
-				const part = effect.def.parts[p]!;
+				if (state.pool.count === 0) {
+					continue;
+				}
 				this.drawPool(
 					renderer,
-					this.slot(ecs, part),
+					this.slot(ecs, state.part),
 					effect,
-					part,
-					pool,
+					state.part,
+					state.pool,
 				);
 			}
 		}
 	}
 
 	/** The resolved layer id for a part, memoized for the frame. */
-	private slot(
-		ecs: RenderContext["ecs"],
-		part: VfxEmitterPart,
-	): number {
+	private slot(ecs: RenderContext["ecs"], part: VfxPart): number {
 		const key = `${part.layer}#${part.order}`;
 		const cached = this.slots.get(key);
 		if (cached !== undefined) {
@@ -114,6 +174,65 @@ export class VfxRenderSystem implements RenderSystem {
 	}
 
 	/**
+	 * Regenerate and draw one band's ribbons.
+	 *
+	 * The weather influence multiplies the drawn alpha as well as the band's
+	 * population, so a wind line fades in as the gale builds rather than popping
+	 * into existence at full strength the frame the count reaches one.
+	 */
+	private drawBand(
+		renderer: Renderer2D,
+		layer: number,
+		effect: VfxEffect,
+		part: VfxRibbonPart,
+		band: VfxRibbonBand,
+		wind: number,
+		influence: number,
+		time: number,
+	): void {
+		const baseX = band.local ? effect.originX : 0;
+		const baseY = band.local ? effect.originY : 0;
+		const points = part.segments + 1;
+		this.pathX.length = points;
+		this.pathY.length = points;
+		this.ribbonPart = part;
+		const { scale, alpha, color } = part.tracks;
+		for (let i = 0; i < band.count; i++) {
+			const t = band.age[i]! / band.life[i]!;
+			sampleTint(
+				this.tint,
+				color,
+				t,
+				(alpha ? alpha.sample(t) : 1) * influence,
+			);
+			this.ribbonWidth =
+				part.width.base * (scale ? scale.sample(t) : 1);
+			generateRibbonPath(
+				part.path,
+				{
+					x: baseX + band.x[i]!,
+					y: baseY + band.y[i]!,
+					length: band.length[i]!,
+					age: t,
+					seed: band.seed[i]!,
+					wind,
+					time,
+					points,
+				},
+				this.pathX,
+				this.pathY,
+			);
+			drawRibbon(renderer, layer, {
+				px: this.pathX,
+				py: this.pathY,
+				profile: this.ribbonProfile,
+				blend: part.blend,
+			});
+		}
+		this.ribbonPart = null;
+	}
+
+	/**
 	 * Write an oriented quad's four corners into the scratch arrays, in the
 	 * renderer's TL, TR, BR, BL order. `halfWidth` runs across the particle's
 	 * heading and `halfLength` along it, so a velocity-stretched particle grows
@@ -142,6 +261,17 @@ export class VfxRenderSystem implements RenderSystem {
 		this.py[3] = y - uy + ly;
 	}
 }
+
+/**
+ * The width multiplier at arc position `t`: full in the middle, ramping from
+ * nothing over the leading `head` and trailing `tail` fractions of the length.
+ * A zero fraction is a square end.
+ */
+const taperFactor = (t: number, head: number, tail: number): number =>
+	Math.min(
+		head > 0 ? Math.min(1, t / head) : 1,
+		tail > 0 ? Math.min(1, (1 - t) / tail) : 1,
+	);
 
 /**
  * Fill the scratch tint with the colour track's value at `t`, alpha already

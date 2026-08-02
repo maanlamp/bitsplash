@@ -184,12 +184,14 @@ it. Hard edges and thin lines do not.
 Re-authoring art per transform is a non-goal. If code can manipulate a sprite,
 code manipulates it. No hand-drawn per-angle frames.
 
-The mechanism already exists in one place. `quantizeToTexel(value, zoom)`
-(`engine/render/quantize.ts:13`) rounds a world value to a whole screen texel, and
-two callers use it: camera placement (`camera-2d-render.ts:47`) and foliage sway,
-which snaps its shear displacement so "a pixel-art edge never samples between
-texels" (`foliage-sway-component.ts:127`). Sway is grid-aware; its interior rows
-still step unevenly across the affine shear, which is fine for an organic subject.
+The mechanism already exists in one place. `quantizeToTexel(value, step)`
+(`engine/render/quantize.ts:13`) rounds a world value onto a grid, and two callers
+use it: camera placement snaps to a whole screen texel (`camera-2d-render.ts:47`),
+and foliage sway snaps its lean to a whole **art pixel** — one of the sprite's own
+texels as drawn (`foliage-sway-component.ts`). Sway's fragment stage then re-snaps
+per art row and per art pixel of displacement (`QUAD_SWAY_FS`), so the whole warp
+lives on the sprite's grid at any upscale and the bend steps rather than glides.
+That stepping is the intended pixel-art look, not an artifact to smooth away.
 
 Outstanding against this direction is bow rotation, which passes a continuous
 `renderAngle` straight through as a rotated quad with no quantization at all

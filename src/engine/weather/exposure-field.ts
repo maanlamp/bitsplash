@@ -1,6 +1,7 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
 import {
-	rainBlockingLayers,
+	blockingLayers,
+	type TileBlockingClass,
 	tileLayerSignature,
 } from "../tilemap/occupancy";
 import { TILE_SIZE } from "../tilemap/tile";
@@ -45,8 +46,8 @@ type BlockingLayers = ReadonlyArray<
 /**
  * Everything a built {@link ExposureField} depends on: which layers took part
  * and what state their grids were in ({@link tileLayerSignature} over
- * {@link rainBlockingLayers}, so a tri-state flip that changes *which* layers
- * block rain already changes the signature), and where the window sat.
+ * {@link blockingLayers}, so a tri-state flip that changes *which* layers block
+ * already changes the signature), and where the window sat.
  */
 export type ExposureCacheKey = Readonly<{
 	signature: string;
@@ -97,7 +98,7 @@ const exposureWindowOrigin = (
 	),
 });
 
-/** One point's worth of derived rain exposure, all distances in world units. */
+/** One point's worth of derived exposure, all distances in world units. */
 export type ExposureSample = Readonly<{
 	/**
 	 * Soft openness, 0..1: the weight of sky-exposed air among the air a
@@ -119,7 +120,7 @@ export type ExposureSample = Readonly<{
 }>;
 
 /**
- * Roof row for a column with no rain-blocking tile at all. Deliberately the
+ * Roof row for a column with no blocking tile at all. Deliberately the
  * largest `Int32Array` value rather than `MAX_SAFE_INTEGER`, which truncates to
  * `-1` on store and would make every open column read as roofed.
  */
@@ -141,7 +142,8 @@ const SEALED: ExposureSample = {
 };
 
 /**
- * Derived rain shelter over a window of tiles: which columns have a roof, which
+ * Derived shelter over a window of tiles, for one blocking classification:
+ * which columns have a roof, which
  * air cells the sky reaches, how far every other air cell is from one, and how
  * open a given point feels.
  *
@@ -239,14 +241,14 @@ export class ExposureField {
 	}
 
 	/**
-	 * Row of the topmost rain-blocking tile in a column, or `null` when that
-	 * column is open all the way down. Rain falls freely above the returned row
+	 * Row of the topmost blocking tile in a column, or `null` when that column is
+	 * open all the way down. Precipitation falls freely above the returned row
 	 * and is sheltered below it.
 	 *
 	 * Unlike the distance field this covers every authored column, not just the
 	 * window, so spawn and cull decisions can be made off-screen.
 	 */
-	rainHeight(gx: number): number | null {
+	roofHeight(gx: number): number | null {
 		return this.heights.get(gx) ?? null;
 	}
 
@@ -390,36 +392,50 @@ export class ExposureField {
 	}
 }
 
-const fields = new WeakMap<ReadonlyECS, ExposureField>();
+const fields = new WeakMap<
+	ReadonlyECS,
+	Map<TileBlockingClass, ExposureField>
+>();
 
 /**
- * The current {@link ExposureField} for a world, rebuilt when the tile layers or
- * the window moved and reused otherwise.
+ * The current {@link ExposureField} for a world and a blocking classification,
+ * rebuilt when that classification's tile layers or the window moved and reused
+ * otherwise.
+ *
+ * One field per classification, cached separately, so a channel sheltered by a
+ * different set of layers than rain gets its own geometry rather than sharing
+ * rain's.
  *
  * Safe to call several times a frame: the cache key is cheap and callers that
  * change nothing get the same instance back.
  *
  * @example
- * const field = exposureField(ecs);
+ * const field = exposureField(ecs, x, y, "rain-blocking");
  * const { openness } = field.sample(player.x, player.y);
  */
 export const exposureField = (
 	ecs: ReadonlyECS,
 	centerX: number,
 	centerY: number,
+	blocking: TileBlockingClass,
 ): ExposureField => {
-	const layers = rainBlockingLayers(ecs);
+	const layers = blockingLayers(ecs, blocking);
 	const { originX, originY } = exposureWindowOrigin(centerX, centerY);
 	const next: ExposureCacheKey = {
 		signature: tileLayerSignature(layers),
 		originX,
 		originY,
 	};
-	const cached = fields.get(ecs) ?? null;
+	let byClass = fields.get(ecs);
+	if (!byClass) {
+		byClass = new Map();
+		fields.set(ecs, byClass);
+	}
+	const cached = byClass.get(blocking) ?? null;
 	if (!exposureFieldNeedsRebuild(cached?.key ?? null, next)) {
 		return cached!;
 	}
 	const field = new ExposureField(layers, next);
-	fields.set(ecs, field);
+	byClass.set(blocking, field);
 	return field;
 };

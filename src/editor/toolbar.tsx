@@ -3,6 +3,8 @@ import { ToggleGroup } from "@base-ui/react/toggle-group";
 import {
 	ArrowUUpLeftIcon,
 	ArrowUUpRightIcon,
+	SpeakerHighIcon,
+	SpeakerSlashIcon,
 } from "@phosphor-icons/react";
 import Button from "./button";
 import type { DebugFlags } from "./debug-flags";
@@ -27,6 +29,9 @@ type ToolbarProps = Readonly<{
 	redoShortcut: string;
 	debugFlags: DebugFlags;
 	weatherPreview: WeatherPreviewStore;
+	/** Whether this scene view's bus is muted. Persisted with the view. */
+	muted: boolean;
+	onMutedChange: (muted: boolean) => void;
 }>;
 
 const Toolbar = ({
@@ -41,6 +46,8 @@ const Toolbar = ({
 	redoShortcut,
 	debugFlags,
 	weatherPreview,
+	muted,
+	onMutedChange,
 }: ToolbarProps) => {
 	return (
 		<FloatingToolbar>
@@ -89,6 +96,20 @@ const Toolbar = ({
 			</ToggleGroup>
 
 			<div className={controls.toolbarSeparator} />
+
+			<Tooltip
+				label={
+					muted ? "Unmute this scene view" : "Mute this scene view"
+				}
+			>
+				<Toggle
+					pressed={muted}
+					onPressedChange={onMutedChange}
+					className={controls.iconButton}
+				>
+					{muted ? <SpeakerSlashIcon /> : <SpeakerHighIcon />}
+				</Toggle>
+			</Tooltip>
 
 			<WeatherPreviewPopover store={weatherPreview} />
 

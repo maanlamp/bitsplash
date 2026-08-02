@@ -1,4 +1,4 @@
-import type AudioManager from "../../engine/audio/audio";
+import type { AudioApi } from "../../engine/audio/audio-api";
 import { Subscribable } from "../subscribable";
 import type { AudioClip } from "./audio-clip";
 import { encodeWav } from "./encode-wav";
@@ -32,7 +32,7 @@ export class AudioDocument extends Subscribable {
 
 	static async load(
 		url: string,
-		audio: AudioManager,
+		audio: AudioApi,
 	): Promise<AudioDocument> {
 		const data = await fetch(url).then((response) =>
 			response.arrayBuffer(),

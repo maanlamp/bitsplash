@@ -40,8 +40,10 @@ import { PhysicsShapeDebugSystem } from "./systems/physics-shape-debug";
 import { TileEditorSystem } from "./systems/tile-editor";
 import { TileEditorPreviewSystem } from "./systems/tile-editor-preview";
 import { TransformGizmoDebugSystem } from "./systems/transform-gizmo-debug";
-import { silenceWeatherAudio } from "./weather/silence-weather-audio";
 import { WeatherPreviewStore } from "./weather/weather-preview-store";
+import type { AudioBus } from "../engine/audio/audio-bus";
+import { audioFocus } from "../engine/audio/audio-focus";
+import { editorMainBus } from "./audio/editor-buses";
 
 type RenderSurface = Readonly<{
 	viewport: Viewport;
@@ -63,6 +65,25 @@ export class SceneView {
 	 * world; the store is the only writer of this world's preview entry.
 	 */
 	readonly weatherPreview: WeatherPreviewStore;
+
+	/**
+	 * This view's own bus. The per-view mute toggle drives it, and nothing else
+	 * does — the audio-focus gate lives one level down on {@link worldBus}, so a
+	 * view that is muted and a view that is merely unattended cannot overwrite
+	 * each other's decision.
+	 */
+	readonly audioBus: AudioBus;
+
+	private silenced = false;
+
+	/**
+	 * Where worlds shown in this view hang their audio: the edit world, and the
+	 * run world while a run is anchored here. Muted unless this view is the one
+	 * the user is attending to.
+	 */
+	readonly worldBus: AudioBus;
+
+	private readonly detachAudio: ReadonlyArray<() => void>;
 
 	private readonly camera: EditorCamera2DSystem;
 	private readonly entityEditor: EntityEditorSystem;
@@ -87,6 +108,12 @@ export class SceneView {
 		this.weatherPreview = new WeatherPreviewStore(
 			this.scene.world.ecs,
 		);
+		this.audioBus = services.audio.createBus(
+			editorMainBus(services.audio),
+		);
+		this.worldBus = services.audio.createBus(this.audioBus);
+		this.scene.world.attachAudio(services.audio, this.worldBus);
+		this.detachAudio = [audioFocus.gate(this.worldBus, id)];
 		this.camera = new EditorCamera2DSystem(store, this.editorCamera);
 		this.entityEditor = new EntityEditorSystem(store, this.document);
 		this.tileEditor = new TileEditorSystem(store, this.document);
@@ -161,6 +188,24 @@ export class SceneView {
 	/** The scene this view renders — the one owned by its bound document. */
 	get scene(): Scene {
 		return this.document.scene;
+	}
+
+	/**
+	 * Mute or unmute everything this view can make audible — its edit world, and
+	 * a run anchored here.
+	 *
+	 * Drives {@link audioBus}, one level above the audio-focus gate on
+	 * {@link worldBus}, so muting a view and attending to a different one are
+	 * independent decisions rather than the same node written twice. The asset
+	 * preview bus is a sibling of this whole subtree, so the audio editor keeps
+	 * sounding regardless.
+	 */
+	setMuted(muted: boolean): void {
+		if (this.silenced === muted) {
+			return;
+		}
+		this.silenced = muted;
+		this.audioBus.mute(muted);
 	}
 
 	/**
@@ -345,9 +390,6 @@ export class SceneView {
 			camera: this.displayCamera(),
 		};
 		this.scene.world.ecs.update(ctx);
-		if (this.weatherPreview.muted) {
-			silenceWeatherAudio(this.services.audio);
-		}
 		if (this.suspended) {
 			return;
 		}
@@ -400,8 +442,8 @@ export class SceneView {
 	/**
 	 * Render an external world — the run world owned by the {@link RunHost} —
 	 * into this viewport with its active game camera (plan D5/D13). The view's
-	 * own scene supplies only the clear color, ui scale, and render-target key;
-	 * no edit-world state is drawn.
+	 * own scene supplies only the ui scale and the render-target key; no
+	 * edit-world state is drawn.
 	 */
 	renderRunWorld(world: World, time: Time): void {
 		const renderer = this.renderer;
@@ -436,5 +478,9 @@ export class SceneView {
 		this.renderer.dispose();
 		disposePickIndex(this.scene.world.ecs);
 		this.weatherPreview.dispose();
+		for (const detach of this.detachAudio) {
+			detach();
+		}
+		this.audioBus.dispose();
 	}
 }

@@ -1,6 +1,8 @@
 import type { ReadonlyECS } from "../ecs";
+import type { TileBlockingClass } from "../tilemap/occupancy";
 import { TILE_SIZE } from "../tilemap/tile";
 import Vector2 from "../vector2";
+import type { WeatherChannel } from "./channels";
 import { sceneIndoor } from "./effective-weather";
 import { exposureField } from "./exposure-field";
 
@@ -13,27 +15,49 @@ import { exposureField } from "./exposure-field";
  * keeps the derived geometry honest (a doorway still reads as more open than a
  * back room) while the scene's own answer about being inside wins.
  */
-export const INDOOR_OPENNESS_CEILING = 0.2;
+const INDOOR_OPENNESS_CEILING = 0.2;
 
 /**
- * Row of the topmost rain-blocking tile in a tile column, or `null` when the
- * column is open to the sky all the way down.
+ * Which authored blocking classification shelters each precipitation channel.
  *
- * Rain falls freely above the returned row and is sheltered below it, so a
- * particle emitter converts it with `row * TILE_SIZE` to get the world height
- * where drops should die.
+ * All three map onto `"rain-blocking"` today — that is the tri-state
+ * `TileLayerComponent` carries, and it is deliberately kept as the authored
+ * value. The table is the seam: giving snow its own classification later is a
+ * new entry here plus a new field, not a change at any call site.
+ */
+export const CHANNEL_BLOCKING: Readonly<
+	Record<WeatherChannel, TileBlockingClass>
+> = {
+	rain: "rain-blocking",
+	snow: "rain-blocking",
+	sand: "rain-blocking",
+};
+
+/**
+ * Row of the topmost blocking tile in a tile column for a channel, or `null`
+ * when the column is open to the sky all the way down.
+ *
+ * Precipitation falls freely above the returned row and is sheltered below it,
+ * so a particle emitter converts it with `row * TILE_SIZE` to get the world
+ * height where drops should die.
  *
  * @example
- * const roof = rainHeightAt(ecs, Math.floor(x / TILE_SIZE));
+ * const roof = precipitationHeightAt(ecs, Math.floor(x / TILE_SIZE));
  * const killY = roof === null ? Infinity : roof * TILE_SIZE;
  */
-export const rainHeightAt = (
+export const precipitationHeightAt = (
 	ecs: ReadonlyECS,
 	gx: number,
 	centerX = gx * TILE_SIZE,
 	centerY = 0,
+	channel: WeatherChannel = "rain",
 ): number | null =>
-	exposureField(ecs, centerX, centerY).rainHeight(gx);
+	exposureField(
+		ecs,
+		centerX,
+		centerY,
+		CHANNEL_BLOCKING[channel],
+	).roofHeight(gx);
 
 /**
  * How open to the sky a world-space point is, 0..1.
@@ -48,15 +72,29 @@ export const rainHeightAt = (
  * {@link INDOOR_OPENNESS_CEILING}. Consumers smooth this over a few hundred
  * milliseconds themselves; no smoothing happens here.
  *
+ * The channel selects which blocking classification the shelter is derived from
+ * ({@link CHANNEL_BLOCKING}), because "how snowed-on is this point" is a
+ * different question from "how rained-on" as soon as the two are sheltered by
+ * different geometry. It defaults to rain, so every existing call site keeps
+ * asking exactly what it asked before.
+ *
  * @example
  * const wetness = exposureAt(ecs, player.x, player.y); // 1 in the open
+ * @example
+ * const buried = exposureAt(ecs, player.x, player.y, "snow");
  */
 export const exposureAt = (
 	ecs: ReadonlyECS,
 	x: number,
 	y: number,
+	channel: WeatherChannel = "rain",
 ): number => {
-	const { openness } = exposureField(ecs, x, y).sample(x, y);
+	const { openness } = exposureField(
+		ecs,
+		x,
+		y,
+		CHANNEL_BLOCKING[channel],
+	).sample(x, y);
 	return sceneIndoor(ecs)
 		? Math.min(openness, INDOOR_OPENNESS_CEILING)
 		: openness;
@@ -96,6 +134,7 @@ export const rainAudioAnchor = (
 		ecs,
 		x,
 		y,
+		CHANNEL_BLOCKING.rain,
 	).sample(x, y);
 	return { distance, centroid: new Vector2(centroidX, centroidY) };
 };

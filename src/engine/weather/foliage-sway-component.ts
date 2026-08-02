@@ -2,6 +2,7 @@ import type { Seconds } from "../duration";
 import type { EntityId } from "../ecs";
 import { hashUnit } from "../noise";
 import { quantizeToTexel } from "../render/quantize";
+import type { SwayParams } from "../render/renderer-2d";
 import {
 	serializable,
 	serialize,
@@ -21,17 +22,19 @@ export const FOLIAGE_PHASE_SPREAD = 4;
 const AMPLITUDE_JITTER = 0.35;
 
 /**
- * Opt-in marker: this sprite leans with the wind.
+ * Opt-in marker: this sprite bends with the wind.
  *
  * Sway is presentation only — nothing here is read by simulation, and the
- * component carries no run-state, because the lean is a pure function of the
+ * component carries no run-state, because the bend is a pure function of the
  * ambient clock, the entity id and the sampled wind. Wind is sampled
  * indoor-masked, so a marked sprite stills inside without knowing what `indoor`
  * means, and freezes with the ambient clock while the host is paused.
  *
- * v1 shears the whole sprite. Wind-weight masks (only the canopy moves) and
- * per-row displacement are roadmap, not schema — they will read the same
- * amplitude.
+ * The fields are the bend program's uniforms: a height power curve carrying the
+ * trunk bend, and a high-frequency term on a much tighter power of the same
+ * gradient for the leaf flutter, so the crown rustles and the trunk does not.
+ * Wind-weight masks — only this branch moves — remain roadmap, and would read
+ * the same amplitude.
  *
  * @example
  * ```ts
@@ -44,14 +47,44 @@ const AMPLITUDE_JITTER = 0.35;
 export class FoliageSwayComponent {
 	/**
 	 * How far the free edge travels at unit wind, as a fraction of the sprite's
-	 * drawn height. `0.15` on a 64px tree is a ~10px lean at full gale; `0`
-	 * disables the sway without removing the marker.
+	 * drawn height. `0.3` on a 64px tree is a ~19px lean at full gale, which is
+	 * what a storm reads as against the retuned rain; `0` disables the bend
+	 * without removing the marker.
 	 *
 	 * The authored value is the instance's centre — each entity jitters around
 	 * it by up to ±35%, hashed from its id, so a copy-pasted hedgerow does not
 	 * move as one board.
 	 */
-	@serialize() amplitude = 0.15;
+	@serialize() amplitude = 0.3;
+
+	/**
+	 * How sharply the travel concentrates toward the free edge. `1` is a plain
+	 * shear, every row leaning in proportion to its height; `2` is a trunk that
+	 * barely moves under a crown that does. Must be greater than zero.
+	 */
+	@serialize() curve = 2.4;
+
+	/**
+	 * Free-edge travel of the leaf flutter riding on top of the bend, as a
+	 * fraction of drawn height at unit wind. Small by design: `0.03` on a 64px
+	 * tree is under two art pixels at full gale, and anything below half an art
+	 * pixel quantizes away, which is what keeps a breeze from wobbling.
+	 *
+	 * Scaled by the **square** of the wind, unlike the linear bend, so the
+	 * flutter recedes faster than the lean does and never dominates a
+	 * near-still tree. `0` leaves a pure bend.
+	 */
+	@serialize() rustle = 0.03;
+
+	/** Flutter oscillations per second. */
+	@serialize() rustleFrequency = 1.8;
+
+	/**
+	 * Seconds of extra clock offset for this instance, on top of the per-entity
+	 * spread hashed from its id. Author it only to deliberately pair or oppose
+	 * two sprites; the hashed spread already decorrelates neighbours.
+	 */
+	@serialize() phase = 0;
 
 	/**
 	 * Whether the sprite is rooted at its bottom edge (the default: trees,
@@ -87,7 +120,7 @@ export const foliageSwayPhase = (entity: EntityId): Seconds =>
 		FOLIAGE_PHASE_SPREAD) as Seconds;
 
 /** What {@link foliageSwayShear} needs to place one instance's lean. */
-export type FoliageSwayInput = Readonly<{
+type FoliageSwayInput = Readonly<{
 	entity: EntityId;
 	/** Signed wind, already sampled at this instance's phase. */
 	wind: number;
@@ -95,85 +128,94 @@ export type FoliageSwayInput = Readonly<{
 	height: number;
 	/** The instance's authored {@link FoliageSwayComponent.amplitude}. */
 	amplitude: number;
-	/** World→device pixel scale of the active camera; `1` with no camera. */
-	zoom: number;
+	/** Width of one of the sprite's own art pixels, in world units. */
+	artPixel: number;
 }>;
 
 /**
- * Signed world-unit displacement of a swaying sprite's free edge: the sampled
- * wind times the drawn height times the authored amplitude, jittered
- * per-instance and snapped to a whole screen texel so a pixel-art edge never
- * samples between texels.
+ * Fraction of its authored amplitude this instance actually travels: `1` plus
+ * up to ±{@link AMPLITUDE_JITTER}, hashed from the id so a copy-pasted
+ * hedgerow does not move as one board.
+ */
+const amplitudeJitter = (entity: EntityId): number =>
+	1 +
+	(hashUnit(idSeed(entity), AMPLITUDE_SALT) * 2 - 1) *
+		AMPLITUDE_JITTER;
+
+/**
+ * Signed world-unit travel of a swaying sprite's free edge: the sampled wind
+ * times the drawn height times the authored amplitude, jittered per-instance
+ * and snapped to a whole **art pixel** — one of the sprite's own texels as
+ * drawn — so the lean is measured in the same units the art is painted in
+ * rather than in screen texels, which at any upscale above 1 are finer.
  *
- * Pure and frame-independent — the render system supplies the wind, the caller
- * decides which edge is pinned. Calm or indoor wind is `0`, and so is a zero
- * amplitude, so an unmoving sprite costs nothing downstream.
+ * Pure and frame-independent — the render system supplies the wind. Calm or
+ * indoor wind is `0`, and so is a zero amplitude, so an unmoving sprite costs
+ * nothing downstream.
  *
  * @example
- * const lean = foliageSwayShear({ entity: id, wind, height, amplitude: sway.amplitude, zoom });
- * renderer.drawImage(layer, image, { ...rect, shear: lean });
+ * const lean = foliageSwayShear({ entity: id, wind, height, amplitude: sway.amplitude, artPixel: scale.x });
  */
-export const foliageSwayShear = ({
+const foliageSwayShear = ({
 	entity,
 	wind,
 	height,
 	amplitude,
-	zoom,
+	artPixel,
 }: FoliageSwayInput): number => {
-	const jitter =
-		1 +
-		(hashUnit(idSeed(entity), AMPLITUDE_SALT) * 2 - 1) *
-			AMPLITUDE_JITTER;
-	const lean = quantizeToTexel(
-		wind * height * amplitude * jitter,
-		zoom,
-	);
-	return lean === 0 ? 0 : lean;
+	const travel = wind * height * amplitude * amplitudeJitter(entity);
+	return artPixel > 0
+		? quantizeToTexel(travel, 1 / artPixel)
+		: travel;
 };
 
-/**
- * Negation that keeps a zero positive, so a still sprite's offsets are plain
- * zeros rather than the `-0` a signed calm wind would otherwise carry through.
- */
-const negate = (value: number): number => (value === 0 ? 0 : -value);
-
-/**
- * The two `drawImage` fields a sway costs: a whole-quad `offsetX` and the
- * top-corner `shear`.
- *
- * Both are the same quantized magnitude, so whichever edge is pinned lands
- * exactly on `transform.position.x` and the other exactly one texel grid step
- * away — no half-texel drift from splitting the lean.
- */
-export type FoliageSwayOffsets = Readonly<{
-	offsetX: number;
-	shear: number;
+/** One instance's state for the frame being drawn. */
+export type FoliageSwayFrame = Readonly<{
+	entity: EntityId;
+	sway: FoliageSwayComponent;
+	/** Signed wind, already sampled at this instance's phase. */
+	wind: number;
+	/** Drawn height in world units (`source.height * scale.y`). */
+	height: number;
+	/** Width of one of the sprite's own art pixels, in world units. */
+	artPixel: number;
+	/** Ambient clock, unshifted — the phase offset is added here. */
+	time: Seconds;
 }>;
 
-/** A still sprite: the shared no-sway result, so the common path allocates nothing. */
-export const FOLIAGE_SWAY_STILL: FoliageSwayOffsets = Object.freeze({
-	offsetX: 0,
-	shear: 0,
-});
-
 /**
- * Resolve a lean into quad offsets against the pinned edge.
+ * Resolve an instance into the bend the renderer draws.
  *
- * A base-pinned sprite shears its top corners and leaves the quad where it is,
- * so the trunk stays planted. A top-pinned one translates by the lean and
- * shears back by it, which moves the bottom edge alone — the same shape upside
- * down, and still exactly texel-aligned because one magnitude does both jobs.
+ * The flutter rides the **square** of the wind while the lean rides it
+ * linearly, so it falls away four times as fast: at half wind the lean is half
+ * its gale travel but the flutter is a quarter of its own, which is what stops
+ * it dominating a barely-moving tree. It is left unquantized here because the
+ * fragment stage lands the combined displacement on an art pixel, and a flutter
+ * under half a pixel is meant to disappear entirely.
  *
  * @example
- * const { offsetX, shear } = foliageSwayOffsets(input, sway.pinnedBase);
- * renderer.drawImage(layer, image, { x: transform.position.x + offsetX, shear, ... });
+ * renderer.drawSwayImage(layer, image, { ...rect, sway: foliageSwayParams(frame) });
  */
-export const foliageSwayOffsets = (
-	input: FoliageSwayInput,
-	pinnedBase: boolean,
-): FoliageSwayOffsets => {
-	const lean = foliageSwayShear(input);
-	return pinnedBase
-		? { offsetX: 0, shear: lean }
-		: { offsetX: lean, shear: negate(lean) };
-};
+export const foliageSwayParams = ({
+	entity,
+	sway,
+	wind,
+	height,
+	artPixel,
+	time,
+}: FoliageSwayFrame): SwayParams => ({
+	lean: foliageSwayShear({
+		entity,
+		wind,
+		height,
+		amplitude: sway.amplitude,
+		artPixel,
+	}),
+	rustle:
+		wind * wind * height * sway.rustle * amplitudeJitter(entity),
+	curve: sway.curve,
+	rustleFrequency: sway.rustleFrequency,
+	phase: foliageSwayPhase(entity) + sway.phase,
+	time,
+	pinnedBase: sway.pinnedBase,
+});

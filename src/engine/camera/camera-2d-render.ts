@@ -22,6 +22,16 @@ export const pickActiveCamera2D = (
 	return best ? best.camera : null;
 };
 
+/**
+ * Composite a scene's collected draw commands into `target`: the world layers
+ * through the camera, then the UI layers at the scene's ui scale.
+ *
+ * Both passes clear **transparent**. The background is content now — a
+ * `SkyComponent` drawn into the `background` layer by `SkyRenderSystem` — so a
+ * scene with no sky (an interior, a UI-only scene) composites onto whatever is
+ * behind it, which is what the removed `SceneConfig.clearColor` did at its
+ * `transparent` default.
+ */
 export const renderSceneToTexture = (
 	renderer: Renderer2D,
 	scene: Scene,
@@ -35,7 +45,6 @@ export const renderSceneToTexture = (
 	}
 	target.resize(vw, vh);
 
-	const clearColor = scene.config.clearColor.rgba;
 	let drewWorld = false;
 	if (camera && camera.zoom > 0) {
 		camera.viewportWidth = vw;
@@ -53,22 +62,12 @@ export const renderSceneToTexture = (
 			z,
 		);
 		target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
-		renderer.renderTo(
-			target,
-			(id) => id < UI_LAYER_MIN,
-			true,
-			clearColor,
-		);
+		renderer.renderTo(target, (id) => id < UI_LAYER_MIN, true);
 		drewWorld = true;
 	}
 
 	const uiScale = scene.config.uiScale ?? 1;
 	target.setSpan(vw / uiScale, vh / uiScale);
 	target.setOrigin(0, 0);
-	renderer.renderTo(
-		target,
-		(id) => id >= UI_LAYER_MIN,
-		!drewWorld,
-		clearColor,
-	);
+	renderer.renderTo(target, (id) => id >= UI_LAYER_MIN, !drewWorld);
 };

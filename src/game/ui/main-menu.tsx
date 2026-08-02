@@ -3,6 +3,8 @@ import type { GameUiActions } from "./game-ui-actions";
 import type { GameUiSnapshot } from "./game-ui-state";
 import { MenuButton, OVERLAY, PANEL, TITLE } from "./menu-widgets";
 import { SaveList } from "./save-list";
+import { FirstLaunchPass } from "./settings/first-launch-pass";
+import { SettingsView } from "./settings/settings-view";
 
 export type MainMenuProps = Readonly<{
 	snap: GameUiSnapshot;
@@ -10,6 +12,17 @@ export type MainMenuProps = Readonly<{
 }>;
 
 export const MainMenu = ({ snap, actions }: MainMenuProps) => {
+	if (snap.view === "first-launch") {
+		return <FirstLaunchPass onDone={actions.finishFirstLaunch} />;
+	}
+	if (snap.view === "settings") {
+		return (
+			<SettingsView
+				bindings={snap.bindings}
+				onBack={actions.closeSettings}
+			/>
+		);
+	}
 	if (snap.view === "load") {
 		return (
 			<SaveList
@@ -36,6 +49,10 @@ export const MainMenu = ({ snap, actions }: MainMenuProps) => {
 					label="Load"
 					disabled={!hasSaves}
 					onActivate={actions.openLoad}
+				/>
+				<MenuButton
+					label="Settings"
+					onActivate={actions.openSettings}
 				/>
 			</View>
 		</View>

@@ -15,6 +15,7 @@ import { Clock } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
 import type { Game } from "../engine/game";
+import { audioFocus } from "../engine/audio/audio-focus";
 import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import type { FrameProfile } from "../engine/profiling/frame-profile";
 import type { GameModule } from "../engine/runtime/game-module";
@@ -100,6 +101,7 @@ import {
 	getWindow,
 	HUB_WINDOW_ID,
 	insertView,
+	isViewMuted,
 	moveView,
 	moveViewAcrossWindows,
 	pruneViews,
@@ -107,6 +109,7 @@ import {
 	replaceWindowRoot,
 	setActive,
 	setTabsViews,
+	setViewMuted,
 	spawnWindowWithView,
 	tabGroupOfView,
 	updateWindow,
@@ -496,8 +499,20 @@ const App = ({
 			instance.services,
 		);
 		ensureDocSubscription(param, document);
+		view.setMuted(isViewMuted(workspaceRef.current, id));
 		sceneViewsRef.current.set(id, view);
 		return view;
+	};
+
+	/**
+	 * Mute or unmute one scene view. The workspace owns the flag so it survives a
+	 * reload, and the view's own bus is what actually goes quiet — the asset
+	 * preview bus is a sibling of the whole scene-view subtree, so the audio
+	 * editor keeps sounding through it.
+	 */
+	const setSceneViewMuted = (id: ViewId, muted: boolean): void => {
+		sceneViewsRef.current.get(id)?.setMuted(muted);
+		updateWorkspace((ws) => setViewMuted(ws, id, muted));
 	};
 
 	const disposeSceneView = (id: ViewId): void => {
@@ -1269,6 +1284,7 @@ const App = ({
 	 */
 	const startWindowLoop = (windowId: WindowId, win: Window): void => {
 		stopWindowLoop(windowId);
+		const unregisterRealm = audioFocus.registerRealm(win);
 		const clock = new Clock();
 		let last = 0;
 		let raf = 0;
@@ -1305,6 +1321,13 @@ const App = ({
 				}
 				const heap = usedHeapBytes();
 				const focusedId = wl?.focused ?? null;
+				const audibleView =
+					host && isRunAnchorWindow
+						? host.view.id
+						: focusedId && isSceneView(focusedId)
+							? focusedId
+							: null;
+				audioFocus.setRealmOwner(win, audibleView);
 				if (wl) {
 					for (const viewId of allViewIds(wl.root)) {
 						if (!isSceneView(viewId)) {
@@ -1359,9 +1382,10 @@ const App = ({
 			raf = win.requestAnimationFrame(frame);
 		};
 		raf = win.requestAnimationFrame(frame);
-		windowLoopsRef.current.set(windowId, () =>
-			win.cancelAnimationFrame(raf),
-		);
+		windowLoopsRef.current.set(windowId, () => {
+			unregisterRealm();
+			win.cancelAnimationFrame(raf);
+		});
 	};
 
 	useEffect(() => {
@@ -1643,6 +1667,7 @@ const App = ({
 		if (!view) {
 			return null;
 		}
+		const muted = isViewMuted(workspace, id);
 		const anchorViewId = running
 			? (runHostRef.current?.view.id ?? null)
 			: null;
@@ -1671,6 +1696,8 @@ const App = ({
 				}
 				undoShortcut={UNDO_SHORTCUT}
 				redoShortcut={REDO_SHORTCUT}
+				muted={muted}
+				onMutedChange={(next) => setSceneViewMuted(id, next)}
 			/>
 		);
 	};

@@ -8,6 +8,8 @@ import {
 import { DecorationsRenderSystem } from "../engine/decorations/decorations-render-system";
 import { DebugTagSystem } from "../engine/debug/debug-tag-system";
 import { DialogueSystem } from "../engine/dialogue/dialogue-system";
+import { LightningFlashRenderSystem } from "../engine/fade/lightning-flash-render-system";
+import { LightningFlashSystem } from "../engine/fade/lightning-flash-system";
 import { ScreenFadeSystem } from "../engine/fade/screen-fade-system";
 import { FacingSystem } from "../engine/locomotion/facing-system";
 import { LocomotionSystem } from "../engine/locomotion/locomotion-system";
@@ -20,6 +22,7 @@ import type {
 } from "../engine/runtime/game-module";
 import type { SettingsStore } from "../engine/input/settings-store";
 import { SequenceSystem } from "../engine/sequence/sequence-system";
+import { SkyRenderSystem } from "../engine/sky/sky-render-system";
 import { SpriteAnimationSystem } from "../engine/sprite/sprite-animation-system";
 import { SpriteRenderSystem } from "../engine/sprite/sprite-render-system";
 import { StaticAnimationSystem } from "../engine/sprite/static-animation-system";
@@ -32,6 +35,8 @@ import { TriggerVolumeSystem } from "../engine/trigger/trigger-volume-system";
 import { createVfxSystems } from "../engine/vfx/vfx-systems";
 import type { VfxUpdateSystem } from "../engine/vfx/vfx-update-system";
 import { AmbientClockSystem } from "../engine/weather/ambient-clock";
+import { LightningRenderSystem } from "../engine/weather/lightning-render-system";
+import { LightningSystem } from "../engine/weather/lightning-system";
 import { WeatherAudioSystem } from "../engine/weather/weather-audio-system";
 import { WeatherPresentationSystem } from "../engine/weather/weather-presentation-system";
 import { WeatherSchedulerSystem } from "../engine/weather/weather-scheduler-system";
@@ -81,6 +86,7 @@ import { DeathSystem } from "./respawn/death-system";
 import { SpawnSystem } from "./respawn/spawn-system";
 import { SequenceTriggerSystem } from "./sequence/sequence-trigger-system";
 import { chronicleTriggerBindings } from "./sequence/trigger-bindings";
+import { ThunderSystem } from "./weather/thunder-system";
 
 /**
  * Systems that maintain the live edit world: tile collision bodies and the nav
@@ -154,9 +160,13 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 
 /**
  * Ambient presentation systems: the shared ambient clock, the per-frame weather
- * publication consumers read, the particle sim, and the weather ambience.
- * Present in the bundled game and in the editor's edit mode, so weather and VFX
- * are live while authoring.
+ * publication consumers read, lightning and its two subscribers, the particle
+ * sim, and the weather ambience. Present in the bundled game and in the editor's
+ * edit mode, so weather and VFX are live while authoring.
+ *
+ * The three lightning systems are ordered and adjacent on purpose: the world
+ * event bus is cleared at the end of a frame, so a strike's flash and its
+ * thunder must be stepped in the same frame as the scheduler that published it.
  *
  * Everything in this list is derivation, and every world that gets it steps it
  * exactly once — `game` spreads it after {@link gameplaySystems} so it sits past
@@ -175,6 +185,9 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 const ambientSystems = (vfx: VfxUpdateSystem): UpdateSystem[] => [
 	new AmbientClockSystem(),
 	new WeatherPresentationSystem(),
+	new LightningSystem(),
+	new LightningFlashSystem(),
+	new ThunderSystem(),
 	vfx,
 	new WeatherAudioSystem(),
 ];
@@ -182,6 +195,9 @@ const ambientSystems = (vfx: VfxUpdateSystem): UpdateSystem[] => [
 /**
  * The ordered render list. Shared by the bundled game and the editor edit
  * world (both draw the level while authoring or playing).
+ *
+ * The sky is first: within a layer, submission order is draw order, and it
+ * shares `background` with the surface decorations.
  */
 const renderSystems = (): RenderSystem[] => {
 	const surfaceDecorations = new SurfaceDecorations(
@@ -198,6 +214,7 @@ const renderSystems = (): RenderSystem[] => {
 		10,
 	);
 	return [
+		new SkyRenderSystem(),
 		new DecorationsRenderSystem(surfaceDecorations),
 		new DecorationsRenderSystem(tileDecorations),
 		new DebugTagSystem("overlay"),
@@ -205,6 +222,8 @@ const renderSystems = (): RenderSystem[] => {
 		new SpriteRenderSystem(),
 		new BowRenderSystem(),
 		new TilemapRenderSystem(),
+		new LightningRenderSystem(),
+		new LightningFlashRenderSystem(),
 	];
 };
 

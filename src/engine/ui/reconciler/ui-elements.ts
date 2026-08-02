@@ -2,6 +2,7 @@ import {
 	createElement,
 	type ReactElement,
 	type ReactNode,
+	type Ref,
 } from "react";
 import type { ColorInput } from "../../render/color-resolver";
 import type { NineSliceInsets } from "../../render/nine-slice";
@@ -12,11 +13,13 @@ import type {
 	UiCancelEvent,
 	UiClickEvent,
 	UiConfirmEvent,
+	UiFocusEvent,
 	UiFocusMoveEvent,
 	UiPointerEvent,
 	UiWheelEvent,
 } from "../input/ui-event";
 import type { Style } from "../style/style";
+import type { UiNode } from "./ui-node";
 
 export type UiAnchor = {
 	world: { x: number; y: number };
@@ -27,6 +30,8 @@ export type UiAnchor = {
 export interface ViewProps {
 	style?: Style;
 	id?: string;
+	/** The laid-out node, for reading `layoutRect` — a track's width, say. */
+	ref?: Ref<UiNode>;
 	focusable?: boolean;
 	focusGroup?: string;
 	focusNeighbors?: Partial<Record<FocusDirection, string>>;
@@ -37,8 +42,8 @@ export interface ViewProps {
 	onPointerMove?(e: UiPointerEvent): void;
 	onClick?(e: UiClickEvent): void;
 	onWheel?(e: UiWheelEvent): void;
-	onFocus?(): void;
-	onBlur?(): void;
+	onFocus?(e: UiFocusEvent): void;
+	onBlur?(e: UiFocusEvent): void;
 	onFocusMove?(e: UiFocusMoveEvent): boolean | void;
 	onConfirm?(e: UiConfirmEvent): void;
 	onCancel?(e: UiCancelEvent): void;

@@ -4,14 +4,13 @@ import { profiler } from "../profiling/profiler";
 import { randomRngSeed, rngNext } from "../rng";
 import { PersistentComponent } from "../scene/persistent-component";
 import { type UpdateContext, UpdateSystem } from "../system";
+import { WEATHER_CHANNELS } from "./channels";
 import type { Climate, ClimateEntry } from "./climate";
 import { hasClimates, resolveClimate } from "./climate-registry";
+import { DEFAULT_TAU } from "./easing";
 import { sceneClimateId, weatherTargets } from "./effective-weather";
 import { WeatherOverrideComponent } from "./weather-override-component";
 import { WeatherStateComponent } from "./weather-state-component";
-
-/** Seconds for the eased scalars to close ~63% of the gap to their targets. */
-const DEFAULT_TAU = 8;
 
 export type WeatherSchedulerOptions = Readonly<{
 	/**
@@ -19,7 +18,11 @@ export type WeatherSchedulerOptions = Readonly<{
 	 * `uint32` so playthroughs differ; tests inject a constant to pin the rolls.
 	 */
 	seed?: () => number;
-	/** Time constant, in seconds, of the scalar chase toward the targets. */
+	/**
+	 * Time constant, in seconds, of the scalar chase toward the targets. A
+	 * catalog's dwells are validated against this at registration, so a test
+	 * passing one here registers its catalog with the same value.
+	 */
 	tau?: number;
 }>;
 
@@ -106,12 +109,14 @@ export class WeatherSchedulerSystem implements UpdateSystem {
 			time.dt,
 			this.tau,
 		);
-		state.precipitation = approach(
-			state.precipitation,
-			targets.precipitation,
-			time.dt,
-			this.tau,
-		);
+		for (const channel of WEATHER_CHANNELS) {
+			state[channel] = approach(
+				state[channel],
+				targets.precipitation[channel],
+				time.dt,
+				this.tau,
+			);
+		}
 		state.direction = approach(
 			state.direction,
 			targets.direction,
@@ -164,7 +169,9 @@ export class WeatherSchedulerSystem implements UpdateSystem {
 		state.climateId = climate.id;
 		state.presetId = climate.defaultPreset.id;
 		state.wind = climate.defaultPreset.wind;
-		state.precipitation = climate.defaultPreset.precipitation;
+		for (const channel of WEATHER_CHANNELS) {
+			state[channel] = climate.defaultPreset.precipitation[channel];
+		}
 		state.direction = climate.defaultPreset.direction;
 		const entry = climate.entries.find(
 			(candidate) => candidate.preset === climate.defaultPreset,

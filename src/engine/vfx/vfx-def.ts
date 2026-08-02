@@ -8,15 +8,29 @@ import {
 import { type QuadBlend, QUAD_BLENDS } from "../render/blend";
 import { ColorResolver } from "../render/color-resolver";
 import type { SerializableValue } from "../serialization/serializable-value";
+import { VFX_RIBBON_PATHS, type VfxRibbonPath } from "./ribbon-path";
+import {
+	describeVfxRenderSlots,
+	isAllocatedVfxSlot,
+	VFX_MAX_RENDER_SLOTS,
+} from "./vfx-render-slots";
+import {
+	NO_VFX_WEATHER_SCALING,
+	VFX_WEATHER_SOURCES,
+	type VfxWeatherScaling,
+} from "./vfx-weather-influence";
 
 /**
  * The VFX effect schema: what an authored `*.vfx.json` may say, and what it
  * means once validated.
  *
  * An **effect** is a list of **parts**, so one def expresses a composite (a
- * beam plus its motes, flames plus smoke) without any notion of nesting. Only
- * particle-emitter parts exist today; `kind` is the discriminant that lets
- * ribbon parts join later without reshaping anything.
+ * beam plus its motes, flames plus smoke) without any notion of nesting. `kind`
+ * discriminates them: `emitter` is a particle pool, `ribbon` is a path generator
+ * widened along its length. A ribbon carries no `capacity`, no collision and no
+ * spawn shape — those are particle concepts, and the union member simply does
+ * not have them, so authoring one is a parse error rather than a field quietly
+ * ignored.
  *
  * Validation runs once, at registration, in every build — see
  * {@link validateVfxCatalog}. Everything downstream consumes the validated
@@ -28,9 +42,8 @@ import type { SerializableValue } from "../serialization/serializable-value";
  * rather than silently do nothing.
  *
  * **Deliberately absent** (the schema is shaped to grow into them, none is
- * implemented): ribbon parts, flipbook frame metadata, decal specs, and a
- * `"raycast"` collision mode. A ribbon is a path generator plus a width profile —
- * wind lines, lightning bolts and loot beams differ only in the path.
+ * implemented): flipbook frame metadata, decal specs, and a `"raycast"`
+ * collision mode.
  */
 
 /** Authored angles are degrees; everything downstream is radians. */
@@ -83,12 +96,12 @@ const VFX_COLLISION_CELLS = ["solid", "rain-blocking"] as const;
  *
  * - `solid` — the merged solid-tile set. What anything that falls and settles
  *   wants: it stops where the player would.
- * - `rain-blocking` — the rain-blocking classification
- *   (`rainBlockingLayers`), so a tarpaulin marked `"blocks"` stops drops it
- *   never stopped the player with and a grate marked `"passes"` lets them fall
- *   through. Declaring it also marks the part **as precipitation**: its
- *   particles are confined to sky-reached columns via `rainHeightAt`, so
- *   nothing spawns or drifts under an overhang.
+ * - `rain-blocking` — the rain-blocking classification (`blockingLayers`), so a
+ *   tarpaulin marked `"blocks"` stops drops it never stopped the player with and
+ *   a grate marked `"passes"` lets them fall through. Declaring it also marks
+ *   the part **as precipitation**: its particles are confined to that
+ *   classification's sky-reached columns, so nothing spawns or drifts under an
+ *   overhang.
  */
 export type VfxCollisionCells = (typeof VFX_COLLISION_CELLS)[number];
 
@@ -135,20 +148,7 @@ export type VfxTracks = Readonly<{
 	rotation: KeyframesNumber | null;
 }>;
 
-/**
- * How much the live weather scales this part's emission rate, per frame.
- *
- * Each factor is an **influence** in `0..1` interpolating between "ignore the
- * weather" (`0`, factor stays one) and "track it exactly" (`1`, factor becomes
- * the weather scalar itself), and the two multiply. Rain therefore authors
- * `precipitation: 1` and stops dead in clear weather; blood authors nothing and
- * never notices the sky. The scalars read are the **indoor-masked** visible
- * ones, so an indoor scene stills every weather-driven emitter for free.
- */
-export type VfxWeatherScaling = Readonly<{
-	precipitation: number;
-	wind: number;
-}>;
+export type { VfxWeatherScaling };
 
 /** A validated particle-emitter part. */
 export type VfxEmitterPart = Readonly<{
@@ -206,8 +206,92 @@ export type VfxEmitterPart = Readonly<{
 	capacity: number;
 }>;
 
-/** A validated part. Ribbon parts widen this union when they land. */
-export type VfxPart = VfxEmitterPart;
+const VFX_RIBBON_ORIGINS = ["host", "camera"] as const;
+
+/**
+ * Where a ribbon's path starts.
+ *
+ * - `host` — at the emitter origin, like any hosted effect.
+ * - `camera` — scattered uniformly over the active camera's visible bounds, so
+ *   wind lines cross the view without an emitter knowing where the player is. A
+ *   part using it is skipped in a world with no active camera.
+ *
+ * This is deliberately **not** {@link VfxSpawnShape}: a box or a camera band
+ * scatters particles, and a ribbon has one origin, one length and one heading.
+ */
+export type VfxRibbonOrigin = (typeof VFX_RIBBON_ORIGINS)[number];
+
+/**
+ * How wide a ribbon is along its arc.
+ *
+ * `base` is the world-unit width at full thickness; `profile` multiplies it by a
+ * curve over normalized arc length; the two taper fractions ramp each end to
+ * nothing over that share of the length. Taper is a property of the ribbon
+ * rather than an approximation of one, which is the thing chaining particles
+ * could never give.
+ */
+export type VfxRibbonWidth = Readonly<{
+	base: number;
+	/** Multiplier over normalized arc length; `null` is a flat ribbon. */
+	profile: KeyframesNumber | null;
+	/** Fraction of the length the head ramps up over, `0..1`. */
+	taperHead: number;
+	/** Fraction of the length the tail ramps down over, `0..1`. */
+	taperTail: number;
+}>;
+
+/**
+ * Over-life tracks for a ribbon, sampled by normalized age — the same meaning as
+ * {@link VfxTracks}, minus `rotation`, which a path already decides. `scale`
+ * multiplies the whole width profile.
+ */
+export type VfxRibbonTracks = Readonly<{
+	scale: KeyframesNumber | null;
+	alpha: KeyframesNumber | null;
+	color: KeyframesColor | null;
+}>;
+
+/**
+ * A validated ribbon part: a generated path, widened and tinted along its arc.
+ *
+ * It carries no `capacity` (the pool is `count` ribbons, authored rather than
+ * derived from a rate), no `collision` and no `spawn` — a ribbon is a curve, not
+ * a cloud of dots.
+ *
+ * `weather` scales **both** the live count and the drawn opacity by the same
+ * influence, so one authored knob makes wind lines absent in a breeze, faint as
+ * it picks up and prominent in a gale, without either half popping.
+ */
+export type VfxRibbonPart = Readonly<{
+	kind: "ribbon";
+	/** Render layer id; resolved against the scene's authored layer list. */
+	layer: string;
+	/** Sort order within the layer, `0..999`. */
+	order: number;
+	blend: QuadBlend;
+	space: VfxSimSpace;
+	origin: VfxRibbonOrigin;
+	/** Ribbons alive at once, before weather scaling. */
+	count: number;
+	/** Quads along one ribbon; it is drawn from `segments + 1` points. */
+	segments: number;
+	/** Ribbon lifetime in seconds. */
+	lifetime: VfxRange;
+	/** Path length in world units. */
+	length: VfxRange;
+	path: VfxRibbonPath;
+	width: VfxRibbonWidth;
+	tracks: VfxRibbonTracks;
+	/**
+	 * Downwind drift in world units per second at full signed wind, so a ribbon
+	 * travels with the weather rather than hanging in place.
+	 */
+	wind: number;
+	weather: VfxWeatherScaling;
+}>;
+
+/** A validated part of either kind. */
+export type VfxPart = VfxEmitterPart | VfxRibbonPart;
 
 /** A validated effect: an id and its parts. */
 export type VfxDef = Readonly<{
@@ -232,15 +316,15 @@ const CAPACITY_SLACK = 1.2;
  * point of validating at load is to say so before eight megabytes of typed
  * array appear.
  */
-export const VFX_MAX_PARTICLES_PER_PART = 8192;
+const VFX_MAX_PARTICLES_PER_PART = 8192;
 
 /**
- * Ceiling on the number of distinct `(layer, order)` slots a whole catalog may
- * draw into. Every distinct slot owns a full-viewport render target — one
- * clear, one full-screen blit, and `width * height * 4` bytes of VRAM every
- * frame — so effects share slots and rely on submission order within them.
+ * Hard ceilings on one ribbon part, for the same reason as the particle one: a
+ * `count` or a `segments` off by an order of magnitude is a content bug, and
+ * their product is the quad count the part costs every frame.
  */
-export const VFX_MAX_RENDER_SLOTS = 4;
+const VFX_MAX_RIBBONS_PER_PART = 256;
+const VFX_MAX_RIBBON_SEGMENTS = 128;
 
 const colors = new ColorResolver();
 
@@ -396,6 +480,13 @@ const range = (
 	}
 	return { min, max };
 };
+
+const degrees = (
+	source: string,
+	label: string,
+	value: unknown,
+	fallback: number,
+): number => nonNegative(source, label, value, fallback) * DEG_TO_RAD;
 
 const degreesRange = (
 	source: string,
@@ -640,26 +731,26 @@ const collision = (
 	};
 };
 
-const WEATHER_KEYS = ["precipitation", "wind"] as const;
-
 const weatherScaling = (
 	source: string,
 	label: string,
 	value: unknown,
 ): VfxWeatherScaling => {
 	if (value === undefined) {
-		return { precipitation: 0, wind: 0 };
+		return NO_VFX_WEATHER_SCALING;
 	}
-	const raw = record(source, label, value, WEATHER_KEYS);
-	return {
-		precipitation: unit(
-			source,
-			`${label}.precipitation`,
-			raw.precipitation,
-			0,
-		),
-		wind: unit(source, `${label}.wind`, raw.wind, 0),
-	};
+	const raw = record(source, label, value, VFX_WEATHER_SOURCES);
+	return Object.fromEntries(
+		VFX_WEATHER_SOURCES.map((weatherSource) => [
+			weatherSource,
+			unit(
+				source,
+				`${label}.${weatherSource}`,
+				raw[weatherSource],
+				0,
+			),
+		]),
+	) as VfxWeatherScaling;
 };
 
 const EMISSION_KEYS = ["rate", "burst"] as const;
@@ -686,6 +777,40 @@ const capacityFor = (
 
 const ZERO_RANGE: VfxRange = { min: 0, max: 0 };
 
+const withinLayerOrder = (
+	source: string,
+	label: string,
+	value: unknown,
+): number => {
+	const order = Math.round(num(source, `${label}.order`, value, 0));
+	if (order < 0 || order > 999) {
+		throw invalid(
+			source,
+			`${label}.order is ${order}; a within-layer order is 0..999.`,
+		);
+	}
+	return order;
+};
+
+const boundedCount = (
+	source: string,
+	label: string,
+	value: unknown,
+	ceiling: number,
+	fallback?: number,
+): number => {
+	const count = Math.round(
+		nonNegative(source, label, value, fallback),
+	);
+	if (count < 1 || count > ceiling) {
+		throw invalid(
+			source,
+			`${label} is ${count}; it must be 1..${ceiling}.`,
+		);
+	}
+	return count;
+};
+
 const PART_KEYS = [
 	"kind",
 	"layer",
@@ -710,7 +835,7 @@ const PART_KEYS = [
 	"tracks",
 ] as const;
 
-const PART_KINDS = ["emitter"] as const;
+const PART_KINDS = ["emitter", "ribbon"] as const;
 
 const emitterPart = (
 	source: string,
@@ -718,7 +843,6 @@ const emitterPart = (
 	value: unknown,
 ): VfxEmitterPart => {
 	const raw = record(source, label, value, PART_KEYS);
-	oneOf(source, `${label}.kind`, raw.kind, PART_KINDS, "emitter");
 	const emission = record(
 		source,
 		`${label}.emission`,
@@ -745,15 +869,7 @@ const emitterPart = (
 		`${label}.lifetime`,
 		raw.lifetime,
 	);
-	const order = Math.round(
-		num(source, `${label}.order`, raw.order, 0),
-	);
-	if (order < 0 || order > 999) {
-		throw invalid(
-			source,
-			`${label}.order is ${order}; a within-layer order is 0..999.`,
-		);
-	}
+	const order = withinLayerOrder(source, label, raw.order);
 	const spawn = spawnShape(source, `${label}.spawn`, raw.spawn);
 	const space = oneOf(
 		source,
@@ -814,6 +930,216 @@ const emitterPart = (
 	};
 };
 
+const RIBBON_PART_KEYS = [
+	"kind",
+	"layer",
+	"order",
+	"blend",
+	"space",
+	"origin",
+	"count",
+	"segments",
+	"lifetime",
+	"length",
+	"path",
+	"width",
+	"tracks",
+	"wind",
+	"weather",
+] as const;
+
+const WANDER_PATH_KEYS = [
+	"generator",
+	"amplitude",
+	"waves",
+	"tilt",
+] as const;
+
+/**
+ * Parse a path generator and its own parameters. Each generator owns its key
+ * list, so a `bolt` parameter on a `wander` path is an unknown key rather than a
+ * value silently dropped.
+ */
+const ribbonPath = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxRibbonPath => {
+	if (!isRecord(value)) {
+		throw invalid(
+			source,
+			`${label} must be an object naming a generator: one of ${VFX_RIBBON_PATHS.join(", ")}.`,
+		);
+	}
+	const generator = oneOf(
+		source,
+		`${label}.generator`,
+		value.generator,
+		VFX_RIBBON_PATHS,
+		"wander",
+	);
+	switch (generator) {
+		case "wander": {
+			const raw = record(source, label, value, WANDER_PATH_KEYS);
+			return {
+				generator: "wander",
+				amplitude: nonNegative(
+					source,
+					`${label}.amplitude`,
+					raw.amplitude,
+					0,
+				),
+				waves: nonNegative(source, `${label}.waves`, raw.waves, 1),
+				tilt: degrees(source, `${label}.tilt`, raw.tilt, 0),
+			};
+		}
+	}
+	const unhandled: never = generator;
+	throw invalid(
+		source,
+		`${label} names generator "${String(unhandled)}", which has no parser.`,
+	);
+};
+
+const WIDTH_KEYS = [
+	"base",
+	"profile",
+	"taperHead",
+	"taperTail",
+] as const;
+
+const ribbonWidth = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxRibbonWidth => {
+	const raw = record(source, label, value, WIDTH_KEYS);
+	const base = num(source, `${label}.base`, raw.base);
+	if (base <= 0) {
+		throw invalid(
+			source,
+			`${label}.base is ${base}; a ribbon with no width draws nothing.`,
+		);
+	}
+	return {
+		base,
+		profile: numberTrack(source, `${label}.profile`, raw.profile),
+		taperHead: unit(source, `${label}.taperHead`, raw.taperHead, 0),
+		taperTail: unit(source, `${label}.taperTail`, raw.taperTail, 0),
+	};
+};
+
+const RIBBON_TRACK_KEYS = ["scale", "alpha", "color"] as const;
+
+const ribbonTracks = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxRibbonTracks => {
+	if (value === undefined) {
+		return { scale: null, alpha: null, color: null };
+	}
+	const raw = record(source, label, value, RIBBON_TRACK_KEYS);
+	return {
+		scale: numberTrack(source, `${label}.scale`, raw.scale),
+		alpha: numberTrack(source, `${label}.alpha`, raw.alpha),
+		color: colorTrack(source, `${label}.color`, raw.color),
+	};
+};
+
+const ribbonPart = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxRibbonPart => {
+	const raw = record(source, label, value, RIBBON_PART_KEYS);
+	const origin = oneOf(
+		source,
+		`${label}.origin`,
+		raw.origin,
+		VFX_RIBBON_ORIGINS,
+		"host",
+	);
+	const space = oneOf(
+		source,
+		`${label}.space`,
+		raw.space,
+		VFX_SIM_SPACES,
+		"world",
+	);
+	if (origin === "camera" && space === "local") {
+		throw invalid(
+			source,
+			`${label} starts from the camera but simulates in local space; a camera-placed ribbon must live in world space.`,
+		);
+	}
+	return {
+		kind: "ribbon",
+		layer: text(source, `${label}.layer`, raw.layer),
+		order: withinLayerOrder(source, label, raw.order),
+		blend: oneOf(
+			source,
+			`${label}.blend`,
+			raw.blend,
+			QUAD_BLENDS,
+			"normal",
+		),
+		space,
+		origin,
+		count: boundedCount(
+			source,
+			`${label}.count`,
+			raw.count,
+			VFX_MAX_RIBBONS_PER_PART,
+			1,
+		),
+		segments: boundedCount(
+			source,
+			`${label}.segments`,
+			raw.segments,
+			VFX_MAX_RIBBON_SEGMENTS,
+			8,
+		),
+		lifetime: positiveRange(
+			source,
+			`${label}.lifetime`,
+			raw.lifetime,
+		),
+		length: positiveRange(source, `${label}.length`, raw.length),
+		path: ribbonPath(source, `${label}.path`, raw.path),
+		width: ribbonWidth(source, `${label}.width`, raw.width),
+		tracks: ribbonTracks(source, `${label}.tracks`, raw.tracks),
+		wind: num(source, `${label}.wind`, raw.wind, 0),
+		weather: weatherScaling(source, `${label}.weather`, raw.weather),
+	};
+};
+
+/**
+ * Parse one part, dispatching on `kind` before the key check so each kind
+ * rejects the other's keys: a `collision` on a ribbon and a `segments` on an
+ * emitter are both unknown keys, which is the structural half of "ribbons opt
+ * out of particle concepts".
+ */
+const vfxPart = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxPart => {
+	if (!isRecord(value)) {
+		throw invalid(source, `${label} must be an object.`);
+	}
+	const kind = oneOf(
+		source,
+		`${label}.kind`,
+		value.kind,
+		PART_KINDS,
+		"emitter",
+	);
+	return kind === "ribbon"
+		? ribbonPart(source, label, value)
+		: emitterPart(source, label, value);
+};
+
 const DEF_KEYS = ["id", "parts"] as const;
 
 const vfxDef = (source: string, value: unknown): VfxDef => {
@@ -825,7 +1151,7 @@ const vfxDef = (source: string, value: unknown): VfxDef => {
 	return {
 		id,
 		parts: raw.parts.map((part, index) =>
-			emitterPart(source, `def "${id}" part ${index}`, part),
+			vfxPart(source, `def "${id}" part ${index}`, part),
 		),
 	};
 };
@@ -836,7 +1162,7 @@ const assertBurstable = (
 ): void => {
 	for (const def of defs.values()) {
 		for (const part of def.parts) {
-			if (part.onDeath === null) {
+			if (part.kind !== "emitter" || part.onDeath === null) {
 				continue;
 			}
 			const target = defs.get(part.onDeath);
@@ -846,7 +1172,11 @@ const assertBurstable = (
 					`def "${def.id}" dies into unknown effect "${part.onDeath}". Known effects: ${[...defs.keys()].join(", ")}.`,
 				);
 			}
-			if (!target.parts.some((sub) => sub.burst > 0)) {
+			if (
+				!target.parts.some(
+					(sub) => sub.kind === "emitter" && sub.burst > 0,
+				)
+			) {
 				throw invalid(
 					source,
 					`def "${def.id}" dies into "${target.id}", which has no part with a burst, so it could never show anything.`,
@@ -856,21 +1186,28 @@ const assertBurstable = (
 	}
 };
 
+/**
+ * Every part must draw into one of the **allocated** render slots.
+ *
+ * The budget is spent — 4 of 4 — so counting distinct slots after the fact would
+ * only report that the fifth one already exists. Checking each part against the
+ * named allocation makes the exhaustion structural: a claimant that is not on the
+ * list fails at load, with the list and the two ways out in the message.
+ */
 const assertRenderSlots = (
 	source: string,
 	defs: ReadonlyMap<string, VfxDef>,
 ): void => {
-	const slots = new Set<string>();
 	for (const def of defs.values()) {
 		for (const part of def.parts) {
-			slots.add(`${part.layer}#${part.order}`);
+			if (isAllocatedVfxSlot(part.layer, part.order)) {
+				continue;
+			}
+			throw invalid(
+				source,
+				`def "${def.id}" draws into ${part.layer}#${part.order}, which is not an allocated VFX render slot. The allocation is full at ${VFX_MAX_RENDER_SLOTS} of ${VFX_MAX_RENDER_SLOTS}: ${describeVfxRenderSlots()}. Every slot owns a full-viewport render target every frame, so either draw into one of those and rely on submission order within it, or raise VFX_MAX_RENDER_SLOTS in engine/vfx/vfx-render-slots.ts with a measured VRAM and fill cost in hand.`,
+			);
 		}
-	}
-	if (slots.size > VFX_MAX_RENDER_SLOTS) {
-		throw invalid(
-			source,
-			`the catalog draws into ${slots.size} distinct (layer, order) slots (${[...slots].join(", ")}), past the ${VFX_MAX_RENDER_SLOTS} ceiling. Every slot owns a full-viewport render target every frame; share slots and rely on submission order within them.`,
-		);
 	}
 };
 

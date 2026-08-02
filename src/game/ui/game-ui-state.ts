@@ -1,7 +1,13 @@
+import type { Binding } from "../../engine/input/bindings/action-catalog";
 import type { SaveMetadata } from "../../engine/save/save-driver";
 
 export type GamePhase = "menu" | "playing";
-export type MenuView = "root" | "load";
+
+/**
+ * Which menu screen is showing. `first-launch` is the accessibility pass and is
+ * only ever entered from the main menu, before anything has been played.
+ */
+export type MenuView = "root" | "load" | "settings" | "first-launch";
 
 export type ToastState = Readonly<{ text: string; alpha: number }>;
 
@@ -12,6 +18,8 @@ export type GameUiSnapshot = Readonly<{
 	saves: ReadonlyArray<SaveMetadata>;
 	busy: boolean;
 	toast: ToastState | null;
+	/** What the Controls tab lists. Read-only there; the shell supplies it. */
+	bindings: ReadonlyArray<Binding>;
 }>;
 
 const INITIAL: GameUiSnapshot = {
@@ -21,6 +29,7 @@ const INITIAL: GameUiSnapshot = {
 	saves: [],
 	busy: false,
 	toast: null,
+	bindings: [],
 };
 
 export class GameUiState {
@@ -65,5 +74,9 @@ export class GameUiState {
 
 	setToast(toast: ToastState | null): void {
 		this.patch({ toast });
+	}
+
+	setBindings(bindings: ReadonlyArray<Binding>): void {
+		this.patch({ bindings });
 	}
 }

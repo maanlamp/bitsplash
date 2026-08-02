@@ -2,10 +2,12 @@ import type { Camera2D } from "../camera/camera-2d";
 import type { Seconds } from "../duration";
 import type { ECS, ReadonlyECS } from "../ecs";
 import { profiler } from "../profiling/profiler";
+import { weatherParticleScale } from "../settings/weather-particle-scale";
 import { type UpdateContext, UpdateSystem } from "../system";
 import {
-	mergedRainBlockingCells,
+	mergedBlockingCells,
 	mergedSolidCells,
+	type TileBlockingClass,
 	tileCellKey,
 } from "../tilemap/occupancy";
 import { TILE_SIZE } from "../tilemap/tile";
@@ -24,14 +26,24 @@ import {
 	EmitterComponent,
 	readonlyEmitter,
 } from "./emitter-component";
-import type { VfxDef, VfxEmitterPart } from "./vfx-def";
+import type {
+	VfxDef,
+	VfxEmitterPart,
+	VfxRibbonPart,
+	VfxWeatherScaling,
+} from "./vfx-def";
 import { hasVfxDefs, resolveVfxDef } from "./vfx-registry";
 import type {
 	VfxEffect,
 	VfxEmitOrigin,
 	VfxPool,
+	VfxRibbonBand,
 	VfxStore,
 } from "./vfx-store";
+import {
+	isWeatherDriven,
+	vfxWeatherInfluence,
+} from "./vfx-weather-influence";
 
 /**
  * Longest frame the particle sim will integrate, in seconds.
@@ -44,16 +56,24 @@ import type {
 const MAX_STEP = 1 / 15;
 
 /**
- * Whether a part is precipitation — the one authored flag that turns on both
+ * The blocking classification a precipitation part is sheltered by, or `null`
+ * when the part is not precipitation — the one authored flag that turns on both
  * weather-classified collision and the sheltered-column confinement below.
  */
-const isPrecipitation = (part: VfxEmitterPart): boolean =>
-	part.collision.mode === "tiles" &&
-	part.collision.cells === "rain-blocking";
+const precipitationBlocking = (
+	part: VfxEmitterPart,
+): TileBlockingClass | null =>
+	part.collision.mode === "tiles" && part.collision.cells !== "solid"
+		? part.collision.cells
+		: null;
 
 /** Whether any of a def's parts places itself from the camera. */
 const tracksCamera = (def: VfxDef): boolean =>
-	def.parts.some((part) => part.spawn.kind === "camera-band");
+	def.parts.some((part) =>
+		part.kind === "emitter"
+			? part.spawn.kind === "camera-band"
+			: part.origin === "camera",
+	);
 
 /**
  * Advance a particle's position and velocity by `t` seconds in closed form,
@@ -115,8 +135,14 @@ const advanceAnalytically = (
 export class VfxUpdateSystem implements UpdateSystem {
 	private hooked: ECS | null = null;
 	private solidCells: Set<string> | null = null;
-	private rainCells: Set<string> | null = null;
-	private shelter: ExposureField | null = null;
+	private readonly blockingCells = new Map<
+		TileBlockingClass,
+		Set<string>
+	>();
+	private readonly shelter = new Map<
+		TileBlockingClass,
+		ExposureField
+	>();
 	private shelterCenterX = 0;
 	private shelterCenterY = 0;
 	private cameraCentreX: number | null = null;
@@ -133,8 +159,8 @@ export class VfxUpdateSystem implements UpdateSystem {
 		}
 		const dt = Math.min(Math.max(ctx.time.dt, 0), MAX_STEP);
 		this.solidCells = null;
-		this.rainCells = null;
-		this.shelter = null;
+		this.blockingCells.clear();
+		this.shelter.clear();
 		this.shelterCenterX = ctx.camera?.position.x ?? 0;
 		this.shelterCenterY = ctx.camera?.position.y ?? 0;
 		this.cameraCut = this.detectCameraCut(ctx.camera);
@@ -208,9 +234,19 @@ export class VfxUpdateSystem implements UpdateSystem {
 			if (!effect.emitting) {
 				continue;
 			}
-			for (let p = 0; p < effect.def.parts.length; p++) {
-				const part = effect.def.parts[p]!;
-				const pool = effect.pools[p]!;
+			for (const state of effect.parts) {
+				if (state.kind === "ribbon") {
+					this.topUpRibbons(
+						ctx.camera,
+						effect,
+						state.part,
+						state.band,
+						weather,
+						config.rateScale,
+					);
+					continue;
+				}
+				const { part, pool } = state;
 				if (part.rate === 0) {
 					continue;
 				}
@@ -228,6 +264,38 @@ export class VfxUpdateSystem implements UpdateSystem {
 					this.cullSheltered(ecs, part, pool, before, effect);
 				}
 			}
+		}
+	}
+
+	/**
+	 * Keep a band at the population this frame's weather asks for, replacing
+	 * ribbons as they expire.
+	 *
+	 * The target only ever pulls new ribbons in; when the weather drops, the
+	 * surplus lives out rather than vanishing mid-frame. Each new ribbon is placed
+	 * independently, so a `camera` band scatters across the view rather than
+	 * stacking on one point.
+	 */
+	private topUpRibbons(
+		camera: Camera2D | null,
+		effect: VfxEffect,
+		part: VfxRibbonPart,
+		band: VfxRibbonBand,
+		weather: WeatherFrame,
+		rateScale: number,
+	): void {
+		const target = Math.min(
+			band.capacity,
+			Math.round(
+				part.count * rateScale * weatherScale(part.weather, weather),
+			),
+		);
+		while (band.count < target) {
+			const origin = this.ribbonOriginFor(camera, effect, part);
+			if (!origin) {
+				return;
+			}
+			this.store.spawnRibbons(band, part, 1, origin.x, origin.y);
 		}
 	}
 
@@ -273,6 +341,11 @@ export class VfxUpdateSystem implements UpdateSystem {
 	 * revisit, a def hot-reload, and an undo all rebuild the effect, and seeding
 	 * means a restored save shows a full drift of leaves on its first frame
 	 * instead of an empty sky filling in over the next two seconds.
+	 *
+	 * Ribbons seed the same way: the band comes up full with its ages spread over
+	 * their lifetimes, so a restored save shows a sky already full of wind lines
+	 * at staggered points in their fade rather than a set that all appear and all
+	 * expire together.
 	 */
 	private start(
 		ctx: UpdateContext,
@@ -280,9 +353,23 @@ export class VfxUpdateSystem implements UpdateSystem {
 		weather: WeatherFrame,
 		rateScale: number,
 	): void {
-		for (let p = 0; p < effect.def.parts.length; p++) {
-			const part = effect.def.parts[p]!;
-			const pool = effect.pools[p]!;
+		for (const state of effect.parts) {
+			if (state.kind === "ribbon") {
+				const { part, band } = state;
+				this.topUpRibbons(
+					ctx.camera,
+					effect,
+					part,
+					band,
+					weather,
+					rateScale,
+				);
+				for (let i = 0; i < band.count; i++) {
+					band.age[i] = this.store.random() * band.life[i]!;
+				}
+				continue;
+			}
+			const { part, pool } = state;
 			const origin = this.originFor(ctx.camera, effect, part);
 			if (!origin) {
 				continue;
@@ -326,10 +413,11 @@ export class VfxUpdateSystem implements UpdateSystem {
 		from: number,
 		effect: VfxEffect,
 	): void {
-		if (!isPrecipitation(part) || pool.count === from) {
+		const blocking = precipitationBlocking(part);
+		if (blocking === null || pool.count === from) {
 			return;
 		}
-		const field = this.shelterField(ecs);
+		const field = this.shelterField(ecs, blocking);
 		const baseX = pool.local ? effect.originX : 0;
 		const baseY = pool.local ? effect.originY : 0;
 		let i = from;
@@ -376,16 +464,57 @@ export class VfxUpdateSystem implements UpdateSystem {
 		};
 	}
 
-	/** Integrate, collide, and age one effect's pools. */
+	/**
+	 * Where one new ribbon starts, in its band's own space, or `null` when it
+	 * cannot start — a `camera` ribbon in a world with no active camera.
+	 *
+	 * A `camera` ribbon lands anywhere in the visible bounds, which is what lets
+	 * wind lines cross the view without an emitter tracking the player. There is
+	 * deliberately no spawn *shape* here: a ribbon has one origin, a length and a
+	 * heading, so scattering it over a box would be scattering the wrong thing.
+	 */
+	private ribbonOriginFor(
+		camera: Camera2D | null,
+		effect: VfxEffect,
+		part: VfxRibbonPart,
+	): Readonly<{ x: number; y: number }> | null {
+		if (part.origin === "camera") {
+			if (!camera) {
+				return null;
+			}
+			const bounds = camera.visibleBounds();
+			return {
+				x: this.store.between(bounds.min.x, bounds.max.x),
+				y: this.store.between(bounds.min.y, bounds.max.y),
+			};
+		}
+		const local = part.space === "local";
+		return {
+			x: local ? 0 : effect.originX,
+			y: local ? 0 : effect.originY,
+		};
+	}
+
+	/** Integrate, collide, and age one effect's parts. */
 	private advance(
 		ecs: ReadonlyECS,
 		effect: VfxEffect,
 		dt: number,
 		time: Seconds,
 	): void {
-		for (let p = 0; p < effect.def.parts.length; p++) {
-			const part = effect.def.parts[p]!;
-			const pool = effect.pools[p]!;
+		for (const state of effect.parts) {
+			if (state.kind === "ribbon") {
+				this.advanceRibbons(
+					ecs,
+					effect,
+					state.part,
+					state.band,
+					dt,
+					time,
+				);
+				continue;
+			}
+			const { part, pool } = state;
 			if (pool.count === 0) {
 				continue;
 			}
@@ -399,8 +528,9 @@ export class VfxUpdateSystem implements UpdateSystem {
 				part.collision.mode === "tiles"
 					? part.collision.response
 					: "passThrough";
-			const shelter = isPrecipitation(part)
-				? this.shelterField(ecs)
+			const blocking = precipitationBlocking(part);
+			const shelter = blocking
+				? this.shelterField(ecs, blocking)
 				: null;
 			let i = 0;
 			while (i < pool.count) {
@@ -453,6 +583,44 @@ export class VfxUpdateSystem implements UpdateSystem {
 	}
 
 	/**
+	 * Age one band's ribbons and let the wind carry them.
+	 *
+	 * A ribbon integrates a drift **velocity** rather than an acceleration: it is
+	 * a mark the wind has already made, not an object being pushed, so it should
+	 * travel with the air rather than accelerate through it. Shape is not
+	 * integrated at all — the path generator regenerates it from age, seed and
+	 * time every frame, which is why a band stores six floats per ribbon.
+	 */
+	private advanceRibbons(
+		ecs: ReadonlyECS,
+		effect: VfxEffect,
+		part: VfxRibbonPart,
+		band: VfxRibbonBand,
+		dt: number,
+		time: Seconds,
+	): void {
+		if (band.count === 0) {
+			return;
+		}
+		const baseX = band.local ? effect.originX : 0;
+		const drift =
+			part.wind === 0
+				? 0
+				: part.wind * sampleWind(ecs, baseX, time) * dt;
+		let i = 0;
+		while (i < band.count) {
+			const age = band.age[i]! + dt;
+			if (age >= band.life[i]!) {
+				band.kill(i);
+				continue;
+			}
+			band.age[i] = age;
+			band.x[i] = band.x[i]! + drift;
+			i++;
+		}
+	}
+
+	/**
 	 * Retire a particle, firing its part's on-death sub-effect at the world
 	 * position it died in — how a raindrop becomes a splash without either def
 	 * knowing about the other's parts.
@@ -489,8 +657,9 @@ export class VfxUpdateSystem implements UpdateSystem {
 		x: number,
 		y: number,
 	): boolean {
-		const cells = isPrecipitation(part)
-			? (this.rainCells ??= mergedRainBlockingCells(ecs))
+		const blocking = precipitationBlocking(part);
+		const cells = blocking
+			? this.cachedBlockingCells(ecs, blocking)
 			: (this.solidCells ??= mergedSolidCells(ecs));
 		return cells.has(
 			tileCellKey(
@@ -510,20 +679,43 @@ export class VfxUpdateSystem implements UpdateSystem {
 	 * weather audio uses as its listener, so both share one cached field instead of
 	 * rebuilding it out from under each other twice a frame.
 	 */
-	private shelterField(ecs: ReadonlyECS): ExposureField {
-		return (this.shelter ??= exposureField(
+	private shelterField(
+		ecs: ReadonlyECS,
+		blocking: TileBlockingClass,
+	): ExposureField {
+		const cached = this.shelter.get(blocking);
+		if (cached) {
+			return cached;
+		}
+		const field = exposureField(
 			ecs,
 			this.shelterCenterX,
 			this.shelterCenterY,
-		));
+			blocking,
+		);
+		this.shelter.set(blocking, field);
+		return field;
+	}
+
+	private cachedBlockingCells(
+		ecs: ReadonlyECS,
+		blocking: TileBlockingClass,
+	): Set<string> {
+		const cached = this.blockingCells.get(blocking);
+		if (cached) {
+			return cached;
+		}
+		const cells = mergedBlockingCells(ecs, blocking);
+		this.blockingCells.set(blocking, cells);
+		return cells;
 	}
 }
 
 /**
- * Whether a world point sits under cover — below the topmost rain-blocking tile
- * of its column.
+ * Whether a world point sits under cover — below the topmost blocking tile of
+ * its column.
  *
- * `rainHeight` answers in grid rows and covers every authored column rather than
+ * `roofHeight` answers in grid rows and covers every authored column rather than
  * only the derived window, so this is valid off-screen, where a camera band's
  * edges and a seeded population both reach.
  */
@@ -532,26 +724,34 @@ const sheltered = (
 	x: number,
 	y: number,
 ): boolean => {
-	const roof = field.rainHeight(Math.floor(x / TILE_SIZE));
+	const roof = field.roofHeight(Math.floor(x / TILE_SIZE));
 	return roof !== null && y > roof * TILE_SIZE;
 };
 
 /**
+ * How much of a part's authored emission survives this frame: the live weather,
+ * and — for a weather-driven part only — the player's weather quality and
+ * density.
+ *
+ * The settings are honoured **here**, at the emitter, rather than inside
+ * {@link vfxWeatherInfluence}: the influence also scales a ribbon's drawn
+ * opacity, and a player asking for cheaper weather asked for fewer things, not
+ * fainter ones.
+ */
+const weatherScale = (
+	scaling: VfxWeatherScaling,
+	weather: WeatherFrame,
+): number =>
+	vfxWeatherInfluence(scaling, weather) *
+	(isWeatherDriven(scaling) ? weatherParticleScale() : 1);
+
+/**
  * A part's particles per second this frame: its authored rate, the emitter's
  * per-instance scale, and the live weather.
- *
- * Each weather influence interpolates between "ignore it" (factor one) and
- * "track it exactly" (factor becomes the scalar), and the two multiply. The
- * scalars are the **indoor-masked** ones, so an indoor scene stills every
- * weather-driven emitter without any def knowing what indoors means.
  */
 const emissionRate = (
 	part: VfxEmitterPart,
 	rateScale: number,
 	weather: WeatherFrame,
 ): number =>
-	part.rate *
-	rateScale *
-	(1 +
-		part.weather.precipitation * (weather.visiblePrecipitation - 1)) *
-	(1 + part.weather.wind * (weather.visibleWind - 1));
+	part.rate * rateScale * weatherScale(part.weather, weather);

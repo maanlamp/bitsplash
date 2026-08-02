@@ -1,4 +1,5 @@
 import type { ReadonlyECS } from "../../engine/ecs";
+import type { WeatherChannels } from "../../engine/weather/channels";
 import type {
 	ClimatePreset,
 	WeatherRequest,
@@ -25,8 +26,11 @@ export type WeatherPreviewState = Readonly<{
 	presetId: string;
 	/** Scrubbed wind, `0..1`. */
 	wind: number;
-	/** Scrubbed precipitation, `0..1`. */
-	precipitation: number;
+	/**
+	 * Scrubbed precipitation per channel, each `0..1`. A preset that omits a
+	 * channel seeds it at zero, so dragging snow up on a rain preset is one drag.
+	 */
+	precipitation: WeatherChannels;
 }>;
 
 /** The scrub a preset reads as before anything is dragged: its own targets. */

@@ -1,7 +1,7 @@
 import { Glob } from "bun";
 import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import type AudioManager from "../src/engine/audio/audio";
+import { NullAudioManager } from "../src/engine/audio/null-audio-manager";
 import { Camera2DComponent } from "../src/engine/camera/camera-2d-component";
 import { NULL_ACTIONS } from "../src/engine/input/bindings/action-provider";
 import type { DeviceSnapshot } from "../src/engine/input/device-snapshot";
@@ -129,9 +129,7 @@ const emptyDevice: DeviceSnapshot = {
 	gamepads: {},
 };
 
-const silentAudio = {
-	load: () => new Promise<never>(() => {}),
-} as unknown as AudioManager;
+const silentAudio = new NullAudioManager();
 
 const memorySettings = (): SettingsStore => {
 	const values = new Map<string, string>();

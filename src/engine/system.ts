@@ -1,5 +1,5 @@
 import type AssetManager from "./assets";
-import type AudioManager from "./audio/audio";
+import type { AudioApi } from "./audio/audio-api";
 import type { Camera2D } from "./camera/camera-2d";
 import type { Time } from "./clock";
 import type { Milliseconds } from "./duration";
@@ -20,7 +20,7 @@ export type UpdateContext = Readonly<{
 	actions: ActionsApi;
 	assetManager: AssetManager;
 	events: EventBus;
-	audio: AudioManager;
+	audio: AudioApi;
 	camera: Camera2D | null;
 }>;
 

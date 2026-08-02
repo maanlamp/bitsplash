@@ -127,6 +127,42 @@ void main() {
 }
 `;
 
+const QUAD_SWAY_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D u_tex;
+uniform vec4 u_rect;
+uniform vec2 u_srcSize;
+uniform float u_amplitude;
+uniform float u_curve;
+uniform float u_rustle;
+uniform float u_rustleFrequency;
+uniform float u_phase;
+uniform float u_time;
+uniform float u_pinnedBase;
+uniform float u_flipX;
+in vec2 v_uv;
+in vec4 v_color;
+out vec4 out_color;
+const float TWO_PI = 6.2831853;
+const float LEAF_CONCENTRATION = 3.0;
+void main() {
+  vec2 span = u_rect.zw - u_rect.xy;
+  vec2 local = (v_uv - u_rect.xy) / span;
+  float row = (floor(local.y * u_srcSize.y) + 0.5) / u_srcSize.y;
+  float h = clamp(mix(row, 1.0 - row, u_pinnedBase), 0.0, 1.0);
+  float flutter = sin(TWO_PI * (u_rustleFrequency * (u_time + u_phase) + h));
+  float leaves = pow(h, u_curve * LEAF_CONCENTRATION);
+  float bend = pow(h, u_curve) * u_amplitude + leaves * u_rustle * flutter;
+  bend = floor(bend * u_srcSize.x + 0.5) / u_srcSize.x;
+  vec2 src = vec2(local.x - bend, local.y);
+  if (src.x < 0.0 || src.x > 1.0 || src.y < 0.0 || src.y > 1.0) {
+    discard;
+  }
+  src.x = mix(src.x, 1.0 - src.x, u_flipX);
+  out_color = texture(u_tex, u_rect.xy + src * span) * v_color;
+}
+`;
+
 const TILE_VS = `#version 300 es
 precision mediump float;
 layout(location=0) in vec2 a_position;
@@ -250,6 +286,31 @@ export type ConicOutlineProgram = WorldProgram &
 		uOuter: WebGLUniformLocation;
 	}>;
 
+/**
+ * The bend program's uniforms. Every one is a per-draw value, so a sway quad
+ * goes through the immediate path rather than a batch — the same trade the
+ * conic outline makes.
+ *
+ * `uRect` is the sprite's sub-rect in texture space (`u0, v0, u1, v1`) in
+ * canonical, unflipped order; the fragment stage derives its sprite-local
+ * coordinates from it and mirrors through `uFlipX`, so a flipped sprite still
+ * leans downwind. `uAmplitude` and `uRustle` are fractions of the sprite's
+ * **drawn width**, signed, measured at the free edge.
+ */
+export type SwayProgram = WorldProgram &
+	Readonly<{
+		uRect: WebGLUniformLocation;
+		uSrcSize: WebGLUniformLocation;
+		uAmplitude: WebGLUniformLocation;
+		uCurve: WebGLUniformLocation;
+		uRustle: WebGLUniformLocation;
+		uRustleFrequency: WebGLUniformLocation;
+		uPhase: WebGLUniformLocation;
+		uTime: WebGLUniformLocation;
+		uPinnedBase: WebGLUniformLocation;
+		uFlipX: WebGLUniformLocation;
+	}>;
+
 const worldProgram = (
 	gl: WebGL2RenderingContext,
 	fs: string,
@@ -293,6 +354,35 @@ export const createQuadConicOutlineProgram = (
 		uInner: gl.getUniformLocation(base.program, "u_inner")!,
 		uFill: gl.getUniformLocation(base.program, "u_fill")!,
 		uOuter: gl.getUniformLocation(base.program, "u_outer")!,
+	};
+};
+
+/**
+ * The foliage bend program: {@link SwayProgram}.
+ *
+ * A quad has four corners, so a vertex-stage bend is linear by construction and
+ * cannot be "less low, more high". This displaces in the **fragment** stage
+ * instead — each output texel inverts the bend to find the source texel it came
+ * from — so the profile is a free function of height rather than a shear.
+ */
+export const createQuadSwayProgram = (
+	gl: WebGL2RenderingContext,
+): SwayProgram => {
+	const base = worldProgram(gl, QUAD_SWAY_FS, "u_tex");
+	const at = (name: string): WebGLUniformLocation =>
+		gl.getUniformLocation(base.program, name)!;
+	return {
+		...base,
+		uRect: at("u_rect"),
+		uSrcSize: at("u_srcSize"),
+		uAmplitude: at("u_amplitude"),
+		uCurve: at("u_curve"),
+		uRustle: at("u_rustle"),
+		uRustleFrequency: at("u_rustleFrequency"),
+		uPhase: at("u_phase"),
+		uTime: at("u_time"),
+		uPinnedBase: at("u_pinnedBase"),
+		uFlipX: at("u_flipX"),
 	};
 };
 

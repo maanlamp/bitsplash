@@ -7,8 +7,7 @@
 			"x": 0,
 			"y": 640
 		},
-		"uiScale": 3,
-		"clearColor": "oklch(0.752 0.1204 204.04 / 1)"
+		"uiScale": 3
 	},
 	"entities": [
 		{
@@ -4442,7 +4441,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4491,7 +4494,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4540,7 +4547,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4589,7 +4600,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4638,7 +4653,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4687,7 +4706,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -4736,7 +4759,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5087,7 +5114,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5136,7 +5167,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5185,7 +5220,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5234,7 +5273,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5314,7 +5357,11 @@
 					"order": 0
 				},
 				"FoliageSway": {
-					"amplitude": 0.15,
+					"amplitude": 0.3,
+					"curve": 2.4,
+					"rustle": 0.03,
+					"rustleFrequency": 1.8,
+					"phase": 0,
 					"pinnedBase": true
 				},
 				"Emitter": {
@@ -5325,6 +5372,79 @@
 						"$type": "Vector2",
 						"x": 0,
 						"y": -72
+					}
+				}
+			}
+		},
+		{
+			"id": "demo:sky",
+			"components": {
+				"Sky": {
+					"color": {
+						"$type": "Color",
+						"css": "oklch(0.752 0.1204 204.04 / 1)"
+					}
+				}
+			}
+		},
+		{
+			"id": "da0377da-8208-4ada-ac14-7b2fe6694571",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "rain-heavy",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
+				}
+			}
+		},
+		{
+			"id": "23b8fb74-9d4a-4e95-8824-b1221e483f33",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "wind-lines",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
 					}
 				}
 			}

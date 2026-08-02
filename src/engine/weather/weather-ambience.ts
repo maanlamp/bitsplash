@@ -1,13 +1,8 @@
-import type AudioManager from "../audio/audio";
-import type { LoopVoiceHandle } from "../audio/audio";
+import type { AudioApi, LoopVoiceHandle } from "../audio/audio-api";
+import type { AudioBus } from "../audio/audio-bus";
 import { fillWhiteNoise } from "../audio/noise-buffer";
 import {
-	onWindowFocusChange,
-	windowHasFocus,
-} from "../audio/window-focus";
-import {
-	AMBIENCE_SILENCE_RAMP,
-	AMBIENCE_STALE_SECONDS,
+	SAND_VOICE_Q,
 	type WeatherAudioMix,
 	WIND_VOICE_Q,
 } from "./weather-audio-mix";
@@ -18,11 +13,11 @@ import {
  */
 const NOISE_SECONDS = 3;
 
-/** Seconds each pushed parameter change ramps over — one frame's worth, plus slack. */
-const PUSH_RAMP = 0.08;
-
-/** Seconds the ambience takes to duck out when the window loses OS focus. */
-const BLUR_RAMP = 0.12;
+/**
+ * Time constant of a pushed parameter, in seconds. Comfortably longer than a
+ * frame, so sixty pushes a second read as one continuous move.
+ */
+const PUSH_TAU = 0.08;
 
 type VoiceName = keyof WeatherAudioMix;
 
@@ -69,39 +64,45 @@ const VOICES: Readonly<Record<VoiceName, VoiceSpec>> = {
 		Q: 1,
 		seed: 0x5e17_c8a9,
 	},
+	sandHiss: {
+		type: "highpass",
+		frequency: 800,
+		Q: 1,
+		seed: 0x38f4_2b6d,
+	},
+	sandMid: {
+		type: "bandpass",
+		frequency: 320,
+		Q: SAND_VOICE_Q.mid,
+		seed: 0xc16a_9d45,
+	},
 };
 
 const VOICE_NAMES = Object.keys(VOICES) as readonly VoiceName[];
 
 /**
- * The one running weather ambience: five looping noise voices and nothing else.
+ * One looping noise voice per {@link WeatherAudioMix} voice, on one bus, and
+ * nothing else.
  *
- * **Deliberately not per world.** `AudioManager` is host-scoped and outlives every
- * world — `World.dispose` disposes physics and nothing else — so a loop owned by a
- * world would keep sounding after run-stop, a scene swap, or quitting to the
- * editor. Instead the graph belongs to the manager, worlds only *push* parameters
- * at it, and the last push in a frame wins. Three problems dissolve at once:
+ * It knows nothing about focus, pause or muting. Those are properties of the
+ * bus it was handed — a scene view's, a world's — and the bus is written on
+ * state changes only. All this does is push parameters, every one of them a
+ * `setTargetAtTime` at the current time, so a frame of pushes leaves the
+ * automation timeline exactly as long as it found it.
  *
- * - **teardown**: a dead world simply stops pushing;
- * - **pause**: a paused host ticks no systems, so nothing pushes and the graph
- *   fades itself out — pause-suspend with no host involvement;
- * - **two editor views**: only the focused one ticks its world, so only it pushes.
+ * Its lifetime is its bus's: `World.dispose` takes the bus down and the world
+ * that owned this graph stops it.
  *
- * The fade is scheduled onto the gain params ahead of time (see
- * `LoopVoiceHandle.silenceAfter`), so silence arrives without anything running.
- *
- * Being unattended is a separate question from being dead, and is answered by OS
- * window focus rather than by staleness: an unfocused window ducks immediately and
- * a refocused one is restored by the next push. Panel focus deliberately plays no
- * part — the editor steps only its focused scene view, so gating on that would duck
- * the weather every time a toolbar button took focus from the canvas.
+ * @example
+ * const ambience = new WeatherAmbience(ctx.audio, ctx.world.audio.ambience);
+ * ctx.world.onDispose(() => ambience.stop());
  */
-class WeatherAmbience {
+export class WeatherAmbience {
 	private readonly voices: Readonly<
 		Record<VoiceName, LoopVoiceHandle>
 	>;
 
-	constructor(audio: AudioManager) {
+	constructor(audio: AudioApi, bus: AudioBus) {
 		this.voices = Object.fromEntries(
 			VOICE_NAMES.map((name) => {
 				const spec = VOICES[name];
@@ -110,6 +111,7 @@ class WeatherAmbience {
 				return [
 					name,
 					audio.playLoop(buffer, {
+						bus,
 						gain: 0,
 						filter: {
 							type: spec.type,
@@ -122,80 +124,23 @@ class WeatherAmbience {
 		) as Record<VoiceName, LoopVoiceHandle>;
 	}
 
-	/** Take one frame's parameters and re-arm the fade-out. */
+	/** Take one frame's parameters. */
 	push(mix: WeatherAudioMix): void {
-		const audible = windowHasFocus();
 		for (const name of VOICE_NAMES) {
-			const voice = this.voices[name];
 			const params = mix[name];
-			voice.set({
-				gain: audible ? params.gain : 0,
+			this.voices[name].set({
+				gain: params.gain,
 				frequency: params.frequency,
 				pan: params.pan,
-				ramp: PUSH_RAMP,
+				tau: PUSH_TAU,
 			});
-			voice.silenceAfter(
-				AMBIENCE_STALE_SECONDS,
-				AMBIENCE_SILENCE_RAMP,
-			);
 		}
 	}
 
-	/** Duck to silence now, without waiting for a push that may never come. */
-	duck(): void {
+	/** Stop every voice. Called when the owning world is disposed. */
+	stop(): void {
 		for (const name of VOICE_NAMES) {
-			this.voices[name].silenceAfter(0, BLUR_RAMP);
+			this.voices[name].stop();
 		}
 	}
 }
-
-const graphs = new WeakMap<AudioManager, WeatherAmbience>();
-
-/**
- * Graphs that exist, so a focus change can reach them. Weak, so an abandoned
- * manager is still collectable.
- */
-const live = new Set<WeakRef<WeatherAmbience>>();
-let focusHooked = false;
-
-const hookFocus = (): void => {
-	if (focusHooked) {
-		return;
-	}
-	focusHooked = true;
-	onWindowFocusChange((isFocused) => {
-		if (isFocused) {
-			return;
-		}
-		for (const ref of live) {
-			ref.deref()?.duck();
-		}
-	});
-};
-
-/**
- * Push a frame of weather ambience, building the graph on the first push.
- *
- * Only call this where WebAudio genuinely exists (`webAudioAvailable`): it reaches
- * into the manager, and a headless host's stand-in throws on any property access.
- *
- * @example
- * if (webAudioAvailable) {
- * 	pushWeatherAmbience(ctx.audio, weatherAudioMix(input, shelter));
- * }
- */
-export const pushWeatherAmbience = (
-	audio: AudioManager,
-	mix: WeatherAudioMix,
-): void => {
-	const existing = graphs.get(audio);
-	if (existing) {
-		existing.push(mix);
-		return;
-	}
-	const graph = new WeatherAmbience(audio);
-	graphs.set(audio, graph);
-	live.add(new WeakRef(graph));
-	hookFocus();
-	graph.push(mix);
-};

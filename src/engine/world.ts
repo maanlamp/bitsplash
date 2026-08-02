@@ -1,3 +1,10 @@
+import type { AudioApi } from "./audio/audio-api";
+import {
+	type AudioBus,
+	type AudioBusSet,
+	createBusSetUnder,
+} from "./audio/audio-bus";
+import { NullAudioBus } from "./audio/null-audio-bus";
 import { PhysicsBodyComponent } from "./physics/physics-body-component";
 import { ECS } from "./ecs";
 import EventBus, { CollisionEvent } from "./events";
@@ -28,6 +35,47 @@ export class World {
 	private pendingSingleStep = false;
 	private disposed = false;
 	private profilingEnabled = false;
+	private audioRoot: AudioBus = new NullAudioBus();
+	private audioBuses: AudioBusSet = createBusSetUnder(this.audioRoot);
+	private readonly disposers = new Set<() => void>();
+
+	/**
+	 * This world's category buses. Silent until {@link attachAudio}, so a scratch
+	 * or probe world makes no sound by construction.
+	 *
+	 * @example
+	 * this.voice = ctx.audio.playLoop(noise, { bus: ctx.world.audio.ambience });
+	 */
+	get audio(): AudioBusSet {
+		return this.audioBuses;
+	}
+
+	/**
+	 * Hang this world's audio under `parent` — the game bus, or an editor scene
+	 * view's bus.
+	 *
+	 * The world **owns** what this creates and disposes it in {@link dispose}, so
+	 * a loop dies with its world by construction rather than by a timeout. That
+	 * is what lets sound be world-scoped at all.
+	 */
+	attachAudio(audio: AudioApi, parent: AudioBus): void {
+		this.audioRoot.dispose();
+		this.audioRoot = audio.createBus(parent);
+		this.audioBuses = audio.createBusSet(this.audioRoot);
+	}
+
+	/**
+	 * Run `fn` when this world is disposed. Returns a cancel.
+	 *
+	 * For run-state that lives outside components — a running audio voice, say —
+	 * and therefore has nothing else to tie its lifetime to.
+	 */
+	onDispose(fn: () => void): () => void {
+		this.disposers.add(fn);
+		return () => {
+			this.disposers.delete(fn);
+		};
+	}
 
 	get interpolationAlpha(): number {
 		return this.alpha;
@@ -92,6 +140,11 @@ export class World {
 			return;
 		}
 		this.disposed = true;
+		for (const fn of this.disposers) {
+			fn();
+		}
+		this.disposers.clear();
+		this.audioRoot.dispose();
 		this.physics.dispose();
 	}
 

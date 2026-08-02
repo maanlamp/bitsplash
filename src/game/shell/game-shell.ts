@@ -8,6 +8,7 @@ import { SaveDriver } from "../../engine/save/save-driver";
 import { FsSaveStore } from "../../engine/save/fs-save-store";
 import { SaveManager } from "../../engine/save/save-manager";
 import { Scene, SceneConfig } from "../../engine/scene/scene";
+import { playerSettings } from "../../engine/settings/player-settings";
 import { createPlatformerActions } from "../input/platformer-actions";
 import { UI_FONT } from "../dialogue/dialogue-ui";
 import { BarkHudState } from "../dialogue/bark-hud-state";
@@ -103,7 +104,11 @@ export class GameShell {
 		this.mount(this.driver.runtime);
 		this.game.setPaused(true);
 		this.uiState.setPhase("menu");
-		this.uiState.setView("root");
+		// The accessibility pass comes before anything playable, which is how
+		// consent is obtained before exposure rather than after it.
+		this.uiState.setView(
+			playerSettings.accessibilitySeen ? "root" : "first-launch",
+		);
 		void this.refreshSaves();
 		window.addEventListener("keydown", this.onKeyDown, {
 			capture: true,
@@ -119,6 +124,9 @@ export class GameShell {
 		closeLoad: () => this.uiState.setView("root"),
 		loadSlot: (slot) => void this.loadSlot(slot),
 		deleteSlot: (slot) => void this.deleteSlot(slot),
+		openSettings: () => this.openSettings(),
+		closeSettings: () => this.uiState.setView("root"),
+		finishFirstLaunch: () => this.uiState.setView("root"),
 		resume: () => this.closePause(),
 		saveGame: () => void this.saveGame(),
 		quit: () => this.quitToMenu(),
@@ -144,6 +152,13 @@ export class GameShell {
 			void this.quickLoad();
 		}
 	};
+
+	private openSettings(): void {
+		this.uiState.setBindings(
+			createPlatformerActions(this.game.services.settings).bindings,
+		);
+		this.uiState.setView("settings");
+	}
 
 	private openPause(): void {
 		this.uiState.setView("root");

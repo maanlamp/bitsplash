@@ -8,8 +8,9 @@ import type { TileSource } from "../../render/renderer-2d";
 import { resolveRenderLayer } from "../../render/render-layers";
 import { type RenderContext, RenderSystem } from "../../system";
 import { resolveFont } from "../../text/resolve-font";
-import type { RichLine } from "../../text/rich-text";
+import { richText, type RichLine } from "../../text/rich-text";
 import { measureText } from "../../text/text-layout";
+import { wrapStyledText } from "../layout/measure-text";
 
 const GLYPH_DEFAULT: ColorInput = [0, 0, 0, 1];
 
@@ -92,7 +93,38 @@ const awaitsMeasurement = (
 	(values.offsetX !== undefined || values.offsetY !== undefined) &&
 	rect.w === 0;
 
+type WrappedText = Readonly<{
+	content: string;
+	width: number;
+	font: LoadedFont;
+	lines: readonly string[];
+}>;
+
+/**
+ * Where the pen starts for a line of `width` inside a box of `boxWidth`.
+ *
+ * `drawText` anchors a right- or centre-aligned run *at* the pen, so the pen
+ * has to be the box's right edge or centre. Passing the box's left edge — which
+ * is all a node's rect gives you — draws the run outside the box, to the left
+ * of everything laid out before it.
+ */
+const penFor = (
+	x: number,
+	boxWidth: number,
+	align: Style["textAlign"],
+): number => {
+	if (align === "right") {
+		return x + boxWidth;
+	}
+	if (align === "center") {
+		return x + boxWidth / 2;
+	}
+	return x;
+};
+
 export class UiRenderSystem extends RenderSystem {
+	private readonly wrapped = new WeakMap<UiNode, WrappedText>();
+
 	constructor(
 		private readonly root: UiRoot,
 		private readonly dyn: DynStore,
@@ -325,29 +357,86 @@ export class UiRenderSystem extends RenderSystem {
 				? String(raw)
 				: "";
 		const color = this.dyn.color(node, style);
+		const padLeft = style?.paddingLeft ?? style?.padding ?? 0;
+		const padRight = style?.paddingRight ?? style?.padding ?? 0;
+		const padTop = style?.paddingTop ?? style?.padding ?? 0;
+		const contentWidth = Math.max(0, w - padLeft - padRight);
+		const lines = this.linesFor(node, font, content, contentWidth);
 		const centering =
-			Boolean(style?.centerInk) && values?.scale === undefined;
+			Boolean(style?.centerInk) &&
+			values?.scale === undefined &&
+			lines.length === 1;
 		const bounds = centering ? inkBounds(font, content) : null;
-		const penX = bounds
-			? x + (w - (bounds.maxX - bounds.minX)) / 2 - bounds.minX
-			: x;
-		let baseline: number;
 		if (bounds) {
-			baseline =
-				y + (h - (bounds.maxY - bounds.minY)) / 2 - bounds.minY;
-		} else if (centering) {
-			baseline = y + (h - font.lineHeight) / 2 + font.ascent;
-		} else {
-			baseline = y + font.ascent;
+			ctx.renderer.drawText(
+				layer,
+				font,
+				content,
+				x + (w - (bounds.maxX - bounds.minX)) / 2 - bounds.minX,
+				y + (h - (bounds.maxY - bounds.minY)) / 2 - bounds.minY,
+				{
+					color,
+					outline: style?.textOutline,
+					rotation,
+					alpha,
+					align: "left",
+					scale: values?.scale,
+				},
+			);
+			return;
 		}
-		ctx.renderer.drawText(layer, font, content, penX, baseline, {
-			color,
-			outline: style?.textOutline,
-			rotation,
-			alpha,
-			align: bounds ? "left" : style?.textAlign,
-			scale: values?.scale,
-		});
+		const penX = penFor(x + padLeft, contentWidth, style?.textAlign);
+		const top = centering
+			? y + (h - lines.length * font.lineHeight) / 2
+			: y + padTop;
+		for (let i = 0; i < lines.length; i++) {
+			ctx.renderer.drawText(
+				layer,
+				font,
+				lines[i]!,
+				penX,
+				top + font.ascent + i * font.lineHeight,
+				{
+					color,
+					outline: style?.textOutline,
+					rotation,
+					alpha,
+					align: style?.textAlign,
+					scale: values?.scale,
+				},
+			);
+		}
+	}
+
+	/**
+	 * The lines a text node paints, wrapped to its laid-out width by the same
+	 * function that measured it — so what yoga reserved room for and what is
+	 * drawn are the same shape. Cached per node because wrapping shapes every
+	 * glyph and most text is unchanged frame to frame.
+	 */
+	private linesFor(
+		node: UiNode,
+		font: LoadedFont,
+		content: string,
+		width: number,
+	): readonly string[] {
+		const cached = this.wrapped.get(node);
+		if (
+			cached &&
+			cached.content === content &&
+			cached.width === width &&
+			cached.font === font
+		) {
+			return cached.lines;
+		}
+		const lines =
+			width > 0 && /\s/.test(content)
+				? wrapStyledText(font, content, width).map((line) =>
+						richText([line]),
+					)
+				: [content];
+		this.wrapped.set(node, { content, width, font, lines });
+		return lines;
 	}
 
 	private paintGlyphs(

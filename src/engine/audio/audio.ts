@@ -1,71 +1,26 @@
+import type {
+	AudioApi,
+	LoopVoiceHandle,
+	LoopVoiceOptions,
+	PlayBufferOptions,
+	PlaybackHandle,
+	PlayOptions,
+} from "./audio-api";
+import { DEFAULT_VOICE_TAU } from "./audio-api";
+import {
+	type AudioBus,
+	type AudioBusSet,
+	type AudioCategory,
+	busInput,
+	createBusSetUnder,
+	createWebAudioBus,
+} from "./audio-bus";
+
 type Cached<T> = Readonly<
 	| { status: "loading" }
 	| { status: "ready"; data: T }
 	| { status: "error"; error: Error }
 >;
-
-type PlayOptions = Readonly<{
-	pitch?: number;
-	speed?: number;
-	gain?: number;
-}>;
-
-type PlayBufferOptions = Readonly<{
-	offset?: number;
-	duration?: number;
-	detune?: number;
-	gain?: number;
-	onEnded?: () => void;
-}>;
-
-export type PlaybackHandle = Readonly<{
-	stop: () => void;
-	position: () => number;
-	duration: number;
-}>;
-
-/** The character filter a looping voice is born with. */
-type LoopVoiceFilter = Readonly<{
-	type: BiquadFilterType;
-	frequency: number;
-	/** Resonance. Only meaningful for the band/peaking types. */
-	Q?: number;
-}>;
-
-type LoopVoiceOptions = Readonly<{
-	/** Starting gain. Defaults to `0`, so a voice fades in rather than cracking on. */
-	gain?: number;
-	/** Starting stereo position, `-1..1`. Defaults to centred. */
-	pan?: number;
-	filter?: LoopVoiceFilter;
-}>;
-
-/** New values for a voice's live parameters. Omitted fields are left alone. */
-type LoopVoiceParams = Readonly<{
-	gain?: number;
-	pan?: number;
-	/** Filter centre/cutoff frequency in Hz. Ignored on a voice with no filter. */
-	frequency?: number;
-	/** Seconds to reach the new values. Defaults to {@link DEFAULT_LOOP_RAMP}. */
-	ramp?: number;
-}>;
-
-/**
- * A running looping voice whose parameters are pushed from outside.
- *
- * {@link LoopVoiceHandle.silenceAfter} is a dead-man's switch: it schedules a
- * fade to silence in the future that the next {@link LoopVoiceHandle.set} cancels.
- * A caller that pushes every frame is never heard fading; a caller that stops
- * pushing — because its world was torn down, or its host paused and stopped
- * ticking systems — goes quiet on its own with nothing left to run.
- */
-export type LoopVoiceHandle = Readonly<{
-	set: (params: LoopVoiceParams) => void;
-	silenceAfter: (delay: number, ramp?: number) => void;
-	stop: () => void;
-}>;
-
-const DEFAULT_LOOP_RAMP = 0.05;
 
 const RESUME_EVENTS = [
 	"pointerdown",
@@ -73,14 +28,25 @@ const RESUME_EVENTS = [
 	"touchstart",
 ] as const;
 
-export default class AudioManager {
+/**
+ * Audio over a real `AudioContext`: buffer loading, one-shots, looping voices,
+ * and the bus tree everything hangs from.
+ *
+ * The context is private and stays that way. Callers route sound by passing an
+ * {@link AudioBus} rather than by reaching for nodes, which is what keeps
+ * gain staging a property of the tree instead of a call-site convention.
+ */
+export default class AudioManager implements AudioApi {
 	private ctx = new AudioContext();
+	private readonly master: AudioBus;
+	private readonly busSets = new Set<WeakRef<AudioBusSet>>();
 	private sources: Map<string, Cached<AudioBuffer>> = new Map();
 	private buffers: Map<string, Promise<AudioBuffer>> = new Map();
 	private workletLoaded = false;
 	private resumed = false;
 
 	constructor() {
+		this.master = createWebAudioBus(this.ctx, this.ctx.destination);
 		void this.ctx.audioWorklet
 			.addModule(
 				new URL("./granular-processor.js", import.meta.url).href,
@@ -93,6 +59,31 @@ export default class AudioManager {
 
 	get sampleRate(): number {
 		return this.ctx.sampleRate;
+	}
+
+	createBus(parent?: AudioBus): AudioBus {
+		return (parent ?? this.master).createChild();
+	}
+
+	createBusSet(parent?: AudioBus): AudioBusSet {
+		const set = createBusSetUnder(parent ?? this.master);
+		this.busSets.add(new WeakRef(set));
+		return set;
+	}
+
+	setMasterGain(gain: number): void {
+		this.master.setUserGain(gain);
+	}
+
+	setCategoryGain(category: AudioCategory, gain: number): void {
+		for (const ref of this.busSets) {
+			const set = ref.deref();
+			if (!set) {
+				this.busSets.delete(ref);
+				continue;
+			}
+			set[category].setUserGain(gain);
+		}
 	}
 
 	decode(data: ArrayBuffer): Promise<AudioBuffer> {
@@ -125,13 +116,33 @@ export default class AudioManager {
 			source.detune.value = opts.detune;
 		}
 		const gain = new GainNode(this.ctx, { gain: opts?.gain ?? 1 });
-		source.connect(gain).connect(this.ctx.destination);
+		const filter =
+			opts?.lowpass === undefined
+				? null
+				: new BiquadFilterNode(this.ctx, {
+						type: "lowpass",
+						frequency: opts.lowpass,
+					});
+		const panner =
+			opts?.pan === undefined
+				? null
+				: new StereoPannerNode(this.ctx, { pan: opts.pan });
+		let tail: AudioNode = source;
+		if (filter) {
+			tail = tail.connect(filter);
+		}
+		if (panner) {
+			tail = tail.connect(panner);
+		}
+		tail.connect(gain).connect(this.destinationFor(opts?.bus));
 		let stopped = false;
 		source.onended = () => {
 			if (!stopped) {
 				opts?.onEnded?.();
 			}
 			source.disconnect();
+			filter?.disconnect();
+			panner?.disconnect();
 			gain.disconnect();
 		};
 		const startedAt = this.ctx.currentTime;
@@ -142,10 +153,11 @@ export default class AudioManager {
 						Math.min(opts.duration, buffer.duration - offset),
 					)
 				: undefined;
+		const at = startedAt + Math.max(0, opts?.delay ?? 0);
 		if (duration !== undefined) {
-			source.start(0, offset, duration);
+			source.start(at, offset, duration);
 		} else {
-			source.start(0, offset);
+			source.start(at, offset);
 		}
 		return {
 			duration: buffer.duration,
@@ -189,19 +201,21 @@ export default class AudioManager {
 	}
 
 	/**
-	 * Start a looping voice — `source -> filter? -> panner -> gain -> destination`
-	 * — and hand back the parameters for a caller to keep pushing at.
+	 * Start a looping voice — `source -> filter? -> panner -> gain -> bus` — and
+	 * hand back the parameters for a caller to keep pushing at.
 	 *
 	 * This is the one thing {@link playBuffer} cannot do: it never loops and its
 	 * gain is a fixed construction value, so a sustained ambience has nothing to
-	 * ride. A voice runs until {@link LoopVoiceHandle.stop}; prefer letting
-	 * {@link LoopVoiceHandle.silenceAfter} take it to silence over stopping and
-	 * restarting, which re-triggers the loop from its head.
+	 * ride. Every pushed value is a `setTargetAtTime` at the current time, so the
+	 * automation timeline never grows no matter how often a caller pushes. Fades
+	 * on a state change belong on the voice's bus, not here.
 	 *
 	 * @example
-	 * const wind = audio.playLoop(noise, { filter: { type: "lowpass", frequency: 400 } });
-	 * wind.set({ gain: 0.3, frequency: 900, ramp: 0.1 });
-	 * wind.silenceAfter(0.15);
+	 * const wind = audio.playLoop(noise, {
+	 * 	bus: world.audio.ambience,
+	 * 	filter: { type: "lowpass", frequency: 400 },
+	 * });
+	 * wind.set({ gain: 0.3, frequency: 900, tau: 0.08 });
 	 */
 	playLoop(
 		buffer: AudioBuffer,
@@ -226,23 +240,16 @@ export default class AudioManager {
 		(filter ? source.connect(filter) : source)
 			.connect(panner)
 			.connect(gain)
-			.connect(this.ctx.destination);
+			.connect(this.destinationFor(opts?.bus));
 		source.start();
 
-		let level = opts?.gain ?? 0;
 		let stopped = false;
-		const ramp = (
+		const approach = (
 			param: AudioParam,
 			value: number,
-			seconds: number,
+			tau: number,
 		): void => {
-			const now = this.ctx.currentTime;
-			param.cancelAndHoldAtTime(now);
-			if (seconds > 0) {
-				param.linearRampToValueAtTime(value, now + seconds);
-			} else {
-				param.setValueAtTime(value, now);
-			}
+			param.setTargetAtTime(value, this.ctx.currentTime, tau);
 		};
 
 		return {
@@ -250,28 +257,16 @@ export default class AudioManager {
 				if (stopped) {
 					return;
 				}
-				const seconds = params.ramp ?? DEFAULT_LOOP_RAMP;
+				const tau = Math.max(0.001, params.tau ?? DEFAULT_VOICE_TAU);
 				if (params.gain !== undefined) {
-					level = params.gain;
-					ramp(gain.gain, params.gain, seconds);
+					approach(gain.gain, params.gain, tau);
 				}
 				if (params.pan !== undefined) {
-					ramp(panner.pan, params.pan, seconds);
+					approach(panner.pan, params.pan, tau);
 				}
 				if (params.frequency !== undefined && filter) {
-					ramp(filter.frequency, params.frequency, seconds);
+					approach(filter.frequency, params.frequency, tau);
 				}
-			},
-			silenceAfter: (delay, rampSeconds = 0.1) => {
-				if (stopped) {
-					return;
-				}
-				const at = this.ctx.currentTime + Math.max(0, delay);
-				gain.gain.setValueAtTime(level, at);
-				gain.gain.linearRampToValueAtTime(
-					0,
-					at + Math.max(0.001, rampSeconds),
-				);
 			},
 			stop: () => {
 				if (stopped) {
@@ -313,11 +308,18 @@ export default class AudioManager {
 		node.parameters.get("speed")!.value = opts?.speed ?? 1;
 
 		const gain = new GainNode(this.ctx, { gain: opts?.gain ?? 1 });
-		node.connect(gain).connect(this.ctx.destination);
+		node.connect(gain).connect(this.destinationFor());
 		node.port.onmessage = () => {
 			node.disconnect();
 			gain.disconnect();
 		};
+	}
+
+	private destinationFor(bus?: AudioBus): AudioNode {
+		return (
+			busInput(bus ?? this.master) ??
+			(this.ctx.destination as AudioNode)
+		);
 	}
 
 	private getSource(url: string): AudioBuffer | void {

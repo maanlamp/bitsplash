@@ -91,6 +91,10 @@ export class RunHost {
 			resolveScene: (id) => this.resolveScene(id),
 		});
 		this.runtime.world.setProfiling(true);
+		this.runtime.world.attachAudio(
+			deps.services.audio,
+			view.worldBus,
+		);
 		this.mountUi();
 		this.runtime.newGame(deps.startSceneId);
 		this.syncActiveScene();

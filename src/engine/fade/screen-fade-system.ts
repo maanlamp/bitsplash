@@ -3,6 +3,7 @@ import type { Seconds } from "../duration";
 import type { ECS } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
 import { profiler } from "../profiling/profiler";
+import { playerSettings } from "../settings/player-settings";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { ScreenFadeComponent } from "./screen-fade-component";
 
@@ -16,6 +17,14 @@ const ensureFade = (ecs: ECS): ScreenFadeComponent => {
 	return fade;
 };
 
+/**
+ * Fade the screen to `to` over `duration`.
+ *
+ * With screen fades turned off in accessibility, the target is applied on the
+ * spot and the handle comes back already done. The fade is what is suppressed,
+ * never the state change behind it — a transition that swallowed its fade-out
+ * would leave the scene it was covering for on screen.
+ */
 export const startFade = (
 	ecs: ECS,
 	to: number,
@@ -23,6 +32,11 @@ export const startFade = (
 	easing = "linear",
 ): EffectHandle => {
 	const fade = ensureFade(ecs);
+	if (!playerSettings.screenFades) {
+		fade.alpha = to;
+		fade.tween = null;
+		return { done: () => true, complete: () => {} };
+	}
 	const tween = new Tween(fade.alpha, to, duration, easing);
 	fade.tween = tween;
 	return {

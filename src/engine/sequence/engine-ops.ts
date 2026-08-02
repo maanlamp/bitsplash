@@ -15,6 +15,10 @@ import { ScreenFadeComponent } from "../fade/screen-fade-component";
 import { TILE_SIZE } from "../tilemap/tile";
 import { TransformComponent } from "../transform-component";
 import Vector2 from "../vector2";
+import {
+	type PartialWeatherChannels,
+	WEATHER_CHANNELS,
+} from "../weather/channels";
 import { WeatherOverrideComponent } from "../weather/weather-override-component";
 import { resolveActor } from "./interpreter";
 import { releaseOwnedOverride } from "./sequence-run-state";
@@ -286,8 +290,12 @@ const weatherOverrideExecutor: OpExecutor = {
 		override.presetId =
 			(params.presetId as string | undefined) ?? null;
 		override.wind = (params.wind as number | undefined) ?? null;
-		override.precipitation =
-			(params.precipitation as number | undefined) ?? null;
+		const precipitation = params.precipitation as
+			| PartialWeatherChannels
+			| undefined;
+		for (const channel of WEATHER_CHANNELS) {
+			override[channel] = precipitation?.[channel] ?? null;
+		}
 		override.direction =
 			(params.direction as number | undefined) ?? null;
 		override.priority = (params.priority as number | undefined) ?? 0;

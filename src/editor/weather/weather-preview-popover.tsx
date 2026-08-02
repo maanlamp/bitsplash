@@ -2,10 +2,12 @@ import { Popover } from "@base-ui/react/popover";
 import { Slider } from "@base-ui/react/slider";
 import { CloudRainIcon } from "@phosphor-icons/react";
 import clsx from "clsx";
+import { WEATHER_CHANNELS } from "../../engine/weather/channels";
 import { climatePresets } from "../../engine/weather/climate-registry";
 import Button from "../button";
+import { toSentenceCase } from "../text-case";
 import { Field } from "../inspector/field";
-import { Checkbox, EnumSelect } from "../inspector/inputs";
+import { EnumSelect } from "../inspector/inputs";
 import surface from "../styles/surface.module.scss";
 import Tooltip from "../tooltip";
 import { useEditorValue } from "../use-editor";
@@ -54,8 +56,10 @@ const ScrubField = ({
 );
 
 /**
- * The scene view's weather preview: pick any preset in the catalog, scrub wind and
- * precipitation, mute the ambience.
+ * The scene view's weather preview: pick any preset in the catalog and scrub
+ * wind and each precipitation channel. Silencing it is the toolbar's per-view
+ * mute, which covers everything the view can make audible rather than weather
+ * alone.
  *
  * The picker deliberately offers the **whole** catalog rather than the presets the
  * scene's climate rolls. Authored dwell times are minutes long, so a session that
@@ -69,7 +73,6 @@ const WeatherPreviewPopover = ({
 }: Readonly<{ store: WeatherPreviewStore }>) => {
 	const container = usePortalContainer();
 	const state = useEditorValue(store, (s) => s.state);
-	const muted = useEditorValue(store, (s) => s.muted);
 	return (
 		<Popover.Root>
 			<Tooltip label="Weather preview">
@@ -108,20 +111,16 @@ const WeatherPreviewPopover = ({
 									value={state.wind}
 									onChange={(wind) => store.setWind(wind)}
 								/>
-								<ScrubField
-									label="Precipitation"
-									value={state.precipitation}
-									onChange={(rain) => store.setPrecipitation(rain)}
-								/>
-								<Field.Root>
-									<Checkbox
-										checked={muted}
-										onCheckedChange={(checked) =>
-											store.setMuted(checked)
+								{WEATHER_CHANNELS.map((channel) => (
+									<ScrubField
+										key={channel}
+										label={toSentenceCase(channel)}
+										value={state.precipitation[channel]}
+										onChange={(value) =>
+											store.setPrecipitation(channel, value)
 										}
 									/>
-									<Field.Label>Mute weather audio</Field.Label>
-								</Field.Root>
+								))}
 								<Button
 									variant="secondary"
 									onClick={() => store.reset()}

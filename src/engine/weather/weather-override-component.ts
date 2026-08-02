@@ -3,6 +3,12 @@ import {
 	serializable,
 	serialize,
 } from "../serialization/serializable";
+import {
+	type PartialWeatherChannels,
+	WEATHER_CHANNELS,
+	type WeatherChannel,
+} from "./channels";
+import type { WeatherRequest } from "./climate";
 
 /**
  * A director's escape from the climate: while an entity carrying this exists, the
@@ -35,7 +41,10 @@ import {
  * ecs.createEntity([override]);
  */
 @serializable("WeatherOverride")
-export class WeatherOverrideComponent {
+export class WeatherOverrideComponent implements Record<
+	WeatherChannel,
+	number | null
+> {
 	/**
 	 * Preset whose targets this override imposes, resolved from the catalog-wide
 	 * table so it may name a preset the active climate never rolls. `null` means
@@ -46,8 +55,14 @@ export class WeatherOverrideComponent {
 	/** Explicit wind target `0..1`, winning over {@link presetId}. `null` defers. */
 	@serialize() wind: number | null = null;
 
-	/** Explicit precipitation target `0..1`, winning over {@link presetId}. */
-	@serialize() precipitation: number | null = null;
+	/** Explicit rain target `0..1`, winning over {@link presetId}. `null` defers. */
+	@serialize() rain: number | null = null;
+
+	/** Explicit snow target `0..1`, winning over {@link presetId}. `null` defers. */
+	@serialize() snow: number | null = null;
+
+	/** Explicit sand target `0..1`, winning over {@link presetId}. `null` defers. */
+	@serialize() sand: number | null = null;
 
 	/** Explicit signed base direction `-1..1`, winning over {@link presetId}. */
 	@serialize() direction: number | null = null;
@@ -67,3 +82,32 @@ export class WeatherOverrideComponent {
 	 */
 	@serialize() owner: EntityId | null = null;
 }
+
+/**
+ * The {@link WeatherRequest} an override imposes. Channels left `null` are absent
+ * from the request, which is how they fall through to the layer below instead of
+ * zeroing.
+ *
+ * @example
+ * const targets = applyRequest(base, overrideRequest(override));
+ */
+export const overrideRequest = (
+	override: WeatherOverrideComponent,
+): WeatherRequest => {
+	const precipitation: Partial<Record<WeatherChannel, number>> = {};
+	for (const channel of WEATHER_CHANNELS) {
+		const value = override[channel];
+		if (value !== null) {
+			precipitation[channel] = value;
+		}
+	}
+	return {
+		presetId: override.presetId,
+		wind: override.wind,
+		precipitation: hasAny(precipitation) ? precipitation : null,
+		direction: override.direction,
+	};
+};
+
+const hasAny = (channels: PartialWeatherChannels): boolean =>
+	WEATHER_CHANNELS.some((channel) => channels[channel] !== undefined);

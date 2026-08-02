@@ -1,7 +1,7 @@
 import { Glob } from "bun";
 import { beforeAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import type AudioManager from "../src/engine/audio/audio";
+import { NullAudioManager } from "../src/engine/audio/null-audio-manager";
 import type { DeviceSnapshot } from "../src/engine/input/device-snapshot";
 import { NULL_ACTIONS } from "../src/engine/input/bindings/action-provider";
 import type { SettingsStore } from "../src/engine/input/settings-store";
@@ -95,12 +95,7 @@ const emptyDevice: DeviceSnapshot = {
 	gamepads: {},
 };
 
-// Headless audio: voice-bank warming calls `audio.load`; with no assets on
-// disk the load simply never resolves, so no bank is built and no system needs
-// one for the spawn assertions.
-const silentAudio = {
-	load: () => new Promise<never>(() => {}),
-} as unknown as AudioManager;
+const silentAudio = new NullAudioManager();
 
 const memorySettings = (): SettingsStore => {
 	const values = new Map<string, string>();

@@ -1,5 +1,9 @@
 import AssetManager from "./assets";
-import AudioManager from "./audio/audio";
+import { applyVolumeSettings } from "./audio/apply-volume-settings";
+import type { AudioApi } from "./audio/audio-api";
+import type { AudioBus } from "./audio/audio-bus";
+import { audioFocus, GAME_AUDIO_OWNER } from "./audio/audio-focus";
+import { createAudio } from "./audio/create-audio";
 import {
 	pickActiveCamera2D,
 	renderSceneToTexture,
@@ -41,7 +45,12 @@ export class Game {
 	readonly input: Input;
 	readonly assetManager = new AssetManager();
 	readonly events = new EventBus();
-	readonly audio: AudioManager;
+	readonly audio: AudioApi;
+	/**
+	 * Everything this game plays hangs here. Window focus and pause gate it; the
+	 * player's master volume is a level above, on the mixer's master bus.
+	 */
+	readonly audioBus: AudioBus;
 	readonly services: GlobalServices;
 
 	private clock = new Clock();
@@ -54,11 +63,15 @@ export class Game {
 	private running = false;
 	private lastFps = 0;
 	private lastFrameTime = 0;
+	private readonly detachVolumes: () => void;
+	private detachFocus: ReadonlyArray<() => void> = [];
 
 	constructor(options: GameOptions) {
 		this.renderer = new Renderer2D(this.viewport);
 		this.input = new Input(this.viewport.element);
-		this.audio = new AudioManager();
+		this.audio = createAudio();
+		this.audioBus = this.audio.createBus();
+		this.detachVolumes = applyVolumeSettings(this.audio);
 		this.onFrame = options.onFrame;
 		this.services = {
 			input: this.input,
@@ -74,9 +87,16 @@ export class Game {
 		return this.current;
 	}
 
-	/** Make `scene` the world this game updates and renders. */
+	/**
+	 * Make `scene` the world this game updates and renders, and hang that world's
+	 * audio under this game's bus so its sounds die with it.
+	 */
 	setScene(scene: Scene): void {
+		const previous = this.current?.world;
 		this.current = scene;
+		if (scene.world !== previous) {
+			scene.world.attachAudio(this.audio, this.audioBus);
+		}
 	}
 
 	get paused(): boolean {
@@ -91,8 +111,17 @@ export class Game {
 		return this.lastFps;
 	}
 
+	/**
+	 * Pause or resume gameplay. Pausing also publishes a focus change, so the
+	 * game's bus mutes — a paused game ticks no systems, and nothing pushing is
+	 * no longer the same thing as nothing sounding.
+	 */
 	setPaused(paused: boolean): void {
+		if (this.isPaused === paused) {
+			return;
+		}
 		this.isPaused = paused;
+		audioFocus.setPaused(paused);
 	}
 
 	get uiRuntime(): UiRuntime | null {
@@ -109,6 +138,13 @@ export class Game {
 	start(): () => void {
 		this.viewport.element.focus();
 		this.running = true;
+		const unregisterRealm = audioFocus.registerRealm(window);
+		audioFocus.setRealmOwner(window, GAME_AUDIO_OWNER);
+		audioFocus.setPaused(this.isPaused);
+		this.detachFocus = [
+			unregisterRealm,
+			audioFocus.gate(this.audioBus, GAME_AUDIO_OWNER),
+		];
 		let lastTime = 0;
 
 		const tick = (time = lastTime) => {
@@ -168,6 +204,12 @@ export class Game {
 	stop(): void {
 		this.running = false;
 		this.input.dispose();
+		for (const detach of this.detachFocus) {
+			detach();
+		}
+		this.detachFocus = [];
+		this.detachVolumes();
+		this.audioBus.dispose();
 		if (this.rafId !== null) {
 			cancelAnimationFrame(this.rafId);
 			this.rafId = null;

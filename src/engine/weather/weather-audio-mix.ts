@@ -1,10 +1,12 @@
 import { approach } from "../approach";
 import { clamp01, smoothstep } from "../noise";
 import { TILE_SIZE } from "../tilemap/tile";
+import type { WeatherChannels } from "./channels";
 import {
 	EXPOSURE_MAX_DISTANCE,
 	EXPOSURE_RADIUS_TILES,
 } from "./exposure-field";
+import { gustEnvelopeCeiling } from "./gust";
 
 /**
  * The arithmetic behind weather ambience: weather scalars and listener shelter in,
@@ -39,9 +41,14 @@ export type VoiceMix = Readonly<{
 /**
  * Every voice in the ambience, one frame's worth.
  *
- * Wind is three voices — a broad turbulence bed plus two resonances — and rain is
+ * Wind is three voices — a broad turbulence bed plus two resonances. Rain is
  * two, a bright patter and a dark roar crossfaded by intensity so heavier rain
- * arrives by filling in rather than by switching.
+ * arrives by filling in rather than by switching. Sand is two, a hiss bed and a
+ * mid band, because blowing sand is heard as abrasion rather than as impacts.
+ *
+ * **Snow has no voice, deliberately.** Falling snow is very nearly silent, and
+ * that silence under a visible blizzard is the effect, not an omission. What a
+ * listener actually hears in one is the wind, which already has three voices.
  */
 export type WeatherAudioMix = Readonly<{
 	bed: VoiceMix;
@@ -49,20 +56,30 @@ export type WeatherAudioMix = Readonly<{
 	whistle: VoiceMix;
 	rainLight: VoiceMix;
 	rainHeavy: VoiceMix;
+	sandHiss: VoiceMix;
+	sandMid: VoiceMix;
 }>;
 
 /**
  * The weather the listener would hear with nothing in the way.
  *
- * `wind` and `precipitation` are the **raw** scalars off `effectiveWeather` /
+ * `wind` and `precipitation` are the **raw** values off `effectiveWeather` /
  * `weatherFrame` — never `visibleWind` / `visiblePrecipitation`, which are masked
  * to zero indoors for the benefit of foliage and particles.
  */
 export type WeatherAudioInput = Readonly<{
 	wind: number;
-	precipitation: number;
-	/** Gust envelope, ~`0.6..1.8`. */
+	precipitation: WeatherChannels;
+	/** Gust envelope, ~`0.6..1.8`, straight off `gustEnvelope`. */
 	gust: number;
+	/**
+	 * How much of the near field survives the camera's standoff, `0..1` —
+	 * `distanceLevel(metresOf(listener.z), PRECIPITATION_HALF_LEVEL_METRES)`.
+	 *
+	 * **Attenuates precipitation only.** Wind is the air the listener is standing
+	 * in rather than a thing at a distance, so it does not recede with the camera.
+	 */
+	proximity: number;
 }>;
 
 /**
@@ -78,13 +95,6 @@ export type ShelterState = Readonly<{
 	pan: number;
 }>;
 
-/** Fully exposed, dead centre — the state a listener under open sky reports. */
-export const OPEN_SHELTER: ShelterState = {
-	openness: 1,
-	distance: 0,
-	pan: 0,
-};
-
 /**
  * Time constant of the shelter smoothing, in seconds.
  *
@@ -93,21 +103,6 @@ export const OPEN_SHELTER: ShelterState = {
  * than a switch, short enough that it is not lagging behind the player.
  */
 const SHELTER_TAU = 0.25;
-
-/**
- * How long after the last pushed frame the ambience starts fading out, in seconds.
- *
- * This is a backstop for a world that has genuinely stopped — a run stopped, the
- * last scene view closed — not a focus mechanism. It used to be a few frames, which
- * meant every editor focus blip (hovering a button that steals focus from the
- * canvas, since only the focused view steps its world) audibly ducked the weather
- * and snapped it back. Silence while the app is merely unattended is
- * {@link windowHasFocus}'s job instead.
- */
-export const AMBIENCE_STALE_SECONDS = 2;
-
-/** Seconds the fade to silence takes once staleness bites. */
-export const AMBIENCE_SILENCE_RAMP = 0.4;
 
 /** Offset that puts a rain anchor hard to one side, in world units. */
 const PAN_SPAN = EXPOSURE_RADIUS_TILES * TILE_SIZE;
@@ -169,9 +164,59 @@ const RAIN_LIGHT_HI_HZ = 5000;
 const RAIN_HEAVY_LO_HZ = 700;
 const RAIN_HEAVY_HI_HZ = 2000;
 
-/** Precipitation at which the heavy bed is half way in, and over what span. */
-const RAIN_HEAVY_KNEE = 0.3;
-const RAIN_HEAVY_SPAN = 0.5;
+/**
+ * How rain level follows the scalar.
+ *
+ * Above one, so a drizzle is genuinely quiet. It used to be `0.7`, which
+ * *lifted* the bottom of the range — a `0.3` scalar came out at `0.43` of full
+ * level and a light shower already sounded like weather to shelter from. Full
+ * rain is unchanged; only the quiet end moved.
+ */
+const RAIN_CURVE = 1.6;
+
+/**
+ * Precipitation at which the heavy bed is half way in, and over what span.
+ *
+ * The knee sat at `0.3`, so the dark roar started arriving the moment rain was
+ * visible at all. A shower should be the light voice alone; the heavy bed is
+ * what a downpour adds.
+ */
+const RAIN_HEAVY_KNEE = 0.5;
+const RAIN_HEAVY_SPAN = 0.45;
+
+/**
+ * Blowing sand: a broad hiss of grains in the air plus a mid band for the ones
+ * hitting things. Quieter than rain at the same weight — sand is abrasive rather
+ * than percussive, and the wind voices carry most of a sandstorm.
+ */
+/**
+ * Distance in metres at which precipitation is at half level.
+ *
+ * Far shorter than the default {@link distanceLevel} half-distance, which is
+ * tuned for thunder rolling across kilometres. Rain on the ground is a near-field
+ * bed: from a few hundred metres up it is simply not there, and a fully
+ * zoomed-out editor camera stands about that far off the plane.
+ */
+export const PRECIPITATION_HALF_LEVEL_METRES = 35;
+
+/**
+ * The hiss is deliberately the quiet half of sand.
+ *
+ * It sits where the ear is most sensitive, so at anything like the mid band's
+ * level it stops reading as grit in the air and starts being fatiguing. Sand is
+ * heard as a low roar with abrasion on top, not as the abrasion alone.
+ */
+const SAND_HISS_GAIN = 0.05;
+const SAND_HISS_LO_HZ = 800;
+const SAND_HISS_HI_HZ = 1800;
+
+const SAND_MID_GAIN = 0.3;
+const SAND_MID_LO_HZ = 320;
+const SAND_MID_HI_HZ = 700;
+const SAND_MID_Q = 0.7;
+
+/** Resonance of the sand mid band, for the graph that builds it. */
+export const SAND_VOICE_Q = { mid: SAND_MID_Q } as const;
 
 /** Resonance of the two band-pass wind voices, for the graph that builds them. */
 export const WIND_VOICE_Q = {
@@ -228,28 +273,10 @@ export const smoothShelter = (
 });
 
 /**
- * The multiplier a stale ambience's gain rides: full until
- * {@link AMBIENCE_STALE_SECONDS} have passed with nobody pushing, then a linear
- * fade to silence over {@link AMBIENCE_SILENCE_RAMP}.
- *
- * The running graph does not evaluate this — it schedules the identical shape onto
- * its gain params ahead of time, so silence needs no tick to arrive. This is that
- * shape, in a form a test can assert.
- *
- * @example
- * stalenessGain(0) === 1;                      // pushed this frame
- * stalenessGain(0.25) === 0;                   // nobody pushed for a quarter second
- */
-export const stalenessGain = (sinceLastPush: number): number => {
-	const over = sinceLastPush - AMBIENCE_STALE_SECONDS;
-	if (over <= 0) {
-		return 1;
-	}
-	return clamp01(1 - over / AMBIENCE_SILENCE_RAMP);
-};
-
-/**
  * The whole ambience for one frame.
+ *
+ * Every channel is read here, not just one: rain crossfades light into heavy,
+ * sand adds its two voices, and snow contributes nothing at all.
  *
  * @example
  * const mix = weatherAudioMix(
@@ -261,12 +288,15 @@ export const weatherAudioMix = (
 	input: WeatherAudioInput,
 	shelter: ShelterState,
 ): WeatherAudioMix => {
-	// Gain rides the gust; cutoff deliberately does not. `wind * gust` clips at 1,
-	// so at a gale it plateaus and then dives — and a cutoff following that reads
-	// as a wah pedal rather than as weather. Spectral brightness tracks the eased
-	// wind scalar alone, which only moves as the weather itself does.
-	const speed = clamp01(input.wind * input.gust);
+	// Gain rides the gust; cutoff deliberately does not. A cutoff following the
+	// envelope reads as a wah pedal rather than as weather, so spectral brightness
+	// tracks the eased wind scalar alone, which only moves as the weather itself
+	// does. The envelope is normalised against its own ceiling rather than
+	// clamped: clamping saturates at a gale, where a gust could then only pull the
+	// bed down.
 	const spectral = clamp01(input.wind);
+	const speed =
+		(spectral * input.gust) / gustEnvelopeCeiling(input.wind);
 	const reach = clamp01(shelter.distance / EXPOSURE_MAX_DISTANCE);
 	const muffle =
 		(MUFFLE_FLOOR + (1 - MUFFLE_FLOOR) * shelter.openness) *
@@ -275,10 +305,14 @@ export const weatherAudioMix = (
 		shelter.openness * lerp(1, DISTANCE_CLARITY_FLOOR, reach);
 	const tilt = TILT_FLOOR + (1 - TILT_FLOOR) * clarity;
 
-	const wet = clamp01(input.precipitation);
-	const level = RAIN_GAIN * wet ** 0.7 * muffle;
+	const near = clamp01(input.proximity);
+	const wet = clamp01(input.precipitation.rain);
+	const level = RAIN_GAIN * wet ** RAIN_CURVE * muffle * near;
 	const heavy = smoothstep((wet - RAIN_HEAVY_KNEE) / RAIN_HEAVY_SPAN);
 	const rainPan = shelter.pan * (1 - shelter.openness);
+
+	const grit = clamp01(input.precipitation.sand);
+	const sandLevel = grit ** 0.7 * muffle * near;
 
 	return {
 		bed: {
@@ -315,6 +349,16 @@ export const weatherAudioMix = (
 		rainHeavy: {
 			gain: level * Math.sqrt(heavy),
 			frequency: lerp(RAIN_HEAVY_LO_HZ, RAIN_HEAVY_HI_HZ, wet) * tilt,
+			pan: rainPan,
+		},
+		sandHiss: {
+			gain: SAND_HISS_GAIN * sandLevel,
+			frequency: lerp(SAND_HISS_LO_HZ, SAND_HISS_HI_HZ, grit) * tilt,
+			pan: rainPan,
+		},
+		sandMid: {
+			gain: SAND_MID_GAIN * sandLevel * speed,
+			frequency: lerp(SAND_MID_LO_HZ, SAND_MID_HI_HZ, grit),
 			pan: rainPan,
 		},
 	};

@@ -1,5 +1,11 @@
 import type { ReadonlyECS } from "../ecs";
 import {
+	NO_CHANNELS,
+	type PartialWeatherChannels,
+	weatherChannels,
+	type WeatherChannels,
+} from "./channels";
+import {
 	CALM_PRESET,
 	type Climate,
 	type ClimatePreset,
@@ -12,7 +18,10 @@ import {
 } from "./climate-registry";
 import { weatherPreview } from "./preview";
 import { SceneClimateComponent } from "./scene-climate-component";
-import { WeatherOverrideComponent } from "./weather-override-component";
+import {
+	overrideRequest,
+	WeatherOverrideComponent,
+} from "./weather-override-component";
 import { WeatherStateComponent } from "./weather-state-component";
 
 /**
@@ -30,7 +39,7 @@ export type WeatherTargets = Readonly<{
 	/** Preset the targets came from, or `null` when only raw scalars were asked for. */
 	presetId: string | null;
 	wind: number;
-	precipitation: number;
+	precipitation: WeatherChannels;
 	direction: number;
 }>;
 
@@ -56,14 +65,14 @@ export type EffectiveWeather = Readonly<{
 	 * exposure muffle (`engine/weather/exposure.ts`) rather than with `indoor`.
 	 */
 	wind: number;
-	/** Raw eased precipitation, `0..1` — the audible weather. */
-	precipitation: number;
+	/** Raw eased precipitation per channel, each `0..1` — the audible weather. */
+	precipitation: WeatherChannels;
 	/** Signed horizontal base direction, `-1..1`. */
 	direction: number;
 	/** Indoor-masked wind — what foliage and particles read. */
 	visibleWind: number;
-	/** Indoor-masked precipitation — what rain emitters read. */
-	visiblePrecipitation: number;
+	/** Indoor-masked precipitation per channel — what emitters read. */
+	visiblePrecipitation: WeatherChannels;
 }>;
 
 /** The authored climate id of the active scene, or `null` to inherit the default. */
@@ -105,6 +114,18 @@ const fromPreset = (preset: ClimatePreset): WeatherTargets => ({
 	direction: preset.direction,
 });
 
+/**
+ * Channel-by-channel fall-through: a request supplies the channels it names and
+ * defers the rest, so "the storm, but wetter" needs no snow value.
+ */
+const applyChannels = (
+	base: WeatherChannels,
+	request: PartialWeatherChannels | null,
+): WeatherChannels =>
+	request === null
+		? base
+		: weatherChannels((channel) => request[channel] ?? base[channel]);
+
 const applyRequest = (
 	base: WeatherTargets,
 	request: WeatherRequest | null,
@@ -119,7 +140,10 @@ const applyRequest = (
 	return {
 		presetId: preset.presetId,
 		wind: request.wind ?? preset.wind,
-		precipitation: request.precipitation ?? preset.precipitation,
+		precipitation: applyChannels(
+			preset.precipitation,
+			request.precipitation,
+		),
 		direction: request.direction ?? preset.direction,
 	};
 };
@@ -139,8 +163,9 @@ const targetsFor = (
 						)?.preset) ||
 						climate.defaultPreset,
 				);
+	const override = activeOverride(ecs);
 	return applyRequest(
-		applyRequest(base, activeOverride(ecs)),
+		applyRequest(base, override && overrideRequest(override)),
 		weatherPreview(ecs),
 	);
 };
@@ -175,7 +200,7 @@ export const weatherTargets = (ecs: ReadonlyECS): WeatherTargets =>
  *
  * @example
  * const weather = effectiveWeather(ecs);
- * emitter.rate = base * weather.visiblePrecipitation;
+ * emitter.rate = base * weather.visiblePrecipitation.rain;
  */
 export const effectiveWeather = (
 	ecs: ReadonlyECS,
@@ -186,7 +211,7 @@ export const effectiveWeather = (
 	const indoor = sceneIndoor(ecs);
 	const wind = state ? state.wind : targets.wind;
 	const precipitation = state
-		? state.precipitation
+		? weatherChannels((channel) => state[channel])
 		: targets.precipitation;
 	return {
 		climateId: climate?.id ?? null,
@@ -196,6 +221,6 @@ export const effectiveWeather = (
 		precipitation,
 		direction: state ? state.direction : targets.direction,
 		visibleWind: indoor ? 0 : wind,
-		visiblePrecipitation: indoor ? 0 : precipitation,
+		visiblePrecipitation: indoor ? NO_CHANNELS : precipitation,
 	};
 };

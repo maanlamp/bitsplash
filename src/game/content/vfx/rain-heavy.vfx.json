@@ -1,0 +1,37 @@
+{
+	"id": "rain-heavy",
+	"parts": [
+		{
+			"kind": "emitter",
+			"layer": "overlay",
+			"order": 0,
+			"blend": "normal",
+			"space": "world",
+			"emission": { "rate": 340, "burst": 0 },
+			"spawn": {
+				"shape": "camera-band",
+				"widthScale": 1.9,
+				"height": 48,
+				"offsetY": -64
+			},
+			"lifetime": { "min": 0.8, "max": 1.1 },
+			"size": { "min": 2, "max": 3.5 },
+			"speed": { "min": 760, "max": 940 },
+			"angle": { "min": 84, "max": 96 },
+			"gravity": 380,
+			"stretch": 0.038,
+			"wind": 460,
+			"weather": { "rain": 1, "wind": 1 },
+			"collision": {
+				"mode": "tiles",
+				"cells": "rain-blocking",
+				"response": "die",
+				"restChance": 1
+			},
+			"tracks": {
+				"color": [{ "t": 0, "value": "#cfe0ff" }],
+				"alpha": [{ "t": 0, "value": 0.9 }]
+			}
+		}
+	]
+}

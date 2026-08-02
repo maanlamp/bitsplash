@@ -406,7 +406,7 @@ export const multiEntityFieldBinding = (
 	return build([]);
 };
 
-/** A field binding onto the scene config (gravity, ui scale, clear color). */
+/** A field binding onto the scene config (gravity, ui scale). */
 export const configFieldBinding = (
 	document: SceneDocument,
 ): FieldBinding =>

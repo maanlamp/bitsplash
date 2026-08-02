@@ -23,6 +23,7 @@ import {
 
 const HOST = emitterId("01");
 const OTHER = emitterId("02");
+const RIBBONS = emitterId("03");
 
 /** Every component type name the snapshot is allowed to contain. */
 const ALLOWED_TYPES = ["Transform", "Emitter"];
@@ -34,6 +35,9 @@ const ALLOWED_TYPES = ["Transform", "Emitter"];
  * this rather than against the pre-save count.
  */
 const DRIFT_STEADY_STATE = 20;
+
+/** `streaks` keeps six ribbons alive; a full band is what seeding must restore. */
+const STREAKS_BAND = 6;
 
 const typeNames = (world: SerializedWorld): string[] =>
 	[
@@ -51,6 +55,12 @@ const harnessFor = () =>
 				emitters: [
 					{ id: HOST, defId: FIXTURE_EFFECTS.drift, x: 40, y: 10 },
 					{ id: OTHER, defId: FIXTURE_EFFECTS.riding, x: -20, y: 5 },
+					{
+						id: RIBBONS,
+						defId: FIXTURE_EFFECTS.streaks,
+						x: 0,
+						y: 0,
+					},
 				],
 			},
 		},
@@ -66,13 +76,15 @@ describe("vfx snapshot semantics", () => {
 		const store = harness.systems().store;
 		expect(store.particleCount(HOST)).toBeGreaterThan(0);
 		expect(store.particleCount(OTHER)).toBeGreaterThan(0);
+		expect(store.ribbonCount(RIBBONS)).toBe(STREAKS_BAND);
 
 		const snapshot = fixture.runtime.snapshot();
 		const scene = snapshot.scenes[DEFAULT_VFX_SCENE]!;
 
-		// Exactly the two authored entities: a particle never became one.
+		// Exactly the three authored entities: no particle and no ribbon ever
+		// became one.
 		expect(scene.map((entity) => entity.id).sort()).toEqual(
-			[HOST, OTHER].sort(),
+			[HOST, OTHER, RIBBONS].sort(),
 		);
 		expect(snapshot.persistent).toEqual([]);
 		expect(typeNames(scene)).toEqual([...ALLOWED_TYPES].sort());
@@ -86,7 +98,7 @@ describe("vfx snapshot semantics", () => {
 		);
 		expect(emitter.defId).toBe(FIXTURE_EFFECTS.drift);
 
-		// Nothing anywhere in the blob mentions a particle.
+		// Nothing anywhere in the blob mentions a particle or a ribbon.
 		const blob = JSON.stringify(snapshot);
 		for (const smell of [
 			"particle",
@@ -95,6 +107,9 @@ describe("vfx snapshot semantics", () => {
 			"age",
 			"velocity",
 			"vx",
+			"ribbon",
+			"segments",
+			"wander",
 		]) {
 			expect(blob).not.toContain(smell);
 		}
@@ -110,6 +125,7 @@ describe("vfx snapshot semantics", () => {
 
 		const before = harness.systems().store;
 		expect(before.particleCount(HOST)).toBeGreaterThan(0);
+		expect(before.ribbonCount(RIBBONS)).toBe(STREAKS_BAND);
 
 		await fixture.saveAndReload();
 
@@ -118,12 +134,14 @@ describe("vfx snapshot semantics", () => {
 		const after = harness.systems().store;
 		expect(after).not.toBe(before);
 		expect(after.totalParticles()).toBe(0);
+		expect(after.totalRibbons()).toBe(0);
 
-		// One frame later the emitter has re-derived its whole steady-state
-		// population from config — seed-by-age, not a restored pool.
+		// One frame later the emitters have re-derived their whole steady-state
+		// population from config — seed-by-age, not a restored pool or band.
 		fixture.step(1);
 		expect(after.particleCount(HOST)).toBe(DRIFT_STEADY_STATE);
 		expect(after.particleCount(OTHER)).toBeGreaterThan(0);
+		expect(after.ribbonCount(RIBBONS)).toBe(STREAKS_BAND);
 
 		fixture.dispose();
 	});
@@ -141,6 +159,9 @@ describe("vfx snapshot semantics", () => {
 		expect(harness.systems().store.particleCount(HOST)).toBe(
 			DRIFT_STEADY_STATE,
 		);
+		expect(harness.systems().store.ribbonCount(RIBBONS)).toBe(
+			STREAKS_BAND,
+		);
 
 		fixture.dispose();
 	});
@@ -152,10 +173,28 @@ describe("vfx snapshot semantics", () => {
 		fixture.step(1);
 
 		const effect = harness.systems().store.attachedEffect(HOST)!;
-		const pool = effect.pools[0]!;
+		const state = effect.parts[0]!;
+		if (state.kind !== "emitter") {
+			throw new Error(
+				"vfx-snapshot: drift part 0 should be an emitter",
+			);
+		}
+		const pool = state.pool;
 		const ages = [...pool.age.subarray(0, pool.count)];
 		expect(Math.min(...ages)).toBeLessThan(0.25);
 		expect(Math.max(...ages)).toBeGreaterThan(0.75);
+
+		// Ribbons seed the same way, so a restored band is mid-fade rather than
+		// all born together and all expiring together two seconds later.
+		const band = harness.systems().store.attachedEffect(RIBBONS)!
+			.parts[0]!;
+		if (band.kind !== "ribbon") {
+			throw new Error(
+				"vfx-snapshot: streaks part 0 should be a ribbon",
+			);
+		}
+		const lives = [...band.band.age.subarray(0, band.band.count)];
+		expect(new Set(lives).size).toBe(STREAKS_BAND);
 
 		fixture.dispose();
 	});

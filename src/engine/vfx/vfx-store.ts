@@ -1,7 +1,11 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
 import { randomRngSeed, rngNext } from "../rng";
 import { EmitterComponent } from "./emitter-component";
-import type { VfxDef, VfxEmitterPart } from "./vfx-def";
+import type {
+	VfxDef,
+	VfxEmitterPart,
+	VfxRibbonPart,
+} from "./vfx-def";
 import { resolveVfxDef } from "./vfx-registry";
 
 /**
@@ -19,6 +23,11 @@ import { resolveVfxDef } from "./vfx-registry";
  * the save tripwires have nothing to diff. That is the structural guarantee; see
  * the VFX doctrine note in `AGENTS.md` for why the state is deliberately
  * non-restorable.
+ *
+ * Ribbon bands live here for exactly that reason: put anywhere else they would be
+ * restorable, and a ribbon's run-state is as cosmetic as a particle's. They
+ * inherit the whole property — never captured, never restored, re-derived and
+ * seeded by age on thaw.
  */
 
 const FLAG_REACTS = 1;
@@ -112,6 +121,76 @@ export class VfxPool {
 }
 
 /**
+ * One ribbon part's live ribbons, structure-of-arrays, packed exactly like
+ * {@link VfxPool}.
+ *
+ * A ribbon holds only what its path generator cannot re-derive: where it starts,
+ * how long it is, how old it is, and the one random draw that gives it its own
+ * shape for its whole life. The points themselves are regenerated every frame
+ * rather than stored, so a 32-segment ribbon costs six floats here rather than
+ * sixty-six.
+ */
+export class VfxRibbonBand {
+	readonly capacity: number;
+	/** Live ribbons, packed at the front of every array. */
+	count = 0;
+	/** Whether origins are relative to the host transform. See {@link VfxPool.local}. */
+	local: boolean;
+
+	readonly x: Float32Array;
+	readonly y: Float32Array;
+	readonly age: Float32Array;
+	readonly life: Float32Array;
+	readonly length: Float32Array;
+	/** A draw in `[0, 1)`, fixed for the ribbon's life; the generator's variety. */
+	readonly seed: Float32Array;
+
+	constructor(capacity: number, local: boolean) {
+		this.capacity = capacity;
+		this.local = local;
+		this.x = new Float32Array(capacity);
+		this.y = new Float32Array(capacity);
+		this.age = new Float32Array(capacity);
+		this.life = new Float32Array(capacity);
+		this.length = new Float32Array(capacity);
+		this.seed = new Float32Array(capacity);
+	}
+
+	/** Drop ribbon `i`, swapping the last live one into its slot. See {@link VfxPool.kill}. */
+	kill(i: number): void {
+		const last = this.count - 1;
+		if (i !== last) {
+			this.x[i] = this.x[last]!;
+			this.y[i] = this.y[last]!;
+			this.age[i] = this.age[last]!;
+			this.life[i] = this.life[last]!;
+			this.length[i] = this.length[last]!;
+			this.seed[i] = this.seed[last]!;
+		}
+		this.count = last;
+	}
+}
+
+/**
+ * One part of a running effect, paired with the run-state its kind needs.
+ *
+ * The discriminant sits at the top rather than being read off `part.kind`, so
+ * narrowing gives the state as well as the part and the two can never be
+ * mismatched — the pairing is built once, in {@link buildParts}.
+ */
+export type VfxPartState =
+	| Readonly<{
+			kind: "emitter";
+			part: VfxEmitterPart;
+			pool: VfxPool;
+	  }>
+	| Readonly<{
+			kind: "ribbon";
+			part: VfxRibbonPart;
+			band: VfxRibbonBand;
+	  }>;
+
+/**
  * One running effect: an instance of a {@link VfxDef}, either attached to a host
  * entity or loose in the world.
  */
@@ -129,8 +208,8 @@ export type VfxEffect = {
 	/** Last known host origin in world units, including the emitter's offset. */
 	originX: number;
 	originY: number;
-	/** One pool per part of {@link def}, index-aligned. */
-	readonly pools: ReadonlyArray<VfxPool>;
+	/** One run-state per part of {@link def}, in the same order. */
+	readonly parts: ReadonlyArray<VfxPartState>;
 };
 
 /**
@@ -149,19 +228,48 @@ export type VfxEmitOrigin = Readonly<{
 	angle: number;
 }>;
 
-/** Total live particles across an effect's pools. */
+/** Total live particles across an effect's pools; ribbons are not particles. */
 const effectParticleCount = (effect: VfxEffect): number => {
 	let total = 0;
-	for (const pool of effect.pools) {
-		total += pool.count;
+	for (const state of effect.parts) {
+		if (state.kind === "emitter") {
+			total += state.pool.count;
+		}
 	}
 	return total;
 };
 
-const buildPools = (def: VfxDef): VfxPool[] =>
-	def.parts.map(
-		(part) => new VfxPool(part.capacity, part.space === "local"),
-	);
+/** Total live ribbons across an effect's bands. */
+const effectRibbonCount = (effect: VfxEffect): number => {
+	let total = 0;
+	for (const state of effect.parts) {
+		if (state.kind === "ribbon") {
+			total += state.band.count;
+		}
+	}
+	return total;
+};
+
+/** Whether an effect is still showing anything at all. */
+const effectIsEmpty = (effect: VfxEffect): boolean =>
+	effectParticleCount(effect) === 0 &&
+	effectRibbonCount(effect) === 0;
+
+const buildParts = (def: VfxDef): VfxPartState[] =>
+	def.parts.map((part) => {
+		const local = part.space === "local";
+		return part.kind === "emitter"
+			? {
+					kind: "emitter",
+					part,
+					pool: new VfxPool(part.capacity, local),
+				}
+			: {
+					kind: "ribbon",
+					part,
+					band: new VfxRibbonBand(part.count, local),
+				};
+	});
 
 export class VfxStore {
 	private readonly attached = new Map<EntityId, VfxEffect>();
@@ -211,7 +319,7 @@ export class VfxStore {
 			emitting: true,
 			originX,
 			originY,
-			pools: buildPools(def),
+			parts: buildParts(def),
 		};
 		this.attached.set(host, effect);
 		return effect;
@@ -244,18 +352,19 @@ export class VfxStore {
 		}
 		this.attached.delete(host);
 		effect.emitting = false;
-		if (effectParticleCount(effect) === 0) {
+		if (effectIsEmpty(effect)) {
 			return;
 		}
-		for (const pool of effect.pools) {
-			if (!pool.local) {
+		for (const state of effect.parts) {
+			const live = state.kind === "emitter" ? state.pool : state.band;
+			if (!live.local) {
 				continue;
 			}
-			for (let i = 0; i < pool.count; i++) {
-				pool.x[i] = pool.x[i]! + effect.originX;
-				pool.y[i] = pool.y[i]! + effect.originY;
+			for (let i = 0; i < live.count; i++) {
+				live.x[i] = live.x[i]! + effect.originX;
+				live.y[i] = live.y[i]! + effect.originY;
 			}
-			pool.local = false;
+			live.local = false;
 		}
 		this.loose.push({ ...effect, host: null });
 	}
@@ -288,6 +397,11 @@ export class VfxStore {
 	 * because a one-shot has a place and a moment rather than a view and a
 	 * duration.
 	 *
+	 * A ribbon part fires its whole `count` once and lives out — the same def a
+	 * hosted effect would keep topped up, which is how one authored ribbon serves
+	 * both a standing wind line and a single struck bolt. `camera` ribbons are
+	 * skipped for the same reason camera bands are.
+	 *
 	 * @param angle Radians added to every part's authored heading, so a burst can
 	 * be aimed away from an impact.
 	 *
@@ -302,16 +416,30 @@ export class VfxStore {
 			emitting: false,
 			originX: x,
 			originY: y,
-			pools: buildPools(def),
+			parts: buildParts(def),
 		};
 		let any = false;
-		for (let p = 0; p < def.parts.length; p++) {
-			const part = def.parts[p]!;
+		for (const state of effect.parts) {
+			const local = state.part.space === "local";
+			if (state.kind === "ribbon") {
+				if (state.part.origin === "camera") {
+					continue;
+				}
+				this.spawnRibbons(
+					state.band,
+					state.part,
+					state.part.count,
+					local ? 0 : x,
+					local ? 0 : y,
+				);
+				any = true;
+				continue;
+			}
+			const { part, pool } = state;
 			if (part.burst === 0 || part.spawn.kind === "camera-band") {
 				continue;
 			}
-			const local = part.space === "local";
-			this.emit(effect.pools[p]!, part, part.burst, {
+			this.emit(pool, part, part.burst, {
 				x: local ? 0 : x,
 				y: local ? 0 : y,
 				spreadX: part.spawn.kind === "box" ? part.spawn.width : 0,
@@ -322,6 +450,34 @@ export class VfxStore {
 		}
 		if (any) {
 			this.loose.push(effect);
+		}
+	}
+
+	/**
+	 * Start `count` ribbons at a point, drawing each one's lifetime, length and
+	 * shape seed. Stops at capacity, which is the part's authored `count`.
+	 *
+	 * Ages start at zero; a caller seeding a steady-state population writes them
+	 * afterwards, the same shape as particle seed-by-age.
+	 */
+	spawnRibbons(
+		band: VfxRibbonBand,
+		part: VfxRibbonPart,
+		count: number,
+		x: number,
+		y: number,
+	): void {
+		for (let n = 0; n < count && band.count < band.capacity; n++) {
+			const i = band.count++;
+			band.x[i] = x;
+			band.y[i] = y;
+			band.age[i] = 0;
+			band.life[i] = this.between(
+				part.lifetime.min,
+				part.lifetime.max,
+			);
+			band.length[i] = this.between(part.length.min, part.length.max);
+			band.seed[i] = this.random();
 		}
 	}
 
@@ -372,11 +528,11 @@ export class VfxStore {
 		return [...this.attached.values(), ...this.loose];
 	}
 
-	/** Drop loose effects that have stopped emitting and hold no particles. */
+	/** Drop loose effects that have stopped emitting and show nothing. */
 	pruneLoose(): void {
 		for (let i = this.loose.length - 1; i >= 0; i--) {
 			const effect = this.loose[i]!;
-			if (!effect.emitting && effectParticleCount(effect) === 0) {
+			if (!effect.emitting && effectIsEmpty(effect)) {
 				this.loose.splice(i, 1);
 			}
 		}
@@ -388,16 +544,31 @@ export class VfxStore {
 		return effect ? effectParticleCount(effect) : 0;
 	}
 
+	/** Live ribbons for a host's effect, or zero when it has none. */
+	ribbonCount(host: EntityId): number {
+		const effect = this.attached.get(host);
+		return effect ? effectRibbonCount(effect) : 0;
+	}
+
 	/** Live particles across every effect in this world. */
 	totalParticles(): number {
-		let total = 0;
+		return this.total(effectParticleCount);
+	}
+
+	/** Live ribbons across every effect in this world. */
+	totalRibbons(): number {
+		return this.total(effectRibbonCount);
+	}
+
+	private total(count: (effect: VfxEffect) => number): number {
+		let sum = 0;
 		for (const effect of this.attached.values()) {
-			total += effectParticleCount(effect);
+			sum += count(effect);
 		}
 		for (const effect of this.loose) {
-			total += effectParticleCount(effect);
+			sum += count(effect);
 		}
-		return total;
+		return sum;
 	}
 
 	/** Number of loose one-shots and lived-out remnants currently running. */

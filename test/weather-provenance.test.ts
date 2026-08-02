@@ -13,6 +13,7 @@ import { deserializeWorld } from "../src/engine/serialization/deserialize";
 import { serializeWorld } from "../src/engine/serialization/serialize";
 import { TransformComponent } from "../src/engine/transform-component";
 import Vector2 from "../src/engine/vector2";
+import { WEATHER_CHANNELS } from "../src/engine/weather/channels";
 import { World } from "../src/engine/world";
 import { migrateLegacyTiles } from "../src/game/scenes/migrate-legacy-tiles";
 import { WeatherOverrideComponent } from "../src/engine/weather/weather-override-component";
@@ -34,6 +35,9 @@ import {
  * The first test is the anti-vacuity check: it proves `WeatherState` and
  * `WeatherOverride` really do serialize, so their absence from the artifact is a
  * property of the construction rather than of the components being invisible.
+ * It also pins the run-state's own schema — one eased scalar per weather channel
+ * — because a channel that silently stopped serializing would be lost from every
+ * save with nothing else to catch it.
  */
 
 const loadRapierHeadless = async (): Promise<void> => {
@@ -102,7 +106,7 @@ beforeAll(async () => {
 });
 
 describe("weather run-state never reaches an authored scene file", () => {
-	test("a simulated world does serialize both weather run-state types", async () => {
+	test("a simulated world does serialize both weather run-state types, every channel included", async () => {
 		const fixture = await SequenceFixture.create(
 			weatherHarnessConfig(),
 		);
@@ -120,6 +124,20 @@ describe("weather run-state never reaches an authored scene file", () => {
 
 		expect(names.has("WeatherState")).toBe(true);
 		expect(names.has("WeatherOverride")).toBe(true);
+
+		// Every channel must survive the round trip. A channel added to
+		// WEATHER_CHANNELS but not to the component would otherwise be lost from
+		// every save with nothing to notice — the failure nobody can see.
+		const state = live
+			.map((entity) => entity.components.WeatherState)
+			.find((component) => component !== undefined)!;
+		for (const channel of WEATHER_CHANNELS) {
+			expect(typeof state[channel]).toBe("number");
+		}
+		// The gale preset the override imposes is wet and sandy, so this is a real
+		// value being carried, not a default that would serialize either way.
+		expect(state.rain).toBeGreaterThan(0);
+		expect(state.sand).toBeGreaterThan(0);
 
 		fixture.dispose();
 	});

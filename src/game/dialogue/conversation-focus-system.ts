@@ -3,7 +3,7 @@ import {
 	RenderSystem,
 } from "../../engine/system";
 import type { UiEventDispatcher } from "../../engine/ui/input/event-dispatcher";
-import { findById, handlerOf } from "../../engine/ui/input/node-tree";
+import { findById } from "../../engine/ui/input/node-tree";
 import type { UiNode } from "../../engine/ui/reconciler/ui-node";
 import type { UiRoot } from "../../engine/ui/reconciler/ui-root";
 import {
@@ -71,7 +71,6 @@ export class ConversationFocusSystem extends RenderSystem {
 			return;
 		}
 		this.anchored = first;
-		focusNav.focus(first);
-		handlerOf(first, "onFocus")?.(undefined);
+		this.dispatcher.focusNode(this.root.tree, first);
 	}
 }

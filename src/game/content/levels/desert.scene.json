@@ -1,0 +1,365 @@
+{
+	"version": 1,
+	"kind": "platformer",
+	"name": "Desert",
+	"config": {
+		"gravity": {
+			"x": 0,
+			"y": 640
+		},
+		"uiScale": 3
+	},
+	"entities": [
+		{
+			"id": "desert:render-layers",
+			"components": {
+				"RenderLayers": {
+					"layers": [
+						{
+							"$type": "RenderLayerDef",
+							"id": "background",
+							"name": "background"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "entities",
+							"name": "entities"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "foreground",
+							"name": "foreground"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "terrain",
+							"name": "terrain"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "overlay",
+							"name": "overlay"
+						}
+					]
+				}
+			}
+		},
+		{
+			"id": "10d22283-f871-4251-8af3-d35502819fca",
+			"components": {
+				"Sky": {
+					"color": {
+						"$type": "Color",
+						"css": "oklch(0.848 0.0662 214.5 / 1)"
+					}
+				}
+			}
+		},
+		{
+			"id": "5bdb497a-6fe1-41ee-a9f4-3da1d5d21669",
+			"components": {
+				"SceneClimate": {
+					"climateId": "desert",
+					"indoor": false
+				}
+			}
+		},
+		{
+			"id": "09c7f461-7f71-4bd2-81e6-33e300090d46",
+			"components": {
+				"TileLayer": {
+					"cells": [
+						{
+							"x": -13,
+							"y": 5,
+							"w": 4,
+							"h": 1
+						},
+						{
+							"x": 28,
+							"y": 5,
+							"w": 4,
+							"h": 1
+						},
+						{
+							"x": -15,
+							"y": 6,
+							"w": 10,
+							"h": 1
+						},
+						{
+							"x": 27,
+							"y": 6,
+							"w": 7,
+							"h": 1
+						},
+						{
+							"x": -15,
+							"y": 7,
+							"w": 12,
+							"h": 1
+						},
+						{
+							"x": 27,
+							"y": 7,
+							"w": 9,
+							"h": 1
+						},
+						{
+							"x": -26,
+							"y": 8,
+							"w": 3,
+							"h": 1
+						},
+						{
+							"x": -16,
+							"y": 8,
+							"w": 14,
+							"h": 1
+						},
+						{
+							"x": 26,
+							"y": 8,
+							"w": 17,
+							"h": 1
+						},
+						{
+							"x": 46,
+							"y": 8,
+							"w": 1,
+							"h": 1
+						},
+						{
+							"x": -28,
+							"y": 9,
+							"w": 7,
+							"h": 1
+						},
+						{
+							"x": -17,
+							"y": 9,
+							"w": 16,
+							"h": 1
+						},
+						{
+							"x": 7,
+							"y": 9,
+							"w": 3,
+							"h": 1
+						},
+						{
+							"x": 25,
+							"y": 9,
+							"w": 22,
+							"h": 1
+						},
+						{
+							"x": -30,
+							"y": 10,
+							"w": 30,
+							"h": 1
+						},
+						{
+							"x": 6,
+							"y": 10,
+							"w": 6,
+							"h": 1
+						},
+						{
+							"x": 24,
+							"y": 10,
+							"w": 23,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 11,
+							"w": 35,
+							"h": 1
+						},
+						{
+							"x": 4,
+							"y": 11,
+							"w": 10,
+							"h": 1
+						},
+						{
+							"x": 16,
+							"y": 11,
+							"w": 5,
+							"h": 1
+						},
+						{
+							"x": 22,
+							"y": 11,
+							"w": 25,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 12,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 13,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 14,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 15,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 16,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 17,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 18,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 19,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 20,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 21,
+							"w": 81,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 22,
+							"w": 81,
+							"h": 1
+						}
+					],
+					"name": "Dunes",
+					"tilesetRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/sand.tileset.png"
+					},
+					"collision": "solid",
+					"rainBlocking": "auto",
+					"renderLayer": "terrain",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "3a93195e-776e-4bb1-96a8-fb4d02ad0f44",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 48,
+						"y": 320
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"SpawnPoint": {
+					"prefab": "player",
+					"spawnOnLoad": true
+				}
+			}
+		},
+		{
+			"id": "86d8d7c4-8adf-4dac-a42e-85a7fa550f41",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "sand",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
+				}
+			}
+		},
+		{
+			"id": "62b2e675-8659-4fdf-aaec-df18fde940ff",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "wind-lines",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
+				}
+			}
+		}
+	]
+}

@@ -1,3 +1,4 @@
+import type { PartialWeatherChannels } from "../weather/channels";
 import type {
 	ActorRef,
 	BranchNode,
@@ -257,8 +258,12 @@ export type WeatherOverrideParams = Readonly<{
 	presetId?: string;
 	/** Wind target `0..1`, winning over `presetId`. */
 	wind?: number;
-	/** Precipitation target `0..1`, winning over `presetId`. */
-	precipitation?: number;
+	/**
+	 * Per-channel precipitation targets `0..1`, each winning over `presetId`. A
+	 * channel left out defers rather than zeroing, so `{ rain: 1 }` makes it pour
+	 * without also promising the preset's snow away.
+	 */
+	precipitation?: PartialWeatherChannels;
 	/** Signed base direction `-1..1`, winning over `presetId`. */
 	direction?: number;
 	/** Highest priority wins among live overrides. Defaults to `0`. */
@@ -285,7 +290,7 @@ export type WeatherOverrideParams = Readonly<{
  * @example
  * weatherOverride("ambush.storm", { presetId: "storm", priority: 10 })
  * @example
- * weatherOverride("duel.stillness", { wind: 0, precipitation: 0 })
+ * weatherOverride("duel.stillness", { wind: 0, precipitation: { rain: 0 } })
  */
 export const weatherOverride = (
 	stepId: string,

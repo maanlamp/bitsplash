@@ -349,7 +349,6 @@ export class SceneDocument extends Subscribable {
 		const config = toSceneConfig(this._baseline.config);
 		this.scene.config.gravity = config.gravity;
 		this.scene.config.uiScale = config.uiScale;
-		this.scene.config.clearColor = config.clearColor;
 		this.scene.world.setGravity(config.gravity);
 	}
 

@@ -5,6 +5,7 @@ import { createEntity } from "../src/editor/commands";
 import { SceneDocument } from "../src/editor/scene-document";
 import { loadRapier } from "../src/engine/physics/rapier-physics";
 import { migrateRenderLayers } from "../src/engine/render/migrate-render-layers";
+import { migrateSky } from "../src/engine/sky/migrate-sky";
 import {
 	Scene,
 	type SceneFile,
@@ -68,7 +69,7 @@ beforeAll(async () => {
 describe("scene document save (replay onto scratch)", () => {
 	test("a no-op save reproduces the migrated baseline byte-for-byte", () => {
 		const baseline = migrateLegacyTiles(
-			migrateRenderLayers(demoFile(), "demo"),
+			migrateSky(migrateRenderLayers(demoFile(), "demo"), "demo"),
 			"demo",
 			"dirt.png",
 		);
@@ -146,7 +147,7 @@ describe("scene document save (replay onto scratch)", () => {
 			entities: [],
 		};
 		const baseline = migrateLegacyTiles(
-			migrateRenderLayers(legacy, "demo"),
+			migrateSky(migrateRenderLayers(legacy, "demo"), "demo"),
 			"demo",
 			"dirt.png",
 		);

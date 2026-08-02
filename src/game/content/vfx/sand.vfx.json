@@ -1,0 +1,46 @@
+{
+	"id": "sand",
+	"parts": [
+		{
+			"kind": "emitter",
+			"layer": "overlay",
+			"order": 0,
+			"blend": "normal",
+			"space": "world",
+			"emission": { "rate": 1500, "burst": 0 },
+			"spawn": {
+				"shape": "camera-band",
+				"widthScale": 1.6,
+				"height": 300,
+				"offsetY": 120
+			},
+			"lifetime": { "min": 0.9, "max": 1.5 },
+			"size": { "min": 1, "max": 2.5 },
+			"speed": { "min": 40, "max": 90 },
+			"angle": { "min": 60, "max": 120 },
+			"gravity": 30,
+			"drag": 1.8,
+			"stretch": 0.024,
+			"wind": 900,
+			"weather": { "sand": 1 },
+			"collision": {
+				"mode": "tiles",
+				"cells": "rain-blocking",
+				"response": "die",
+				"restChance": 1
+			},
+			"tracks": {
+				"color": [
+					{ "t": 0, "value": "#d9bd85" },
+					{ "t": 1, "value": "#c19a5c" }
+				],
+				"alpha": [
+					{ "t": 0, "value": 0 },
+					{ "t": 0.15, "value": 0.55 },
+					{ "t": 0.75, "value": 0.55 },
+					{ "t": 1, "value": 0 }
+				]
+			}
+		}
+	]
+}

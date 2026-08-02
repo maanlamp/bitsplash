@@ -47,6 +47,7 @@ export const FIXTURE_EFFECTS = {
 	settling: "settling",
 	riding: "riding",
 	downpour: "downpour",
+	streaks: "streaks",
 } as const;
 
 /**
@@ -66,9 +67,10 @@ const part = (
 });
 
 /**
- * Six effects covering the behaviours the core has to get right: a plain
+ * Seven effects covering the behaviours the core has to get right: a plain
  * continuous drift, a one-shot puff, a drift that dies into that puff, a
- * settling collider, a local-space rider, and a precipitation-scaled downpour.
+ * settling collider, a local-space rider, a precipitation-scaled downpour, and a
+ * band of wind-driven ribbons.
  */
 export const FIXTURE_VFX: ReadonlyArray<unknown> = [
 	{ id: FIXTURE_EFFECTS.drift, parts: [part()] },
@@ -119,8 +121,30 @@ export const FIXTURE_VFX: ReadonlyArray<unknown> = [
 		parts: [
 			part({
 				emission: { rate: 60, burst: 0 },
-				weather: { precipitation: 1 },
+				weather: { rain: 1 },
 			}),
+		],
+	},
+	{
+		id: FIXTURE_EFFECTS.streaks,
+		parts: [
+			{
+				kind: "ribbon",
+				layer: "overlay",
+				order: 1,
+				count: 6,
+				segments: 8,
+				lifetime: { min: 2, max: 2 },
+				length: { min: 60, max: 90 },
+				path: {
+					generator: "wander",
+					amplitude: 4,
+					waves: 1.5,
+					tilt: 8,
+				},
+				width: { base: 2, taperHead: 0.2, taperTail: 0.2 },
+				wind: 30,
+			},
 		],
 	},
 ];

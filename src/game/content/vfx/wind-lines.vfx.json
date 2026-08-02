@@ -1,0 +1,39 @@
+{
+	"id": "wind-lines",
+	"parts": [
+		{
+			"kind": "ribbon",
+			"layer": "overlay",
+			"order": 1,
+			"blend": "normal",
+			"space": "world",
+			"origin": "camera",
+			"count": 26,
+			"segments": 14,
+			"lifetime": { "min": 1.2, "max": 2.4 },
+			"length": { "min": 90, "max": 240 },
+			"path": {
+				"generator": "wander",
+				"amplitude": 7,
+				"waves": 1.6,
+				"tilt": 11
+			},
+			"width": {
+				"base": 1.5,
+				"taperHead": 0.35,
+				"taperTail": 0.45
+			},
+			"wind": 260,
+			"weather": { "wind": 1 },
+			"tracks": {
+				"color": [{ "t": 0, "value": "#e8f2ff" }],
+				"alpha": [
+					{ "t": 0, "value": 0 },
+					{ "t": 0.18, "value": 0.5 },
+					{ "t": 0.7, "value": 0.5 },
+					{ "t": 1, "value": 0 }
+				]
+			}
+		}
+	]
+}

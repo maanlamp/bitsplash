@@ -24,12 +24,17 @@ let catalog: ClimateCatalog | null = null;
 /**
  * Validate and install the catalog. Throws with the source named on any content
  * problem — an empty preset table, a dangling preset reference, all-zero
- * weights, a default that is not listed, a degenerate dwell range.
+ * weights, a default that is not listed, a degenerate dwell range, an unknown
+ * precipitation channel, or a dwell too short for the chase to arrive in.
  *
  * Installing replaces whatever was registered before. The shipped game calls
  * this exactly once from `game/registrations.ts`; tests install fixture catalogs
  * by calling it again and hand the world back to weather-off with
  * {@link clearClimateCatalog}.
+ *
+ * @param tau The chase time constant the scheduler will run with, which the
+ *   dwell check is relative to. Defaults to the shipped one; a test that
+ *   constructs its scheduler with a different tau passes the same value here.
  *
  * @example
  * registerClimateCatalog(climatesJson, "src/game/content/weather/climates.json");
@@ -37,8 +42,9 @@ let catalog: ClimateCatalog | null = null;
 export const registerClimateCatalog = (
 	authored: AuthoredClimateCatalog,
 	source: string,
+	tau?: number,
 ): void => {
-	catalog = validateClimateCatalog(authored, source);
+	catalog = validateClimateCatalog(authored, source, tau);
 };
 
 /** Return to the weather-disabled state. Test hygiene; nothing ships calling it. */

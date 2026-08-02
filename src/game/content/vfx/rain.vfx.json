@@ -7,21 +7,21 @@
 			"order": 0,
 			"blend": "normal",
 			"space": "world",
-			"emission": { "rate": 420, "burst": 0 },
+			"emission": { "rate": 500, "burst": 0 },
 			"spawn": {
 				"shape": "camera-band",
 				"widthScale": 1.7,
 				"height": 40,
 				"offsetY": -56
 			},
-			"lifetime": { "min": 1, "max": 1.4 },
+			"lifetime": { "min": 0.9, "max": 1.25 },
 			"size": { "min": 1.5, "max": 2.5 },
-			"speed": { "min": 520, "max": 660 },
+			"speed": { "min": 560, "max": 720 },
 			"angle": { "min": 86, "max": 94 },
 			"gravity": 300,
-			"stretch": 0.028,
-			"wind": 220,
-			"weather": { "precipitation": 1 },
+			"stretch": 0.032,
+			"wind": 300,
+			"weather": { "rain": 1 },
 			"collision": {
 				"mode": "tiles",
 				"cells": "rain-blocking",
@@ -31,7 +31,7 @@
 			"onDeath": "rain-splash",
 			"tracks": {
 				"color": [{ "t": 0, "value": "#bcd7ff" }],
-				"alpha": [{ "t": 0, "value": 0.8 }]
+				"alpha": [{ "t": 0, "value": 0.85 }]
 			}
 		}
 	]

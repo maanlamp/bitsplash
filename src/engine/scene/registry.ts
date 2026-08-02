@@ -1,6 +1,7 @@
 import { Game, type FrameInfo } from "../game";
 import { migrateRenderLayers } from "../render/migrate-render-layers";
 import type { GlobalServices } from "../services";
+import { migrateSky } from "../sky/migrate-sky";
 import {
 	deserializeWorld,
 	type UnknownComponentPolicy,
@@ -53,16 +54,21 @@ export const sceneSummaries = (): ReadonlyArray<SceneSummary> =>
 	}));
 
 /**
- * The pure migration pipeline: engine migrations (render layers) then the
- * scene's own authored-data migration (e.g. legacy tiles → tile layer). The
- * output is the canonical input for both deserialize and the document baseline;
- * no live world is involved.
+ * The pure migration pipeline: engine migrations (render layers, then
+ * `config.clearColor` → a sky entity) followed by the scene's own
+ * authored-data migration (e.g. legacy tiles → tile layer). The output is the
+ * canonical input for both deserialize and the document baseline; no live world
+ * is involved.
  */
 const migrateSceneFile = (
 	scene: Scene,
 	file: SceneFile,
 	id: string,
-): SceneFile => scene.migrateFile(migrateRenderLayers(file, id), id);
+): SceneFile =>
+	scene.migrateFile(
+		migrateSky(migrateRenderLayers(file, id), id),
+		id,
+	);
 
 const registeredFile = (id: string): SceneFile => {
 	const file = files.get(id);

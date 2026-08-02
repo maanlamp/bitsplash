@@ -9,6 +9,7 @@ import {
 	TITLE,
 } from "./menu-widgets";
 import { SaveList } from "./save-list";
+import { SettingsView } from "./settings/settings-view";
 
 export type PauseMenuProps = Readonly<{
 	snap: GameUiSnapshot;
@@ -16,6 +17,14 @@ export type PauseMenuProps = Readonly<{
 }>;
 
 export const PauseMenu = ({ snap, actions }: PauseMenuProps) => {
+	if (snap.view === "settings") {
+		return (
+			<SettingsView
+				bindings={snap.bindings}
+				onBack={actions.closeSettings}
+			/>
+		);
+	}
 	if (snap.view === "load") {
 		return (
 			<SaveList
@@ -38,6 +47,10 @@ export const PauseMenu = ({ snap, actions }: PauseMenuProps) => {
 					onActivate={actions.saveGame}
 				/>
 				<MenuButton label="Load" onActivate={actions.openLoad} />
+				<MenuButton
+					label="Settings"
+					onActivate={actions.openSettings}
+				/>
 				<MenuButton label="Quit to menu" onActivate={actions.quit} />
 				<Text style={HINT}>
 					Esc pause · F5 quicksave · F9 quickload

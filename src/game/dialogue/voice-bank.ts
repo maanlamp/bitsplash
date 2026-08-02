@@ -1,4 +1,4 @@
-import type AudioManager from "../../engine/audio/audio";
+import type { AudioApi } from "../../engine/audio/audio-api";
 import {
 	VOICE_BANK_URLS,
 	VoiceBanks,
@@ -123,7 +123,7 @@ const normalizedGain = (
 };
 
 export const loadBank = async (
-	audio: AudioManager,
+	audio: AudioApi,
 	url: string,
 ): Promise<LoadedBank> => {
 	const buffer = await audio.load(url);

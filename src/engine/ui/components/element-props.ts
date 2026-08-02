@@ -4,6 +4,7 @@ import type {
 	UiCancelEvent,
 	UiClickEvent,
 	UiConfirmEvent,
+	UiFocusEvent,
 	UiFocusMoveEvent,
 	UiPointerEvent,
 	UiWheelEvent,
@@ -28,8 +29,8 @@ export interface ViewElementProps {
 	onPointerMove?: (event: UiPointerEvent) => void;
 	onClick?: (event: UiClickEvent) => void;
 	onWheel?: (event: UiWheelEvent) => void;
-	onFocus?: () => void;
-	onBlur?: () => void;
+	onFocus?: (event: UiFocusEvent) => void;
+	onBlur?: (event: UiFocusEvent) => void;
 	onFocusMove?: (event: UiFocusMoveEvent) => boolean | void;
 	onConfirm?: (event: UiConfirmEvent) => void;
 	onCancel?: (event: UiCancelEvent) => void;

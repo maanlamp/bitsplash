@@ -64,6 +64,13 @@ export type WindowLayout = Readonly<{
 export type Workspace = Readonly<{
 	version: number;
 	windows: ReadonlyArray<WindowLayout>;
+	/**
+	 * Scene views whose audio bus the user has muted. A list rather than a field
+	 * on the layout tree because the tree is pure structure — a view moves
+	 * between tab groups and windows constantly, and its mute has to survive
+	 * every one of those transforms without being carried by hand.
+	 */
+	mutedViews: ReadonlyArray<ViewId>;
 }>;
 
 export const WORKSPACE_VERSION = 4;
@@ -450,6 +457,32 @@ const addViewToRoot = (
 	return insertView(root, viewId, firstTabsPath(root), "center");
 };
 
+/** Whether `viewId`'s own bus is muted. */
+export const isViewMuted = (ws: Workspace, viewId: ViewId): boolean =>
+	ws.mutedViews.includes(viewId);
+
+/**
+ * Mute or unmute one view, persisted with the workspace.
+ *
+ * @example
+ * updateWorkspace((ws) => setViewMuted(ws, "scene:demo", true));
+ */
+export const setViewMuted = (
+	ws: Workspace,
+	viewId: ViewId,
+	muted: boolean,
+): Workspace => {
+	if (isViewMuted(ws, viewId) === muted) {
+		return ws;
+	}
+	return {
+		...ws,
+		mutedViews: muted
+			? [...ws.mutedViews, viewId]
+			: ws.mutedViews.filter((id) => id !== viewId),
+	};
+};
+
 /** All windows in the workspace. */
 export const listWindows = (
 	ws: Workspace,
@@ -621,6 +654,7 @@ export const mergeWindows = (
 
 export const defaultWorkspace = (sceneView: ViewId): Workspace => ({
 	version: WORKSPACE_VERSION,
+	mutedViews: [],
 	windows: [
 		{
 			id: HUB_WINDOW_ID,

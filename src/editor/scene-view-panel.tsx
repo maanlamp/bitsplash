@@ -48,6 +48,8 @@ const SceneViewPanel = ({
 	requestAddComponent,
 	undoShortcut,
 	redoShortcut,
+	muted,
+	onMutedChange,
 }: Readonly<{
 	view: SceneView;
 	onRun: () => void;
@@ -68,6 +70,9 @@ const SceneViewPanel = ({
 	requestAddComponent: (entity: EntityId) => void;
 	undoShortcut: string;
 	redoShortcut: string;
+	/** Whether this view's bus is muted — owned by the persisted workspace. */
+	muted: boolean;
+	onMutedChange: (muted: boolean) => void;
 }>) => {
 	const ecs = view.scene.ecs;
 	const doc = view.document;
@@ -306,6 +311,8 @@ const SceneViewPanel = ({
 					redoShortcut={redoShortcut}
 					debugFlags={view.debugFlags}
 					weatherPreview={view.weatherPreview}
+					muted={muted}
+					onMutedChange={onMutedChange}
 				/>
 			</div>
 			<TileLayersPanel view={view} editorEnabled={editorEnabled} />

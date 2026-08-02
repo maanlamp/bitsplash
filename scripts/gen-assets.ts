@@ -12,6 +12,8 @@ const SERVED_PREFIX = "/src/game/content/assets/";
 const BSPRITE_SUFFIX = ".bsprite";
 const VOICE_BANK_PREFIX = "voice_bank_";
 const VOICE_BANK_SUFFIX = ".wav";
+const THUNDER_PREFIX = "thunder_";
+const THUNDER_SUFFIX = ".wav";
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const RESERVED_TAG_MEMBERS = new Set(["url"]);
 
@@ -23,6 +25,12 @@ type SpriteInfo = {
 };
 
 type VoiceBankInfo = {
+	file: string;
+	id: string;
+	member: string;
+};
+
+type ThunderTakeInfo = {
 	file: string;
 	id: string;
 	member: string;
@@ -121,6 +129,27 @@ const readVoiceBanks = (files: string[]): VoiceBankInfo[] => {
 	return banks;
 };
 
+const readThunderTakes = (files: string[]): ThunderTakeInfo[] => {
+	const members = new Map<string, string>();
+	const takes: ThunderTakeInfo[] = [];
+	for (const file of files) {
+		if (
+			!file.startsWith(THUNDER_PREFIX) ||
+			!file.endsWith(THUNDER_SUFFIX)
+		) {
+			continue;
+		}
+		const id = file.slice(
+			THUNDER_PREFIX.length,
+			-THUNDER_SUFFIX.length,
+		);
+		const member = identifier(id);
+		claim(members, member, id, "Thunder takes");
+		takes.push({ file, id, member });
+	}
+	return takes;
+};
+
 const emitSprite = (sprite: SpriteInfo): string => {
 	const lines = [`export namespace ${sprite.namespace} {`];
 	lines.push(
@@ -157,9 +186,32 @@ const emitVoiceBanks = (banks: VoiceBankInfo[]): string => {
 	return lines.join("\n");
 };
 
+const emitThunderTakes = (takes: ThunderTakeInfo[]): string => {
+	const lines = ["export namespace ThunderBank {"];
+	for (const take of takes) {
+		lines.push(
+			`\texport const ${take.member}: ThunderTakeId = asThunderTakeId(${JSON.stringify(take.id)});`,
+		);
+	}
+	lines.push("}");
+	lines.push("");
+	lines.push(
+		"export const THUNDER_TAKE_URLS: Readonly<Record<string, string>> = {",
+	);
+	for (const take of takes) {
+		const key = IDENT.test(take.id)
+			? take.id
+			: JSON.stringify(take.id);
+		lines.push(`\t${key}: ${take.member}ThunderUrl,`);
+	}
+	lines.push("};");
+	return lines.join("\n");
+};
+
 const render = (
 	sprites: SpriteInfo[],
 	banks: VoiceBankInfo[],
+	takes: ThunderTakeInfo[],
 ): string => {
 	const header = [
 		"// GENERATED FILE - DO NOT EDIT.",
@@ -185,10 +237,23 @@ const render = (
 			);
 		}
 	}
+	if (takes.length > 0) {
+		header.push(
+			'import { asThunderTakeId, type ThunderTakeId } from "../../weather/thunder-take-id";',
+		);
+		for (const take of takes) {
+			header.push(
+				`import ${take.member}ThunderUrl from ${JSON.stringify(`./${take.file}?url`)};`,
+			);
+		}
+	}
 	header.push("");
 	const blocks = sprites.map(emitSprite);
 	if (banks.length > 0) {
 		blocks.push(emitVoiceBanks(banks));
+	}
+	if (takes.length > 0) {
+		blocks.push(emitThunderTakes(takes));
 	}
 	return `${header.join("\n")}\n${blocks.join("\n\n")}\n`;
 };
@@ -205,15 +270,17 @@ export const generate = (): {
 	outFile: string;
 	sprites: SpriteInfo[];
 	banks: VoiceBankInfo[];
+	takes: ThunderTakeInfo[];
 } => {
 	const files = assetFiles();
 	const sprites = readSprites(files);
 	const banks = readVoiceBanks(files);
-	const rendered = render(sprites, banks);
+	const takes = readThunderTakes(files);
+	const rendered = render(sprites, banks, takes);
 	if (existing() !== rendered) {
 		writeFileSync(OUT_FILE, rendered, "utf8");
 	}
-	return { outFile: OUT_FILE, sprites, banks };
+	return { outFile: OUT_FILE, sprites, banks, takes };
 };
 
 /**
@@ -270,5 +337,8 @@ for (const sprite of result.sprites) {
 }
 console.log(
 	`  voice banks: ${result.banks.map((bank) => bank.id).join(", ") || "(none)"}`,
+);
+console.log(
+	`  thunder takes: ${result.takes.map((take) => take.id).join(", ") || "(none)"}`,
 );
 console.log(`  ${characters} character descriptors validated`);

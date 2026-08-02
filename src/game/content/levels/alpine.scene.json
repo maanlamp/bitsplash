@@ -1,0 +1,281 @@
+{
+	"version": 1,
+	"kind": "platformer",
+	"name": "Alpine",
+	"config": {
+		"gravity": {
+			"x": 0,
+			"y": 640
+		},
+		"uiScale": 3
+	},
+	"entities": [
+		{
+			"id": "alpine:render-layers",
+			"components": {
+				"RenderLayers": {
+					"layers": [
+						{
+							"$type": "RenderLayerDef",
+							"id": "background",
+							"name": "background"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "entities",
+							"name": "entities"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "foreground",
+							"name": "foreground"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "terrain",
+							"name": "terrain"
+						},
+						{
+							"$type": "RenderLayerDef",
+							"id": "overlay",
+							"name": "overlay"
+						}
+					]
+				}
+			}
+		},
+		{
+			"id": "74566b5b-7faa-44e0-8ed6-e191aa9242c4",
+			"components": {
+				"Sky": {
+					"color": {
+						"$type": "Color",
+						"css": "oklch(0.876 0.0348 236.9 / 1)"
+					}
+				}
+			}
+		},
+		{
+			"id": "006971ac-14a5-4d2d-96ca-f5bc88c5163d",
+			"components": {
+				"SceneClimate": {
+					"climateId": "alpine",
+					"indoor": false
+				}
+			}
+		},
+		{
+			"id": "a64f5d62-224b-4cb4-bd74-9c2bbf1dda87",
+			"components": {
+				"TileLayer": {
+					"cells": [
+						{
+							"x": -30,
+							"y": 7,
+							"w": 7,
+							"h": 1
+						},
+						{
+							"x": -31,
+							"y": 8,
+							"w": 10,
+							"h": 1
+						},
+						{
+							"x": -32,
+							"y": 9,
+							"w": 13,
+							"h": 1
+						},
+						{
+							"x": 20,
+							"y": 9,
+							"w": 11,
+							"h": 1
+						},
+						{
+							"x": -33,
+							"y": 10,
+							"w": 16,
+							"h": 1
+						},
+						{
+							"x": 18,
+							"y": 10,
+							"w": 14,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 11,
+							"w": 21,
+							"h": 1
+						},
+						{
+							"x": -6,
+							"y": 11,
+							"w": 11,
+							"h": 1
+						},
+						{
+							"x": 15,
+							"y": 11,
+							"w": 18,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 12,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 13,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 14,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 15,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 16,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 17,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 18,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 19,
+							"w": 69,
+							"h": 1
+						},
+						{
+							"x": -34,
+							"y": 20,
+							"w": 69,
+							"h": 1
+						}
+					],
+					"name": "Snowfield",
+					"tilesetRef": {
+						"$type": "AssetRef",
+						"path": "/src/game/content/assets/snow.tileset.png"
+					},
+					"collision": "solid",
+					"rainBlocking": "auto",
+					"renderLayer": "terrain",
+					"order": 0
+				}
+			}
+		},
+		{
+			"id": "1ea48b5d-e8e4-4281-ab8e-e9d2e86c16d7",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -160,
+						"y": 320
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"SpawnPoint": {
+					"prefab": "player",
+					"spawnOnLoad": true
+				}
+			}
+		},
+		{
+			"id": "043a1b74-09fe-4ecf-920d-dcffcb7d393f",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "snow",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
+				}
+			}
+		},
+		{
+			"id": "fd092faa-c273-4e4f-a1a5-24468526244c",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "wind-lines",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": 0
+					}
+				}
+			}
+		}
+	]
+}

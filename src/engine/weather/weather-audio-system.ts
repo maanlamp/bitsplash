@@ -1,12 +1,12 @@
-import { webAudioAvailable } from "../audio/availability";
-import { pickActiveCamera2D } from "../camera/camera-2d-render";
 import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import { hasClimates } from "./climate-registry";
 import { exposureAt, rainAudioAnchor } from "./exposure";
 import { gustEnvelope } from "./gust";
-import { pushWeatherAmbience } from "./weather-ambience";
+import { WeatherAmbience } from "./weather-ambience";
+import { distanceLevel, listenerAt, metresOf } from "../listener";
 import {
+	PRECIPITATION_HALF_LEVEL_METRES,
 	type ShelterState,
 	shelterTarget,
 	smoothShelter,
@@ -15,9 +15,9 @@ import {
 import { weatherFrame } from "./weather-frame";
 
 /**
- * Sounds the weather: reads the frame's **raw** wind and precipitation, works out
- * how much of it reaches the listener, and pushes the result at the process-wide
- * ambience graph.
+ * Sounds the weather: reads the frame's **raw** wind and precipitation channels,
+ * works out how much of it reaches the listener, and pushes the result at this
+ * world's ambience graph.
  *
  * The consumption split is the point of the feature. Visual consumers read the
  * indoor-masked scalars and go still inside; this reads the raw pair and attenuates
@@ -32,26 +32,25 @@ import { weatherFrame } from "./weather-frame";
  * Lives in `ambientSystems()`, so it also runs in the editor's edit world, whose
  * save path diffs a journal replay against that world serialized whole and crashes
  * on drift. It therefore creates no entity and writes no serialized field: the only
- * state it owns is the smoothed shelter on this instance, and the node graph, which
- * belongs to the audio manager rather than to any world.
+ * state it owns is the smoothed shelter and the voice graph, both on this instance.
  *
- * Silent by construction where WebAudio does not exist — the gate is checked before
- * the audio service is so much as read, because headless hosts supply stand-ins
- * that throw on any property access.
+ * The graph plays on the world's ambience bus and stops when that world is
+ * disposed. Muting, pause and focus are the bus's business, not this system's:
+ * it pushes parameters unconditionally and something upstream decides whether
+ * they are heard.
  */
 @profiler("Weather audio", "Weather")
 export class WeatherAudioSystem implements UpdateSystem {
 	/** `null` until the first frame, which snaps instead of swelling from open sky. */
 	private shelter: ShelterState | null = null;
+	private ambience: WeatherAmbience | null = null;
 
-	update({ ecs, audio, camera, time }: UpdateContext): void {
-		if (!webAudioAvailable || !hasClimates()) {
+	update({ ecs, audio, camera, time, world }: UpdateContext): void {
+		if (!hasClimates()) {
 			return;
 		}
-		const listener =
-			(camera ?? pickActiveCamera2D(ecs))?.position ?? null;
-		const x = listener?.x ?? 0;
-		const y = listener?.y ?? 0;
+		const listener = listenerAt(ecs, camera);
+		const { x, y } = listener;
 		const anchor = rainAudioAnchor(ecs, x, y);
 		const target = shelterTarget(
 			exposureAt(ecs, x, y),
@@ -65,13 +64,24 @@ export class WeatherAudioSystem implements UpdateSystem {
 				: smoothShelter(this.shelter, target, time.dt);
 
 		const frame = weatherFrame(ecs);
-		pushWeatherAmbience(
-			audio,
+		if (!this.ambience) {
+			const ambience = new WeatherAmbience(
+				audio,
+				world.audio.ambience,
+			);
+			this.ambience = ambience;
+			world.onDispose(() => ambience.stop());
+		}
+		this.ambience.push(
 			weatherAudioMix(
 				{
 					wind: frame.wind,
 					precipitation: frame.precipitation,
 					gust: gustEnvelope(frame.time, frame.wind),
+					proximity: distanceLevel(
+						metresOf(listener.z),
+						PRECIPITATION_HALF_LEVEL_METRES,
+					),
 				},
 				this.shelter,
 			),

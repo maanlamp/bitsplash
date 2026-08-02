@@ -84,6 +84,32 @@ export const buildPath = (root: UiNode, target: UiNode): UiNode[] => {
 	return searchPath(root, target, path) ? path : [];
 };
 
+/**
+ * The deepest node containing both `a` and `b`, or `null` if either is not in
+ * the tree.
+ *
+ * A click is press and release taken together, and the two rarely land on the
+ * exact same node: pressing a button's label and releasing a pixel later on its
+ * padding is one click on the button, not two hits on nothing. Dispatching to
+ * what they have in common is what makes that press count.
+ */
+export const commonAncestor = (
+	root: UiNode,
+	a: UiNode,
+	b: UiNode,
+): UiNode | null => {
+	const pathA = buildPath(root, a);
+	const pathB = buildPath(root, b);
+	let common: UiNode | null = null;
+	for (let i = 0; i < pathA.length && i < pathB.length; i++) {
+		if (pathA[i] !== pathB[i]) {
+			break;
+		}
+		common = pathA[i]!;
+	}
+	return common;
+};
+
 const walkFocusables = (node: UiNode, out: UiNode[]): void => {
 	if (isFocusable(node) && node.layoutRect) {
 		out.push(node);

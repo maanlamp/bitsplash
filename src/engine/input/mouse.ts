@@ -31,6 +31,9 @@ export class Mouse {
 
 	private target: HTMLElement;
 	private wheelAccum = new Vector2(0, 0);
+	private readonly pressedSinceUpdate = new Set<string>();
+	private readonly deferredRelease = new Set<string>();
+	private readonly pendingRelease = new Set<string>();
 
 	constructor(target: HTMLElement) {
 		this.target = target;
@@ -45,11 +48,30 @@ export class Mouse {
 		});
 	}
 
+	/**
+	 * Rolls the per-frame wheel delta and retires held-open buttons.
+	 *
+	 * Button state is polled once per frame, so a press and its release landing
+	 * between two polls would otherwise be invisible: no press edge, no release
+	 * edge, no click. A button released in the same frame it was pressed is
+	 * therefore held down for the poll that follows the press and released by
+	 * the one after it, so every physical click produces both edges however
+	 * briefly it was held.
+	 */
 	update(): void {
 		this.wheel.x = this.wheelAccum.x;
 		this.wheel.y = this.wheelAccum.y;
 		this.wheelAccum.x = 0;
 		this.wheelAccum.y = 0;
+		for (const button of this.pendingRelease) {
+			delete this.buttons[button];
+		}
+		this.pendingRelease.clear();
+		for (const button of this.deferredRelease) {
+			this.pendingRelease.add(button);
+		}
+		this.deferredRelease.clear();
+		this.pressedSinceUpdate.clear();
 	}
 
 	dispose(): void {
@@ -89,12 +111,21 @@ export class Mouse {
 	private onMouseDown = (e: MouseEvent): void => {
 		this.captureModifiers(e);
 		this.target.focus();
-		this.buttons[buttonName(e.button)] = true;
+		const button = buttonName(e.button);
+		this.pendingRelease.delete(button);
+		this.deferredRelease.delete(button);
+		this.pressedSinceUpdate.add(button);
+		this.buttons[button] = true;
 	};
 
 	private onMouseUp = (e: MouseEvent): void => {
 		this.captureModifiers(e);
-		delete this.buttons[buttonName(e.button)];
+		const button = buttonName(e.button);
+		if (this.pressedSinceUpdate.has(button)) {
+			this.deferredRelease.add(button);
+			return;
+		}
+		delete this.buttons[button];
 	};
 
 	private onMouseEnter = (): void => {

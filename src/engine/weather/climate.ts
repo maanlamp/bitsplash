@@ -12,17 +12,42 @@
  *
  * Validation happens once, at registration, in every build — see
  * {@link validateClimateCatalog}. Everything downstream consumes the validated
- * shapes, where `defaultPreset` is a resolved reference rather than an id and
+ * shapes, where `defaultPreset` is a resolved reference rather than an id,
+ * `precipitation` is a full channel record rather than an authored partial, and
  * `totalWeight` is known positive, so the dangling-reference and
  * division-by-zero cases are unrepresentable rather than merely unlikely.
+ *
+ * Validation also enforces the **dwell/tau coupling**: a preset must linger long
+ * enough for the eased scalars to reach it. See `easing.ts`.
  */
 
-/** One authored preset row: a named mood with its target scalars. */
+import {
+	NO_CHANNELS,
+	type PartialWeatherChannels,
+	resolveChannels,
+	WEATHER_CHANNELS,
+	type WeatherChannels,
+} from "./channels";
+import {
+	DEFAULT_TAU,
+	minimumDwellSeconds,
+	SETTLE_TAUS,
+} from "./easing";
+
+/**
+ * One authored preset row: a named mood with its target scalars.
+ *
+ * `precipitation` is authored per channel and every channel is optional — an
+ * omitted one is zero, which is what makes a rain preset and a snow preset
+ * crossfade without either naming the other.
+ */
 export type AuthoredClimatePreset = Readonly<{
 	id: string;
 	wind: number;
-	precipitation: number;
+	precipitation?: PartialWeatherChannels;
 	direction: number;
+	/** Strikes per minute. Optional; absent means no lightning. */
+	lightning?: number;
 }>;
 
 /** One authored scheduling row: a preset reference with its weight and dwell. */
@@ -58,14 +83,21 @@ export type ClimatePreset = Readonly<{
 	id: string;
 	/** Wind strength target, `0..1`. */
 	wind: number;
-	/** Precipitation target, `0..1`. */
-	precipitation: number;
+	/** Per-channel precipitation targets, each `0..1`, resolved whole. */
+	precipitation: WeatherChannels;
 	/**
 	 * Signed horizontal base direction, `-1..1` — negative blows left, positive
 	 * right. Magnitude below one reads as a wind that is not committed to a
 	 * heading; the gust envelope multiplies on top of it.
 	 */
 	direction: number;
+	/**
+	 * Lightning strikes per minute. Deliberately its own field rather than a
+	 * function of any channel: a dry thunderstorm and a rain shower with no
+	 * lightning are both real weather, and deriving the rate from `rain` would
+	 * make either unauthorable.
+	 */
+	lightning: number;
 }>;
 
 /** A validated scheduling row: a resolved preset with its weight and dwell. */
@@ -102,14 +134,20 @@ export type ClimateCatalog = Readonly<{
  * below. Both a `WeatherOverrideComponent` and an editor preview are read
  * through this shape, so the layering rule is written once.
  *
- * A non-null `presetId` supplies all three scalars; explicit scalars then win
- * over whatever the preset said, so "the storm, but blowing the other way" is
+ * A non-null `presetId` supplies every scalar; explicit scalars then win over
+ * whatever the preset said, so "the storm, but blowing the other way" is
  * authorable without a new preset.
+ *
+ * `precipitation` layers **per channel**: a request naming only `rain` leaves
+ * snow and sand to the layer below rather than zeroing them, which is the same
+ * field-by-field fall-through the `null` scalars have. This is the one place a
+ * missing channel does not mean zero, because a request is a patch and a preset
+ * is a complete mood.
  */
 export type WeatherRequest = Readonly<{
 	presetId: string | null;
 	wind: number | null;
-	precipitation: number | null;
+	precipitation: PartialWeatherChannels | null;
 	direction: number | null;
 }>;
 
@@ -117,8 +155,9 @@ export type WeatherRequest = Readonly<{
 export const CALM_PRESET: ClimatePreset = {
 	id: "calm",
 	wind: 0,
-	precipitation: 0,
+	precipitation: NO_CHANNELS,
 	direction: 1,
+	lightning: 0,
 };
 
 const invalid = (source: string, message: string): Error =>
@@ -136,6 +175,31 @@ const unitScalar = (
 		);
 	}
 	return value;
+};
+
+const validateChannels = (
+	source: string,
+	presetId: string,
+	authored: PartialWeatherChannels | undefined,
+): WeatherChannels => {
+	if (authored === undefined) {
+		return NO_CHANNELS;
+	}
+	for (const key of Object.keys(authored)) {
+		if (!(WEATHER_CHANNELS as readonly string[]).includes(key)) {
+			throw invalid(
+				source,
+				`preset "${presetId}" has precipitation channel "${key}"; known channels are ${WEATHER_CHANNELS.join(", ")}.`,
+			);
+		}
+	}
+	for (const channel of WEATHER_CHANNELS) {
+		const value = authored[channel];
+		if (value !== undefined) {
+			unitScalar(source, `preset "${presetId}" ${channel}`, value);
+		}
+	}
+	return resolveChannels(authored);
 };
 
 const validatePresets = (
@@ -166,15 +230,23 @@ const validatePresets = (
 				`preset "${row.id}" has direction ${row.direction}; a base direction is a signed unit scalar in -1..1.`,
 			);
 		}
+		const lightning = row.lightning ?? 0;
+		if (!Number.isFinite(lightning) || lightning < 0) {
+			throw invalid(
+				source,
+				`preset "${row.id}" has lightning ${lightning}; a strike rate is a non-negative number of strikes per minute.`,
+			);
+		}
 		presets.set(row.id, {
 			id: row.id,
 			wind: unitScalar(source, `preset "${row.id}" wind`, row.wind),
-			precipitation: unitScalar(
+			precipitation: validateChannels(
 				source,
-				`preset "${row.id}" precipitation`,
+				row.id,
 				row.precipitation,
 			),
 			direction: row.direction,
+			lightning,
 		});
 	}
 	return presets;
@@ -184,6 +256,7 @@ const validateEntries = (
 	source: string,
 	climate: AuthoredClimate,
 	presets: ReadonlyMap<string, ClimatePreset>,
+	tau: number,
 ): readonly ClimateEntry[] => {
 	if (climate.entries.length === 0) {
 		throw invalid(
@@ -224,6 +297,13 @@ const validateEntries = (
 				`climate "${climate.id}" gives preset "${row.preset}" a dwell range of ${row.dwellMin}..${row.dwellMax}s; a range is non-negative with min <= max.`,
 			);
 		}
+		const floor = minimumDwellSeconds(tau);
+		if (row.dwellMin < floor) {
+			throw invalid(
+				source,
+				`climate "${climate.id}" gives preset "${row.preset}" a shortest dwell of ${row.dwellMin}s, but the eased scalars need ${floor}s (${SETTLE_TAUS}x tau ${tau}) to arrive. A preset re-aimed before it lands never reads as itself — lengthen the dwell or lower the chase time constant.`,
+			);
+		}
 		return {
 			preset,
 			weight: row.weight,
@@ -237,11 +317,12 @@ const validateClimate = (
 	source: string,
 	authored: AuthoredClimate,
 	presets: ReadonlyMap<string, ClimatePreset>,
+	tau: number,
 ): Climate => {
 	if (authored.id.length === 0) {
 		throw invalid(source, "a climate has an empty id.");
 	}
-	const entries = validateEntries(source, authored, presets);
+	const entries = validateEntries(source, authored, presets, tau);
 	const totalWeight = entries.reduce(
 		(sum, entry) => sum + entry.weight,
 		0,
@@ -270,12 +351,17 @@ const validateClimate = (
  * `registerClimateCatalog` in every build — authored weather is small and a
  * broken catalog is a content bug worth crashing on, not degrading over.
  *
+ * @param tau The chase time constant the scheduler will run this catalog with.
+ *   Dwells are checked against it ({@link minimumDwellSeconds}), because a dwell
+ *   is only long enough relative to how fast the scalars ease.
+ *
  * @example
  * const catalog = validateClimateCatalog(json, "src/game/content/weather/climates.json");
  */
 export const validateClimateCatalog = (
 	authored: AuthoredClimateCatalog,
 	source: string,
+	tau: number = DEFAULT_TAU,
 ): ClimateCatalog => {
 	const presets = validatePresets(source, authored.presets);
 	if (authored.climates.length === 0) {
@@ -289,7 +375,7 @@ export const validateClimateCatalog = (
 		if (climates.has(row.id)) {
 			throw invalid(source, `climate "${row.id}" is listed twice.`);
 		}
-		climates.set(row.id, validateClimate(source, row, presets));
+		climates.set(row.id, validateClimate(source, row, presets, tau));
 	}
 	const defaultClimate = climates.get(authored.defaultClimateId);
 	if (!defaultClimate) {

@@ -12,8 +12,11 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
-import type AudioManager from "../../engine/audio/audio";
-import type { PlaybackHandle } from "../../engine/audio/audio";
+import type {
+	AudioApi,
+	PlaybackHandle,
+} from "../../engine/audio/audio-api";
+import { assetPreviewBus } from "./editor-buses";
 import Button from "../button";
 import FloatingToolbar from "../floating-toolbar";
 import Tooltip, { TooltipProvider } from "../tooltip";
@@ -53,7 +56,7 @@ const AudioEditor = ({
 }: Readonly<{
 	assetUrl: string | null;
 	onDirty: (dirty: boolean) => void;
-	audio: AudioManager;
+	audio: AudioApi;
 	onCreated: (url: string) => void;
 	active: boolean;
 }>) => {
@@ -133,6 +136,7 @@ const AudioEditor = ({
 		}
 		const startAt = playhead >= doc.duration ? 0 : playhead;
 		const handle = audio.playBuffer(doc.renderArrangement(), {
+			bus: assetPreviewBus(audio),
 			offset: startAt,
 			onEnded: () => {
 				stopPlayback();

@@ -1,6 +1,9 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
 import type { GridBounds } from "./grid";
-import { TileLayerComponent } from "./tile-layer-component";
+import {
+	type RainBlockingMode,
+	TileLayerComponent,
+} from "./tile-layer-component";
 
 type TileLayers = ReadonlyArray<
 	readonly [EntityId, TileLayerComponent]
@@ -11,7 +14,7 @@ type TileLayers = ReadonlyArray<
  * testing a coordinate cannot spell the format differently than the sets do.
  *
  * @example
- * mergedRainBlockingCells(ecs).has(tileCellKey(gx, gy));
+ * mergedBlockingCells(ecs, "rain-blocking").has(tileCellKey(gx, gy));
  */
 export const tileCellKey = (gx: number, gy: number): string =>
 	`${gx},${gy}`;
@@ -44,20 +47,47 @@ export const solidTileLayers = (
 	tileLayers(ecs).filter(([, layer]) => layer.collision === "solid");
 
 /**
- * The layers that keep rain out: those explicitly marked `"blocks"`, plus the
- * `"auto"` layers whose collision already stops the player.
+ * The authored classifications a precipitation channel can be sheltered by.
+ *
+ * One entry today: `"rain-blocking"` is the tri-state `TileLayerComponent`
+ * already carries, and every channel maps onto it. It is a tuple rather than a
+ * bare string so a future `"snow-blocking"` is added in one place and every
+ * consumer reaches it through the derived union.
+ */
+const TILE_BLOCKING_CLASSES = ["rain-blocking"] as const;
+
+export type TileBlockingClass =
+	(typeof TILE_BLOCKING_CLASSES)[number];
+
+/** Which tri-state field on a layer each classification is authored in. */
+const BLOCKING_MODE: Readonly<
+	Record<
+		TileBlockingClass,
+		(layer: TileLayerComponent) => RainBlockingMode
+	>
+> = {
+	"rain-blocking": (layer) => layer.rainBlocking,
+};
+
+/**
+ * The layers that keep a classification's precipitation out: those explicitly
+ * marked `"blocks"`, plus the `"auto"` layers whose collision already stops the
+ * player.
  *
  * This is the only place the tri-state is resolved against `collision`; every
- * rain consumer goes through it so shelter and the inspector never disagree.
+ * shelter consumer goes through it so shelter and the inspector never disagree.
  */
-export const rainBlockingLayers = (
+export const blockingLayers = (
 	ecs: ReadonlyECS,
+	blocking: TileBlockingClass,
 ): ReadonlyArray<readonly [EntityId, TileLayerComponent]> =>
-	tileLayers(ecs).filter(
-		([, layer]) =>
-			layer.rainBlocking === "blocks" ||
-			(layer.rainBlocking === "auto" && layer.collision === "solid"),
-	);
+	tileLayers(ecs).filter(([, layer]) => {
+		const mode = BLOCKING_MODE[blocking](layer);
+		return (
+			mode === "blocks" ||
+			(mode === "auto" && layer.collision === "solid")
+		);
+	});
 
 export const isSolidCell = (
 	ecs: ReadonlyECS,
@@ -82,20 +112,21 @@ export const mergedSolidCells = (ecs: ReadonlyECS): Set<string> =>
 	mergeCells(solidTileLayers(ecs));
 
 /**
- * Every cell that keeps rain out, as `"gx,gy"` keys — the classification of
- * {@link rainBlockingLayers}, not solidity.
+ * Every cell that keeps a classification's precipitation out, as `"gx,gy"` keys
+ * — the classification of {@link blockingLayers}, not solidity.
  *
  * A precipitation particle tests against this rather than
  * {@link mergedSolidCells} so a tarpaulin marked `"blocks"` stops drops it does
  * not stop the player with, and a grate marked `"passes"` lets them through.
  *
  * @example
- * const blocked = mergedRainBlockingCells(ecs);
+ * const blocked = mergedBlockingCells(ecs, "rain-blocking");
  * blocked.has(tileCellKey(gx, gy));
  */
-export const mergedRainBlockingCells = (
+export const mergedBlockingCells = (
 	ecs: ReadonlyECS,
-): Set<string> => mergeCells(rainBlockingLayers(ecs));
+	blocking: TileBlockingClass,
+): Set<string> => mergeCells(blockingLayers(ecs, blocking));
 
 const mergeBounds = (layers: TileLayers): GridBounds | null => {
 	let merged: GridBounds | null = null;

@@ -19,12 +19,19 @@ export const WEATHER_PRESET_IDS = [
 	"blustery",
 	"drizzle",
 	"storm",
+	"blizzard",
+	"sandstorm",
 ] as const;
 
 export type WeatherPresetId = (typeof WEATHER_PRESET_IDS)[number];
 
 /** Climate ids in `src/game/content/weather/climates.json`, in authored order. */
-export const CLIMATE_IDS = ["temperate", "storm-coast"] as const;
+export const CLIMATE_IDS = [
+	"temperate",
+	"storm-coast",
+	"alpine",
+	"desert",
+] as const;
 
 export type ClimateId = (typeof CLIMATE_IDS)[number];
 

@@ -1,0 +1,44 @@
+{
+	"id": "snow",
+	"parts": [
+		{
+			"kind": "emitter",
+			"layer": "overlay",
+			"order": 0,
+			"blend": "normal",
+			"space": "world",
+			"emission": { "rate": 130, "burst": 0 },
+			"spawn": {
+				"shape": "camera-band",
+				"widthScale": 2,
+				"height": 60,
+				"offsetY": -60
+			},
+			"lifetime": { "min": 4, "max": 6.5 },
+			"size": { "min": 1.5, "max": 3 },
+			"speed": { "min": 10, "max": 34 },
+			"angle": { "min": 60, "max": 120 },
+			"gravity": 45,
+			"drag": 0.8,
+			"rotation": { "min": 0, "max": 360 },
+			"spin": { "min": -60, "max": 60 },
+			"wind": 140,
+			"weather": { "snow": 1 },
+			"collision": {
+				"mode": "tiles",
+				"cells": "rain-blocking",
+				"response": "die",
+				"restChance": 1
+			},
+			"tracks": {
+				"color": [{ "t": 0, "value": "#f4f8ff" }],
+				"alpha": [
+					{ "t": 0, "value": 0 },
+					{ "t": 0.1, "value": 0.9 },
+					{ "t": 0.85, "value": 0.9 },
+					{ "t": 1, "value": 0 }
+				]
+			}
+		}
+	]
+}

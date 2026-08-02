@@ -3,6 +3,8 @@ import { migrateRenderLayers } from "../src/engine/render/migrate-render-layers"
 import { DEFAULT_RENDER_LAYERS } from "../src/engine/render/render-layers";
 import "../src/engine/render/render-layers-component";
 import type { SceneFile } from "../src/engine/scene/scene";
+import { migrateSky } from "../src/engine/sky/migrate-sky";
+import "../src/engine/sky/sky-component";
 import "../src/engine/tilemap/tile-layer-component";
 import { migrateLegacyTiles } from "../src/game/scenes/migrate-legacy-tiles";
 
@@ -53,6 +55,44 @@ describe("render-layers migration", () => {
 			twice.entities.filter(
 				(entity) => "RenderLayers" in entity.components,
 			).length,
+		).toBe(1);
+	});
+});
+
+describe("sky migration", () => {
+	const clearColor = "oklch(0.752 0.1204 204.04 / 1)";
+
+	test("moves config.clearColor onto a deterministic Sky entity", () => {
+		const migrated = migrateSky(
+			baseFile({ config: { gravity: { x: 0, y: 20 }, clearColor } }),
+			"demo",
+		);
+
+		expect(migrated.config.clearColor).toBeUndefined();
+		expect(migrated.entities.length).toBe(1);
+		const entity = migrated.entities[0]!;
+		expect(entity.id).toBe("demo:sky");
+		expect(entity.components.Sky).toEqual({
+			color: { $type: "Color", css: clearColor },
+		});
+	});
+
+	test("does not apply when there is no clear color", () => {
+		const file = baseFile();
+		expect(migrateSky(file, "demo")).toBe(file);
+	});
+
+	test("is idempotent — running twice adds only one Sky", () => {
+		const once = migrateSky(
+			baseFile({ config: { gravity: { x: 0, y: 20 }, clearColor } }),
+			"demo",
+		);
+		const twice = migrateSky(once, "demo");
+
+		expect(twice).toBe(once);
+		expect(
+			twice.entities.filter((entity) => "Sky" in entity.components)
+				.length,
 		).toBe(1);
 	});
 });

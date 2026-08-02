@@ -15,16 +15,39 @@
  */
 
 /** Effect ids, in catalog order. */
-export const VFX_DEF_IDS = ["rain", "rain-splash", "leaves"] as const;
+export const VFX_DEF_IDS = [
+	"rain",
+	"rain-heavy",
+	"rain-splash",
+	"snow",
+	"sand",
+	"wind-lines",
+	"leaves",
+] as const;
 
 export type VfxDefId = (typeof VFX_DEF_IDS)[number];
 
 /** The named handles code uses, so no call site spells an id out. */
 export const VFX_IDS = {
-	/** Camera-tracked downpour, scaled by effective precipitation. */
+	/** Camera-tracked downpour, scaled by the `rain` channel. */
 	rain: "rain",
+	/**
+	 * The storm's rain: fatter, faster, near-opaque streaks over the base fall.
+	 *
+	 * It is selected by the weather rather than by a preset naming it —
+	 * `rain × wind` gates it, so a windless shower leaves it almost dark and a
+	 * gale with the same rain scalar brings it up. A scene wanting storm rain
+	 * hosts this emitter beside the base one; both are authored residents.
+	 */
+	rainHeavy: "rain-heavy",
 	/** Micro-burst a raindrop dies into. */
 	rainSplash: "rain-splash",
+	/** Camera-tracked snowfall, scaled by the `snow` channel. */
+	snow: "snow",
+	/** Camera-tracked blown sand, scaled by the `sand` channel. */
+	sand: "sand",
+	/** Wind-line ribbons, absent in a breeze and prominent in a gale. */
+	windLines: "wind-lines",
 	/** Wind-driven leaf drift authored onto trees. */
 	leaves: "leaves",
 } as const satisfies Readonly<Record<string, VfxDefId>>;

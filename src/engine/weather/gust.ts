@@ -69,6 +69,25 @@ export const gustEnvelope = (t: Seconds, wind: number): number => {
 	const wander =
 		WANDER_FLOOR +
 		(1 - WANDER_FLOOR) * valueNoise1(t * WANDER_HZ, WANDER_SALT);
-	const reach = GUST_BASE + (1 - GUST_BASE) * clamp01(wind);
-	return wander + GUST_DEPTH * gustBand(t) * reach;
+	return wander + GUST_DEPTH * gustBand(t) * gustReach(wind);
 };
+
+const gustReach = (wind: number): number =>
+	GUST_BASE + (1 - GUST_BASE) * clamp01(wind);
+
+/**
+ * The largest value {@link gustEnvelope} can take at a given wind — wander at
+ * full plus a full gust.
+ *
+ * A consumer that needs the envelope as a `0..1` weight divides by this instead
+ * of clamping the product. `clamp01(wind * gust)` saturates at a gale: from
+ * roughly `wind > 0.55` upward the product spends most of its time pinned at 1,
+ * so a gust can only ever modulate *downward* and a storm's bed dips where it
+ * should surge. Normalising keeps the gusting symmetric at full wind, which is
+ * the whole point of having an envelope.
+ *
+ * @example
+ * const speed = wind * gustEnvelope(t, wind) / gustEnvelopeCeiling(wind);
+ */
+export const gustEnvelopeCeiling = (wind: number): number =>
+	1 + GUST_DEPTH * gustReach(wind);

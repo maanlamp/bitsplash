@@ -28,9 +28,11 @@ import {
 	createQuadConicOutlineProgram,
 	createQuadOutlineProgram,
 	createQuadProgram,
+	createQuadSwayProgram,
 	createTextProgram,
 	createTileProgram,
 	type OutlineProgram,
+	type SwayProgram,
 	type WorldProgram,
 } from "../render/programs";
 import { RenderTarget } from "../render/render-target";
@@ -44,7 +46,6 @@ const QUAD_FLOATS = 8;
 const TILE_FLOATS = 9;
 const VERTS_PER_QUAD = 6;
 const WHITE: RGBA = [1, 1, 1, 1];
-const TRANSPARENT: RGBA = [0, 0, 0, 0];
 const SOLID_UV: ReadonlyArray<number> = [0, 0, 0, 0, 0, 0, 0, 0];
 const FULL_UV: ReadonlyArray<number> = [0, 0, 1, 0, 1, 1, 0, 1];
 
@@ -63,14 +64,59 @@ export type DrawImageOpts = Readonly<{
 	alpha?: number;
 	/**
 	 * World-unit horizontal displacement of the **top two corners only**, so
-	 * the quad leans while staying pinned along its bottom edge — the shape
-	 * foliage sway needs. Applied after `rotation`, in world space. Because the
-	 * displaced edges stay parallel the deformation is affine, so texels shear
-	 * cleanly with no seam across the quad's diagonal. Defaults to 0.
+	 * the quad leans while staying pinned along its bottom edge. Applied after
+	 * `rotation`, in world space. Because the displaced edges stay parallel the
+	 * deformation is affine, so texels shear cleanly with no seam across the
+	 * quad's diagonal. Defaults to 0.
+	 *
+	 * A shear is linear in height by construction. For a lean that grows toward
+	 * one edge, see {@link Renderer2D.drawSwayImage}.
 	 */
 	shear?: number;
 	blend?: QuadBlend;
 }>;
+
+/**
+ * A non-linear horizontal bend applied to a sprite, evaluated per output texel
+ * rather than per corner.
+ *
+ * `h` runs `0` at the pinned edge to `1` at the free edge. Displacement at `h`
+ * is `h ** curve * lean + h ** (curve * 3) * rustle * sin(2π * (rustleFrequency * (time + phase) + h))`,
+ * so `curve` decides how much of the bend is concentrated near the crown while
+ * the flutter rides a far tighter power of the same height gradient — a trunk
+ * that bends under leaves that rustle, which is how foliage wind is modelled.
+ * A trunk's `h ** (curve * 3)` is small enough to quantize to zero, so the
+ * flutter is confined to the crown without an authored mask.
+ *
+ * The result is snapped to a whole **source texel** before it is sampled, so
+ * one unit of displacement is one art pixel at any upscale factor. The bend
+ * therefore steps rather than glides; that is the pixel-art look, not an
+ * artifact to smooth away.
+ *
+ * `lean` and `rustle` are signed world-unit travel of the **free edge**;
+ * everything below it moves less. Both zero means no bend, and the caller
+ * should draw a plain image instead.
+ */
+export type SwayParams = Readonly<{
+	/** Free-edge travel in world units, signed: positive leans right. */
+	lean: number;
+	/** Free-edge travel of the high-frequency term, in world units. */
+	rustle: number;
+	/** Height power curve exponent. `1` is a plain shear; `> 1` favours the crown. */
+	curve: number;
+	/** Rustle oscillations per second. */
+	rustleFrequency: number;
+	/** Per-instance offset added to `time`, in seconds. */
+	phase: number;
+	/** Seconds on the caller's clock; the rustle's only time input. */
+	time: number;
+	/** `true` pins the bottom edge (trees), `false` the top (vines). */
+	pinnedBase: boolean;
+}>;
+
+/** {@link DrawImageOpts} minus `shear`, which {@link SwayParams} supersedes. */
+export type DrawSwayImageOpts = Omit<DrawImageOpts, "shear"> &
+	Readonly<{ sway: SwayParams }>;
 
 export type DrawTileOpts = Readonly<{
 	tileset: HTMLImageElement;
@@ -503,13 +549,38 @@ type HoldRingCommand = {
 	outer: RGBA;
 };
 
+type SwayCommand = {
+	kind: "sway";
+	texture: WebGLTexture;
+	px: ReadonlyArray<number>;
+	py: ReadonlyArray<number>;
+	uv: ReadonlyArray<number>;
+	u0: number;
+	v0: number;
+	u1: number;
+	v1: number;
+	srcW: number;
+	srcH: number;
+	color: RGBA;
+	blend: QuadBlend;
+	amplitude: number;
+	rustle: number;
+	curve: number;
+	rustleFrequency: number;
+	phase: number;
+	time: number;
+	pinnedBase: number;
+	flipX: number;
+};
+
 type LayerCommand =
 	| Batch
 	| { kind: "static"; batch: StaticBatch; texture: WebGLTexture }
 	| { kind: "raw"; fn: RawLayerFn }
 	| { kind: "pushClip"; rect: ClipRect }
 	| { kind: "popClip" }
-	| HoldRingCommand;
+	| HoldRingCommand
+	| SwayCommand;
 
 type LayerState = {
 	commands: LayerCommand[];
@@ -545,6 +616,7 @@ export default class Renderer2D {
 	private tile!: WorldProgram;
 	private quadOutline!: OutlineProgram;
 	private quadConicOutline!: ConicOutlineProgram;
+	private quadSway!: SwayProgram;
 	private blit!: BlitProgram;
 
 	private quadVbo!: WebGLBuffer;
@@ -632,6 +704,7 @@ export default class Renderer2D {
 		this.tile = createTileProgram(gl);
 		this.quadOutline = createQuadOutlineProgram(gl);
 		this.quadConicOutline = createQuadConicOutlineProgram(gl);
+		this.quadSway = createQuadSwayProgram(gl);
 		this.blit = createBlitProgram(gl);
 
 		this.quadVbo = gl.createBuffer()!;
@@ -1078,6 +1151,85 @@ export default class Renderer2D {
 			color,
 			opts.blend ?? "normal",
 		);
+	}
+
+	/**
+	 * Draw a sprite bent along its height instead of sheared: see
+	 * {@link SwayParams} for the profile. Falls back to {@link drawImage} when
+	 * the bend is flat, so still foliage keeps the batched path and costs
+	 * nothing extra.
+	 *
+	 * The quad is widened by the free edge's travel on both sides so the lean
+	 * has somewhere to land — the trick `RING_PAD` plays for outlines — and the
+	 * fragment stage discards anything outside the sprite's own sub-rect, so a
+	 * padded quad over an atlas never drags in its neighbours.
+	 *
+	 * Per-draw uniforms mean one draw call per swaying sprite; that is the same
+	 * bargain `drawHoldRing` makes.
+	 *
+	 * @example
+	 * renderer.drawSwayImage(layer, image, {
+	 *   x, y, width, height,
+	 *   sway: { lean, rustle, curve: 2, rustleFrequency: 2.5, phase, time, pinnedBase: true },
+	 * });
+	 */
+	drawSwayImage(
+		id: number,
+		image: TileSource,
+		opts: DrawSwayImageOpts,
+	): void {
+		const { sway } = opts;
+		if (sway.lean === 0 && sway.rustle === 0) {
+			this.drawImage(id, image, opts);
+			return;
+		}
+		const iw = sourceWidth(image);
+		if (iw === 0 || opts.width === 0) {
+			return;
+		}
+		const ih = sourceHeight(image);
+		const sx = opts.srcX ?? 0;
+		const sy = opts.srcY ?? 0;
+		const sw = opts.srcW ?? iw;
+		const sh = opts.srcH ?? ih;
+		const pad = Math.abs(sway.lean) + Math.abs(sway.rustle);
+		const hw = opts.width / 2 + pad;
+		const hh = opts.height / 2;
+		const { px, py } = rotateCorners(
+			opts.x,
+			opts.y,
+			[-hw, hw, hw, -hw],
+			[-hh, -hh, hh, hh],
+			opts.rotation ?? 0,
+		);
+		const u0 = sx / iw;
+		const u1 = (sx + sw) / iw;
+		const v0 = sy / ih;
+		const v1 = (sy + sh) / ih;
+		const du = (pad / opts.width) * (u1 - u0);
+		this.getLayer(id).commands.push({
+			kind: "sway",
+			texture: this.getTexture(image),
+			px,
+			py,
+			uv: [u0 - du, v0, u1 + du, v0, u1 + du, v1, u0 - du, v1],
+			u0,
+			v0,
+			u1,
+			v1,
+			srcW: sw,
+			srcH: sh,
+			color: this.withAlpha(this.resolveTint(opts.tint), opts.alpha),
+			blend: opts.blend ?? "normal",
+			amplitude: sway.lean / opts.width,
+			rustle: sway.rustle / opts.width,
+			curve: Math.max(0.01, sway.curve),
+			rustleFrequency: sway.rustleFrequency,
+			phase: sway.phase,
+			time: sway.time,
+			pinnedBase: sway.pinnedBase ? 1 : 0,
+			flipX: opts.flipX ? 1 : 0,
+		});
 	}
 
 	/**
@@ -1581,7 +1733,6 @@ export default class Renderer2D {
 		target: RenderTarget,
 		includeLayer?: (id: number) => boolean,
 		clear = true,
-		clearColor: RGBA = TRANSPARENT,
 	): void {
 		const gl = this.gl;
 		const texW = target.width;
@@ -1629,12 +1780,7 @@ export default class Renderer2D {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 		gl.viewport(0, 0, texW, texH);
 		if (clear) {
-			gl.clearColor(
-				clearColor[0],
-				clearColor[1],
-				clearColor[2],
-				clearColor[3],
-			);
+			gl.clearColor(0, 0, 0, 0);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 		}
 		for (const id of ordered) {
@@ -1911,6 +2057,7 @@ export default class Renderer2D {
 		gl.deleteProgram(this.tile.program);
 		gl.deleteProgram(this.quadOutline.program);
 		gl.deleteProgram(this.quadConicOutline.program);
+		gl.deleteProgram(this.quadSway.program);
 		gl.deleteProgram(this.blit.program);
 		gl.getExtension("WEBGL_lose_context")?.loseContext();
 	}
@@ -1973,6 +2120,10 @@ export default class Renderer2D {
 		}
 		if (cmd.kind === "holdRing") {
 			this.paintHoldRing(cmd, target, texW, texH, scratchFbo);
+			return;
+		}
+		if (cmd.kind === "sway") {
+			this.paintSway(cmd, target);
 			return;
 		}
 		if (cmd.kind === "static") {
@@ -2039,10 +2190,11 @@ export default class Renderer2D {
 		px: ReadonlyArray<number>,
 		py: ReadonlyArray<number>,
 		uv: ReadonlyArray<number>,
+		color: RGBA = WHITE,
 	): void {
 		const gl = this.gl;
 		const { vbo, vao } = this.ensureImmediate();
-		writeQuad(this.immediateData, 0, px, py, uv, WHITE);
+		writeQuad(this.immediateData, 0, px, py, uv, color);
 		gl.useProgram(program);
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -2055,6 +2207,34 @@ export default class Renderer2D {
 		);
 		gl.drawArrays(gl.TRIANGLES, 0, VERTS_PER_QUAD);
 		gl.bindVertexArray(null);
+	}
+
+	private paintSway(cmd: SwayCommand, target: RenderTarget): void {
+		const gl = this.gl;
+		applyQuadBlend(gl, cmd.blend);
+		const prog = this.quadSway;
+		gl.useProgram(prog.program);
+		gl.uniform2f(prog.uResolution, target.spanX, target.spanY);
+		gl.uniform2f(prog.uOrigin, target.originX, target.originY);
+		gl.uniform1i(prog.uSampler, 0);
+		gl.uniform4f(prog.uRect, cmd.u0, cmd.v0, cmd.u1, cmd.v1);
+		gl.uniform2f(prog.uSrcSize, cmd.srcW, cmd.srcH);
+		gl.uniform1f(prog.uAmplitude, cmd.amplitude);
+		gl.uniform1f(prog.uCurve, cmd.curve);
+		gl.uniform1f(prog.uRustle, cmd.rustle);
+		gl.uniform1f(prog.uRustleFrequency, cmd.rustleFrequency);
+		gl.uniform1f(prog.uPhase, cmd.phase);
+		gl.uniform1f(prog.uTime, cmd.time);
+		gl.uniform1f(prog.uPinnedBase, cmd.pinnedBase);
+		gl.uniform1f(prog.uFlipX, cmd.flipX);
+		this.drawImmediateQuad(
+			prog.program,
+			cmd.texture,
+			cmd.px,
+			cmd.py,
+			cmd.uv,
+			cmd.color,
+		);
 	}
 
 	private paintHoldRing(

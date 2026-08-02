@@ -1,6 +1,11 @@
 import type { SceneDefinition } from "../../src/engine/runtime/runtime";
+import type { UpdateSystem } from "../../src/engine/system";
 import { SceneConfig } from "../../src/engine/scene/scene";
 import { AmbientClockSystem } from "../../src/engine/weather/ambient-clock";
+import {
+	weatherChannels,
+	type WeatherChannels,
+} from "../../src/engine/weather/channels";
 import type { AuthoredClimateCatalog } from "../../src/engine/weather/climate";
 import { registerClimateCatalog } from "../../src/engine/weather/climate-registry";
 import { SceneClimateComponent } from "../../src/engine/weather/scene-climate-component";
@@ -51,19 +56,18 @@ export const FIXTURE_CATALOG: AuthoredClimateCatalog = {
 		{
 			id: FIXTURE_PRESETS.still,
 			wind: 0,
-			precipitation: 0,
 			direction: 1,
 		},
 		{
 			id: FIXTURE_PRESETS.shower,
 			wind: 0.4,
-			precipitation: 0.8,
+			precipitation: { rain: 0.8 },
 			direction: 1,
 		},
 		{
 			id: FIXTURE_PRESETS.gale,
 			wind: 1,
-			precipitation: 0.5,
+			precipitation: { rain: 0.5, sand: 0.2 },
 			direction: -1,
 		},
 	],
@@ -107,9 +111,25 @@ export const FIXTURE_CATALOG: AuthoredClimateCatalog = {
 	],
 };
 
+/**
+ * The chase time constant every fixture world runs with, and the one the fixture
+ * catalog is validated against.
+ *
+ * Deliberately tiny so the eased scalars reach their targets within a frame or
+ * two. It has to be passed to *both* the registry and the scheduler: catalog
+ * validation rejects a dwell too short for the chase to arrive in, and the
+ * fixture's sub-second dwells only clear that bar because the chase is this
+ * fast.
+ */
+export const FIXTURE_TAU = 0.001;
+
 /** Install the fixture catalog. Idempotent; replaces whatever was registered. */
-export const registerFixtureClimates = (): void => {
-	registerClimateCatalog(FIXTURE_CATALOG, "test fixture catalog");
+export const registerFixtureClimates = (tau = FIXTURE_TAU): void => {
+	registerClimateCatalog(
+		FIXTURE_CATALOG,
+		"test fixture catalog",
+		tau,
+	);
 };
 
 /** One authored scene: which climate schedules it, and whether it reads indoors. */
@@ -125,11 +145,15 @@ export type WeatherFixtureOptions = Readonly<{
 	/** Pinned PRNG seed for a fresh weather state. */
 	seed?: number;
 	/**
-	 * Scalar chase time constant. The default is deliberately tiny so the eased
-	 * scalars reach their targets within a frame or two; pass the shipped `8` to
-	 * observe the ramp itself.
+	 * Scalar chase time constant, defaulting to {@link FIXTURE_TAU}. Register the
+	 * catalog with the same value — dwells are validated against it.
 	 */
 	tau?: number;
+	/**
+	 * Systems appended after the three weather ones, in order — for a consumer
+	 * that reads the published weather frame, such as the lightning scheduler.
+	 */
+	extraSystems?: readonly UpdateSystem[];
 }>;
 
 export const DEFAULT_WEATHER_SCENE = "outside";
@@ -180,11 +204,14 @@ export const weatherHarnessConfig = (
 			world.ecs.addUpdateSystem(
 				new WeatherSchedulerSystem({
 					seed: () => seed,
-					tau: options.tau ?? 0.001,
+					tau: options.tau ?? FIXTURE_TAU,
 				}),
 			);
 			world.ecs.addUpdateSystem(new AmbientClockSystem());
 			world.ecs.addUpdateSystem(new WeatherPresentationSystem());
+			for (const system of options.extraSystems ?? []) {
+				world.ecs.addUpdateSystem(system);
+			}
 		},
 	};
 };
@@ -194,7 +221,7 @@ export type WeatherSnapshot = Readonly<{
 	climateId: string;
 	presetId: string;
 	wind: number;
-	precipitation: number;
+	precipitation: WeatherChannels;
 	direction: number;
 	dwellRemaining: number;
 	rng: number;
@@ -219,7 +246,7 @@ export const weatherSnapshot = (
 		climateId: state.climateId,
 		presetId: state.presetId,
 		wind: state.wind,
-		precipitation: state.precipitation,
+		precipitation: weatherChannels((channel) => state[channel]),
 		direction: state.direction,
 		dwellRemaining: state.dwellRemaining,
 		rng: state.rng,

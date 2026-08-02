@@ -1,5 +1,5 @@
 import type AssetManager from "../assets";
-import type AudioManager from "../audio/audio";
+import type { AudioApi } from "../audio/audio-api";
 import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type EventBus from "../events";
@@ -16,7 +16,7 @@ export type OpContext = Readonly<{
 	world: World;
 	events: EventBus;
 	assetManager: AssetManager;
-	audio: AudioManager;
+	audio: AudioApi;
 	dt: Seconds;
 	entityId: EntityId;
 	sequenceClass: SequenceClass;

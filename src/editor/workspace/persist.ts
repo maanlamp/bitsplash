@@ -1,4 +1,5 @@
 import {
+	allViewIds,
 	defaultWorkspace,
 	HUB_WINDOW_ID,
 	type LayoutNode,
@@ -63,7 +64,17 @@ export const loadWorkspace = (
 		if (!windows.some((window) => hasView(window.root))) {
 			return defaultWorkspace(fallbackSceneView);
 		}
-		return { version: WORKSPACE_VERSION, windows };
+		const surviving = new Set(
+			windows.flatMap((window) => allViewIds(window.root)),
+		);
+		return {
+			version: WORKSPACE_VERSION,
+			windows,
+			mutedViews: (Array.isArray(parsed.mutedViews)
+				? parsed.mutedViews
+				: []
+			).filter((id) => surviving.has(id)),
+		};
 	} catch {
 		return defaultWorkspace(fallbackSceneView);
 	}
