@@ -20,7 +20,7 @@ const REACH_Y = TILE_SIZE * 0.75;
 @profiler("Nav agent", "AI")
 export class NavAgentSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
-		const comp = ecs.query(NavGraphComponent)[0]?.[1];
+		const comp = ecs.queryFirst(NavGraphComponent)?.[1];
 		if (!comp?.surface) {
 			return;
 		}

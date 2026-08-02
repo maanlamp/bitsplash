@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import type { ReadonlyECS } from "../../engine/ecs";
 import { ChronicleComponent } from "./chronicle-component";
 
@@ -9,7 +9,7 @@ export const bindSetChronicle = (
 	story.BindExternalFunction(
 		"set_chronicle",
 		(key: string, value: string) => {
-			ecs.query(ChronicleComponent)[0]?.[1].set(key, value);
+			ecs.queryFirst(ChronicleComponent)?.[1].set(key, value);
 		},
 		false,
 	);

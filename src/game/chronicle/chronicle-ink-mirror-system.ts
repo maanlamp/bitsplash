@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
 import type { ReadonlyECS } from "../../engine/ecs";
 import {
@@ -13,7 +13,8 @@ export class ChronicleInkMirrorSystem implements UpdateSystem {
 	private mirrored: Story | null = null;
 
 	update({ ecs }: UpdateContext): void {
-		const story = ecs.query(InkStoryComponent)[0]?.[1].story ?? null;
+		const story =
+			ecs.queryFirst(InkStoryComponent)?.[1].story ?? null;
 		if (!story || story === this.mirrored) {
 			return;
 		}
@@ -23,7 +24,7 @@ export class ChronicleInkMirrorSystem implements UpdateSystem {
 	}
 
 	private mirror(ecs: ReadonlyECS, story: Story): boolean {
-		const chronicle = ecs.query(ChronicleComponent)[0]?.[1];
+		const chronicle = ecs.queryFirst(ChronicleComponent)?.[1];
 		if (!chronicle) {
 			return false;
 		}

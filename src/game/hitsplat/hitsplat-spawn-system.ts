@@ -27,12 +27,12 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 		if (damage.length === 0) {
 			return;
 		}
-		const styleEntry = ecs.query(HitsplatStyleComponent)[0];
+		const styleEntry = ecs.queryFirst(HitsplatStyleComponent);
 		if (!styleEntry) {
 			return;
 		}
 		const style = styleEntry[1];
-		const playerEntry = ecs.query(PlayerInputComponent)[0];
+		const playerEntry = ecs.queryFirst(PlayerInputComponent);
 		const playerId = playerEntry ? playerEntry[0] : null;
 		for (const event of damage) {
 			if (!ecs.getComponent(event.target, HealthComponent)) {

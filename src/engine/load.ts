@@ -16,6 +16,24 @@ export const STYLE_BOLD_ITALIC = 3;
 
 export type FontStyle = 0 | 1 | 2 | 3;
 
+/**
+ * The face index for a bold/italic combination.
+ *
+ * {@link FontStyle} is a two-bit set, not an enum, and every caller that turns
+ * a pair of booleans into one was writing the same packing by hand. One
+ * function means a third bit — or a different packing — lands everywhere at
+ * once.
+ *
+ * @example
+ * const style = fontStyleOf(opts.bold, opts.italic);
+ */
+export const fontStyleOf = (
+	bold: boolean | undefined,
+	italic: boolean | undefined,
+): FontStyle =>
+	((bold ? STYLE_BOLD : STYLE_REGULAR) |
+		(italic ? STYLE_ITALIC : STYLE_REGULAR)) as FontStyle;
+
 const ITALIC_SLANT = 0.33;
 
 export type GlyphVariant = Readonly<{

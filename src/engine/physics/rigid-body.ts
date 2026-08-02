@@ -1,7 +1,7 @@
 import type { RigidBodyType } from "../physics/physics-body-component";
 import type { EntityId } from "../ecs";
 import Vector2 from "../vector2";
-import type { ContactNormal, Physics, Vec } from "./physics";
+import type { Physics, Vec } from "./physics";
 
 export class RigidBody {
 	userData: EntityId | null = null;
@@ -107,7 +107,12 @@ export class RigidBody {
 		}
 	}
 
-	touchingContacts(): Iterable<ContactNormal> {
-		return this.physics.touchingContacts(this);
+	/** See {@link Physics.hasContactNormal}. */
+	hasContactNormal(
+		dirX: number,
+		dirY: number,
+		minDot: number,
+	): boolean {
+		return this.physics.hasContactNormal(this, dirX, dirY, minDot);
 	}
 }

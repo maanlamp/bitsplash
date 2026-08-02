@@ -1,11 +1,10 @@
 import type Viewport from "../camera/viewport";
 import {
 	type FontStyle,
+	fontStyleOf,
 	type LoadedFont,
-	STYLE_BOLD,
-	STYLE_ITALIC,
-	STYLE_REGULAR,
 } from "../load";
+import type { Mutable } from "../mutable";
 import {
 	applyCompositeBlend,
 	applyQuadBlend,
@@ -15,6 +14,7 @@ import {
 import {
 	type ColorInput,
 	ColorResolver,
+	type MutableRGBA,
 	type RGBA,
 } from "../render/color-resolver";
 import {
@@ -222,6 +222,8 @@ export type RawLayerContext = Readonly<{
 	originY: number;
 }>;
 
+type MutableRawLayerContext = Mutable<RawLayerContext>;
+
 export type RawLayerFn = (
 	gl: WebGL2RenderingContext,
 	ctx: RawLayerContext,
@@ -262,6 +264,12 @@ const OUTLINE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
 	[1, 1],
 ];
 
+/**
+ * Corner order that turns a quad's four corners into two triangles. Module-level
+ * so the per-quad writers index a shared array instead of building one per call.
+ */
+const QUAD_CORNERS: ReadonlyArray<number> = [0, 1, 2, 0, 2, 3];
+
 const writeQuadVert = (
 	out: Float32Array,
 	o: number,
@@ -289,9 +297,9 @@ const writeQuad = (
 	uv: ReadonlyArray<number>,
 	c: RGBA,
 ): void => {
-	const order = [0, 1, 2, 0, 2, 3];
 	let p = o;
-	for (const i of order) {
+	for (let k = 0; k < QUAD_CORNERS.length; k++) {
+		const i = QUAD_CORNERS[k]!;
 		writeQuadVert(
 			out,
 			p,
@@ -355,9 +363,9 @@ const writeTileQuad = (
 	slot: number,
 	c: RGBA,
 ): void => {
-	const order = [0, 1, 2, 0, 2, 3];
 	let p = o;
-	for (const i of order) {
+	for (let k = 0; k < QUAD_CORNERS.length; k++) {
+		const i = QUAD_CORNERS[k]!;
 		writeTileVert(
 			out,
 			p,
@@ -372,22 +380,28 @@ const writeTileQuad = (
 	}
 };
 
-const rotateCorners = (
+/**
+ * Rotate four local corners about `cx`, `cy` into caller-owned `outPx`/`outPy`.
+ *
+ * Out-parameters rather than a returned pair: this runs once per sprite and once
+ * per glyph, so returning fresh arrays put three allocations on the hottest draw
+ * path in the engine.
+ */
+const rotateCornersInto = (
 	cx: number,
 	cy: number,
 	lx: ReadonlyArray<number>,
 	ly: ReadonlyArray<number>,
 	rotation: number,
-): { px: number[]; py: number[] } => {
+	outPx: number[],
+	outPy: number[],
+): void => {
 	const cos = Math.cos(rotation);
 	const sin = Math.sin(rotation);
-	const px: number[] = [];
-	const py: number[] = [];
 	for (let i = 0; i < 4; i++) {
-		px.push(cx + lx[i]! * cos - ly[i]! * sin);
-		py.push(cy + lx[i]! * sin + ly[i]! * cos);
+		outPx[i] = cx + lx[i]! * cos - ly[i]! * sin;
+		outPy[i] = cy + lx[i]! * sin + ly[i]! * cos;
 	}
-	return { px, py };
 };
 
 const intersectScissor = (
@@ -589,9 +603,44 @@ type LayerState = {
 	scratch: RenderTarget;
 	blend: BlendMode;
 	opacity: number;
+	/**
+	 * False once the layer has queued a command whose result depends on what
+	 * the layer is drawn over — an `"additive"` quad, or a raw callback that
+	 * owns the bound framebuffer outright. Such a layer must be resolved in
+	 * its own target before compositing; see {@link Renderer2D.renderTo}.
+	 */
+	selfContained: boolean;
 };
 
-const MAX_IDLE = 2;
+const ascending = (a: number, b: number): number => a - b;
+
+const writeBlitVertex = (
+	out: Float32Array,
+	at: number,
+	x: number,
+	y: number,
+	u: number,
+	v: number,
+): void => {
+	out[at] = x;
+	out[at + 1] = y;
+	out[at + 2] = u;
+	out[at + 3] = v;
+};
+
+/**
+ * How long a layer may go undrawn before its scratch target is released, in
+ * seconds.
+ *
+ * **A duration, not a frame count.** Allocating a full-viewport texture and
+ * framebuffer is among the most expensive things a driver does, so eviction must
+ * be rare in wall-clock terms. A frame count cannot express that: with the frame
+ * rate unlocked the loop runs at thousands of hertz, so any per-frame budget
+ * collapses to well under a millisecond and a layer that draws intermittently
+ * thrashes its target continuously.
+ */
+const MAX_IDLE_SECONDS = 2;
+
 const RING_PAD = 2;
 
 type TileArrayEntry = Readonly<{
@@ -655,6 +704,43 @@ export default class Renderer2D {
 	private sceneTargets = new Map<object, RenderTarget>();
 	private presentTarget: RenderTarget | null = null;
 	private clipStack: ScissorBox[] = [];
+	private orderScratch: number[] = [];
+	/**
+	 * Per-draw scratch for the immediate quad path: corners, texture
+	 * coordinates and tinted colours are filled, handed to a vertex writer that
+	 * copies them into the batch buffer, and reused by the next draw. Nothing
+	 * recorded in a retained command may point at these.
+	 */
+	private readonly cornerLx: number[] = [0, 0, 0, 0];
+	private readonly cornerLy: number[] = [0, 0, 0, 0];
+	private readonly cornerPx: number[] = [0, 0, 0, 0];
+	private readonly cornerPy: number[] = [0, 0, 0, 0];
+	private readonly cornerUv: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
+	private readonly imagePx: number[] = [0, 0, 0, 0];
+	private readonly imagePy: number[] = [0, 0, 0, 0];
+	private readonly imageUv: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
+	private readonly imageColor: MutableRGBA = [0, 0, 0, 0];
+	private readonly textColor: MutableRGBA = [0, 0, 0, 0];
+	private readonly outlineColor: MutableRGBA = [0, 0, 0, 0];
+	private readonly shapeColor: MutableRGBA = [0, 0, 0, 0];
+	private readonly shapeOutlineColor: MutableRGBA = [0, 0, 0, 0];
+	/**
+	 * Separate from {@link cornerPx} because a stroked rect holds its four
+	 * corners while `strokeSegment` fills a quad per edge, and filling reuses
+	 * the corner scratch.
+	 */
+	private readonly strokeLx: number[] = [0, 0, 0, 0];
+	private readonly strokeLy: number[] = [0, 0, 0, 0];
+	private readonly strokePx: number[] = [0, 0, 0, 0];
+	private readonly strokePy: number[] = [0, 0, 0, 0];
+	private rawCtx: MutableRawLayerContext = {
+		texW: 0,
+		texH: 0,
+		spanX: 0,
+		spanY: 0,
+		originX: 0,
+		originY: 0,
+	};
 	private disposeListeners = new Set<() => void>();
 	private contextRestoredListeners = new Set<() => void>();
 	private prewarmed: PrewarmedContext | null = null;
@@ -990,6 +1076,7 @@ export default class Renderer2D {
 				scratch: this.createRenderTarget(),
 				blend: BlendMode.NORMAL,
 				opacity: 1,
+				selfContained: true,
 			};
 			this.layers.set(id, layer);
 		}
@@ -1033,6 +1120,9 @@ export default class Renderer2D {
 		blend: QuadBlend,
 		start: number,
 	): void {
+		if (blend === "additive") {
+			layer.selfContained = false;
+		}
 		const last = layer.commands[layer.commands.length - 1];
 		if (
 			last &&
@@ -1073,24 +1163,45 @@ export default class Renderer2D {
 		this.recordQuad(layer, format, texture, blend, start);
 	}
 
-	private withAlpha(color: RGBA, alpha?: number): RGBA {
+	/**
+	 * `color` with its alpha scaled by `alpha`, written into `out`.
+	 *
+	 * Returns `color` itself when there is nothing to scale, so the common case
+	 * touches nothing. Callers that record the result in a retained command must
+	 * pass their own array; callers that hand it straight to a vertex writer can
+	 * share one of the renderer's scratch colours.
+	 */
+	private withAlpha(
+		color: RGBA,
+		alpha: number | undefined,
+		out: MutableRGBA,
+	): RGBA {
 		if (alpha === undefined || alpha === 1) {
 			return color;
 		}
-		return [color[0], color[1], color[2], color[3] * alpha];
+		out[0] = color[0];
+		out[1] = color[1];
+		out[2] = color[2];
+		out[3] = color[3] * alpha;
+		return out;
 	}
 
 	private resolveTint(tint?: ColorInput): RGBA {
 		return tint ? this.colors.resolve(tint) : WHITE;
 	}
 
+	/**
+	 * Place `image`'s quad into {@link imagePx}/{@link imagePy}/{@link imageUv},
+	 * answering whether there is anything to draw. The buffers stay valid until
+	 * the next image draw.
+	 */
 	private imageQuad(
 		image: TileSource,
 		opts: DrawImageOpts,
 		padTexels: number,
-	): { px: number[]; py: number[]; uv: number[] } | null {
+	): boolean {
 		if (sourceWidth(image) === 0) {
-			return null;
+			return false;
 		}
 		const iw = sourceWidth(image);
 		const ih = sourceHeight(image);
@@ -1102,14 +1213,26 @@ export default class Renderer2D {
 		const padY = (padTexels * opts.height) / sh;
 		const hw = opts.width / 2 + padX;
 		const hh = opts.height / 2 + padY;
-		const lx = [-hw, hw, hw, -hw];
-		const ly = [-hh, -hh, hh, hh];
-		const { px, py } = rotateCorners(
+		const lx = this.cornerLx;
+		const ly = this.cornerLy;
+		lx[0] = -hw;
+		lx[1] = hw;
+		lx[2] = hw;
+		lx[3] = -hw;
+		ly[0] = -hh;
+		ly[1] = -hh;
+		ly[2] = hh;
+		ly[3] = hh;
+		const px = this.imagePx;
+		const py = this.imagePy;
+		rotateCornersInto(
 			opts.x,
 			opts.y,
 			lx,
 			ly,
 			opts.rotation ?? 0,
+			px,
+			py,
 		);
 		const shear = opts.shear ?? 0;
 		px[0]! += shear;
@@ -1125,7 +1248,16 @@ export default class Renderer2D {
 			u0 = u1;
 			u1 = t;
 		}
-		return { px, py, uv: [u0, v0, u1, v0, u1, v1, u0, v1] };
+		const uv = this.imageUv;
+		uv[0] = u0;
+		uv[1] = v0;
+		uv[2] = u1;
+		uv[3] = v0;
+		uv[4] = u1;
+		uv[5] = v1;
+		uv[6] = u0;
+		uv[7] = v1;
+		return true;
 	}
 
 	drawImage(
@@ -1133,21 +1265,21 @@ export default class Renderer2D {
 		image: TileSource,
 		opts: DrawImageOpts,
 	): void {
-		const quad = this.imageQuad(image, opts, 0);
-		if (!quad) {
+		if (!this.imageQuad(image, opts, 0)) {
 			return;
 		}
 		const color = this.withAlpha(
 			this.resolveTint(opts.tint),
 			opts.alpha,
+			this.imageColor,
 		);
 		this.pushQuadShape(
 			id,
 			this.getTexture(image),
 			"quad",
-			quad.px,
-			quad.py,
-			quad.uv,
+			this.imagePx,
+			this.imagePy,
+			this.imageUv,
 			color,
 			opts.blend ?? "normal",
 		);
@@ -1195,19 +1327,39 @@ export default class Renderer2D {
 		const pad = Math.abs(sway.lean) + Math.abs(sway.rustle);
 		const hw = opts.width / 2 + pad;
 		const hh = opts.height / 2;
-		const { px, py } = rotateCorners(
+		// A sway command outlives this call, so its geometry cannot live in the
+		// shared per-draw scratch.
+		const px: number[] = [0, 0, 0, 0];
+		const py: number[] = [0, 0, 0, 0];
+		const lx = this.cornerLx;
+		const ly = this.cornerLy;
+		lx[0] = -hw;
+		lx[1] = hw;
+		lx[2] = hw;
+		lx[3] = -hw;
+		ly[0] = -hh;
+		ly[1] = -hh;
+		ly[2] = hh;
+		ly[3] = hh;
+		rotateCornersInto(
 			opts.x,
 			opts.y,
-			[-hw, hw, hw, -hw],
-			[-hh, -hh, hh, hh],
+			lx,
+			ly,
 			opts.rotation ?? 0,
+			px,
+			py,
 		);
 		const u0 = sx / iw;
 		const u1 = (sx + sw) / iw;
 		const v0 = sy / ih;
 		const v1 = (sy + sh) / ih;
 		const du = (pad / opts.width) * (u1 - u0);
-		this.getLayer(id).commands.push({
+		const layer = this.getLayer(id);
+		if ((opts.blend ?? "normal") === "additive") {
+			layer.selfContained = false;
+		}
+		layer.commands.push({
 			kind: "sway",
 			texture: this.getTexture(image),
 			px,
@@ -1219,7 +1371,11 @@ export default class Renderer2D {
 			v1,
 			srcW: sw,
 			srcH: sh,
-			color: this.withAlpha(this.resolveTint(opts.tint), opts.alpha),
+			color: this.withAlpha(
+				this.resolveTint(opts.tint),
+				opts.alpha,
+				[0, 0, 0, 0],
+			),
 			blend: opts.blend ?? "normal",
 			amplitude: sway.lean / opts.width,
 			rustle: sway.rustle / opts.width,
@@ -1251,6 +1407,7 @@ export default class Renderer2D {
 		const color = this.withAlpha(
 			this.resolveTint(opts.tint),
 			opts.alpha,
+			this.shapeColor,
 		);
 		if (!opts.image) {
 			this.pushQuadShape(
@@ -1285,21 +1442,21 @@ export default class Renderer2D {
 		image: TileSource,
 		opts: DrawImageOpts,
 	): void {
-		const quad = this.imageQuad(image, opts, 1);
-		if (!quad) {
+		if (!this.imageQuad(image, opts, 1)) {
 			return;
 		}
 		const color = this.withAlpha(
 			this.resolveTint(opts.tint),
 			opts.alpha,
+			this.imageColor,
 		);
 		this.pushQuadShape(
 			id,
 			this.getTexture(image),
 			"outline",
-			quad.px,
-			quad.py,
-			quad.uv,
+			this.imagePx,
+			this.imagePy,
+			this.imageUv,
 			color,
 			opts.blend ?? "normal",
 		);
@@ -1345,6 +1502,7 @@ export default class Renderer2D {
 		const color = this.withAlpha(
 			this.resolveTint(opts.tint),
 			opts.alpha,
+			this.shapeColor,
 		);
 		writeTile(
 			this.tileData,
@@ -1359,6 +1517,9 @@ export default class Renderer2D {
 		);
 		this.tileVerts += VERTS_PER_QUAD;
 		const blend = opts.blend ?? "normal";
+		if (blend === "additive") {
+			layer.selfContained = false;
+		}
 		const last = layer.commands[layer.commands.length - 1];
 		if (
 			last &&
@@ -1393,15 +1554,31 @@ export default class Renderer2D {
 	): void {
 		const cx = x + w / 2;
 		const cy = y + h / 2;
-		const lx = [x - cx, x + w - cx, x + w - cx, x - cx];
-		const ly = [y - cy, y - cy, y + h - cy, y + h - cy];
-		const { px, py } = rotateCorners(cx, cy, lx, ly, rotation);
+		const lx = this.cornerLx;
+		const ly = this.cornerLy;
+		lx[0] = x - cx;
+		lx[1] = x + w - cx;
+		lx[2] = lx[1];
+		lx[3] = lx[0];
+		ly[0] = y - cy;
+		ly[1] = ly[0];
+		ly[2] = y + h - cy;
+		ly[3] = ly[2];
+		rotateCornersInto(
+			cx,
+			cy,
+			lx,
+			ly,
+			rotation,
+			this.cornerPx,
+			this.cornerPy,
+		);
 		this.pushQuadShape(
 			id,
 			this.whiteTex,
 			"quad",
-			px,
-			py,
+			this.cornerPx,
+			this.cornerPy,
 			SOLID_UV,
 			color,
 			blend,
@@ -1419,29 +1596,34 @@ export default class Renderer2D {
 				opts.width,
 				opts.height,
 				rotation,
-				this.withAlpha(this.colors.resolve(opts.fill), opts.alpha),
+				this.withAlpha(
+					this.colors.resolve(opts.fill),
+					opts.alpha,
+					this.shapeColor,
+				),
 				blend,
 			);
 		}
 		if (opts.stroke) {
 			const cx = opts.x + opts.width / 2;
 			const cy = opts.y + opts.height / 2;
-			const lx = [
-				opts.x - cx,
-				opts.x + opts.width - cx,
-				opts.x + opts.width - cx,
-				opts.x - cx,
-			];
-			const ly = [
-				opts.y - cy,
-				opts.y - cy,
-				opts.y + opts.height - cy,
-				opts.y + opts.height - cy,
-			];
-			const { px, py } = rotateCorners(cx, cy, lx, ly, rotation);
+			const lx = this.strokeLx;
+			const ly = this.strokeLy;
+			lx[0] = opts.x - cx;
+			lx[1] = opts.x + opts.width - cx;
+			lx[2] = lx[1];
+			lx[3] = lx[0];
+			ly[0] = opts.y - cy;
+			ly[1] = ly[0];
+			ly[2] = opts.y + opts.height - cy;
+			ly[3] = ly[2];
+			const px = this.strokePx;
+			const py = this.strokePy;
+			rotateCornersInto(cx, cy, lx, ly, rotation, px, py);
 			const color = this.withAlpha(
 				this.colors.resolve(opts.stroke),
 				opts.alpha,
+				this.shapeOutlineColor,
 			);
 			const w = opts.lineWidth ?? 1;
 			for (let i = 0; i < 4; i++) {
@@ -1534,6 +1716,7 @@ export default class Renderer2D {
 
 	withRawLayer(id: number, fn: RawLayerFn): void {
 		const layer = this.getLayer(id);
+		layer.selfContained = false;
 		layer.commands.push({ kind: "raw", fn });
 	}
 
@@ -1559,18 +1742,19 @@ export default class Renderer2D {
 		opts: DrawTextOpts = {},
 	): void {
 		const atlas = this.getFontAtlas(font);
-		const style = ((opts.bold ? STYLE_BOLD : STYLE_REGULAR) |
-			(opts.italic ? STYLE_ITALIC : STYLE_REGULAR)) as FontStyle;
-		const quads = atlas.layout(
+		const style = fontStyleOf(opts.bold, opts.italic);
+		const count = atlas.layout(
 			text,
 			x,
 			y,
 			opts.align ?? "left",
 			style,
 		);
+		const quads = atlas.laidOut;
 		const color = this.withAlpha(
 			opts.color ? this.colors.resolve(opts.color) : WHITE,
 			opts.alpha,
+			this.textColor,
 		);
 		const scale = opts.scale ?? 1;
 		const rotation = opts.rotation ?? 0;
@@ -1580,17 +1764,19 @@ export default class Renderer2D {
 			const outline = this.withAlpha(
 				this.colors.resolve(opts.outline),
 				opts.alpha,
+				this.outlineColor,
 			);
-			for (const [ox, oy] of OUTLINE_OFFSETS) {
-				for (const q of quads) {
+			for (let o = 0; o < OUTLINE_OFFSETS.length; o++) {
+				const offset = OUTLINE_OFFSETS[o]!;
+				for (let i = 0; i < count; i++) {
 					this.pushGlyphQuad(
 						id,
 						texture,
-						q,
+						quads[i]!,
 						x,
 						y,
-						ox,
-						oy,
+						offset[0],
+						offset[1],
 						scale,
 						rotation,
 						outline,
@@ -1599,11 +1785,11 @@ export default class Renderer2D {
 				}
 			}
 		}
-		for (const q of quads) {
+		for (let i = 0; i < count; i++) {
 			this.pushGlyphQuad(
 				id,
 				texture,
-				q,
+				quads[i]!,
 				x,
 				y,
 				0,
@@ -1633,32 +1819,41 @@ export default class Renderer2D {
 		const x1 = q.x + q.w + offsetX;
 		const y0 = q.y + offsetY;
 		const y1 = q.y + q.h + offsetY;
-		const lx = [
-			(x0 - anchorX) * scale,
-			(x1 - anchorX) * scale,
-			(x1 - anchorX) * scale,
-			(x0 - anchorX) * scale,
-		];
-		const ly = [
-			(y0 - anchorY) * scale,
-			(y0 - anchorY) * scale,
-			(y1 - anchorY) * scale,
-			(y1 - anchorY) * scale,
-		];
-		const { px, py } = rotateCorners(
+		const lx = this.cornerLx;
+		const ly = this.cornerLy;
+		lx[0] = (x0 - anchorX) * scale;
+		lx[1] = (x1 - anchorX) * scale;
+		lx[2] = lx[1];
+		lx[3] = lx[0];
+		ly[0] = (y0 - anchorY) * scale;
+		ly[1] = ly[0];
+		ly[2] = (y1 - anchorY) * scale;
+		ly[3] = ly[2];
+		rotateCornersInto(
 			anchorX,
 			anchorY,
 			lx,
 			ly,
 			rotation,
+			this.cornerPx,
+			this.cornerPy,
 		);
+		const uv = this.cornerUv;
+		uv[0] = q.u0;
+		uv[1] = q.v0;
+		uv[2] = q.u1;
+		uv[3] = q.v0;
+		uv[4] = q.u1;
+		uv[5] = q.v1;
+		uv[6] = q.u0;
+		uv[7] = q.v1;
 		this.pushQuadShape(
 			id,
 			texture,
 			"text",
-			px,
-			py,
-			[q.u0, q.v0, q.u1, q.v0, q.u1, q.v1, q.u0, q.v1],
+			this.cornerPx,
+			this.cornerPy,
+			uv,
 			color,
 			blend,
 		);
@@ -1700,6 +1895,7 @@ export default class Renderer2D {
 		for (const layer of this.layers.values()) {
 			layer.commands.length = 0;
 			layer.used = false;
+			layer.selfContained = true;
 		}
 	}
 
@@ -1719,16 +1915,49 @@ export default class Renderer2D {
 		);
 	}
 
-	private orderedLayers(): number[] {
-		return [...this.layers.keys()]
-			.filter((id) => this.layers.get(id)!.used)
-			.sort((a, b) => a - b);
+	/**
+	 * Ids of the layers drawn this frame, ascending, optionally narrowed by
+	 * `includeLayer`. Writes into renderer-owned scratch and returns it — the
+	 * result is valid only until the next call, and must never be retained.
+	 */
+	private orderedLayers(
+		includeLayer?: (id: number) => boolean,
+	): number[] {
+		const out = this.orderScratch;
+		out.length = 0;
+		for (const id of this.layers.keys()) {
+			if (!this.layers.get(id)!.used) {
+				continue;
+			}
+			if (includeLayer && !includeLayer(id)) {
+				continue;
+			}
+			out.push(id);
+		}
+		out.sort(ascending);
+		return out;
 	}
 
 	resolveColor(input: ColorInput): RGBA {
 		return this.colors.resolve(input);
 	}
 
+	/**
+	 * Composite this frame's layers into `target`, in ascending layer id.
+	 *
+	 * A layer only needs a render target of its own when its result must exist
+	 * as a finished image before it can be combined — when it carries a
+	 * non-`NORMAL` {@link BlendMode}, a sub-1 opacity, or a command whose
+	 * output depends on what lies beneath it (see
+	 * {@link LayerState.selfContained}). Every other layer draws straight into
+	 * `target`, which is exact because both the per-quad and the `NORMAL`
+	 * composite blend are source-over, and source-over is associative. That
+	 * saves a full-viewport clear and a full-viewport blit per layer — the
+	 * dominant cost of a frame with little else in it.
+	 *
+	 * Direct and offscreen layers are handled in one pass so they interleave in
+	 * draw order. An empty layer costs nothing either way.
+	 */
 	renderTo(
 		target: RenderTarget,
 		includeLayer?: (id: number) => boolean,
@@ -1742,52 +1971,55 @@ export default class Renderer2D {
 		}
 		this.uploadStaging();
 
-		const rawCtx: RawLayerContext = {
-			texW,
-			texH,
-			spanX: target.spanX,
-			spanY: target.spanY,
-			originX: target.originX,
-			originY: target.originY,
-		};
+		const rawCtx = this.rawCtx;
+		rawCtx.texW = texW;
+		rawCtx.texH = texH;
+		rawCtx.spanX = target.spanX;
+		rawCtx.spanY = target.spanY;
+		rawCtx.originX = target.originX;
+		rawCtx.originY = target.originY;
 
-		const ordered = includeLayer
-			? this.orderedLayers().filter(includeLayer)
-			: this.orderedLayers();
-		for (const id of ordered) {
-			const layer = this.layers.get(id)!;
-			layer.scratch.resize(texW, texH);
-			gl.bindFramebuffer(gl.FRAMEBUFFER, layer.scratch.fbo);
-			gl.viewport(0, 0, texW, texH);
-			gl.clearColor(0, 0, 0, 0);
-			gl.clear(gl.COLOR_BUFFER_BIT);
-			this.clipStack.length = 0;
-			gl.disable(gl.SCISSOR_TEST);
-			for (const cmd of layer.commands) {
-				this.runCommand(
-					cmd,
-					target,
-					rawCtx,
-					texW,
-					texH,
-					layer.scratch.fbo,
-				);
-			}
-			gl.disable(gl.SCISSOR_TEST);
-		}
-		this.clipStack.length = 0;
+		const ordered = this.orderedLayers(includeLayer);
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 		gl.viewport(0, 0, texW, texH);
+		this.clipStack.length = 0;
+		gl.disable(gl.SCISSOR_TEST);
 		if (clear) {
 			gl.clearColor(0, 0, 0, 0);
 			gl.clear(gl.COLOR_BUFFER_BIT);
 		}
+
 		for (const id of ordered) {
 			const layer = this.layers.get(id)!;
-			applyCompositeBlend(gl, layer.blend);
-			this.drawBlit(layer.scratch.tex, layer.opacity, -1, 1, 1, -1);
+			if (layer.commands.length === 0) {
+				continue;
+			}
+			const offscreen =
+				!layer.selfContained ||
+				layer.blend !== BlendMode.NORMAL ||
+				layer.opacity < 1;
+			const fbo = offscreen ? layer.scratch.fbo : target.fbo;
+			if (offscreen) {
+				layer.scratch.resize(texW, texH);
+				gl.bindFramebuffer(gl.FRAMEBUFFER, layer.scratch.fbo);
+				gl.viewport(0, 0, texW, texH);
+				gl.clearColor(0, 0, 0, 0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			}
+			for (const cmd of layer.commands) {
+				this.runCommand(cmd, target, rawCtx, texW, texH, fbo);
+			}
+			this.clipStack.length = 0;
+			gl.disable(gl.SCISSOR_TEST);
+			if (offscreen) {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+				gl.viewport(0, 0, texW, texH);
+				applyCompositeBlend(gl, layer.blend);
+				this.drawBlit(layer.scratch.tex, layer.opacity, -1, 1, 1, -1);
+			}
 		}
+		this.clipStack.length = 0;
 	}
 
 	clearTarget(target: RenderTarget): void {
@@ -2089,12 +2321,12 @@ export default class Renderer2D {
 		rawCtx: RawLayerContext,
 		texW: number,
 		texH: number,
-		scratchFbo: WebGLFramebuffer,
+		destFbo: WebGLFramebuffer,
 	): void {
 		const gl = this.gl;
 		if (cmd.kind === "raw") {
 			cmd.fn(gl, rawCtx);
-			gl.bindFramebuffer(gl.FRAMEBUFFER, scratchFbo);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, destFbo);
 			gl.viewport(0, 0, texW, texH);
 			return;
 		}
@@ -2119,7 +2351,7 @@ export default class Renderer2D {
 			return;
 		}
 		if (cmd.kind === "holdRing") {
-			this.paintHoldRing(cmd, target, texW, texH, scratchFbo);
+			this.paintHoldRing(cmd, target, texW, texH, destFbo);
 			return;
 		}
 		if (cmd.kind === "sway") {
@@ -2242,7 +2474,7 @@ export default class Renderer2D {
 		target: RenderTarget,
 		texW: number,
 		texH: number,
-		scratchFbo: WebGLFramebuffer,
+		destFbo: WebGLFramebuffer,
 	): void {
 		const gl = this.gl;
 		const rtW = Math.max(1, Math.round(cmd.width));
@@ -2291,7 +2523,7 @@ export default class Renderer2D {
 			);
 		}
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, scratchFbo);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, destFbo);
 		gl.viewport(0, 0, texW, texH);
 		applyQuadBlend(gl, "normal");
 		const prog = this.quadConicOutline;
@@ -2329,32 +2561,12 @@ export default class Renderer2D {
 	): void {
 		const gl = this.gl;
 		const d = this.blitData;
-		d.set([
-			left,
-			top,
-			0,
-			1,
-			right,
-			top,
-			1,
-			1,
-			right,
-			bottom,
-			1,
-			0,
-			left,
-			top,
-			0,
-			1,
-			right,
-			bottom,
-			1,
-			0,
-			left,
-			bottom,
-			0,
-			0,
-		]);
+		writeBlitVertex(d, 0, left, top, 0, 1);
+		writeBlitVertex(d, 4, right, top, 1, 1);
+		writeBlitVertex(d, 8, right, bottom, 1, 0);
+		writeBlitVertex(d, 12, left, top, 0, 1);
+		writeBlitVertex(d, 16, right, bottom, 1, 0);
+		writeBlitVertex(d, 20, left, bottom, 0, 0);
 		gl.useProgram(this.blit.program);
 		gl.uniform1i(this.blit.uTex, 0);
 		gl.uniform1f(this.blit.uOpacity, opacity);
@@ -2401,12 +2613,14 @@ export default class Renderer2D {
 	}
 
 	endFrame(): void {
+		const now = performance.now();
 		for (const [id, layer] of this.layers) {
 			if (layer.used) {
 				continue;
 			}
-			layer.idle++;
-			if (layer.idle > MAX_IDLE) {
+			if (layer.idle === 0) {
+				layer.idle = now;
+			} else if (now - layer.idle > MAX_IDLE_SECONDS * 1000) {
 				layer.scratch.dispose();
 				this.layers.delete(id);
 			}

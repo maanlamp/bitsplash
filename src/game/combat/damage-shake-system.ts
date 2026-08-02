@@ -18,12 +18,12 @@ export class DamageShakeSystem implements UpdateSystem {
 		if (damage.length === 0) {
 			return;
 		}
-		const shakeEntry = ecs.query(CameraShakeComponent)[0];
+		const shakeEntry = ecs.queryFirst(CameraShakeComponent);
 		if (!shakeEntry) {
 			return;
 		}
 		const shake = shakeEntry[1];
-		const style = ecs.query(HitsplatStyleComponent)[0]?.[1];
+		const style = ecs.queryFirst(HitsplatStyleComponent)?.[1];
 		const traumaPerHp = style?.traumaPerHp ?? DEFAULT_TRAUMA_PER_HP;
 		const critTraumaBonus =
 			style?.critTraumaBonus ?? DEFAULT_CRIT_TRAUMA_BONUS;

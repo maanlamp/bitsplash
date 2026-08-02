@@ -28,7 +28,7 @@ export class HudSyncSystem implements UpdateSystem {
 	constructor(private readonly hud: HudState) {}
 
 	update({ ecs }: UpdateContext): void {
-		const [, notice] = ecs.query(QuestNoticeComponent)[0] ?? [];
+		const [, notice] = ecs.queryFirst(QuestNoticeComponent) ?? [];
 		this.hud.setNotice(notice ? notice.text : null);
 		this.hud.setQuestLines(this.activeLines(ecs));
 	}

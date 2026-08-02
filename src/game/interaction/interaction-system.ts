@@ -14,16 +14,16 @@ import { ACTION_IDS } from "../input/action-ids";
 @profiler("Interaction", "Interaction")
 export class InteractionSystem implements UpdateSystem {
 	update({ ecs, actions, events }: UpdateContext): void {
-		const stateEntry = ecs.query(InteractionStateComponent)[0];
+		const stateEntry = ecs.queryFirst(InteractionStateComponent);
 		if (!stateEntry) {
 			return;
 		}
 		const state = stateEntry[1];
 
-		const playerEntry = ecs.query(
+		const playerEntry = ecs.queryFirst(
 			PlayerInputComponent,
 			TransformComponent,
-		)[0];
+		);
 		if (!playerEntry) {
 			state.inRange = null;
 			return;

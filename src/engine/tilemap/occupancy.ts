@@ -5,19 +5,11 @@ import {
 	TileLayerComponent,
 } from "./tile-layer-component";
 
+export { tileCellKey } from "./grid";
+
 type TileLayers = ReadonlyArray<
 	readonly [EntityId, TileLayerComponent]
 >;
-
-/**
- * The key a tile cell is stored under in every merged cell set here, so callers
- * testing a coordinate cannot spell the format differently than the sets do.
- *
- * @example
- * mergedBlockingCells(ecs, "rain-blocking").has(tileCellKey(gx, gy));
- */
-export const tileCellKey = (gx: number, gy: number): string =>
-	`${gx},${gy}`;
 
 /**
  * Identity of a set of layers and the state of their grids, as one string —
@@ -81,13 +73,18 @@ export const blockingLayers = (
 	ecs: ReadonlyECS,
 	blocking: TileBlockingClass,
 ): ReadonlyArray<readonly [EntityId, TileLayerComponent]> =>
-	tileLayers(ecs).filter(([, layer]) => {
-		const mode = BLOCKING_MODE[blocking](layer);
-		return (
-			mode === "blocks" ||
-			(mode === "auto" && layer.collision === "solid")
-		);
-	});
+	tileLayers(ecs).filter(([, layer]) => blocks(layer, blocking));
+
+const blocks = (
+	layer: TileLayerComponent,
+	blocking: TileBlockingClass,
+): boolean => {
+	const mode = BLOCKING_MODE[blocking](layer);
+	return (
+		mode === "blocks" ||
+		(mode === "auto" && layer.collision === "solid")
+	);
+};
 
 export const isSolidCell = (
 	ecs: ReadonlyECS,
@@ -98,22 +95,141 @@ export const isSolidCell = (
 		layer.grid.hasTile(gx, gy),
 	);
 
-const mergeCells = (layers: TileLayers): Set<string> => {
-	const cells = new Set<string>();
-	for (const [, layer] of layers) {
-		for (const [gx, gy] of layer.grid.occupiedCells()) {
-			cells.add(tileCellKey(gx, gy));
-		}
+/**
+ * Which layers a merged view is built from: every tile layer, the solid ones, or
+ * the ones blocking one precipitation classification.
+ */
+type CellKind = "all" | "solid" | TileBlockingClass;
+
+const included = (
+	layer: TileLayerComponent,
+	kind: CellKind,
+): boolean => {
+	if (kind === "all") {
+		return true;
 	}
-	return cells;
+	if (kind === "solid") {
+		return layer.collision === "solid";
+	}
+	return blocks(layer, kind);
 };
 
-export const mergedSolidCells = (ecs: ReadonlyECS): Set<string> =>
-	mergeCells(solidTileLayers(ecs));
+/**
+ * One merged view of a world's tile layers — the union of their cells and the
+ * extent that union spans — rebuilt only when the contributing layers or their
+ * grid versions change.
+ *
+ * Every particle, arrow and agent testing tiles this frame shares one of these,
+ * so the merge cost is paid on paint rather than per frame: the staleness check
+ * walks the layer list comparing ids and versions in place and allocates
+ * nothing.
+ */
+class MergedCells {
+	private readonly ids: EntityId[] = [];
+	private readonly versions: number[] = [];
+	private count = -1;
+	private readonly box = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+	private empty = true;
+
+	readonly cells = new Set<number>();
+
+	bounds(): GridBounds | null {
+		return this.empty ? null : this.box;
+	}
+
+	refresh(ecs: ReadonlyECS, kind: CellKind): void {
+		const layers = tileLayers(ecs);
+		let n = 0;
+		let stale = false;
+		for (let i = 0; i < layers.length; i++) {
+			const entry = layers[i]!;
+			const layer = entry[1];
+			if (!included(layer, kind)) {
+				continue;
+			}
+			if (
+				this.ids[n] !== entry[0] ||
+				this.versions[n] !== layer.grid.version
+			) {
+				stale = true;
+			}
+			n++;
+		}
+		if (!stale && n === this.count) {
+			return;
+		}
+		this.rebuild(layers, kind, n);
+	}
+
+	private rebuild(
+		layers: TileLayers,
+		kind: CellKind,
+		count: number,
+	): void {
+		this.count = count;
+		this.ids.length = count;
+		this.versions.length = count;
+		this.cells.clear();
+		let minX = Infinity;
+		let minY = Infinity;
+		let maxX = -Infinity;
+		let maxY = -Infinity;
+		let n = 0;
+		for (let i = 0; i < layers.length; i++) {
+			const entry = layers[i]!;
+			const layer = entry[1];
+			if (!included(layer, kind)) {
+				continue;
+			}
+			this.ids[n] = entry[0];
+			this.versions[n] = layer.grid.version;
+			n++;
+			for (const key of layer.grid.cellKeys()) {
+				this.cells.add(key);
+			}
+			const b = layer.grid.bounds();
+			if (!b) {
+				continue;
+			}
+			minX = Math.min(minX, b.minX);
+			minY = Math.min(minY, b.minY);
+			maxX = Math.max(maxX, b.maxX);
+			maxY = Math.max(maxY, b.maxY);
+		}
+		this.empty = minX === Infinity;
+		this.box.minX = minX;
+		this.box.minY = minY;
+		this.box.maxX = maxX;
+		this.box.maxY = maxY;
+	}
+}
+
+const merged = new WeakMap<ReadonlyECS, Map<CellKind, MergedCells>>();
+
+const mergedFor = (ecs: ReadonlyECS, kind: CellKind): MergedCells => {
+	let byKind = merged.get(ecs);
+	if (!byKind) {
+		byKind = new Map();
+		merged.set(ecs, byKind);
+	}
+	let view = byKind.get(kind);
+	if (!view) {
+		view = new MergedCells();
+		byKind.set(kind, view);
+	}
+	view.refresh(ecs, kind);
+	return view;
+};
+
+/** Every solid layer's cells, as {@link tileCellKey} values. */
+export const mergedSolidCells = (
+	ecs: ReadonlyECS,
+): ReadonlySet<number> => mergedFor(ecs, "solid").cells;
 
 /**
- * Every cell that keeps a classification's precipitation out, as `"gx,gy"` keys
- * — the classification of {@link blockingLayers}, not solidity.
+ * Every cell that keeps a classification's precipitation out, as
+ * {@link tileCellKey} values — the classification of {@link blockingLayers},
+ * not solidity.
  *
  * A precipitation particle tests against this rather than
  * {@link mergedSolidCells} so a tarpaulin marked `"blocks"` stops drops it does
@@ -126,29 +242,17 @@ export const mergedSolidCells = (ecs: ReadonlyECS): Set<string> =>
 export const mergedBlockingCells = (
 	ecs: ReadonlyECS,
 	blocking: TileBlockingClass,
-): Set<string> => mergeCells(blockingLayers(ecs, blocking));
+): ReadonlySet<number> => mergedFor(ecs, blocking).cells;
 
-const mergeBounds = (layers: TileLayers): GridBounds | null => {
-	let merged: GridBounds | null = null;
-	for (const [, layer] of layers) {
-		const bounds = layer.grid.bounds();
-		if (!bounds) {
-			continue;
-		}
-		merged = merged
-			? {
-					minX: Math.min(merged.minX, bounds.minX),
-					minY: Math.min(merged.minY, bounds.minY),
-					maxX: Math.max(merged.maxX, bounds.maxX),
-					maxY: Math.max(merged.maxY, bounds.maxY),
-				}
-			: bounds;
-	}
-	return merged;
-};
-
+/**
+ * The extent every solid layer spans, or `null` when none has a tile.
+ *
+ * The object is owned by the cache and rewritten in place when the layers
+ * change — read it within the frame rather than retaining it.
+ */
 export const solidBounds = (ecs: ReadonlyECS): GridBounds | null =>
-	mergeBounds(solidTileLayers(ecs));
+	mergedFor(ecs, "solid").bounds();
 
+/** As {@link solidBounds}, over every tile layer regardless of collision. */
 export const tileBounds = (ecs: ReadonlyECS): GridBounds | null =>
-	mergeBounds(tileLayers(ecs));
+	mergedFor(ecs, "all").bounds();

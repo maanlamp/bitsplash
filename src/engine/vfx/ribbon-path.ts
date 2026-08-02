@@ -21,6 +21,8 @@
  * nothing.
  */
 
+import type { Mutable } from "../mutable";
+
 const TAU = Math.PI * 2;
 
 export const VFX_RIBBON_PATHS = ["wander"] as const;
@@ -67,6 +69,13 @@ export type RibbonPathInput = Readonly<{
 	/** How many points to write, always `segments + 1` and at least two. */
 	points: number;
 }>;
+
+/**
+ * A {@link RibbonPathInput} the caller refills per ribbon. Generators only read
+ * it, so one instance can be rewritten for a whole band instead of building a
+ * fresh input per ribbon per frame.
+ */
+export type MutableRibbonPathInput = Mutable<RibbonPathInput>;
 
 /**
  * Write a ribbon's world points into `px`/`py`.

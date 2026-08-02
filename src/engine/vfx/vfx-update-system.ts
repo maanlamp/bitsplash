@@ -134,11 +134,6 @@ const advanceAnalytically = (
 @profiler("VFX", "VFX")
 export class VfxUpdateSystem implements UpdateSystem {
 	private hooked: ECS | null = null;
-	private solidCells: Set<string> | null = null;
-	private readonly blockingCells = new Map<
-		TileBlockingClass,
-		Set<string>
-	>();
 	private readonly shelter = new Map<
 		TileBlockingClass,
 		ExposureField
@@ -158,8 +153,6 @@ export class VfxUpdateSystem implements UpdateSystem {
 			return;
 		}
 		const dt = Math.min(Math.max(ctx.time.dt, 0), MAX_STEP);
-		this.solidCells = null;
-		this.blockingCells.clear();
 		this.shelter.clear();
 		this.shelterCenterX = ctx.camera?.position.x ?? 0;
 		this.shelterCenterY = ctx.camera?.position.y ?? 0;
@@ -529,6 +522,12 @@ export class VfxUpdateSystem implements UpdateSystem {
 					? part.collision.response
 					: "passThrough";
 			const blocking = precipitationBlocking(part);
+			const collisionCells =
+				response === "passThrough"
+					? null
+					: blocking
+						? mergedBlockingCells(ecs, blocking)
+						: mergedSolidCells(ecs);
 			const shelter = blocking
 				? this.shelterField(ecs, blocking)
 				: null;
@@ -554,11 +553,10 @@ export class VfxUpdateSystem implements UpdateSystem {
 				pool.y[i] = pool.y[i]! + vy * dt;
 				pool.rotation[i] = pool.rotation[i]! + pool.spin[i]! * dt;
 				if (
-					response !== "passThrough" &&
+					collisionCells !== null &&
 					pool.reacts(i) &&
-					this.inBlockingCell(
-						ecs,
-						part,
+					inBlockingCell(
+						collisionCells,
 						baseX + pool.x[i]!,
 						baseY + pool.y[i]!,
 					)
@@ -643,33 +641,6 @@ export class VfxUpdateSystem implements UpdateSystem {
 	}
 
 	/**
-	 * Whether a world point sits in a tile that stops this part, against the merged
-	 * cell set its `collision.cells` classification names — built at most once per
-	 * frame per classification, and only when some part actually collides.
-	 *
-	 * Rebuilt each frame rather than cached across frames: the version-keyed cache
-	 * is a shared utility the blood workstream lands, and re-merging is still far
-	 * cheaper than `isSolidCell`'s per-call layer query per particle.
-	 */
-	private inBlockingCell(
-		ecs: ReadonlyECS,
-		part: VfxEmitterPart,
-		x: number,
-		y: number,
-	): boolean {
-		const blocking = precipitationBlocking(part);
-		const cells = blocking
-			? this.cachedBlockingCells(ecs, blocking)
-			: (this.solidCells ??= mergedSolidCells(ecs));
-		return cells.has(
-			tileCellKey(
-				Math.floor(x / TILE_SIZE),
-				Math.floor(y / TILE_SIZE),
-			),
-		);
-	}
-
-	/**
 	 * The world's shelter geometry, resolved once per frame.
 	 *
 	 * `exposureField` polls a cache key that queries layers and builds a signature
@@ -696,20 +667,24 @@ export class VfxUpdateSystem implements UpdateSystem {
 		this.shelter.set(blocking, field);
 		return field;
 	}
-
-	private cachedBlockingCells(
-		ecs: ReadonlyECS,
-		blocking: TileBlockingClass,
-	): Set<string> {
-		const cached = this.blockingCells.get(blocking);
-		if (cached) {
-			return cached;
-		}
-		const cells = mergedBlockingCells(ecs, blocking);
-		this.blockingCells.set(blocking, cells);
-		return cells;
-	}
 }
+
+/**
+ * Whether a world point sits in a tile that stops the part this cell set was
+ * resolved for.
+ *
+ * The set is resolved once per part in {@link VfxUpdateSystem} rather than per
+ * particle: it is cached against the tile layers' versions, so the lookup here
+ * is one packed key and one `Set.has`, and nothing is allocated per drop.
+ */
+const inBlockingCell = (
+	cells: ReadonlySet<number>,
+	x: number,
+	y: number,
+): boolean =>
+	cells.has(
+		tileCellKey(Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)),
+	);
 
 /**
  * Whether a world point sits under cover — below the topmost blocking tile of

@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import type { ECS } from "../../engine/ecs";
 import type EventBus from "../../engine/events";
 import { QuestDeclinedEvent } from "../events";

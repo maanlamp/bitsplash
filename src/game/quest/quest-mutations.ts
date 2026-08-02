@@ -15,7 +15,7 @@ export const mirrorQuestStage = (
 	questId: string,
 	stage: string,
 ): void => {
-	const story = ecs.query(InkStoryComponent)[0]?.[1].story;
+	const story = ecs.queryFirst(InkStoryComponent)?.[1].story;
 	if (!story) {
 		return;
 	}

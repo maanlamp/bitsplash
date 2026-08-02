@@ -53,10 +53,10 @@ export const startCameraTransition = (
 	ecs: ECS,
 	config: CameraTransitionConfig,
 ): EffectHandle => {
-	const entry = ecs.query(
+	const entry = ecs.queryFirst(
 		Camera2DComponent,
 		Camera2DFollowComponent,
-	)[0];
+	);
 	if (!entry) {
 		return { done: () => true, complete: () => {} };
 	}

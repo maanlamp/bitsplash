@@ -31,8 +31,6 @@ export type RaycastHit = Readonly<{
 	body: RigidBody;
 }>;
 
-export type ContactNormal = Readonly<{ normal: Vector2 }>;
-
 export type RaycastFilter = (body: RigidBody) => boolean;
 
 export abstract class Physics {
@@ -70,5 +68,26 @@ export abstract class Physics {
 	abstract setAwake(body: RigidBody, awake: boolean): void;
 	abstract isStatic(body: RigidBody): boolean;
 	abstract setSensor(body: RigidBody, sensor: boolean): void;
-	abstract touchingContacts(body: RigidBody): Iterable<ContactNormal>;
+	/**
+	 * Whether any contact on `body` has a normal pointing within `minDot` of the
+	 * direction `dirX`, `dirY` — a cone test, with `minDot` the cosine of its
+	 * half-angle.
+	 *
+	 * Every caller asks the same shape of question ("am I standing on
+	 * something", "is there a wall to my right") and only needs a yes or no, so
+	 * the predicate is answered inside the physics backend. Handing out a normal
+	 * per contact instead meant a vector and a wrapper per contact, per body,
+	 * per frame, and every caller then wrote the same comparison loop.
+	 *
+	 * `dirX`, `dirY` must be unit length.
+	 *
+	 * @example
+	 * const grounded = physics.hasContactNormal(body, 0, 1, 0.5);
+	 */
+	abstract hasContactNormal(
+		body: RigidBody,
+		dirX: number,
+		dirY: number,
+		minDot: number,
+	): boolean;
 }

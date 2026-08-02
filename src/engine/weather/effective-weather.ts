@@ -77,11 +77,11 @@ export type EffectiveWeather = Readonly<{
 
 /** The authored climate id of the active scene, or `null` to inherit the default. */
 export const sceneClimateId = (ecs: ReadonlyECS): string | null =>
-	ecs.query(SceneClimateComponent)[0]?.[1].climateId ?? null;
+	ecs.queryFirst(SceneClimateComponent)?.[1].climateId ?? null;
 
 /** Whether the active scene reads as an interior. */
 export const sceneIndoor = (ecs: ReadonlyECS): boolean =>
-	ecs.query(SceneClimateComponent)[0]?.[1].indoor ?? false;
+	ecs.queryFirst(SceneClimateComponent)?.[1].indoor ?? false;
 
 /**
  * The climate scheduling the active scene, or `null` when weather is disabled.
@@ -186,7 +186,7 @@ export const weatherTargets = (ecs: ReadonlyECS): WeatherTargets =>
 	targetsFor(
 		ecs,
 		activeClimate(ecs),
-		ecs.query(WeatherStateComponent)[0]?.[1],
+		ecs.queryFirst(WeatherStateComponent)?.[1],
 	);
 
 /**
@@ -206,7 +206,7 @@ export const effectiveWeather = (
 	ecs: ReadonlyECS,
 ): EffectiveWeather => {
 	const climate = activeClimate(ecs);
-	const state = ecs.query(WeatherStateComponent)[0]?.[1];
+	const state = ecs.queryFirst(WeatherStateComponent)?.[1];
 	const targets = targetsFor(ecs, climate, state);
 	const indoor = sceneIndoor(ecs);
 	const wind = state ? state.wind : targets.wind;

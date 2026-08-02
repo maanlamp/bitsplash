@@ -105,7 +105,7 @@ export const isExclusiveSequenceActive = (
 };
 
 export const isAnySequenceActive = (ecs: ReadonlyECS): boolean =>
-	ecs.query(SequenceComponent).length > 0;
+	ecs.first(SequenceComponent) !== undefined;
 
 @profiler("Sequence", "Sequence")
 export class SequenceSystem extends UpdateSystem {

@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import {
 	serializable,
 	serialize,

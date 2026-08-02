@@ -183,7 +183,7 @@ export class ExposureField {
 
 		const heights = new Map<number, number>();
 		for (const [, layer] of layers) {
-			for (const [gx, gy] of layer.grid.occupiedCells()) {
+			layer.grid.forEachCell((gx, gy) => {
 				const top = heights.get(gx);
 				if (top === undefined || gy < top) {
 					heights.set(gx, gy);
@@ -193,7 +193,7 @@ export class ExposureField {
 				if (lx >= 0 && lx < w && ly >= 0 && ly < h) {
 					this.blocking[ly * w + lx] = 1;
 				}
-			}
+			});
 		}
 		this.heights = heights;
 

@@ -255,6 +255,13 @@ const effectIsEmpty = (effect: VfxEffect): boolean =>
 	effectParticleCount(effect) === 0 &&
 	effectRibbonCount(effect) === 0;
 
+/**
+ * Spent shells kept per def. A ceiling matters because a scene can burst a def
+ * far more often than it retires them, and a shell holds a typed array per
+ * particle attribute; past this many, a finished shell is simply dropped.
+ */
+const MAX_SPENT_SHELLS = 32;
+
 const buildParts = (def: VfxDef): VfxPartState[] =>
 	def.parts.map((part) => {
 		const local = part.space === "local";
@@ -274,6 +281,21 @@ const buildParts = (def: VfxDef): VfxPartState[] =>
 export class VfxStore {
 	private readonly attached = new Map<EntityId, VfxEffect>();
 	private readonly loose: VfxEffect[] = [];
+	/**
+	 * Refilled by {@link effects} rather than rebuilt, since every render and
+	 * update frame asks for the same list. Callers must not retain it.
+	 */
+	private readonly effectScratch: VfxEffect[] = [];
+	/** Spent one-shot shells per def, ready to be refilled. */
+	private readonly spent = new Map<VfxDef, VfxEffect[]>();
+	/** Refilled per emitting part; {@link emit} only reads it. */
+	private readonly burstOrigin = {
+		x: 0,
+		y: 0,
+		spreadX: 0,
+		spreadY: 0,
+		angle: 0,
+	};
 	private rng: number;
 
 	/**
@@ -410,14 +432,9 @@ export class VfxStore {
 	 */
 	spawnBurst(defId: string, x: number, y: number, angle = 0): void {
 		const def = resolveVfxDef(defId);
-		const effect: VfxEffect = {
-			host: null,
-			def,
-			emitting: false,
-			originX: x,
-			originY: y,
-			parts: buildParts(def),
-		};
+		const effect = this.takeBurstShell(def, x, y);
+		const origin = this.burstOrigin;
+		origin.angle = angle;
 		let any = false;
 		for (const state of effect.parts) {
 			const local = state.part.space === "local";
@@ -439,17 +456,69 @@ export class VfxStore {
 			if (part.burst === 0 || part.spawn.kind === "camera-band") {
 				continue;
 			}
-			this.emit(pool, part, part.burst, {
-				x: local ? 0 : x,
-				y: local ? 0 : y,
-				spreadX: part.spawn.kind === "box" ? part.spawn.width : 0,
-				spreadY: part.spawn.kind === "box" ? part.spawn.height : 0,
-				angle,
-			});
+			origin.x = local ? 0 : x;
+			origin.y = local ? 0 : y;
+			origin.spreadX =
+				part.spawn.kind === "box" ? part.spawn.width : 0;
+			origin.spreadY =
+				part.spawn.kind === "box" ? part.spawn.height : 0;
+			this.emit(pool, part, part.burst, origin);
 			any = true;
 		}
 		if (any) {
 			this.loose.push(effect);
+		} else {
+			this.recycleBurstShell(effect);
+		}
+	}
+
+	/**
+	 * An effect shell for `def`, recycled from a spent one-shot when there is
+	 * one.
+	 *
+	 * A shell owns a `VfxPool` per emitter part, and a pool owns a typed array
+	 * per particle attribute. Rain splashes and hit sparks fire bursts many times
+	 * a second, so building a shell per burst allocated a fresh set of those
+	 * arrays continuously. Spent shells are kept per def and refilled instead.
+	 */
+	private takeBurstShell(
+		def: VfxDef,
+		x: number,
+		y: number,
+	): VfxEffect {
+		const spare = this.spent.get(def)?.pop();
+		if (!spare) {
+			return {
+				host: null,
+				def,
+				emitting: false,
+				originX: x,
+				originY: y,
+				parts: buildParts(def),
+			};
+		}
+		spare.originX = x;
+		spare.originY = y;
+		spare.emitting = false;
+		return spare;
+	}
+
+	/** Empty `effect` and keep it for the next burst of the same def. */
+	private recycleBurstShell(effect: VfxEffect): void {
+		for (const state of effect.parts) {
+			if (state.kind === "ribbon") {
+				state.band.count = 0;
+			} else {
+				state.pool.count = 0;
+			}
+		}
+		let spares = this.spent.get(effect.def);
+		if (!spares) {
+			spares = [];
+			this.spent.set(effect.def, spares);
+		}
+		if (spares.length < MAX_SPENT_SHELLS) {
+			spares.push(effect);
 		}
 	}
 
@@ -525,7 +594,15 @@ export class VfxStore {
 
 	/** Every running effect: hosted emitters first, then loose one-shots and remnants. */
 	effects(): ReadonlyArray<VfxEffect> {
-		return [...this.attached.values(), ...this.loose];
+		const out = this.effectScratch;
+		out.length = 0;
+		for (const effect of this.attached.values()) {
+			out.push(effect);
+		}
+		for (let i = 0; i < this.loose.length; i++) {
+			out.push(this.loose[i]!);
+		}
+		return out;
 	}
 
 	/** Drop loose effects that have stopped emitting and show nothing. */
@@ -534,6 +611,7 @@ export class VfxStore {
 			const effect = this.loose[i]!;
 			if (!effect.emitting && effectIsEmpty(effect)) {
 				this.loose.splice(i, 1);
+				this.recycleBurstShell(effect);
 			}
 		}
 	}

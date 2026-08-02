@@ -1,28 +1,46 @@
 import {
-	UnicodeBuffer,
-	glyphBufferToShapedGlyphs,
-	shape,
-} from "text-shaper";
-import { type LoadedFont, STYLE_REGULAR } from "../load";
+	type FontStyle,
+	type LoadedFont,
+	STYLE_REGULAR,
+} from "../load";
+import { shapeRun } from "./shape-cache";
 
+/**
+ * How wide `text` is in `font`'s `style`, in pixels.
+ *
+ * **The one place text width is defined.** Measuring, wrapping, rich-text
+ * layout and the atlas's own alignment all come through here, because three
+ * copies of this arithmetic meant a string could measure one width and draw at
+ * another — which is exactly what happened: a copy that ignored synthetic bold
+ * under-measured bold runs by a pixel a glyph.
+ *
+ * Synthetic bold is a face the font does not ship, faked by smearing the
+ * regular one, and the smear makes each glyph a pixel wider than its shaped
+ * advance claims.
+ *
+ * @example
+ * const width = measureText(font, label, STYLE_BOLD);
+ */
 export const measureText = (
 	font: LoadedFont,
 	text: string,
+	style: FontStyle = STYLE_REGULAR,
 ): number => {
 	if (text.length === 0) {
 		return 0;
 	}
-	const face = font.faces[STYLE_REGULAR];
-	const buffer = new UnicodeBuffer();
-	buffer.addStr(text);
-	const glyphs = glyphBufferToShapedGlyphs(shape(face.shape, buffer));
-	const scale = face.scale;
-	let total = 0;
-	for (const g of glyphs) {
-		total += g.xAdvance;
-	}
-	return total * scale;
+	const face = font.faces[style];
+	const run = shapeRun(font, style, text);
+	return (
+		run.totalAdvance * face.scale +
+		syntheticBoldExtra(face) * run.ids.length
+	);
 };
+
+/** Extra width per glyph a synthetically-bolded face needs. */
+export const syntheticBoldExtra = (
+	face: LoadedFont["faces"][FontStyle],
+): number => (face.synthetic?.bold ? 1 : 0);
 
 export const wrapText = (
 	font: LoadedFont,

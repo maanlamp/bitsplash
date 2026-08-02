@@ -16,7 +16,7 @@ import {
  *
  * @example
  * ```ts
- * const climate = ecs.query(SceneClimateComponent)[0]?.[1];
+ * const climate = ecs.queryFirst(SceneClimateComponent)?.[1];
  * const resolved = resolveClimate(climate?.climateId ?? null);
  * ```
  */

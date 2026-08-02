@@ -24,7 +24,7 @@ export type { AuthoredScene } from "../../engine/runtime/game-module";
 const PLAYER_PREFAB = "player";
 
 const playerEntity = (world: World): EntityId | null =>
-	world.ecs.query(PlayerInputComponent)[0]?.[0] ?? null;
+	world.ecs.queryFirst(PlayerInputComponent)?.[0] ?? null;
 
 const playerSpawnPoint = (world: World): EntityId | null => {
 	for (const [id, point] of world.ecs.query(SpawnPointComponent)) {
@@ -99,7 +99,7 @@ const setupCamera = (world: World, bounds: Bounds | null): void => {
 	if (player === null) {
 		return;
 	}
-	const existing = world.ecs.query(Camera2DFollowComponent)[0];
+	const existing = world.ecs.queryFirst(Camera2DFollowComponent);
 	if (existing) {
 		existing[1].targets = [player];
 		existing[1].bounds = bounds;
@@ -110,7 +110,7 @@ const setupCamera = (world: World, bounds: Bounds | null): void => {
 
 const recenterCamera = (world: World): void => {
 	const player = playerEntity(world);
-	const cameraEntry = world.ecs.query(Camera2DComponent)[0];
+	const cameraEntry = world.ecs.queryFirst(Camera2DComponent);
 	if (!cameraEntry) {
 		return;
 	}

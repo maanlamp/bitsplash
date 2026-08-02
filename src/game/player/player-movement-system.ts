@@ -2,6 +2,7 @@ import { isExclusiveSequenceActive } from "../../engine/sequence/sequence-system
 import type { Seconds } from "../../engine/duration";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { MovementIntentComponent } from "../../engine/locomotion/movement-intent-component";
+import { touchingWall } from "../../engine/physics/grounded";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { profiler } from "../../engine/profiling/profiler";
 import {
@@ -169,12 +170,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 		rb: PhysicsBodyComponent,
 		dir: number,
 	): boolean {
-		for (const { normal } of rb.body!.touchingContacts()) {
-			if (dir > 0 ? normal.x > 0.5 : normal.x < -0.5) {
-				return true;
-			}
-		}
-		return false;
+		return touchingWall(rb.body!, dir);
 	}
 
 	private handleJump(

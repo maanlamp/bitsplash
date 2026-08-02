@@ -25,7 +25,7 @@ export const knotText = (
 	events: EventBus,
 	knot: Knot,
 ): string | null => {
-	const entry = ecs.query(InkStoryComponent)[0];
+	const entry = ecs.queryFirst(InkStoryComponent);
 	if (!entry) {
 		return null;
 	}

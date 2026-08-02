@@ -20,14 +20,18 @@ export const QUAD_BLENDS = ["normal", "additive"] as const;
 export type QuadBlend = (typeof QUAD_BLENDS)[number];
 
 /**
- * Set the GL blend state for a batch of quads drawn into a layer's scratch
- * target.
+ * Set the GL blend state for a batch of quads drawn into the target a layer
+ * resolves into — its own scratch target, or the destination directly when the
+ * layer composites trivially.
  *
  * Both modes assume **straight (non-premultiplied) alpha** source textures,
  * which is the invariant every `Renderer2D` texture upload maintains — hence
  * the `SRC_ALPHA` color factor rather than `ONE`. The separate alpha factors
- * accumulate coverage into the scratch target so the layer composites
- * correctly afterwards.
+ * accumulate premultiplied coverage, which is what makes `"normal"` here and
+ * `NORMAL` in {@link applyCompositeBlend} the same source-over operator, and
+ * so associative: drawing a layer straight into the destination gives the same
+ * pixels as resolving it offscreen and compositing. `"additive"` is not
+ * associative that way, which is why a layer using it keeps its own target.
  *
  * @example
  * applyQuadBlend(gl, "additive");

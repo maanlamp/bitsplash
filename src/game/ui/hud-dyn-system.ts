@@ -19,9 +19,9 @@ export class HudDynSystem extends RenderSystem {
 	}
 
 	render({ ecs }: RenderContext): void {
-		const [, death] = ecs.query(DeathNoticeComponent)[0] ?? [];
+		const [, death] = ecs.queryFirst(DeathNoticeComponent) ?? [];
 		this.applyFade(DEATH_OVERLAY_ID, death?.fade);
-		const [, notice] = ecs.query(QuestNoticeComponent)[0] ?? [];
+		const [, notice] = ecs.queryFirst(QuestNoticeComponent) ?? [];
 		this.applyFade(QUEST_NOTICE_ID, notice?.fade);
 	}
 

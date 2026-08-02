@@ -17,6 +17,14 @@ export type EntityId = ReturnType<
 	typeof globalThis.crypto.randomUUID
 >;
 
+/** `[entityId, ...components]` as produced by `query`/`queryFirst`. */
+type QueryTuple<T extends ComponentClass[]> = [
+	EntityId,
+	...{
+		[K in keyof T]: T[K] extends ComponentClass<infer C> ? C : never;
+	},
+];
+
 type CleanupHook<T extends object = object> = (
 	component: T,
 	id: EntityId,
@@ -46,6 +54,32 @@ export class ECS {
 		ConcreteComponentClass,
 		CleanupHook
 	>();
+	private denseIds: EntityId[] = [];
+	private denseMaps: Array<Map<ComponentClass, object>> = [];
+	private denseDirty = true;
+	private readonly queryScratch: Array<object | undefined> = [];
+	private readonly firstScratch: Array<object | undefined> = [];
+
+	/**
+	 * Refresh the parallel `id`/`component map` arrays the scan paths walk.
+	 *
+	 * Iterating `Map` entries allocates a `[key, value]` pair per entry, which
+	 * the query paths pay once per entity in the world per query per frame.
+	 * These arrays mirror the map in insertion order and are rebuilt only when
+	 * the entity set changes.
+	 */
+	private syncDense(): void {
+		if (!this.denseDirty) {
+			return;
+		}
+		this.denseIds.length = 0;
+		this.denseMaps.length = 0;
+		for (const [id, map] of this.components) {
+			this.denseIds.push(id);
+			this.denseMaps.push(map);
+		}
+		this.denseDirty = false;
+	}
 
 	subscribe(listener: () => void): () => void {
 		this.listeners.add(listener);
@@ -70,6 +104,7 @@ export class ECS {
 			);
 		}
 		this.components.set(id, new Map());
+		this.denseDirty = true;
 		for (const component of components) {
 			this.addComponent(id, component);
 		}
@@ -160,6 +195,7 @@ export class ECS {
 			}
 		}
 		if (anyDeleted) {
+			this.denseDirty = true;
 			this.notify();
 		}
 	}
@@ -170,16 +206,19 @@ export class ECS {
 		}
 		this.components.clear();
 		this.pendingDestroy.clear();
+		this.denseDirty = true;
 		this.notify();
 	}
 
 	first<T extends object>(
 		cls: ComponentClass<T>,
 	): readonly [EntityId, T] | undefined {
-		for (const [id, map] of this.components) {
-			const component = map.get(cls) as T | undefined;
+		this.syncDense();
+		const maps = this.denseMaps;
+		for (let i = 0; i < maps.length; i++) {
+			const component = maps[i]!.get(cls) as T | undefined;
 			if (component) {
-				return [id, component];
+				return [this.denseIds[i]!, component];
 			}
 		}
 		return undefined;
@@ -189,46 +228,106 @@ export class ECS {
 		cls: ComponentClass<T>,
 		predicate: (value: T) => boolean,
 	): readonly [EntityId, T] | undefined {
-		for (const [id, map] of this.components) {
-			const component = map.get(cls) as T | undefined;
+		this.syncDense();
+		const maps = this.denseMaps;
+		for (let i = 0; i < maps.length; i++) {
+			const component = maps[i]!.get(cls) as T | undefined;
 			if (component && predicate(component)) {
-				return [id, component];
+				return [this.denseIds[i]!, component];
 			}
 		}
 		return undefined;
 	}
 
+	/**
+	 * Every entity carrying all of `classes`, as `[id, ...components]` tuples.
+	 *
+	 * The scan itself allocates nothing per entity examined — component lookups
+	 * go through an instance-owned scratch array and the entity set is walked
+	 * through parallel arrays rather than `Map` entry pairs — so the only
+	 * allocations are the result array and one tuple per **match**. Prefer
+	 * {@link queryFirst} when a single entity is wanted: it returns at the first
+	 * match and never builds the result array.
+	 *
+	 * @example
+	 * for (const [id, transform, sprite] of ecs.query(TransformComponent, SpriteComponent)) {
+	 *   renderer.draw(sprite, transform);
+	 * }
+	 */
 	query<T extends ComponentClass[]>(
 		...classes: T
-	): ReadonlyArray<
-		[
-			EntityId,
-			...{
-				[K in keyof T]: T[K] extends ComponentClass<infer C>
-					? C
-					: never;
-			},
-		]
-	> {
+	): ReadonlyArray<QueryTuple<T>> {
+		this.syncDense();
+		const scratch = this.queryScratch;
+		scratch.length = classes.length;
 		const results: Array<[EntityId, ...any[]]> = [];
+		const maps = this.denseMaps;
 
-		for (const [id, map] of this.components) {
-			const resolved = classes.map((cls) => map.get(cls));
-			if (resolved.every(Boolean)) {
-				results.push([id, ...resolved]);
+		for (let i = 0; i < maps.length; i++) {
+			const map = maps[i]!;
+			let matched = true;
+			for (let c = 0; c < classes.length; c++) {
+				const component = map.get(classes[c]!);
+				if (component === undefined) {
+					matched = false;
+					break;
+				}
+				scratch[c] = component;
 			}
+			if (!matched) {
+				continue;
+			}
+			const tuple: [EntityId, ...any[]] = [this.denseIds[i]!];
+			for (let c = 0; c < classes.length; c++) {
+				tuple.push(scratch[c]);
+			}
+			results.push(tuple);
 		}
 
-		return results as unknown as ReadonlyArray<
-			[
-				EntityId,
-				...{
-					[K in keyof T]: T[K] extends ComponentClass<infer C>
-						? C
-						: never;
-				},
-			]
-		>;
+		return results as unknown as ReadonlyArray<QueryTuple<T>>;
+	}
+
+	/**
+	 * The first entity carrying all of `classes`, or `undefined`.
+	 *
+	 * Equivalent to `query(...classes)[0]` but stops at the first match and
+	 * allocates only the returned tuple, so a singleton lookup costs neither a
+	 * full world scan nor a result array. {@link first} is the single-component
+	 * form.
+	 *
+	 * @example
+	 * const state = ecs.queryFirst(WeatherStateComponent)?.[1];
+	 */
+	queryFirst<T extends ComponentClass[]>(
+		...classes: T
+	): QueryTuple<T> | undefined {
+		this.syncDense();
+		const scratch = this.firstScratch;
+		scratch.length = classes.length;
+		const maps = this.denseMaps;
+
+		for (let i = 0; i < maps.length; i++) {
+			const map = maps[i]!;
+			let matched = true;
+			for (let c = 0; c < classes.length; c++) {
+				const component = map.get(classes[c]!);
+				if (component === undefined) {
+					matched = false;
+					break;
+				}
+				scratch[c] = component;
+			}
+			if (!matched) {
+				continue;
+			}
+			const tuple: [EntityId, ...any[]] = [this.denseIds[i]!];
+			for (let c = 0; c < classes.length; c++) {
+				tuple.push(scratch[c]);
+			}
+			return tuple as QueryTuple<T>;
+		}
+
+		return undefined;
 	}
 
 	entities(): ReadonlyArray<EntityId> {
@@ -348,6 +447,8 @@ export class ECS {
 export type ReadonlyECS = Pick<
 	ECS,
 	| "query"
+	| "queryFirst"
+	| "subscribe"
 	| "getComponent"
 	| "entities"
 	| "componentsOf"

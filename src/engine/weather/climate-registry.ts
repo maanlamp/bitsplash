@@ -77,7 +77,7 @@ const required = (): ClimateCatalog => {
  * or the first frame after it.
  *
  * @example
- * const climate = resolveClimate(ecs.query(SceneClimateComponent)[0]?.[1].climateId ?? null);
+ * const climate = resolveClimate(ecs.queryFirst(SceneClimateComponent)?.[1].climateId ?? null);
  */
 export const resolveClimate = (id: string | null): Climate => {
 	const current = required();

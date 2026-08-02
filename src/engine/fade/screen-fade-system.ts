@@ -8,7 +8,7 @@ import { type UpdateContext, UpdateSystem } from "../system";
 import { ScreenFadeComponent } from "./screen-fade-component";
 
 const ensureFade = (ecs: ECS): ScreenFadeComponent => {
-	const entry = ecs.query(ScreenFadeComponent)[0];
+	const entry = ecs.queryFirst(ScreenFadeComponent);
 	if (entry) {
 		return entry[1];
 	}

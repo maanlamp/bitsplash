@@ -1,4 +1,4 @@
-import type { RGBA } from "../render/color-resolver";
+import type { MutableRGBA, RGBA } from "../render/color-resolver";
 import {
 	serializable,
 	serialize,
@@ -130,9 +130,6 @@ export abstract class Keyframes<
 
 	protected abstract interpolate(from: T, to: T, phase: number): T;
 }
-
-/** A writable {@link RGBA} scratch tuple, for zero-allocation colour sampling. */
-export type MutableRGBA = [number, number, number, number];
 
 /** A scalar track: alpha, scale, rotation, emission rate. */
 @serializable("KeyframesNumber")

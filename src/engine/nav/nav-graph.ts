@@ -17,8 +17,22 @@ export type NavEdge = Readonly<{
 	moveScale: number;
 }>;
 
+/**
+ * Write a node's feet position into a caller-owned vector.
+ *
+ * The allocation-free form of {@link nodeFeet}, for loops that visit every node
+ * in a graph.
+ *
+ * @example
+ * for (const node of graph.nodes) {
+ *   nodeFeetInto(node, this.scratch);
+ * }
+ */
+export const nodeFeetInto = (node: NavNode, out: Vector2): Vector2 =>
+	out.set((node.gx + 0.5) * TILE_SIZE, (node.gy + 1) * TILE_SIZE);
+
 export const nodeFeet = (node: NavNode): Vector2 =>
-	new Vector2((node.gx + 0.5) * TILE_SIZE, (node.gy + 1) * TILE_SIZE);
+	nodeFeetInto(node, new Vector2());
 
 export class NavGraph {
 	readonly version: number;

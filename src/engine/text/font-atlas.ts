@@ -1,13 +1,11 @@
 import {
-	UnicodeBuffer,
-	glyphBufferToShapedGlyphs,
-	shape,
-} from "text-shaper";
-import {
 	type FontStyle,
 	type LoadedFont,
 	STYLE_REGULAR,
 } from "../load";
+import type { Mutable } from "../mutable";
+import { shapeRun } from "./shape-cache";
+import { measureText, syntheticBoldExtra } from "./text-layout";
 
 type AtlasEntry = Readonly<{
 	x: number;
@@ -29,6 +27,9 @@ export type GlyphQuad = Readonly<{
 	v1: number;
 }>;
 
+/** A pooled {@link GlyphQuad} the atlas refills in place. */
+type MutableGlyphQuad = Mutable<GlyphQuad>;
+
 const ATLAS_WIDTH = 512;
 const PAD = 2;
 const STYLES: FontStyle[] = [0, 1, 2, 3];
@@ -43,6 +44,8 @@ export class FontAtlas {
 	private entries = new Map<number, AtlasEntry>();
 	private atlasW = ATLAS_WIDTH;
 	private atlasH = 1;
+	/** Grown to the longest run drawn so far, then reused every layout. */
+	private quadPool: MutableGlyphQuad[] = [];
 
 	constructor(gl: WebGL2RenderingContext, font: LoadedFont) {
 		this.gl = gl;
@@ -132,25 +135,28 @@ export class FontAtlas {
 		);
 	}
 
-	private quadFromEntry(
+	/** Fill `out` with the placement of `entry` drawn at `x`, `y`. */
+	private writeQuad(
+		out: MutableGlyphQuad,
 		entry: AtlasEntry,
 		x: number,
 		y: number,
-	): GlyphQuad {
-		const drawX = Math.round(x + entry.bearingX);
-		const drawY = Math.round(y - entry.bearingY);
-		return {
-			x: drawX,
-			y: drawY,
-			w: entry.width,
-			h: entry.height,
-			u0: entry.x / this.atlasW,
-			v0: entry.y / this.atlasH,
-			u1: (entry.x + entry.width) / this.atlasW,
-			v1: (entry.y + entry.height) / this.atlasH,
-		};
+	): void {
+		out.x = Math.round(x + entry.bearingX);
+		out.y = Math.round(y - entry.bearingY);
+		out.w = entry.width;
+		out.h = entry.height;
+		out.u0 = entry.x / this.atlasW;
+		out.v0 = entry.y / this.atlasH;
+		out.u1 = (entry.x + entry.width) / this.atlasW;
+		out.v1 = (entry.y + entry.height) / this.atlasH;
 	}
 
+	/**
+	 * One glyph placed at `x`, `y`, or `undefined` when the font has no such
+	 * glyph. Shares the pooled buffer with {@link layout}, so the result is
+	 * valid only until the next call to either.
+	 */
 	quadAt(
 		glyphId: number,
 		style: FontStyle,
@@ -161,46 +167,73 @@ export class FontAtlas {
 		if (!entry) {
 			return undefined;
 		}
-		return this.quadFromEntry(entry, x, y);
+		const quad = this.quadAtIndex(0);
+		this.writeQuad(quad, entry, x, y);
+		return quad;
 	}
 
+	/**
+	 * Quads produced by the last {@link layout} call, valid up to the count it
+	 * returned and only until the next call. The array is pooled and reused, so
+	 * reading past the returned count, or holding entries across another layout,
+	 * reads stale glyphs.
+	 */
+	get laidOut(): ReadonlyArray<GlyphQuad> {
+		return this.quadPool;
+	}
+
+	/**
+	 * Place `text` at `x`, `y` into the pooled quad buffer and return how many
+	 * quads it wrote; read them from {@link laidOut}.
+	 *
+	 * Shaping goes through {@link shapeRun}, so a string already drawn this
+	 * session is positioned from cached advances rather than reshaped.
+	 *
+	 * @example
+	 * const count = atlas.layout(label, x, y, "left", style);
+	 * for (let i = 0; i < count; i++) draw(atlas.laidOut[i]!);
+	 */
 	layout(
 		text: string,
 		x: number,
 		y: number,
 		align: CanvasTextAlign,
 		style: FontStyle = STYLE_REGULAR,
-	): GlyphQuad[] {
+	): number {
 		const face = this.font.faces[style];
-		const unicodeBuffer = new UnicodeBuffer();
-		unicodeBuffer.addStr(text);
-		const shapedGlyphs = glyphBufferToShapedGlyphs(
-			shape(face.shape, unicodeBuffer),
-		);
+		const run = shapeRun(this.font, style, text);
 		const scale = face.scale;
-		const boldExtra = face.synthetic?.bold ? 1 : 0;
+		const boldExtra = syntheticBoldExtra(face);
+		const count = run.ids.length;
 
 		let cursorX = x;
 		if (align === "center" || align === "right") {
-			let total = 0;
-			for (const g of shapedGlyphs) {
-				total += g.xAdvance;
-			}
-			const scaled = total * scale + boldExtra * shapedGlyphs.length;
+			// Same width the measure path reports, by construction: the sum of
+			// the per-glyph advances stepped below.
+			const scaled = measureText(this.font, text, style);
 			cursorX = align === "center" ? x - scaled / 2 : x - scaled;
 		}
 
-		const quads: GlyphQuad[] = [];
-		for (const g of shapedGlyphs) {
-			const entry = this.entries.get(key(g.glyphId, style));
-			if (!entry) {
-				cursorX += g.xAdvance * scale + boldExtra;
-				continue;
+		let written = 0;
+		for (let i = 0; i < count; i++) {
+			const entry = this.entries.get(key(run.ids[i]!, style));
+			if (entry) {
+				this.writeQuad(this.quadAtIndex(written), entry, cursorX, y);
+				written++;
 			}
-			quads.push(this.quadFromEntry(entry, cursorX, y));
-			cursorX += g.xAdvance * scale + boldExtra;
+			cursorX += run.advances[i]! * scale + boldExtra;
 		}
-		return quads;
+		return written;
+	}
+
+	/** The pooled quad at `index`, growing the pool by one when it is short. */
+	private quadAtIndex(index: number): MutableGlyphQuad {
+		let quad = this.quadPool[index];
+		if (!quad) {
+			quad = { x: 0, y: 0, w: 0, h: 0, u0: 0, v0: 0, u1: 0, v1: 0 };
+			this.quadPool[index] = quad;
+		}
+		return quad;
 	}
 
 	dispose(): void {

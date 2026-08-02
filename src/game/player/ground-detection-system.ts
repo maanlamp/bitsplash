@@ -1,3 +1,4 @@
+import { computeGrounded } from "../../engine/physics/grounded";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { profiler } from "../../engine/profiling/profiler";
 import {
@@ -16,14 +17,7 @@ export class GroundDetectionSystem implements UpdateSystem {
 			if (!rb.body) {
 				continue;
 			}
-			let grounded = false;
-			for (const { normal } of rb.body.touchingContacts()) {
-				if (normal.y > 0.5) {
-					grounded = true;
-					break;
-				}
-			}
-			player.grounded = grounded;
+			player.grounded = computeGrounded(rb.body);
 		}
 	}
 }

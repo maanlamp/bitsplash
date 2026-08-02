@@ -14,7 +14,7 @@ const DEFAULT_GRAVITY = 500;
 export class HitsplatSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;
-		const styleEntry = ecs.query(HitsplatStyleComponent)[0];
+		const styleEntry = ecs.queryFirst(HitsplatStyleComponent);
 		const gravity = styleEntry
 			? styleEntry[1].gravity
 			: DEFAULT_GRAVITY;

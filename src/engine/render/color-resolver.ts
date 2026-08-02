@@ -1,6 +1,13 @@
 import Color from "colorjs.io";
+import type { Mutable } from "../mutable";
 
 export type RGBA = readonly [number, number, number, number];
+
+/**
+ * A writable {@link RGBA}: the buffer a sampler fills instead of returning a
+ * fresh tuple. Derived from `RGBA` so the two cannot drift.
+ */
+export type MutableRGBA = Mutable<RGBA>;
 
 export type ColorInput = string | RGBA;
 

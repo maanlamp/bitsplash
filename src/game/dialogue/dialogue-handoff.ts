@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import {
 	gatherMessages,
@@ -54,7 +54,7 @@ export const conversationFor = (
 };
 
 const conversationOf = (ecs: ECS): ConversationComponent => {
-	const entry = ecs.query(ConversationComponent)[0];
+	const entry = ecs.queryFirst(ConversationComponent);
 	if (!entry) {
 		throw new Error(
 			"dialogue: a session is open with no conversation transcript in the world; every session is created through dialogueHandoff, which makes one",

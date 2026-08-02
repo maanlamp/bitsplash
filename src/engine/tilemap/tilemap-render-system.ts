@@ -115,7 +115,7 @@ export class TilemapRenderSystem implements RenderSystem {
 
 	private bakeSingle(batch: StaticBatch, grid: TileGrid): void {
 		batch.clear();
-		for (const [gx, gy] of grid.occupiedCells()) {
+		grid.forEachCell((gx, gy) => {
 			batch.tile(
 				gx * TILE_SIZE,
 				gy * TILE_SIZE,
@@ -124,7 +124,7 @@ export class TilemapRenderSystem implements RenderSystem {
 				0,
 				false,
 			);
-		}
+		});
 		batch.commit();
 	}
 }

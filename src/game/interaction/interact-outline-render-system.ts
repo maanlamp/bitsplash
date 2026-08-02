@@ -21,7 +21,7 @@ export class InteractOutlineRenderSystem implements RenderSystem {
 		if (isExclusiveSequenceRunning(ecs)) {
 			return;
 		}
-		const stateEntry = ecs.query(InteractionStateComponent)[0];
+		const stateEntry = ecs.queryFirst(InteractionStateComponent);
 		if (!stateEntry) {
 			return;
 		}

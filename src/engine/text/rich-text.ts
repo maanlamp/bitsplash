@@ -1,15 +1,10 @@
 import {
-	UnicodeBuffer,
-	glyphBufferToShapedGlyphs,
-	shape,
-} from "text-shaper";
-import {
 	type FontStyle,
+	fontStyleOf,
 	type LoadedFont,
-	STYLE_BOLD,
-	STYLE_ITALIC,
 	STYLE_REGULAR,
 } from "../load";
+import { measureText } from "./text-layout";
 
 export const WAVE_DEFAULT_FORCE = 1;
 export const WAVE_DEFAULT_SPEED = 10;
@@ -184,39 +179,7 @@ export const parseRichText = (src: string): StyledChar[] => {
 };
 
 const styleFlags = (style: Style): FontStyle =>
-	((style.bold ? STYLE_BOLD : STYLE_REGULAR) |
-		(style.italic ? STYLE_ITALIC : STYLE_REGULAR)) as FontStyle;
-
-const advanceCache = new WeakMap<LoadedFont, Map<string, number>>();
-
-const baseAdvance = (
-	font: LoadedFont,
-	char: string,
-	style: FontStyle,
-): number => {
-	let cache = advanceCache.get(font);
-	if (!cache) {
-		cache = new Map();
-		advanceCache.set(font, cache);
-	}
-	const cacheKey = `${style}:${char}`;
-	const cached = cache.get(cacheKey);
-	if (cached !== undefined) {
-		return cached;
-	}
-	const face = font.faces[style];
-	const buffer = new UnicodeBuffer();
-	buffer.addStr(char);
-	const glyphs = glyphBufferToShapedGlyphs(shape(face.shape, buffer));
-	let total = 0;
-	for (const g of glyphs) {
-		total += g.xAdvance;
-	}
-	const boldExtra = face.synthetic?.bold ? glyphs.length : 0;
-	const advance = total * face.scale + boldExtra;
-	cache.set(cacheKey, advance);
-	return advance;
-};
+	fontStyleOf(style.bold, style.italic);
 
 type WordGlyph = Readonly<{
 	styled: StyledChar;
@@ -235,7 +198,7 @@ const buildWordGlyph = (
 		styled,
 		glyphId: font.faces[style].shape.glyphId(codePoint),
 		style,
-		advance: baseAdvance(font, styled.char, style),
+		advance: measureText(font, styled.char, style),
 	};
 };
 
@@ -246,7 +209,7 @@ export const wrapRichText = (
 ): RichLine[] => {
 	const lines: RichLine[] = [];
 	const space: StyledChar = { char: " ", style: BASE_STYLE };
-	const spaceAdvance = baseAdvance(font, " ", STYLE_REGULAR);
+	const spaceAdvance = measureText(font, " ", STYLE_REGULAR);
 
 	const paragraphs: StyledChar[][] = [[]];
 	for (const sc of chars) {

@@ -2,7 +2,7 @@ import type { ECS } from "../../src/engine/ecs";
 import type { SceneDefinition } from "../../src/engine/runtime/runtime";
 import { SceneConfig } from "../../src/engine/scene/scene";
 import { ScreenFadeSystem } from "../../src/engine/fade/screen-fade-system";
-import { compileStory } from "../../src/engine/ink/story";
+import { compileStory } from "../../src/engine/ink/compile-story";
 import { InkStoryComponent } from "../../src/engine/ink/ink-story-component";
 import { registerSequenceDef } from "../../src/engine/sequence/sequence-system";
 import { SequenceComponent } from "../../src/engine/sequence/sequence-component";

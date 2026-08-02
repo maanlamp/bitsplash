@@ -67,11 +67,10 @@ const NEAR_SPREAD_METRES = 18;
 /**
  * Share of strikes placed in the near band.
  *
- * Without this, position was one `spread²` draw across the full 3.5 km, which
- * put only ~5% of strikes inside the frame — at a storm's nine strikes a minute
- * that is one visible bolt every two minutes, so lightning read as broken. The
- * far tail still exists and still carries the distance banding thunder was built
- * around; it just no longer swallows every strike.
+ * Most of a storm's strikes land where they can be seen; the rest fall in the
+ * far tail, which is what gives thunder its distance banding something to work
+ * with. A single wide draw would put only a few percent of strikes inside the
+ * frame — at a storm's nine a minute, a visible bolt every couple of minutes.
  */
 const NEAR_STRIKE_SHARE = 0.55;
 
@@ -204,11 +203,10 @@ export class LightningSystem implements UpdateSystem {
 	 * when nothing within reach has ground under the sky.
 	 *
 	 * `precipitationHeightAt` answers `null` for a column open to the sky all the
-	 * way down — a pit, or anywhere past the level's edge. A strike drawn into
-	 * such a column used to publish its event and then draw no geometry at all, so
-	 * the flash fired and thundered over an empty sky. Searching outward keeps the
-	 * scheduler's chosen distance while landing the bolt on real terrain, which is
-	 * what "bolts only land in sky-reached columns" was meant to mean.
+	 * way down — a pit, or anywhere past the level's edge. A strike there has
+	 * nothing to hit and would draw no geometry, leaving a flash and a thunderclap
+	 * over empty sky. Searching outward keeps the scheduler's chosen distance
+	 * while landing the bolt on real terrain.
 	 */
 	private groundedColumn(
 		ecs: ReadonlyECS,

@@ -46,7 +46,7 @@ const fadeExecutor: OpExecutor = {
 		memory.issued = true;
 	},
 	poll(ctx) {
-		const entry = ctx.ecs.query(ScreenFadeComponent)[0];
+		const entry = ctx.ecs.queryFirst(ScreenFadeComponent);
 		return !entry || entry[1].tween === null;
 	},
 	skip(ctx, params, memory) {
@@ -108,8 +108,8 @@ const cameraConfig = (
 };
 
 const cameraTransitionActive = (ctx: OpContext): boolean =>
-	ctx.ecs.query(Camera2DComponent, CameraTransitionComponent).length >
-	0;
+	ctx.ecs.queryFirst(Camera2DComponent, CameraTransitionComponent) !==
+	undefined;
 
 const cameraToExecutor: OpExecutor = {
 	arm(ctx, params, memory) {
@@ -224,7 +224,7 @@ const focusOnExecutor: OpExecutor = {
 };
 
 const applyFollow = (ctx: OpContext, params: OpParams): void => {
-	const entry = ctx.ecs.query(Camera2DFollowComponent)[0];
+	const entry = ctx.ecs.queryFirst(Camera2DFollowComponent);
 	if (!entry) {
 		return;
 	}

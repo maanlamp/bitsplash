@@ -21,7 +21,7 @@ export class ScreenFadeHudSystem extends RenderSystem {
 		if (!node) {
 			return;
 		}
-		const [, fade] = ecs.query(ScreenFadeComponent)[0] ?? [];
+		const [, fade] = ecs.queryFirst(ScreenFadeComponent) ?? [];
 		const alpha = fade ? Math.min(1, Math.max(0, fade.alpha)) : 0;
 		this.dyn.setField(node.id, "alpha", alpha);
 	}

@@ -31,7 +31,7 @@ export class DamageTriggerSystem implements UpdateSystem {
 			if (!stats) {
 				continue;
 			}
-			const player = ecs.query(PlayerInputComponent)[0];
+			const player = ecs.queryFirst(PlayerInputComponent);
 			if (!player) {
 				continue;
 			}

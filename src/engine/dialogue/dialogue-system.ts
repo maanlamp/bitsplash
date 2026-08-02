@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import type AssetManager from "../assets";
 import { DialogueComponent } from "../dialogue/dialogue-component";
 import { InkStoryComponent } from "../ink/ink-story-component";
@@ -57,13 +57,13 @@ export class DialogueSystem implements UpdateSystem {
 
 	update(ctx: UpdateContext): void {
 		const { dt, ecs, events, assetManager } = ctx;
-		const entry = ecs.query(DialogueComponent)[0];
+		const entry = ecs.queryFirst(DialogueComponent);
 		if (!entry) {
 			return;
 		}
 		const [id, state] = entry;
 
-		const inkEntry = ecs.query(InkStoryComponent)[0];
+		const inkEntry = ecs.queryFirst(InkStoryComponent);
 		const inkComponent = inkEntry ? inkEntry[1] : null;
 		const story = inkComponent ? inkComponent.story : null;
 		if (!inkComponent || !story) {

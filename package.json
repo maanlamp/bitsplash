@@ -9,7 +9,7 @@
 		"gen": "bun run scripts/gen-ink.ts && bun run scripts/gen-bubble-sprite.ts && bun run scripts/gen-emotion-icons.ts && bun run scripts/gen-assets.ts",
 		"build": "bun run gen && tsc -b && vite build",
 		"preview": "vite preview",
-		"check": "bun oxlint --fix && bun oxfmt && bun run gen && bun tsc -b && bun test",
+		"check": "bun run gen && bun oxlint --fix && bun oxfmt && bun tsc -b && bun test",
 		"pretest": "bun run gen"
 	},
 	"dependencies": {

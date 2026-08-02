@@ -27,7 +27,7 @@ export class HitsplatHudSystem implements UpdateSystem {
 	) {}
 
 	update({ ecs }: UpdateContext): void {
-		const style = ecs.query(HitsplatStyleComponent)[0]?.[1];
+		const style = ecs.queryFirst(HitsplatStyleComponent)?.[1];
 		const list = ecs.query(HitsplatComponent, TransformComponent);
 		const active = new Set<EntityId>(list.map(([id]) => id));
 

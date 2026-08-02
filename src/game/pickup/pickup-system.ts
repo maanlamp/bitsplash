@@ -45,10 +45,10 @@ export class PickupSystem implements UpdateSystem {
 	}
 
 	update({ ecs, events }: UpdateContext): void {
-		const player = ecs.query(
+		const player = ecs.queryFirst(
 			PlayerInputComponent,
 			TransformComponent,
-		)[0];
+		);
 		if (!player) {
 			return;
 		}

@@ -46,7 +46,7 @@ export class NavGraphDebugSystem implements RenderSystem {
 		if (!showGraph && !showPath) {
 			return;
 		}
-		const comp = ctx.ecs.query(NavGraphComponent)[0]?.[1];
+		const comp = ctx.ecs.queryFirst(NavGraphComponent)?.[1];
 		if (!comp?.surface) {
 			return;
 		}

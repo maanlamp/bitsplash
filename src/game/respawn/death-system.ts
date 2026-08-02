@@ -26,7 +26,7 @@ export class DeathSystem implements UpdateSystem {
 			}
 			if (ecs.getComponent(entity, PlayerTagComponent)) {
 				ecs.createEntity([new DeathNoticeComponent()]);
-				const shake = ecs.query(CameraShakeComponent)[0];
+				const shake = ecs.queryFirst(CameraShakeComponent);
 				if (shake) {
 					shake[1].trauma = 1;
 				}

@@ -1,4 +1,4 @@
-import type { MutableRGBA } from "../animation/keyframes";
+import type { MutableRGBA } from "../render/color-resolver";
 import { resolveRenderLayer } from "../render/render-layers";
 import { drawRibbon, type RibbonProfile } from "../render/ribbon";
 import { type RenderContext, RenderSystem } from "../system";

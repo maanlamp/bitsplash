@@ -1,15 +1,17 @@
-import type {
-	KeyframesColor,
-	MutableRGBA,
-} from "../animation/keyframes";
+import type { KeyframesColor } from "../animation/keyframes";
+import type { MutableRGBA } from "../render/color-resolver";
 import { resolveRenderLayer } from "../render/render-layers";
 import type Renderer2D from "../render/renderer-2d";
+import type { QuadBlend } from "../render/blend";
 import { drawRibbon, type RibbonProfile } from "../render/ribbon";
 import { type RenderContext, RenderSystem } from "../system";
 import { ambientTime } from "../weather/ambient-clock";
 import { sampleWind } from "../weather/sample-wind";
 import { weatherFrame } from "../weather/weather-frame";
-import { generateRibbonPath } from "./ribbon-path";
+import {
+	generateRibbonPath,
+	type MutableRibbonPathInput,
+} from "./ribbon-path";
 import type {
 	VfxEmitterPart,
 	VfxPart,
@@ -32,10 +34,10 @@ import { vfxWeatherInfluence } from "./vfx-weather-influence";
  *
  * Two costs are held down deliberately:
  *
- * - `resolveRenderLayer` does a full `RenderLayersComponent` query per call, so
- *   it is resolved **once per distinct `(layer, order)` slot per frame** and
- *   never inside a particle loop. The def catalog caps how many distinct slots
- *   can exist at all, because every one owns a full-viewport render target.
+ * - The layer slot is resolved **once per part per frame**, keyed on the part
+ *   object itself, and never inside a particle loop. The def catalog caps how
+ *   many distinct slots can exist at all, because every one owns a
+ *   full-viewport render target.
  * - Untextured quads are the cheap path: omitting `image` routes every particle
  *   through the renderer's shared white texture on one batch key, so thousands
  *   of contiguous solid quads collapse into a single `drawArrays`. Colour and
@@ -48,7 +50,7 @@ import { vfxWeatherInfluence } from "./vfx-weather-influence";
  * per frame would allocate through the whole band.
  */
 export class VfxRenderSystem implements RenderSystem {
-	private readonly slots = new Map<string, number>();
+	private readonly slots = new Map<VfxPart, number>();
 	private readonly px: number[] = [0, 0, 0, 0];
 	private readonly py: number[] = [0, 0, 0, 0];
 	private readonly tint: MutableRGBA = [1, 1, 1, 1];
@@ -58,6 +60,29 @@ export class VfxRenderSystem implements RenderSystem {
 	/** Scratch state the ribbon profile reads, written per ribbon before the draw. */
 	private ribbonPart: VfxRibbonPart | null = null;
 	private ribbonWidth = 0;
+
+	/**
+	 * Draw arguments reused across a whole band or pool. The geometry and tint
+	 * they point at are this system's own scratch, so only the fields that vary
+	 * per part are rewritten; the renderer reads them before returning.
+	 */
+	private readonly quadOpts = {
+		px: this.px,
+		py: this.py,
+		tint: this.tint,
+		blend: "normal" as QuadBlend,
+	};
+
+	private readonly ribbonInput: MutableRibbonPathInput = {
+		x: 0,
+		y: 0,
+		length: 0,
+		age: 0,
+		seed: 0,
+		wind: 0,
+		time: 0,
+		points: 0,
+	};
 
 	private readonly ribbonProfile: RibbonProfile = {
 		width: (t: number): number => {
@@ -78,6 +103,13 @@ export class VfxRenderSystem implements RenderSystem {
 			out[2] = this.tint[2];
 			out[3] = this.tint[3];
 		},
+	};
+
+	private readonly ribbonOpts = {
+		px: this.pathX,
+		py: this.pathY,
+		profile: this.ribbonProfile,
+		blend: "normal" as QuadBlend,
 	};
 
 	constructor(readonly store: VfxStore) {}
@@ -124,13 +156,12 @@ export class VfxRenderSystem implements RenderSystem {
 
 	/** The resolved layer id for a part, memoized for the frame. */
 	private slot(ecs: RenderContext["ecs"], part: VfxPart): number {
-		const key = `${part.layer}#${part.order}`;
-		const cached = this.slots.get(key);
+		const cached = this.slots.get(part);
 		if (cached !== undefined) {
 			return cached;
 		}
 		const resolved = resolveRenderLayer(ecs, part.layer, part.order);
-		this.slots.set(key, resolved);
+		this.slots.set(part, resolved);
 		return resolved;
 	}
 
@@ -144,7 +175,7 @@ export class VfxRenderSystem implements RenderSystem {
 		const baseX = pool.local ? effect.originX : 0;
 		const baseY = pool.local ? effect.originY : 0;
 		const { scale, alpha, color, rotation } = part.tracks;
-		const blend = part.blend;
+		this.quadOpts.blend = part.blend;
 		for (let i = 0; i < pool.count; i++) {
 			const t = pool.age[i]! / pool.life[i]!;
 			sampleTint(this.tint, color, t, alpha ? alpha.sample(t) : 1);
@@ -164,12 +195,7 @@ export class VfxRenderSystem implements RenderSystem {
 				(size + stretch) / 2,
 				angle,
 			);
-			renderer.drawCornerQuad(layer, {
-				px: this.px,
-				py: this.py,
-				tint: this.tint,
-				blend,
-			});
+			renderer.drawCornerQuad(layer, this.quadOpts);
 		}
 	}
 
@@ -196,6 +222,7 @@ export class VfxRenderSystem implements RenderSystem {
 		this.pathX.length = points;
 		this.pathY.length = points;
 		this.ribbonPart = part;
+		this.ribbonOpts.blend = part.blend;
 		const { scale, alpha, color } = part.tracks;
 		for (let i = 0; i < band.count; i++) {
 			const t = band.age[i]! / band.life[i]!;
@@ -207,27 +234,17 @@ export class VfxRenderSystem implements RenderSystem {
 			);
 			this.ribbonWidth =
 				part.width.base * (scale ? scale.sample(t) : 1);
-			generateRibbonPath(
-				part.path,
-				{
-					x: baseX + band.x[i]!,
-					y: baseY + band.y[i]!,
-					length: band.length[i]!,
-					age: t,
-					seed: band.seed[i]!,
-					wind,
-					time,
-					points,
-				},
-				this.pathX,
-				this.pathY,
-			);
-			drawRibbon(renderer, layer, {
-				px: this.pathX,
-				py: this.pathY,
-				profile: this.ribbonProfile,
-				blend: part.blend,
-			});
+			const input = this.ribbonInput;
+			input.x = baseX + band.x[i]!;
+			input.y = baseY + band.y[i]!;
+			input.length = band.length[i]!;
+			input.age = t;
+			input.seed = band.seed[i]!;
+			input.wind = wind;
+			input.time = time;
+			input.points = points;
+			generateRibbonPath(part.path, input, this.pathX, this.pathY);
+			drawRibbon(renderer, layer, this.ribbonOpts);
 		}
 		this.ribbonPart = null;
 	}

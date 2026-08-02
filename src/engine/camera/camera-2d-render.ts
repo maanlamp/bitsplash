@@ -22,6 +22,10 @@ export const pickActiveCamera2D = (
 	return best ? best.camera : null;
 };
 
+const isWorldLayer = (id: number): boolean => id < UI_LAYER_MIN;
+
+const isUiLayer = (id: number): boolean => id >= UI_LAYER_MIN;
+
 /**
  * Composite a scene's collected draw commands into `target`: the world layers
  * through the camera, then the UI layers at the scene's ui scale.
@@ -62,12 +66,12 @@ export const renderSceneToTexture = (
 			z,
 		);
 		target.setOrigin(snappedX - spanX / 2, snappedY - spanY / 2);
-		renderer.renderTo(target, (id) => id < UI_LAYER_MIN, true);
+		renderer.renderTo(target, isWorldLayer, true);
 		drewWorld = true;
 	}
 
 	const uiScale = scene.config.uiScale ?? 1;
 	target.setSpan(vw / uiScale, vh / uiScale);
 	target.setOrigin(0, 0);
-	renderer.renderTo(target, (id) => id >= UI_LAYER_MIN, !drewWorld);
+	renderer.renderTo(target, isUiLayer, !drewWorld);
 };

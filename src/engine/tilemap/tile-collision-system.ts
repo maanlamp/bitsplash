@@ -2,6 +2,7 @@ import type { RigidBody } from "../physics/rigid-body";
 import { profiler } from "../profiling/profiler";
 import { type UpdateContext, UpdateSystem } from "../system";
 import type { World } from "../world";
+import { cellKeyX, cellKeyY, tileCellKey } from "./grid";
 import {
 	mergedSolidCells,
 	solidTileLayers,
@@ -33,7 +34,7 @@ export class TileCollisionSystem implements UpdateSystem {
 		this.rebuild(world, mergedSolidCells(ecs));
 	}
 
-	private rebuild(world: World, cells: Set<string>): void {
+	private rebuild(world: World, cells: ReadonlySet<number>): void {
 		for (const body of this.bodies) {
 			world.destroyBody(body);
 		}
@@ -55,12 +56,12 @@ export class TileCollisionSystem implements UpdateSystem {
 		}
 	}
 
-	private traceLoops(cells: Set<string>): Point[][] {
+	private traceLoops(cells: ReadonlySet<number>): Point[][] {
 		const has = (x: number, y: number): boolean =>
-			cells.has(`${x},${y}`);
-		const edges = new Map<string, Point[]>();
+			cells.has(tileCellKey(x, y));
+		const edges = new Map<number, Point[]>();
 		const add = (a: Point, b: Point): void => {
-			const k = `${a.x},${a.y}`;
+			const k = tileCellKey(a.x, a.y);
 			const list = edges.get(k);
 			if (list) {
 				list.push(b);
@@ -70,7 +71,8 @@ export class TileCollisionSystem implements UpdateSystem {
 		};
 
 		for (const key of cells) {
-			const [gx, gy] = key.split(",").map(Number) as [number, number];
+			const gx = cellKeyX(key);
+			const gy = cellKeyY(key);
 			const tl = { x: gx, y: gy };
 			const tr = { x: gx + 1, y: gy };
 			const br = { x: gx + 1, y: gy + 1 };
@@ -102,7 +104,7 @@ export class TileCollisionSystem implements UpdateSystem {
 						break;
 					}
 					cur = next;
-					curKey = `${next.x},${next.y}`;
+					curKey = tileCellKey(next.x, next.y);
 				} while (curKey !== startKey);
 				loops.push(this.collapseColinear(loop));
 			}
@@ -110,9 +112,8 @@ export class TileCollisionSystem implements UpdateSystem {
 		return loops;
 	}
 
-	private parsePoint(key: string): Point {
-		const [x, y] = key.split(",").map(Number) as [number, number];
-		return { x, y };
+	private parsePoint(key: number): Point {
+		return { x: cellKeyX(key), y: cellKeyY(key) };
 	}
 
 	private collapseColinear(loop: Point[]): Point[] {

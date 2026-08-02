@@ -7,10 +7,9 @@ import { TILE_SIZE } from "./tilemap/tile";
  * Where the ear is, and how far everything is from it.
  *
  * The engine has no listener concept of its own, so every system that places a
- * sound or dims an effect by distance used to resolve the camera itself and
- * invent its own falloff. They all go through here instead: one metre
- * convention, one listener, one distance, one level curve. A change to how
- * distance sounds is a change in this file, not in five.
+ * sound or dims an effect by distance goes through here: one metre convention,
+ * one listener, one distance, one level curve. A change to how distance sounds
+ * is a change in this file, not in five.
  *
  * The third dimension is the camera's **standoff from the world plane**, which
  * is what zoom actually is in a 2D game: zooming out is the camera pulling back,

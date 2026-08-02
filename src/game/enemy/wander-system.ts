@@ -1,6 +1,6 @@
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { NavGraphComponent } from "../../engine/nav/nav-graph-component";
-import { NavGraph, nodeFeet } from "../../engine/nav/nav-graph";
+import { NavGraph, nodeFeetInto } from "../../engine/nav/nav-graph";
 import { resolveNavProfile } from "../../engine/nav/nav-profile";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
 import { profiler } from "../../engine/profiling/profiler";
@@ -16,8 +16,10 @@ import { WanderComponent } from "./wander-component";
 
 @profiler("Wander", "AI")
 export class WanderSystem implements UpdateSystem {
+	private readonly feet = new Vector2();
+
 	update({ dt, ecs }: UpdateContext): void {
-		const comp = ecs.query(NavGraphComponent)[0]?.[1];
+		const comp = ecs.queryFirst(NavGraphComponent)?.[1];
 		if (!comp?.surface) {
 			return;
 		}
@@ -59,24 +61,40 @@ export class WanderSystem implements UpdateSystem {
 		}
 	}
 
+	/**
+	 * A random node within the wander radius, found by counting the nodes in
+	 * range and then walking to the nth — two passes so nothing is collected
+	 * into a temporary array.
+	 */
 	private pick(
 		graph: NavGraph,
 		wander: WanderComponent,
 	): Vector2 | null {
 		const origin = wander.origin!;
 		const radius = wander.radiusTiles * TILE_SIZE;
-		const candidates: Vector2[] = [];
-		for (const node of graph.nodes) {
-			const feet = nodeFeet(node);
-			if (feet.distanceTo(origin) <= radius) {
-				candidates.push(feet);
+		const nodes = graph.nodes;
+		let count = 0;
+		for (let i = 0; i < nodes.length; i++) {
+			nodeFeetInto(nodes[i]!, this.feet);
+			if (this.feet.distanceTo(origin) <= radius) {
+				count++;
 			}
 		}
-		if (candidates.length === 0) {
+		if (count === 0) {
 			return null;
 		}
-		const index = Math.floor(Math.random() * candidates.length);
-		return candidates[index]!;
+		let wanted = Math.floor(Math.random() * count);
+		for (let i = 0; i < nodes.length; i++) {
+			nodeFeetInto(nodes[i]!, this.feet);
+			if (this.feet.distanceTo(origin) > radius) {
+				continue;
+			}
+			if (wanted === 0) {
+				return this.feet.clone();
+			}
+			wanted--;
+		}
+		return null;
 	}
 
 	private reschedule(wander: WanderComponent): void {

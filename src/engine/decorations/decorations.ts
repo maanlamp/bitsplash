@@ -161,12 +161,12 @@ export class SurfaceDecorations extends Decorations<SurfaceState> {
 	private bake(grid: TileGrid, state: SurfaceState): void {
 		state.back.clear();
 		state.front.clear();
-		for (const [gx, gy] of grid.occupiedCells()) {
+		grid.forEachCell((gx, gy) => {
 			if (grid.hasTile(gx, gy - 1)) {
-				continue;
+				return;
 			}
 			if (!this.present(gx, gy)) {
-				continue;
+				return;
 			}
 			const jitter =
 				(hashCell(gx, gy, 4) % (2 * this.jitter + 1)) - this.jitter;
@@ -180,7 +180,7 @@ export class SurfaceDecorations extends Decorations<SurfaceState> {
 				0,
 				this.flip(gx, gy),
 			);
-		}
+		});
 		state.back.commit();
 		state.front.commit();
 	}
@@ -235,12 +235,12 @@ export class TileDecorations extends Decorations<TileState> {
 
 	private bake(grid: TileGrid, state: TileState): void {
 		state.batch.clear();
-		for (const [gx, gy] of grid.occupiedCells()) {
+		grid.forEachCell((gx, gy) => {
 			if (!this.fullCorner(grid, gx, gy)) {
-				continue;
+				return;
 			}
 			if (!this.present(gx, gy)) {
-				continue;
+				return;
 			}
 			state.batch.tile(
 				gx * TILE_SIZE - HALF_TILE_SIZE,
@@ -250,7 +250,7 @@ export class TileDecorations extends Decorations<TileState> {
 				hashCell(gx, gy, 6) % 4,
 				this.flip(gx, gy),
 			);
-		}
+		});
 		state.batch.commit();
 	}
 

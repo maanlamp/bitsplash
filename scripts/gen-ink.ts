@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Story } from "inkjs/full";
-import { compileStory } from "../src/engine/ink/story";
+import { compileStory } from "../src/engine/ink/compile-story";
 import {
 	CHARACTER_IDS,
 	isCharacterId,
@@ -27,7 +27,13 @@ const DIALOGUE_DIR = fileURLToPath(
 	new URL("../src/game/content/dialogue/", import.meta.url),
 );
 const OUT_FILE = join(DIALOGUE_DIR, "knots.gen.ts");
+const STORY_FILE = join(DIALOGUE_DIR, "story.gen.ts");
 const RESERVED_MEMBERS = new Set(["root", "line"]);
+const GENERATED_HEADER = [
+	"// GENERATED FILE - DO NOT EDIT.",
+	"// Produced by scripts/gen-ink.ts from src/game/content/dialogue/*.ink.",
+	"// Run `bun run gen` to regenerate.",
+];
 
 type Container = {
 	name: string | null;
@@ -206,12 +212,16 @@ const walkKnots = (
 	return knots;
 };
 
-const compiledRoot = (story: Story): unknown[] => {
+const storyJson = (story: Story): string => {
 	const json = story.ToJson();
 	if (typeof json !== "string") {
 		throw new Error("Story.ToJson() returned no JSON.");
 	}
-	const parsed: unknown = JSON.parse(json);
+	return json;
+};
+
+const compiledRoot = (story: Story): unknown[] => {
+	const parsed: unknown = JSON.parse(storyJson(story));
 	const root =
 		parsed && typeof parsed === "object"
 			? (parsed as { root?: unknown }).root
@@ -434,9 +444,7 @@ const emitNamespace = (knot: KnotInfo): string => {
 
 const render = (knots: KnotInfo[]): string => {
 	const header = [
-		"// GENERATED FILE - DO NOT EDIT.",
-		"// Produced by scripts/gen-ink.ts from src/game/content/dialogue/*.ink.",
-		"// Run `bun run gen` to regenerate.",
+		...GENERATED_HEADER,
 		"",
 		'import { asKnot, type Knot } from "../../../engine/ink/knot";',
 	];
@@ -454,16 +462,38 @@ const render = (knots: KnotInfo[]): string => {
 	return `${header.join("\n")}\n${body}\n`;
 };
 
-const existing = (): string | null => {
+/**
+ * The compiled story JSON as a TypeScript module.
+ *
+ * Emitting the compiler's output as a build artifact is what keeps the ink
+ * compiler out of the game bundle and off the frame that first speaks a line —
+ * the runtime hands this string to `new Story(...)` instead of compiling the
+ * `.ink` sources again.
+ */
+const renderStory = (json: string): string =>
+	[
+		...GENERATED_HEADER,
+		"",
+		"/** The compiled ink story, ready for `new Story(...)`. */",
+		`export const STORY_JSON = ${JSON.stringify(json)};`,
+		"",
+	].join("\n");
+
+const writeIfChanged = (path: string, text: string): void => {
+	let current: string | null = null;
 	try {
-		return readFileSync(OUT_FILE, "utf8");
+		current = readFileSync(path, "utf8");
 	} catch {
-		return null;
+		current = null;
+	}
+	if (current !== text) {
+		writeFileSync(path, text, "utf8");
 	}
 };
 
 export const generate = (): {
 	outFile: string;
+	storyFile: string;
 	knots: KnotInfo[];
 } => {
 	const files = inkFiles(DIALOGUE_DIR);
@@ -477,15 +507,14 @@ export const generate = (): {
 	const container =
 		story.mainContentContainer as unknown as Container;
 	const knots = walkKnots(container, owner);
-	const rendered = render(knots);
-	if (existing() !== rendered) {
-		writeFileSync(OUT_FILE, rendered, "utf8");
-	}
-	return { outFile: OUT_FILE, knots };
+	writeIfChanged(OUT_FILE, render(knots));
+	writeIfChanged(STORY_FILE, renderStory(storyJson(story)));
+	return { outFile: OUT_FILE, storyFile: STORY_FILE, knots };
 };
 
 const result = generate();
 console.log(`Generated ${result.outFile}`);
+console.log(`Generated ${result.storyFile}`);
 for (const knot of result.knots) {
 	const label = knot.file ? ` (${knot.file})` : "";
 	console.log(

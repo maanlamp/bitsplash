@@ -1,6 +1,10 @@
 import type { ECS, EntityId } from "../../engine/ecs";
 import { FacingComponent } from "../../engine/locomotion/facing-component";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
+import {
+	copyIds,
+	diffIds,
+} from "../../engine/perception/id-set-diff";
 import { profiler } from "../../engine/profiling/profiler";
 import {
 	type UpdateContext,
@@ -21,6 +25,13 @@ const SUSPICION = 0.5;
 
 @profiler("Perception", "AI")
 export class PerceptionSystem implements UpdateSystem {
+	/**
+	 * This frame's noticed set for the perceiver being processed. One perceiver
+	 * is in flight at a time and {@link recordNoticed} copies out of it, so a
+	 * single buffer serves every perceiver.
+	 */
+	private readonly noticedScratch: EntityId[] = [];
+
 	update({ dt, ecs, world, events }: UpdateContext): void {
 		const s = dt / 1000;
 		const damage = events.read(DamageEvent);
@@ -82,7 +93,8 @@ export class PerceptionSystem implements UpdateSystem {
 		let viewId: EntityId | null = null;
 		let viewPos: Vector2 | null = null;
 		let viewDist = Infinity;
-		const noticed: EntityId[] = [];
+		const noticed = this.noticedScratch;
+		noticed.length = 0;
 		for (const [candId, , candTransform] of ecs.query(
 			FactionComponent,
 			TransformComponent,
@@ -143,7 +155,9 @@ export class PerceptionSystem implements UpdateSystem {
 				1,
 				perception.detection + s / perception.detectTime.seconds,
 			);
-			perception.lastStimulusPos = bestPos.clone();
+			perception.lastStimulusPos = perception.lastStimulusPos
+				? perception.lastStimulusPos.copy(bestPos)
+				: bestPos.clone();
 			perception.timeSinceStimulus = 0;
 			perception.timeSinceSeen = 0;
 			return;
@@ -178,14 +192,13 @@ export class PerceptionSystem implements UpdateSystem {
 		perception: PerceptionComponent,
 		noticed: readonly EntityId[],
 	): void {
-		const before = perception.noticed;
-		perception.noticedEntered = noticed.filter(
-			(candId) => !before.includes(candId),
+		diffIds(
+			perception.noticed,
+			noticed,
+			perception.noticedEntered,
+			perception.noticedExited,
 		);
-		perception.noticedExited = before.filter(
-			(candId) => !noticed.includes(candId),
-		);
-		perception.noticed = [...noticed];
+		copyIds(perception.noticed, noticed);
 	}
 
 	private perceive(

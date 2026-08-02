@@ -38,7 +38,7 @@ export class InteractHintHudSystem implements UpdateSystem {
 	) {}
 
 	update({ ecs, assetManager, actions, input }: UpdateContext): void {
-		const state = ecs.query(InteractionStateComponent)[0]?.[1];
+		const state = ecs.queryFirst(InteractionStateComponent)?.[1];
 		const inRange = state?.inRange ?? null;
 		const interactable = inRange
 			? ecs.getComponent(inRange, InteractableComponent)

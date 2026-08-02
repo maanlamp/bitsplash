@@ -1,23 +1,11 @@
-import type { Story } from "inkjs/full";
-import { compileStory } from "../../engine/ink/story";
+import { Story } from "inkjs";
+import { STORY_JSON } from "../content/dialogue/story.gen";
 
-const MAIN = "main.ink";
-
-let modules: Record<string, string> = {};
-try {
-	modules = import.meta.glob("../content/dialogue/**/*.ink", {
-		query: "?raw",
-		import: "default",
-		eager: true,
-	}) as Record<string, string>;
-} catch {
-	modules = {};
-}
-
-const sources: Record<string, string> = {};
-for (const [path, source] of Object.entries(modules)) {
-	const name = path.split("/").pop()!;
-	sources[name] = source;
-}
-
-export const createStory = (): Story => compileStory(sources, MAIN);
+/**
+ * Build the shipped ink story from the build-time compiled JSON.
+ *
+ * The `.ink` sources are compiled once by `bun run gen`; the runtime only
+ * deserializes. Compiling here instead cost ~50 ms on whichever gameplay frame
+ * first spoke a line, and dragged the ink compiler into the bundle.
+ */
+export const createStory = (): Story => new Story(STORY_JSON);

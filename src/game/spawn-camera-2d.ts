@@ -25,7 +25,7 @@ export const spawnCamera2D = (
 	options: Readonly<{ target: EntityId; bounds?: Bounds | null }>,
 ): EntityId => {
 	const bounds = options.bounds ?? null;
-	const existing = world.ecs.query(Camera2DComponent).at(0);
+	const existing = world.ecs.first(Camera2DComponent);
 	if (existing) {
 		const [id] = existing;
 		if (!world.ecs.getComponent(id, Camera2DFollowComponent)) {

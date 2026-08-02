@@ -1,4 +1,4 @@
-import type { MutableRGBA } from "../animation/keyframes";
+import type { MutableRGBA } from "../render/color-resolver";
 import { clamp01 } from "../noise";
 import type { RGBA } from "../render/color-resolver";
 import {

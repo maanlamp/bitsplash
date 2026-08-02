@@ -2,6 +2,10 @@ import { Duration, type Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import type EventBus from "../../engine/events";
 import { stepMachine } from "../../engine/fsm/step-machine";
+import {
+	copyIds,
+	diffIds,
+} from "../../engine/perception/id-set-diff";
 import { PerceptionComponent } from "../../engine/perception/perception-component";
 import { profiler } from "../../engine/profiling/profiler";
 import {
@@ -34,6 +38,17 @@ import { reactionLifecycleMachine } from "./reaction-lifecycle-def";
  */
 @profiler("Reactions", "AI")
 export class ReactionSystem extends UpdateSystem {
+	/**
+	 * Per-actor working sets. One actor is processed at a time and each result
+	 * is consumed before the next actor starts, so a single set of buffers
+	 * serves the whole query.
+	 */
+	private readonly engagedScratch: EntityId[] = [];
+	private readonly arrivedScratch: EntityId[] = [];
+	/** `diffIds` reports both edges; only arrivals drive a reaction. */
+	private readonly departedScratch: EntityId[] = [];
+	private readonly stimulusScratch = new Set<StimulusId>();
+
 	update({ dt, ecs, events }: UpdateContext): void {
 		const s = dt / 1000;
 		for (const [id, reaction, perception] of ecs.query(
@@ -90,10 +105,11 @@ export class ReactionSystem extends UpdateSystem {
 		reaction: ReactionComponent,
 		s: number,
 	): void {
-		for (const id of Object.keys(
-			reaction.sinceFired,
-		) as ReactionId[]) {
-			reaction.sinceFired[id] = (reaction.sinceFired[id] ?? 0) + s;
+		// `for..in` rather than `Object.keys`, which would build an array of
+		// reaction ids for every reacting entity every frame.
+		for (const id in reaction.sinceFired) {
+			const key = id as ReactionId;
+			reaction.sinceFired[key] = (reaction.sinceFired[key] ?? 0) + s;
 		}
 	}
 
@@ -131,15 +147,21 @@ export class ReactionSystem extends UpdateSystem {
 		reaction: ReactionComponent,
 		perception: PerceptionComponent,
 	): readonly EntityId[] {
-		const engaged = perception.noticed.filter(
-			(other) =>
+		const engaged = this.engagedScratch;
+		engaged.length = 0;
+		const noticed = perception.noticed;
+		for (let i = 0; i < noticed.length; i++) {
+			const other = noticed[i]!;
+			if (
 				getReaction(ecs, id, other) !== "hostile" &&
-				isEngaging(ecs, id, other),
-		);
-		const arrived = engaged.filter(
-			(other) => !reaction.engaged.includes(other),
-		);
-		reaction.engaged = engaged;
+				isEngaging(ecs, id, other)
+			) {
+				engaged.push(other);
+			}
+		}
+		const arrived = this.arrivedScratch;
+		diffIds(reaction.engaged, engaged, arrived, this.departedScratch);
+		copyIds(reaction.engaged, engaged);
 		return arrived;
 	}
 
@@ -161,10 +183,16 @@ export class ReactionSystem extends UpdateSystem {
 		perception: PerceptionComponent,
 		engaged: readonly EntityId[],
 	): Set<StimulusId> {
-		const out = new Set<StimulusId>();
-		const hostile = perception.noticedEntered.some(
-			(noticed) => getReaction(ecs, id, noticed) === "hostile",
-		);
+		const out = this.stimulusScratch;
+		out.clear();
+		let hostile = false;
+		const entered = perception.noticedEntered;
+		for (let i = 0; i < entered.length; i++) {
+			if (getReaction(ecs, id, entered[i]!) === "hostile") {
+				hostile = true;
+				break;
+			}
+		}
 		if (hostile) {
 			out.add("noticed-hostile");
 		}

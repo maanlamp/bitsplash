@@ -50,7 +50,10 @@ const lineWidth = (font: LoadedFont, line: RichLine): number => {
 		return 0;
 	}
 	const last = glyphs[glyphs.length - 1]!;
-	return last.x + measureText(font, last.char);
+	// The glyph's own style, not the regular face: a line ending in a bold run
+	// is wider than the same characters unbolded, and measuring it as regular
+	// clips the last glyph.
+	return last.x + measureText(font, last.char, last.style);
 };
 
 export const blockWidth = (

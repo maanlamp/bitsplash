@@ -43,8 +43,8 @@ export class DialogueHudSyncSystem implements UpdateSystem {
 		actions,
 		input,
 	}: UpdateContext): void {
-		const entry = ecs.query(DialogueComponent)[0];
-		const conversation = ecs.query(ConversationComponent)[0]?.[1];
+		const entry = ecs.queryFirst(DialogueComponent);
+		const conversation = ecs.queryFirst(ConversationComponent)?.[1];
 		if (!entry || !conversation) {
 			this.hud.close();
 			this.wraps.reset();
@@ -58,7 +58,7 @@ export class DialogueHudSyncSystem implements UpdateSystem {
 		this.pops.step(conversation, dt);
 
 		const fallbackGlyph =
-			ecs.query(InteractionStateComponent)[0]?.[1].interactGlyph ??
+			ecs.queryFirst(InteractionStateComponent)?.[1].interactGlyph ??
 			"E";
 		const hint = resolveHint(
 			assetManager,

@@ -1,24 +1,5 @@
-import {
-	Compiler,
-	CompilerOptions,
-	JsonFileHandler,
-	type Story,
-} from "inkjs/full";
+import type { Story } from "inkjs";
 import type { InkStoryComponent } from "../ink/ink-story-component";
-
-export const compileStory = (
-	sources: Record<string, string>,
-	main: string,
-): Story => {
-	const options = new CompilerOptions(
-		main,
-		[],
-		true,
-		null,
-		new JsonFileHandler(sources),
-	);
-	return new Compiler(sources[main] ?? "", options).Compile();
-};
 
 export const ensureStory = (
 	component: InkStoryComponent,

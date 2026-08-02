@@ -24,10 +24,10 @@ export const borrowCameraFollow = (
 	ecs: ECS,
 	owner: EntityId,
 ): void => {
-	const entry = ecs.query(
+	const entry = ecs.queryFirst(
 		Camera2DComponent,
 		Camera2DFollowComponent,
-	)[0];
+	);
 	if (!entry) {
 		return;
 	}

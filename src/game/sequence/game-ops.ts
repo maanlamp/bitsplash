@@ -1,4 +1,4 @@
-import type { Story } from "inkjs/full";
+import type { Story } from "inkjs";
 import { Duration } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import { InkStoryComponent } from "../../engine/ink/ink-story-component";
@@ -574,7 +574,7 @@ const despawnExecutor: OpExecutor = {
 };
 
 const chronicleOf = (ctx: OpContext): ChronicleComponent => {
-	const existing = ctx.ecs.query(ChronicleComponent)[0];
+	const existing = ctx.ecs.queryFirst(ChronicleComponent);
 	if (existing) {
 		return existing[1];
 	}
@@ -603,7 +603,7 @@ const setFlagExecutor: OpExecutor = {
 };
 
 const barkText = (ctx: OpContext, knot: string): string => {
-	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
+	const inkEntry = ctx.ecs.queryFirst(InkStoryComponent);
 	if (!inkEntry) {
 		return "";
 	}
@@ -728,7 +728,7 @@ const enterKnot = (
 	story: Story;
 	knot: string;
 }> | null => {
-	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
+	const inkEntry = ctx.ecs.queryFirst(InkStoryComponent);
 	if (!inkEntry) {
 		return null;
 	}
@@ -833,7 +833,7 @@ const fastForwardOpen = (
 		recordChoice(state, params, memory);
 		return false;
 	}
-	const inkEntry = ctx.ecs.query(InkStoryComponent)[0];
+	const inkEntry = ctx.ecs.queryFirst(InkStoryComponent);
 	if (!inkEntry) {
 		closeDialogue(ctx, id, state);
 		return true;
@@ -975,7 +975,7 @@ const chronicleEqualsPredicate = (
 	ctx: OpContext,
 	params: OpParams,
 ): boolean => {
-	const entry = ctx.ecs.query(ChronicleComponent)[0];
+	const entry = ctx.ecs.queryFirst(ChronicleComponent);
 	if (!entry) {
 		return false;
 	}
@@ -985,7 +985,7 @@ const chronicleEqualsPredicate = (
 };
 
 const playerResolver = (ctx: OpContext): EntityId | null =>
-	ctx.ecs.query(PlayerInputComponent)[0]?.[0] ?? null;
+	ctx.ecs.queryFirst(PlayerInputComponent)?.[0] ?? null;
 
 const npcByKnotResolver = (
 	ctx: OpContext,

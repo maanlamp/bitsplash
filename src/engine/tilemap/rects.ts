@@ -9,14 +9,14 @@ export type TileRect = Readonly<{
 
 export const tileRects = (grid: TileGrid): TileRect[] => {
 	const byRow = new Map<number, number[]>();
-	for (const [x, y] of grid.occupiedCells()) {
+	grid.forEachCell((x, y) => {
 		const row = byRow.get(y);
 		if (row) {
 			row.push(x);
 		} else {
 			byRow.set(y, [x]);
 		}
-	}
+	});
 
 	const rects: TileRect[] = [];
 	for (const y of [...byRow.keys()].sort((a, b) => a - b)) {

@@ -44,7 +44,7 @@ export const choiceOptionId = (index: number): string =>
  * against another's node.
  */
 export const presentedMessageIndex = (ecs: ReadonlyECS): number => {
-	const conversation = ecs.query(ConversationComponent)[0]?.[1];
+	const conversation = ecs.queryFirst(ConversationComponent)?.[1];
 	if (!conversation || conversation.messages.length === 0) {
 		return 0;
 	}

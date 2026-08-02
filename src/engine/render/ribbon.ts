@@ -1,4 +1,4 @@
-import type { MutableRGBA } from "../animation/keyframes";
+import type { MutableRGBA } from "./color-resolver";
 import type { QuadBlend } from "./blend";
 import type Renderer2D from "./renderer-2d";
 
@@ -34,6 +34,29 @@ export type RibbonOpts = Readonly<{
 const COINCIDENT = 1e-6;
 
 /**
+ * Working buffers for {@link drawRibbon}, shared across calls.
+ *
+ * A ribbon is regenerated and redrawn every frame, several per band, so the
+ * deduplicated points, arc lengths, joint normals and the quad handed to the
+ * renderer are all module scratch. `drawRibbon` never reenters itself and the
+ * renderer copies each quad before returning, so one set is enough.
+ */
+const xs: number[] = [];
+const ys: number[] = [];
+const along: number[] = [];
+const nx: number[] = [];
+const ny: number[] = [];
+const tint: MutableRGBA = [1, 1, 1, 1];
+const qx: number[] = [0, 0, 0, 0];
+const qy: number[] = [0, 0, 0, 0];
+const quadOpts = {
+	px: qx,
+	py: qy,
+	tint,
+	blend: "normal" as QuadBlend,
+};
+
+/**
  * Emit a polyline as a chain of untextured quads, one per segment, widened
  * about the path and coloured from its profile.
  *
@@ -61,33 +84,29 @@ export const drawRibbon = (
 	layer: number,
 	{ px, py, profile, blend }: RibbonOpts,
 ): void => {
-	const xs: number[] = [];
-	const ys: number[] = [];
-	const along: number[] = [];
 	const count = Math.min(px.length, py.length);
+	let kept = 0;
 	let total = 0;
 	for (let i = 0; i < count; i++) {
 		const x = px[i]!;
 		const y = py[i]!;
-		const last = xs.length - 1;
-		if (last >= 0) {
-			const step = Math.hypot(x - xs[last]!, y - ys[last]!);
+		if (kept > 0) {
+			const step = Math.hypot(x - xs[kept - 1]!, y - ys[kept - 1]!);
 			if (step <= COINCIDENT) {
 				continue;
 			}
 			total += step;
 		}
-		xs.push(x);
-		ys.push(y);
-		along.push(total);
+		xs[kept] = x;
+		ys[kept] = y;
+		along[kept] = total;
+		kept++;
 	}
-	if (xs.length < 2 || total === 0) {
+	if (kept < 2 || total === 0) {
 		return;
 	}
 
-	const n = xs.length;
-	const nx: number[] = [];
-	const ny: number[] = [];
+	const n = kept;
 	let prevX = 0;
 	let prevY = 0;
 	for (let i = 0; i < n - 1; i++) {
@@ -95,25 +114,23 @@ export const drawRibbon = (
 		const segX = -(ys[i + 1]! - ys[i]!) / len;
 		const segY = (xs[i + 1]! - xs[i]!) / len;
 		if (i === 0) {
-			nx.push(segX);
-			ny.push(segY);
+			nx[0] = segX;
+			ny[0] = segY;
 		} else {
 			const ax = prevX + segX;
 			const ay = prevY + segY;
 			const mag = Math.hypot(ax, ay);
 			const doubledBack = mag <= COINCIDENT;
-			nx.push(doubledBack ? prevX : ax / mag);
-			ny.push(doubledBack ? prevY : ay / mag);
+			nx[i] = doubledBack ? prevX : ax / mag;
+			ny[i] = doubledBack ? prevY : ay / mag;
 		}
 		prevX = segX;
 		prevY = segY;
 	}
-	nx.push(prevX);
-	ny.push(prevY);
+	nx[n - 1] = prevX;
+	ny[n - 1] = prevY;
 
-	const tint: MutableRGBA = [1, 1, 1, 1];
-	const qx: number[] = [0, 0, 0, 0];
-	const qy: number[] = [0, 0, 0, 0];
+	quadOpts.blend = blend ?? "normal";
 	for (let i = 0; i < n - 1; i++) {
 		const t0 = along[i]! / total;
 		const t1 = along[i + 1]! / total;
@@ -132,11 +149,6 @@ export const drawRibbon = (
 		tint[2] = 1;
 		tint[3] = 1;
 		profile.tint((t0 + t1) / 2, tint);
-		renderer.drawCornerQuad(layer, {
-			px: qx,
-			py: qy,
-			tint,
-			blend,
-		});
+		renderer.drawCornerQuad(layer, quadOpts);
 	}
 };

@@ -167,19 +167,17 @@ const RAIN_HEAVY_HI_HZ = 2000;
 /**
  * How rain level follows the scalar.
  *
- * Above one, so a drizzle is genuinely quiet. It used to be `0.7`, which
- * *lifted* the bottom of the range — a `0.3` scalar came out at `0.43` of full
- * level and a light shower already sounded like weather to shelter from. Full
- * rain is unchanged; only the quiet end moved.
+ * Above one, so the quiet end stays quiet: a `0.3` scalar reads as a light
+ * patter rather than as weather to shelter from, while full rain is at full
+ * level.
  */
 const RAIN_CURVE = 1.6;
 
 /**
  * Precipitation at which the heavy bed is half way in, and over what span.
  *
- * The knee sat at `0.3`, so the dark roar started arriving the moment rain was
- * visible at all. A shower should be the light voice alone; the heavy bed is
- * what a downpour adds.
+ * The knee sits well above the point rain becomes visible, so a shower is the
+ * light voice alone and the dark roar is what a downpour adds.
  */
 const RAIN_HEAVY_KNEE = 0.5;
 const RAIN_HEAVY_SPAN = 0.45;

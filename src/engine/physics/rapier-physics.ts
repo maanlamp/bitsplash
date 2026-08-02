@@ -6,7 +6,6 @@ import type { CollisionMatrix } from "./collision";
 import type {
 	BodyDef,
 	CollisionPair,
-	ContactNormal,
 	RaycastFilter,
 	RaycastHit,
 	Vec,
@@ -40,6 +39,51 @@ export class RapierPhysics extends Physics {
 	private readonly queue: RAPIER_NS.EventQueue;
 	private collisions: CollisionPair[] = [];
 	private disposed = false;
+
+	/**
+	 * State for {@link hasContactNormal}, alongside its two callbacks.
+	 *
+	 * Rapier's contact walk is callback-driven, so the callbacks are hoisted and
+	 * their inputs passed through fields: a fresh pair of closures per query
+	 * would allocate for every body, every frame. One query runs at a time and
+	 * the walk is synchronous, so single-slot state is enough.
+	 */
+	private contactCollider: RAPIER_NS.Collider | null = null;
+	private contactDirX = 0;
+	private contactDirY = 0;
+	private contactMinDot = 0;
+	private contactFound = false;
+
+	private readonly onContactManifold = (
+		manifold: RAPIER_NS.TempContactManifold,
+		flipped: boolean,
+	): void => {
+		if (this.contactFound || manifold.numContacts() === 0) {
+			return;
+		}
+		const normal = manifold.normal();
+		const nx = flipped ? -normal.x : normal.x;
+		const ny = flipped ? -normal.y : normal.y;
+		if (
+			nx * this.contactDirX + ny * this.contactDirY >
+			this.contactMinDot
+		) {
+			this.contactFound = true;
+		}
+	};
+
+	private readonly onContactPair = (
+		other: RAPIER_NS.Collider,
+	): void => {
+		if (this.contactFound || !this.contactCollider) {
+			return;
+		}
+		this.world.contactPair(
+			this.contactCollider,
+			other,
+			this.onContactManifold,
+		);
+	};
 
 	constructor(gravity: Vec, matrix?: CollisionMatrix) {
 		super();
@@ -307,23 +351,22 @@ export class RapierPhysics extends Physics {
 		handle(body).collider.setSensor(sensor);
 	}
 
-	*touchingContacts(body: RigidBody): Iterable<ContactNormal> {
-		const { collider } = handle(body);
-		const found: ContactNormal[] = [];
-		this.world.contactPairsWith(collider, (other) => {
-			this.world.contactPair(collider, other, (manifold, flipped) => {
-				if (manifold.numContacts() === 0) {
-					return;
-				}
-				const n = manifold.normal();
-				found.push({
-					normal: new Vector2(
-						flipped ? -n.x : n.x,
-						flipped ? -n.y : n.y,
-					),
-				});
-			});
-		});
-		yield* found;
+	hasContactNormal(
+		body: RigidBody,
+		dirX: number,
+		dirY: number,
+		minDot: number,
+	): boolean {
+		this.contactCollider = handle(body).collider;
+		this.contactDirX = dirX;
+		this.contactDirY = dirY;
+		this.contactMinDot = minDot;
+		this.contactFound = false;
+		this.world.contactPairsWith(
+			this.contactCollider,
+			this.onContactPair,
+		);
+		this.contactCollider = null;
+		return this.contactFound;
 	}
 }

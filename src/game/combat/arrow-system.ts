@@ -11,6 +11,7 @@ import {
 	UpdateSystem,
 } from "../../engine/system";
 import { TILE_SIZE } from "../../engine/tilemap/tile";
+import type { GridBounds } from "../../engine/tilemap/grid";
 import { solidBounds } from "../../engine/tilemap/occupancy";
 import Vector2 from "../../engine/vector2";
 import type { World } from "../../engine/world";
@@ -30,6 +31,7 @@ const STIMULUS_BEARING = 4 * TILE_SIZE;
 export class ArrowSystem implements UpdateSystem {
 	update({ dt, ecs, world, events }: UpdateContext): void {
 		const dtSeconds = (dt / 1000) as Seconds;
+		const bounds = solidBounds(ecs);
 		for (const [id, arrow, transform, rb, sprite] of ecs.query(
 			ArrowComponent,
 			TransformComponent,
@@ -72,7 +74,7 @@ export class ArrowSystem implements UpdateSystem {
 				continue;
 			}
 
-			if (this.outOfBounds(ecs, transform.position)) {
+			if (outOfBounds(bounds, transform.position)) {
 				ecs.destroy(id);
 				continue;
 			}
@@ -183,24 +185,30 @@ export class ArrowSystem implements UpdateSystem {
 					body.collisionLayer === Layer.Crate),
 		);
 	}
-
-	private outOfBounds(
-		ecs: UpdateContext["ecs"],
-		position: Vector2,
-	): boolean {
-		const gb = solidBounds(ecs);
-		if (!gb) {
-			return false;
-		}
-		const minX = gb.minX * TILE_SIZE - BOUNDS_MARGIN;
-		const minY = gb.minY * TILE_SIZE - BOUNDS_MARGIN;
-		const maxX = (gb.maxX + 1) * TILE_SIZE + BOUNDS_MARGIN;
-		const maxY = (gb.maxY + 1) * TILE_SIZE + BOUNDS_MARGIN;
-		return (
-			position.x < minX ||
-			position.x > maxX ||
-			position.y < minY ||
-			position.y > maxY
-		);
-	}
 }
+
+/**
+ * Whether an arrow has left the painted world by more than {@link BOUNDS_MARGIN}.
+ *
+ * The bounds are resolved once per `update()` and passed in: they are a property
+ * of the tilemap, not of the arrow, and reading them per arrow was the system's
+ * dominant cost.
+ */
+const outOfBounds = (
+	bounds: GridBounds | null,
+	position: Vector2,
+): boolean => {
+	if (!bounds) {
+		return false;
+	}
+	const minX = bounds.minX * TILE_SIZE - BOUNDS_MARGIN;
+	const minY = bounds.minY * TILE_SIZE - BOUNDS_MARGIN;
+	const maxX = (bounds.maxX + 1) * TILE_SIZE + BOUNDS_MARGIN;
+	const maxY = (bounds.maxY + 1) * TILE_SIZE + BOUNDS_MARGIN;
+	return (
+		position.x < minX ||
+		position.x > maxX ||
+		position.y < minY ||
+		position.y > maxY
+	);
+};

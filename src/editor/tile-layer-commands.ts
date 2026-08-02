@@ -17,7 +17,7 @@ const ORDER_STEP = 10;
 
 const registryIndex = (ecs: ECS, id: string): number => {
 	const layers =
-		ecs.query(RenderLayersComponent)[0]?.[1].layers ?? [];
+		ecs.queryFirst(RenderLayersComponent)?.[1].layers ?? [];
 	const index = layers.findIndex((def) => def.id === id);
 	return index < 0 ? layers.length : index;
 };

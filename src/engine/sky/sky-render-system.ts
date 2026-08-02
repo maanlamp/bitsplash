@@ -1,4 +1,4 @@
-import type { MutableRGBA } from "../animation/keyframes";
+import type { MutableRGBA } from "../render/color-resolver";
 import { resolveRenderLayer } from "../render/render-layers";
 import { type RenderContext, RenderSystem } from "../system";
 import { weatherFrame } from "../weather/weather-frame";
@@ -33,7 +33,7 @@ export class SkyRenderSystem implements RenderSystem {
 	private readonly tint: MutableRGBA = [0, 0, 0, 1];
 
 	render({ renderer, ecs, camera }: RenderContext): void {
-		const sky = ecs.query(SkyComponent)[0]?.[1];
+		const sky = ecs.queryFirst(SkyComponent)?.[1];
 		if (!sky || !camera || camera.zoom <= 0) {
 			return;
 		}

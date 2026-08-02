@@ -59,8 +59,8 @@ export class DialogueHudDynSystem extends RenderSystem {
 	}
 
 	render({ ecs }: RenderContext): void {
-		const [, state] = ecs.query(DialogueComponent)[0] ?? [];
-		const conversation = ecs.query(ConversationComponent)[0]?.[1];
+		const [, state] = ecs.queryFirst(DialogueComponent) ?? [];
+		const conversation = ecs.queryFirst(ConversationComponent)?.[1];
 		if (!state || !conversation) {
 			return;
 		}
