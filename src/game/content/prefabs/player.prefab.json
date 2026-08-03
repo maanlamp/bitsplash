@@ -68,6 +68,7 @@
 			"maxHp": 100
 		},
 		"HealthBar": {},
+		"Mortal": {},
 		"Sprite": {
 			"urlRef": {
 				"$type": "AssetRef",

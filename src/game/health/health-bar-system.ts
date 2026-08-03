@@ -12,6 +12,7 @@ const DAMAGE_DELAY = 0.5 as Seconds;
 const SLIDE_TAU = 0.2;
 const VISIBLE_DURATION = 4 as Seconds;
 
+/** Health bars run on milliseconds `dt`, converted once per frame. */
 @profiler("Health bars", "HUD")
 export class HealthBarSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
@@ -28,22 +29,19 @@ export class HealthBarSystem implements UpdateSystem {
 			}
 
 			if (health.hp !== state.lastHp) {
-				state.visible = VISIBLE_DURATION;
+				state.visible.restart(VISIBLE_DURATION);
 			}
 			if (health.hp < state.lastHp) {
-				state.delay = DAMAGE_DELAY;
+				state.delay.restart(DAMAGE_DELAY);
 			}
 			if (health.hp > state.displayed) {
 				state.displayed = health.hp;
 			}
 			state.lastHp = health.hp;
-			state.visible = Math.max(
-				0,
-				state.visible - dtSeconds,
-			) as Seconds;
+			state.visible.tick(dtSeconds);
 
-			if (state.delay > 0) {
-				state.delay = Math.max(0, state.delay - dtSeconds) as Seconds;
+			if (!state.delay.done()) {
+				state.delay.tick(dtSeconds);
 			} else if (state.displayed > health.hp) {
 				const factor = 1 - Math.exp(-(dtSeconds / SLIDE_TAU));
 				state.displayed += (health.hp - state.displayed) * factor;

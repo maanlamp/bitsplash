@@ -1,3 +1,4 @@
+import { Timeline } from "../../engine/animation/timeline";
 import { Duration } from "../../engine/duration";
 import { MachineState } from "../../engine/fsm/machine-state";
 import { Percent } from "../../engine/percent";
@@ -39,8 +40,10 @@ export class PlayerInputComponent {
 	jumpsRemaining: number = 0;
 	dashing: boolean = false;
 	dashDir: number = 1;
-	dashTimeRemaining: number = 0;
-	dashCooldownRemaining: number = 0;
+	/** Runs while the dash is active; `done()` ends it. */
+	dashTime = new Timeline();
+	/** Blocks the next dash until it is `done()`. */
+	dashRecovery = new Timeline();
 	anim: MachineState = new MachineState("idle", 0);
 	@serialize() move: MachineState = new MachineState("idle", 0);
 

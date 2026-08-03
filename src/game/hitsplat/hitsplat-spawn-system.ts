@@ -20,6 +20,12 @@ const FLAVOUR = flavourContent as Record<string, readonly string[]>;
 const CRIT_LAUNCH_SCALE = 1.35;
 const SPAWN_MARGIN = 4;
 
+/**
+ * Spawns a hitsplat entity per {@link DamageEvent}, carrying **only** a
+ * {@link HitsplatComponent} — no `TransformComponent`. The position lives in
+ * the component so the entity holds nothing serializable and cannot survive a
+ * runtime snapshot as an orphan; see {@link HitsplatComponent}.
+ */
 @profiler("Hitsplat spawn", "Combat")
 export class HitsplatSpawnSystem implements UpdateSystem {
 	update({ ecs, events, assetManager }: UpdateContext): void {
@@ -76,12 +82,12 @@ export class HitsplatSpawnSystem implements UpdateSystem {
 		);
 
 		ecs.createEntity([
-			new TransformComponent(position),
 			new HitsplatComponent(
 				text,
 				flavour,
 				event.crit,
 				event.target === playerId,
+				position,
 				velocity,
 				lifetime,
 			),

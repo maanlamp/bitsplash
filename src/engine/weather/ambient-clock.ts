@@ -29,7 +29,7 @@ const clocks = new WeakMap<ReadonlyECS, number>();
  * {@link AmbientClockSystem} — a still world, not a broken one.
  *
  * @example
- * const bend = sampleWind(ecs, transform.position.x, ambientTime(ecs));
+ * const bend = sampleWind(ecs, position.x, position.y, ambientTime(ecs));
  */
 export const ambientTime = (ecs: ReadonlyECS): Seconds =>
 	(clocks.get(ecs) ?? 0) as Seconds;

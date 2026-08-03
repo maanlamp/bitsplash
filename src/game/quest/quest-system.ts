@@ -9,7 +9,8 @@ import { QuestComponent } from "../quest/quest-component";
 import { questLifecycleMachine } from "../quest/quest-lifecycle-def";
 import { QuestMarkerTagComponent } from "../quest/quest-marker-tag-component";
 import { mirrorQuestStage } from "../quest/quest-mutations";
-import { QuestNoticeComponent } from "../quest/quest-notice-component";
+import { QUEST_NOTICE_ID } from "../ui/hud-ids";
+import { NoticeComponent } from "../ui/notice-component";
 import {
 	DeathEvent,
 	PickupCollectedEvent,
@@ -17,6 +18,10 @@ import {
 } from "../events";
 import { getQuest, type QuestReward } from "../quest/loader";
 import { profiler } from "../../engine/profiling/profiler";
+
+const NOTICE_FADE_IN = 0.4;
+const NOTICE_HOLD = 1.2;
+const NOTICE_FADE_OUT = 0.6;
 
 type QuestStage = "offered" | "active" | "return" | "complete";
 
@@ -125,7 +130,15 @@ export class QuestSystem implements UpdateSystem {
 		}
 		const noticeText = def.stageNotices?.[state];
 		if (noticeText) {
-			ecs.createEntity([new QuestNoticeComponent(noticeText)]);
+			ecs.createEntity([
+				new NoticeComponent(
+					QUEST_NOTICE_ID,
+					noticeText,
+					NOTICE_FADE_IN,
+					NOTICE_HOLD,
+					NOTICE_FADE_OUT,
+				),
+			]);
 		}
 		for (const reward of def.rewards) {
 			if (reward.onStage !== state) {

@@ -23,6 +23,13 @@ export const VFX_DEF_IDS = [
 	"sand",
 	"wind-lines",
 	"leaves",
+	"fire",
+	"blood",
+	"loot-beam-common",
+	"loot-beam-uncommon",
+	"loot-beam-rare",
+	"loot-beam-epic",
+	"loot-beam-unique",
 ] as const;
 
 export type VfxDefId = (typeof VFX_DEF_IDS)[number];
@@ -50,4 +57,29 @@ export const VFX_IDS = {
 	windLines: "wind-lines",
 	/** Wind-driven leaf drift authored onto trees. */
 	leaves: "leaves",
+	/**
+	 * A campfire: untextured additive quads on a colour-over-life ramp, plus
+	 * embers and normal-blend smoke wisps. There is no flame spritesheet — the
+	 * shape comes from the ramp, the buoyant gravity, and the size tracks.
+	 */
+	fire: "fire",
+	/**
+	 * One-shot spurt off a hit: gravity-arced droplets that raycast their own
+	 * move segment and die on the first surface, leaving an oriented smear that
+	 * pins to terrain or rides the body it landed on.
+	 */
+	blood: "blood",
+	/**
+	 * The loot beams, one per visual class and escalating with it: a pulsing
+	 * column of light plus rising motes, which Epic and Unique wrap in an
+	 * orbiting helix.
+	 *
+	 * Nothing spells these out at a call site — `spawnLootBeam` maps a visual
+	 * class onto them, and that mapping is the only consumer.
+	 */
+	lootBeamCommon: "loot-beam-common",
+	lootBeamUncommon: "loot-beam-uncommon",
+	lootBeamRare: "loot-beam-rare",
+	lootBeamEpic: "loot-beam-epic",
+	lootBeamUnique: "loot-beam-unique",
 } as const satisfies Readonly<Record<string, VfxDefId>>;

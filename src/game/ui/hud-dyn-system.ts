@@ -1,4 +1,3 @@
-import type { FadeTimeline } from "../../engine/animation/fade-timeline";
 import {
 	type RenderContext,
 	RenderSystem,
@@ -6,10 +5,18 @@ import {
 import type { DynStore } from "../../engine/ui/bypass/dyn-store";
 import { findById } from "../../engine/ui/input/node-tree";
 import type { UiRoot } from "../../engine/ui/reconciler/ui-root";
-import { QuestNoticeComponent } from "../quest/quest-notice-component";
-import { DeathNoticeComponent } from "../respawn/death-notice-component";
-import { DEATH_OVERLAY_ID, QUEST_NOTICE_ID } from "./game-hud";
+import {
+	DEATH_OVERLAY_ID,
+	type NoticeSlot,
+	QUEST_NOTICE_ID,
+} from "./hud-ids";
+import { NoticeComponent } from "./notice-component";
 
+/**
+ * Fades each HUD notice node to its notice's current alpha, and hides a node
+ * whose notice has expired. Two notices in the same slot do not queue: the
+ * first one found wins, as it always has.
+ */
 export class HudDynSystem extends RenderSystem {
 	constructor(
 		private readonly root: UiRoot,
@@ -19,24 +26,34 @@ export class HudDynSystem extends RenderSystem {
 	}
 
 	render({ ecs }: RenderContext): void {
-		const [, death] = ecs.queryFirst(DeathNoticeComponent) ?? [];
-		this.applyFade(DEATH_OVERLAY_ID, death?.fade);
-		const [, notice] = ecs.queryFirst(QuestNoticeComponent) ?? [];
-		this.applyFade(QUEST_NOTICE_ID, notice?.fade);
+		let death: NoticeComponent | undefined;
+		let quest: NoticeComponent | undefined;
+		for (const [, notice] of ecs.query(NoticeComponent)) {
+			if (notice.slot === DEATH_OVERLAY_ID) {
+				death ??= notice;
+			} else if (notice.slot === QUEST_NOTICE_ID) {
+				quest ??= notice;
+			}
+		}
+		this.applyFade(DEATH_OVERLAY_ID, death);
+		this.applyFade(QUEST_NOTICE_ID, quest);
 	}
 
 	private applyFade(
-		id: string,
-		fade: FadeTimeline | undefined,
+		slot: NoticeSlot,
+		notice: NoticeComponent | undefined,
 	): void {
-		const node = findById(this.root.tree, id);
+		const node = findById(this.root.tree, slot);
 		if (!node) {
 			return;
 		}
-		if (!fade) {
+		if (!notice) {
 			this.dyn.setField(node.id, "visible", false);
 			return;
 		}
-		this.dyn.set(node.id, { visible: true, alpha: fade.alpha() });
+		this.dyn.set(node.id, {
+			visible: true,
+			alpha: notice.alpha.sample(notice.timeline.t()),
+		});
 	}
 }

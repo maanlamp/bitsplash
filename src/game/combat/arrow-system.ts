@@ -20,7 +20,6 @@ import { ArrowComponent } from "../combat/arrow-component";
 import { HealthComponent } from "../health/health-component";
 import { resolveHit } from "../combat/resolve-hit";
 import { DamageEvent } from "../events";
-import { fadeAlpha } from "../../engine/render/color-resolver";
 
 const BOUNDS_MARGIN = 4 * TILE_SIZE;
 const ARROW_REACH = 8;
@@ -63,12 +62,11 @@ export class ArrowSystem implements UpdateSystem {
 					transform.position.set(x, y);
 					rb.body.setTransform({ x, y }, rb.body.angle);
 				}
-				arrow.stuckRemaining = (arrow.stuckRemaining -
-					dtSeconds) as Seconds;
+				arrow.stuckLife.tick(dtSeconds);
 				sprite.opacity.set(
-					fadeAlpha(arrow.stuckRemaining, arrow.fade.seconds),
+					arrow.stuckLife.fadeOut(arrow.fade.seconds as Seconds),
 				);
-				if (arrow.stuckRemaining <= 0) {
+				if (arrow.stuckLife.done()) {
 					ecs.destroy(id);
 				}
 				continue;
@@ -124,6 +122,7 @@ export class ArrowSystem implements UpdateSystem {
 								arrow.flavourSet,
 								id,
 								origin,
+								hit.point,
 							),
 						);
 					}
@@ -142,7 +141,7 @@ export class ArrowSystem implements UpdateSystem {
 		const body = rb.body!;
 		arrow.stuck = true;
 		arrow.attachedTo.set(attachedTo);
-		arrow.stuckRemaining = arrow.stuckLifetime.seconds as Seconds;
+		arrow.stuckLife.restart(arrow.stuckLifetime.seconds);
 		const center = point
 			.clone()
 			.sub(direction.clone().mul(ARROW_REACH - EMBED_DEPTH));
@@ -169,6 +168,10 @@ export class ArrowSystem implements UpdateSystem {
 		rb.body!.setAwake(true);
 	}
 
+	/**
+	 * The arrow's forward probe. Sensors are excluded: a trigger volume is not a
+	 * surface, and without the filter an arrow crossing one stuck in mid-air.
+	 */
 	private raycast(
 		world: World,
 		self: RigidBody,
@@ -180,6 +183,7 @@ export class ArrowSystem implements UpdateSystem {
 			{ x: to.x, y: to.y },
 			(body) =>
 				body !== self &&
+				!body.isSensor &&
 				(body.collisionLayer === Layer.Terrain ||
 					body.collisionLayer === Layer.Enemy ||
 					body.collisionLayer === Layer.Crate),

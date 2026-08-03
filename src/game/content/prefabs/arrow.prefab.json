@@ -64,7 +64,12 @@
 			},
 			"launched": false,
 			"stuck": false,
-			"stuckRemaining": 0,
+			"stuckLife": {
+				"$type": "Timeline",
+				"duration": 0,
+				"elapsed": 0,
+				"rate": 1
+			},
 			"attachedTo": {
 				"$type": "EntityRef",
 				"id": null

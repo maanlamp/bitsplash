@@ -1,0 +1,146 @@
+{
+	"id": "loot-beam-common",
+	"parts": [
+		{
+			"kind": "ribbon",
+			"layer": "entities",
+			"order": 0,
+			"blend": "additive",
+			"space": "local",
+			"origin": "host",
+			"count": 2,
+			"segments": 10,
+			"lifetime": {
+				"min": 2.1,
+				"max": 2.9
+			},
+			"length": {
+				"min": 32,
+				"max": 37.3
+			},
+			"path": {
+				"generator": "vertical",
+				"lean": 0.6,
+				"bow": 0.6,
+				"sway": 0.18
+			},
+			"width": {
+				"base": 1.7,
+				"taperHead": 0.06,
+				"taperTail": 0.62
+			},
+			"pulse": {
+				"rate": 0.55,
+				"spread": 1,
+				"curve": [
+					{
+						"t": 0,
+						"value": 1,
+						"ease": "inOutCubic"
+					},
+					{
+						"t": 0.5,
+						"value": 1.22,
+						"ease": "inOutCubic"
+					},
+					{
+						"t": 1,
+						"value": 1
+					}
+				]
+			},
+			"tracks": {
+				"color": [
+					{
+						"t": 0,
+						"value": "#c8d2e0"
+					}
+				],
+				"alpha": [
+					{
+						"t": 0,
+						"value": 0
+					},
+					{
+						"t": 0.22,
+						"value": 0.3
+					},
+					{
+						"t": 0.72,
+						"value": 0.3
+					},
+					{
+						"t": 1,
+						"value": 0
+					}
+				]
+			}
+		},
+		{
+			"kind": "emitter",
+			"layer": "entities",
+			"order": 0,
+			"blend": "additive",
+			"space": "local",
+			"emission": {
+				"rate": 5,
+				"burst": 0
+			},
+			"spawn": {
+				"shape": "box",
+				"width": 4.1,
+				"height": 2
+			},
+			"lifetime": {
+				"min": 0.9,
+				"max": 1.5
+			},
+			"size": {
+				"min": 1.5,
+				"max": 2.1
+			},
+			"speed": {
+				"min": 10,
+				"max": 22
+			},
+			"angle": {
+				"min": 252,
+				"max": 288
+			},
+			"gravity": -4,
+			"drag": 0.7,
+			"tracks": {
+				"color": [
+					{
+						"t": 0,
+						"value": "#dde4ee"
+					}
+				],
+				"alpha": [
+					{
+						"t": 0,
+						"value": 0
+					},
+					{
+						"t": 0.25,
+						"value": 0.55
+					},
+					{
+						"t": 1,
+						"value": 0
+					}
+				],
+				"scale": [
+					{
+						"t": 0,
+						"value": 1
+					},
+					{
+						"t": 1,
+						"value": 0.4
+					}
+				]
+			}
+		}
+	]
+}

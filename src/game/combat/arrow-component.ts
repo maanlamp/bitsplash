@@ -1,5 +1,6 @@
 import Angle from "../../engine/angle";
-import { Duration, type Seconds } from "../../engine/duration";
+import { Timeline } from "../../engine/animation/timeline";
+import { Duration } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
 import { EntityRef } from "../../engine/entity-ref";
 import { Percent } from "../../engine/percent";
@@ -22,7 +23,11 @@ export class ArrowComponent {
 	mods: HitModifiers;
 	@serialize() launched: boolean;
 	@serialize() stuck: boolean;
-	@serialize() stuckRemaining: Seconds;
+	/**
+	 * Countdown an embedded arrow lives out before it is removed, ticked in
+	 * seconds by `ArrowSystem`. Retimed to {@link stuckLifetime} on every stick.
+	 */
+	@serialize() stuckLife = new Timeline();
 	@serialize() attachedTo: EntityRef;
 	@serialize() attachOffsetX: number;
 	@serialize() attachOffsetY: number;
@@ -39,7 +44,6 @@ export class ArrowComponent {
 		mods: HitModifiers = NO_MODIFIERS,
 		launched = false,
 		stuck = false,
-		stuckRemaining: Seconds = 0 as Seconds,
 		attachedTo: EntityId | null = null,
 		attachOffsetX = 0,
 		attachOffsetY = 0,
@@ -55,7 +59,6 @@ export class ArrowComponent {
 		this.mods = mods;
 		this.launched = launched;
 		this.stuck = stuck;
-		this.stuckRemaining = stuckRemaining;
 		this.attachedTo = new EntityRef(attachedTo);
 		this.attachOffsetX = attachOffsetX;
 		this.attachOffsetY = attachOffsetY;

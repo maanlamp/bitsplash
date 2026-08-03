@@ -1,11 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { Banner } from "./banner";
 import { DEATH_FONT, NOTICE_FONT } from "./hud-fonts";
+import { DEATH_OVERLAY_ID, QUEST_NOTICE_ID } from "./hud-ids";
 import type { HudState } from "./hud-state";
 import { QuestTracker } from "./quest-tracker";
-
-export const DEATH_OVERLAY_ID = "death-overlay";
-export const QUEST_NOTICE_ID = "quest-notice";
 
 const DEATH_COLOR: [number, number, number, number] = [1, 0, 0, 1];
 const NOTICE_COLOR: [number, number, number, number] = [

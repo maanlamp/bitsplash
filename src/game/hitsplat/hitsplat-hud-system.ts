@@ -1,10 +1,9 @@
+import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
-import { fadeAlpha } from "../../engine/render/color-resolver";
 import {
 	type UpdateContext,
 	UpdateSystem,
 } from "../../engine/system";
-import { TransformComponent } from "../../engine/transform-component";
 import type { DynStore } from "../../engine/ui/bypass/dyn-store";
 import { findById } from "../../engine/ui/input/node-tree";
 import type { UiRoot } from "../../engine/ui/reconciler/ui-root";
@@ -28,7 +27,7 @@ export class HitsplatHudSystem implements UpdateSystem {
 
 	update({ ecs }: UpdateContext): void {
 		const style = ecs.queryFirst(HitsplatStyleComponent)?.[1];
-		const list = ecs.query(HitsplatComponent, TransformComponent);
+		const list = ecs.query(HitsplatComponent);
 		const active = new Set<EntityId>(list.map(([id]) => id));
 
 		const stale: Array<[EntityId, number]> = [];
@@ -44,7 +43,7 @@ export class HitsplatHudSystem implements UpdateSystem {
 
 		const used = new Set<number>();
 		if (style) {
-			for (const [id, hitsplat, transform] of list) {
+			for (const [id, hitsplat] of list) {
 				let slot = this.slotOf.get(id);
 				if (slot === undefined) {
 					slot = this.freeSlot(used);
@@ -54,7 +53,7 @@ export class HitsplatHudSystem implements UpdateSystem {
 					this.slotOf.set(id, slot);
 				}
 				used.add(slot);
-				this.paintSlot(slot, id, hitsplat, transform, style);
+				this.paintSlot(slot, id, hitsplat, style);
 			}
 		}
 
@@ -69,12 +68,10 @@ export class HitsplatHudSystem implements UpdateSystem {
 		slot: number,
 		id: EntityId,
 		hitsplat: HitsplatComponent,
-		transform: TransformComponent,
 		style: HitsplatStyleComponent,
 	): void {
-		const alpha = fadeAlpha(
-			hitsplat.lifetime - hitsplat.age,
-			hitsplat.lifetime * style.fadePortion.value,
+		const alpha = hitsplat.life.fadeOut(
+			(hitsplat.life.duration * style.fadePortion.value) as Seconds,
 		);
 		const scale = this.popScale(hitsplat, style);
 		const fill = (
@@ -94,8 +91,8 @@ export class HitsplatHudSystem implements UpdateSystem {
 				color: fill,
 				text: hitsplat.text,
 				font: hitsplat.crit ? style.critFont : style.font,
-				worldX: transform.position.x,
-				worldY: transform.position.y,
+				worldX: hitsplat.position.x,
+				worldY: hitsplat.position.y,
 				rotation: 0,
 			});
 		}
@@ -113,8 +110,8 @@ export class HitsplatHudSystem implements UpdateSystem {
 				color: fill,
 				text: hitsplat.flavour,
 				font: style.critFont,
-				worldX: transform.position.x,
-				worldY: transform.position.y - offset,
+				worldX: hitsplat.position.x,
+				worldY: hitsplat.position.y - offset,
 				rotation: this.tilt(id) * style.flavourTilt.radians,
 			});
 		} else {
@@ -150,10 +147,13 @@ export class HitsplatHudSystem implements UpdateSystem {
 		hitsplat: HitsplatComponent,
 		style: HitsplatStyleComponent,
 	): number {
-		if (!hitsplat.crit || hitsplat.age >= style.popDuration.seconds) {
+		if (
+			!hitsplat.crit ||
+			hitsplat.life.elapsed >= style.popDuration.seconds
+		) {
 			return 1;
 		}
-		const t = hitsplat.age / style.popDuration.seconds;
+		const t = hitsplat.life.elapsed / style.popDuration.seconds;
 		return style.popScale + (1 - style.popScale) * t;
 	}
 

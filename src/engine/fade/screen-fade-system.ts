@@ -1,3 +1,4 @@
+import { Ease } from "../animation/ease";
 import { Tween } from "../animation/tween";
 import type { Seconds } from "../duration";
 import type { ECS } from "../ecs";
@@ -29,7 +30,7 @@ export const startFade = (
 	ecs: ECS,
 	to: number,
 	duration: Seconds,
-	easing = "linear",
+	ease: Ease = Ease.Linear,
 ): EffectHandle => {
 	const fade = ensureFade(ecs);
 	if (!playerSettings.screenFades) {
@@ -37,7 +38,7 @@ export const startFade = (
 		fade.tween = null;
 		return { done: () => true, complete: () => {} };
 	}
-	const tween = new Tween(fade.alpha, to, duration, easing);
+	const tween = new Tween(fade.alpha, to, duration, ease);
 	fade.tween = tween;
 	return {
 		done: () => fade.tween !== tween || tween.done(),
@@ -57,7 +58,7 @@ export class ScreenFadeSystem implements UpdateSystem {
 			if (!fade.tween) {
 				continue;
 			}
-			fade.tween.tick(dt);
+			fade.tween.tick((dt / 1000) as Seconds);
 			fade.alpha = fade.tween.value();
 			if (fade.tween.done()) {
 				fade.tween = null;

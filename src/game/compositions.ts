@@ -60,6 +60,7 @@ import { BarkSystem } from "./dialogue/bark-system";
 import { platformerDialogueBindings } from "./dialogue/dialogue-bindings";
 import { DialogueTriggerSystem } from "./dialogue/dialogue-trigger-system";
 import { VoiceSystem } from "./dialogue/voice-system";
+import { DpsMeterSystem } from "./dps-meter/dps-meter-system";
 import { EnemyBrainSystem } from "./enemy/enemy-brain-system";
 import { PerceptionSystem } from "./enemy/perception-system";
 import { WanderSystem } from "./enemy/wander-system";
@@ -78,14 +79,15 @@ import { GroundDetectionSystem } from "./player/ground-detection-system";
 import { PlayerAnimationSystem } from "./player/player-animation-system";
 import { PlayerIntentSystem } from "./player/player-intent-system";
 import { PlayerMovementSystem } from "./player/player-movement-system";
-import { QuestNoticeSystem } from "./quest/quest-notice-system";
 import { QuestSystem } from "./quest/quest-system";
 import { ReactionSystem } from "./reaction/reaction-system";
-import { DeathNoticeSystem } from "./respawn/death-notice-system";
 import { DeathSystem } from "./respawn/death-system";
 import { SpawnSystem } from "./respawn/spawn-system";
 import { SequenceTriggerSystem } from "./sequence/sequence-trigger-system";
 import { chronicleTriggerBindings } from "./sequence/trigger-bindings";
+import { NoticeSystem } from "./ui/notice-system";
+import { BloodVfxSystem } from "./vfx/blood-vfx-system";
+import { DebugLootBeamSystem } from "./vfx/debug-loot-beam-system";
 import { ThunderSystem } from "./weather/thunder-system";
 
 /**
@@ -139,6 +141,7 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new HitsplatSpawnSystem(),
 	new HitsplatSystem(),
 	new DeathSystem(),
+	new DebugLootBeamSystem(),
 	new QuestSystem(),
 	new ChronicleInkMirrorSystem(),
 	new SequenceSystem({
@@ -148,9 +151,9 @@ const gameplaySystems = (settings: SettingsStore): UpdateSystem[] => [
 	new TimerSystem(),
 	new WeatherSchedulerSystem(),
 	new SpawnSystem(),
-	new DeathNoticeSystem(),
-	new QuestNoticeSystem(),
+	new NoticeSystem(),
 	new HealthBarSystem(),
+	new DpsMeterSystem(),
 	new VoiceSystem(),
 	new Camera2DFollowSystem(),
 	new ScreenFadeSystem(),
@@ -230,6 +233,12 @@ const renderSystems = (): RenderSystem[] => {
 /**
  * The bundled game: edit-world maintenance, the full gameplay list, the ambient
  * list, and the render list, all added to one world.
+ *
+ * {@link BloodVfxSystem} sits between the gameplay and ambient lists and takes
+ * the same store the VFX pair shares. It reads combat events, so it must follow
+ * everything that emits them and precede the VFX step that advances the spurt it
+ * fired. It is game-only: the edit world has no combat, and the engine's VFX
+ * factory cannot know about a game effect.
  */
 export const game: Composition = ({
 	settings,
@@ -240,6 +249,7 @@ export const game: Composition = ({
 		update: [
 			...editWorldSystems(gravityY),
 			...gameplaySystems(settings),
+			new BloodVfxSystem(vfx.store),
 			...ambientSystems(vfx.update),
 		],
 		render: [...renderSystems(), vfx.render],

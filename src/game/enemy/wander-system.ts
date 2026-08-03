@@ -1,3 +1,4 @@
+import type { Seconds } from "../../engine/duration";
 import { NavAgentComponent } from "../../engine/nav/nav-agent-component";
 import { NavGraphComponent } from "../../engine/nav/nav-graph-component";
 import { NavGraph, nodeFeetInto } from "../../engine/nav/nav-graph";
@@ -14,6 +15,7 @@ import Vector2 from "../../engine/vector2";
 import { EnemyBrainComponent } from "./enemy-brain-component";
 import { WanderComponent } from "./wander-component";
 
+/** Wander runs on milliseconds `dt`, converted once per frame. */
 @profiler("Wander", "AI")
 export class WanderSystem implements UpdateSystem {
 	private readonly feet = new Vector2();
@@ -23,7 +25,7 @@ export class WanderSystem implements UpdateSystem {
 		if (!comp?.surface) {
 			return;
 		}
-		const s = dt / 1000;
+		const dtSeconds = (dt / 1000) as Seconds;
 		for (const [id, wander, agent, transform, rb] of ecs.query(
 			WanderComponent,
 			NavAgentComponent,
@@ -44,8 +46,8 @@ export class WanderSystem implements UpdateSystem {
 				continue;
 			}
 			// idle / arrived / unreachable: pause in place, then re-pick
-			wander.elapsed += s;
-			if (wander.elapsed < wander.nextAt) {
+			wander.dwell.tick(dtSeconds);
+			if (!wander.dwell.done()) {
 				continue;
 			}
 			const graph = comp.graphFor(
@@ -100,7 +102,8 @@ export class WanderSystem implements UpdateSystem {
 	private reschedule(wander: WanderComponent): void {
 		const min = wander.minInterval.seconds;
 		const max = wander.maxInterval.seconds;
-		wander.elapsed = 0;
-		wander.nextAt = min + Math.random() * Math.max(0, max - min);
+		wander.dwell.restart(
+			min + Math.random() * Math.max(0, max - min),
+		);
 	}
 }

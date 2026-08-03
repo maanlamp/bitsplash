@@ -14,9 +14,6 @@ export type ColorInput = string | RGBA;
 const clamp01 = (value: number | null): number =>
 	Math.max(0, Math.min(1, value ?? 0));
 
-export const fadeAlpha = (remaining: number, fade: number): number =>
-	clamp01(remaining / fade);
-
 export const withAlpha = (
 	color: ColorInput,
 	alpha: number,

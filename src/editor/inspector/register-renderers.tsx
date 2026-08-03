@@ -1,5 +1,5 @@
 import Angle from "../../engine/angle";
-import { Easing } from "../../engine/animation/easing";
+import { Ease } from "../../engine/animation/ease";
 import { AssetRef } from "../../engine/asset-ref";
 import { Color } from "../../engine/color";
 import { Duration } from "../../engine/duration";
@@ -16,7 +16,7 @@ import SceneClimateField from "../weather/scene-climate-field";
 import { AngleInput } from "./angle-input";
 import { AssetRefInput } from "./asset-ref-input";
 import { DurationInput } from "./duration-input";
-import { EasingSelect } from "./easing-select";
+import { EaseField } from "./ease-field";
 import { EntityRefPicker } from "./entity-ref-picker";
 import { Adornment, Field } from "./field";
 import { NumberInput } from "./inputs";
@@ -43,8 +43,8 @@ registerValueRenderer(EntityRef, ({ value, binding }) => (
 	<EntityRefPicker value={value} binding={binding} />
 ));
 
-registerValueRenderer(Easing, ({ value, binding }) => (
-	<EasingSelect value={value} binding={binding} />
+registerValueRenderer(Ease, ({ value, binding }) => (
+	<EaseField value={value} binding={binding} />
 ));
 
 registerValueRenderer(AssetRef, ({ value, binding }) => (

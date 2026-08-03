@@ -1,4 +1,4 @@
-import { Ease } from "../animation/ease";
+import { Ease, EASE_PRESET_IDS, easePreset } from "../animation/ease";
 import {
 	keyframe,
 	type Keyframe,
@@ -41,9 +41,11 @@ import {
  * rejected too: a typo in authored JSON is a content bug that must fail loudly
  * rather than silently do nothing.
  *
- * **Deliberately absent** (the schema is shaped to grow into them, none is
- * implemented): flipbook frame metadata, decal specs, and a `"raycast"`
- * collision mode.
+ * The capabilities the plan called for are all here: decal specs, and both
+ * collision modes — cheap `"tiles"` cell tests and per-segment `"raycast"`,
+ * which is the one that can see dynamic bodies. Frame-strip playback is
+ * deliberately absent: every shipped effect is procedural, and a flipbook with
+ * no art behind it was schema nobody could author against.
  */
 
 /** Authored angles are degrees; everything downstream is radians. */
@@ -110,6 +112,12 @@ export type VfxCollisionCells = (typeof VFX_COLLISION_CELLS)[number];
  *
  * `tiles` tests the particle's cell against a merged tile set — cheap, and
  * enough for rain, splashes, and settling leaves — chosen by {@link cells}.
+ * `raycast` casts the particle's whole move segment against the physics world
+ * instead, so it hits **dynamic bodies** as well as terrain, lands on the exact
+ * surface point, and cannot tunnel through a thin ledge at speed. It is the
+ * expensive mode: one cast per moving particle per frame, which is affordable
+ * for a burst of blood and ruinous for a sky full of rain.
+ *
  * `restChance` is a **per-particle pre-roll**: a particle that fails the roll
  * passes through regardless of `response`, which is how a drift of leaves has
  * some catch on a ledge and the rest fall past it.
@@ -119,6 +127,12 @@ export type VfxCollision =
 	| Readonly<{
 			mode: "tiles";
 			cells: VfxCollisionCells;
+			response: VfxCollisionResponse;
+			/** Probability `0..1` that a given particle reacts at all. */
+			restChance: number;
+	  }>
+	| Readonly<{
+			mode: "raycast";
 			response: VfxCollisionResponse;
 			/** Probability `0..1` that a given particle reacts at all. */
 			restChance: number;
@@ -149,6 +163,49 @@ export type VfxTracks = Readonly<{
 }>;
 
 export type { VfxWeatherScaling };
+
+/**
+ * Over-life tracks for a decal, sampled by normalized age — the same meaning as
+ * {@link VfxTracks}, minus `scale` and `rotation`, which a mark pinned to a
+ * surface does not do.
+ */
+export type VfxDecalTracks = Readonly<{
+	alpha: KeyframesNumber | null;
+	color: KeyframesColor | null;
+}>;
+
+/**
+ * The oriented quad a colliding particle leaves behind: a blood smear, a
+ * scorch, the ground mark a rested leaf becomes.
+ *
+ * A decal is **not a particle and not an entity**. It goes into the store's
+ * capped ring buffer, which recycles its oldest entry rather than growing, so a
+ * long fight cannot turn into unbounded memory and nothing a decal holds is
+ * reachable from `serializeWorld`.
+ *
+ * Where the mark lands is decided at impact, not here: a hit on terrain pins it
+ * to the world, a hit on a dynamic body stores it as an offset in that entity's
+ * body space so the smear rides its victim. The def only says what the mark
+ * looks like and how long it lasts.
+ */
+export type VfxDecalSpec = Readonly<{
+	/** Render layer id; resolved against the scene's authored layer list. */
+	layer: string;
+	/** Sort order within the layer, `0..999`. */
+	order: number;
+	blend: QuadBlend;
+	/** Image url, or `null` for a solid tinted quad. */
+	texture: string | null;
+	/** Quad width along the surface, in world units. */
+	size: VfxRange;
+	/** Quad height as a multiple of its width. */
+	aspect: number;
+	/** Radians of jitter added to the surface-derived orientation. */
+	rotation: VfxRange;
+	/** How long the mark lasts, in seconds. */
+	lifetime: VfxRange;
+	tracks: VfxDecalTracks;
+}>;
 
 /** A validated particle-emitter part. */
 export type VfxEmitterPart = Readonly<{
@@ -196,8 +253,15 @@ export type VfxEmitterPart = Readonly<{
 	wind: number;
 	weather: VfxWeatherScaling;
 	collision: VfxCollision;
+	/**
+	 * The mark a colliding particle leaves, or `null`. Requires a collision mode:
+	 * a decal on a part that never collides could never appear.
+	 */
+	decal: VfxDecalSpec | null;
 	/** Def id burst at a particle's death position, or `null`. */
 	onDeath: string | null;
+	/** Image url, or `null` for solid tinted quads — the cheap batched path. */
+	texture: string | null;
 	tracks: VfxTracks;
 	/**
 	 * Pool size, derived from rate, lifetime, and burst — never authored, so a
@@ -252,6 +316,27 @@ export type VfxRibbonTracks = Readonly<{
 }>;
 
 /**
+ * A ribbon's throb: a curve sampled at **phase**, not at age.
+ *
+ * `curve` is one cycle, sampled at `fract(time * rate + seed * spread)` off the
+ * shared ambient clock and multiplied into the ribbon's width. Nothing is
+ * ticked and nothing is stored — an oscillator is not a type here, it is a
+ * stateless read of a time source, so a pulse survives a save/restore with its
+ * phase intact and stays coherent with every other ambient motion for free.
+ *
+ * `spread` scatters a band's ribbons across the cycle so several strands of one
+ * beam breathe out of step; at zero they throb as one.
+ */
+export type VfxRibbonPulse = Readonly<{
+	/** Cycles per second. */
+	rate: number;
+	/** Width multiplier over one cycle, sampled at phase `0..1`. */
+	curve: KeyframesNumber;
+	/** Per-ribbon phase offset drawn off its seed, in cycles. */
+	spread: number;
+}>;
+
+/**
  * A validated ribbon part: a generated path, widened and tinted along its arc.
  *
  * It carries no `capacity` (the pool is `count` ribbons, authored rather than
@@ -281,6 +366,8 @@ export type VfxRibbonPart = Readonly<{
 	length: VfxRange;
 	path: VfxRibbonPath;
 	width: VfxRibbonWidth;
+	/** Phase-sampled width throb, or `null` for a steady ribbon. */
+	pulse: VfxRibbonPulse | null;
 	tracks: VfxRibbonTracks;
 	/**
 	 * Downwind drift in world units per second at full signed wind, so a ribbon
@@ -327,22 +414,6 @@ const VFX_MAX_RIBBONS_PER_PART = 256;
 const VFX_MAX_RIBBON_SEGMENTS = 128;
 
 const colors = new ColorResolver();
-
-/** The bezier presets an authored `ease` may name, keyed by their own labels. */
-const EASE_PRESETS: ReadonlyMap<string, Ease> = new Map(
-	[
-		Ease.Linear,
-		Ease.InQuad,
-		Ease.OutQuad,
-		Ease.InOutQuad,
-		Ease.InCubic,
-		Ease.OutCubic,
-		Ease.InOutCubic,
-		Ease.InBack,
-		Ease.OutBack,
-		Ease.InOutBack,
-	].map((preset) => [preset.label, preset]),
-);
 
 const invalid = (source: string, message: string): Error =>
 	new Error(`${source}: ${message}`);
@@ -526,14 +597,14 @@ const ease = (
 		return Ease.Linear;
 	}
 	if (typeof value === "string") {
-		const preset = EASE_PRESETS.get(value);
-		if (!preset) {
+		try {
+			return easePreset(value);
+		} catch {
 			throw invalid(
 				source,
-				`${label} names ease "${value}", which is not a preset. Known presets: ${[...EASE_PRESETS.keys()].join(", ")}; or give four bezier control floats.`,
+				`${label} names ease "${value}", which is not a preset. Known presets: ${EASE_PRESET_IDS.join(", ")}; or give four bezier control floats.`,
 			);
 		}
-		return preset;
 	}
 	if (!Array.isArray(value) || value.length !== 4) {
 		throw invalid(
@@ -679,14 +750,61 @@ const spawnShape = (
 	};
 };
 
-const COLLISION_KEYS = [
+const ZERO_RANGE: VfxRange = { min: 0, max: 0 };
+
+const withinLayerOrder = (
+	source: string,
+	label: string,
+	value: unknown,
+): number => {
+	const order = Math.round(num(source, `${label}.order`, value, 0));
+	if (order < 0 || order > 999) {
+		throw invalid(
+			source,
+			`${label}.order is ${order}; a within-layer order is 0..999.`,
+		);
+	}
+	return order;
+};
+
+const boundedCount = (
+	source: string,
+	label: string,
+	value: unknown,
+	ceiling: number,
+	fallback?: number,
+): number => {
+	const count = Math.round(
+		nonNegative(source, label, value, fallback),
+	);
+	if (count < 1 || count > ceiling) {
+		throw invalid(
+			source,
+			`${label} is ${count}; it must be 1..${ceiling}.`,
+		);
+	}
+	return count;
+};
+
+const NONE_COLLISION_KEYS = ["mode"] as const;
+const TILES_COLLISION_KEYS = [
 	"mode",
 	"cells",
 	"response",
 	"restChance",
 ] as const;
-const COLLISION_MODES = ["none", "tiles"] as const;
+const RAYCAST_COLLISION_KEYS = [
+	"mode",
+	"response",
+	"restChance",
+] as const;
+const COLLISION_MODES = ["none", "tiles", "raycast"] as const;
 
+/**
+ * Parse a collision mode and the parameters that mode alone owns, so a `cells`
+ * on a raycast part is an unknown key rather than a setting quietly dropped —
+ * the same per-member key discipline the path generators use.
+ */
 const collision = (
 	source: string,
 	label: string,
@@ -695,17 +813,40 @@ const collision = (
 	if (value === undefined) {
 		return { mode: "none" };
 	}
-	const raw = record(source, label, value, COLLISION_KEYS);
+	if (!isRecord(value)) {
+		throw invalid(source, `${label} must be an object.`);
+	}
 	const mode = oneOf(
 		source,
 		`${label}.mode`,
-		raw.mode,
+		value.mode,
 		COLLISION_MODES,
 		"none",
 	);
 	if (mode === "none") {
+		record(source, label, value, NONE_COLLISION_KEYS);
 		return { mode: "none" };
 	}
+	if (mode === "raycast") {
+		const raw = record(source, label, value, RAYCAST_COLLISION_KEYS);
+		return {
+			mode: "raycast",
+			response: oneOf(
+				source,
+				`${label}.response`,
+				raw.response,
+				VFX_COLLISION_RESPONSES,
+				"die",
+			),
+			restChance: unit(
+				source,
+				`${label}.restChance`,
+				raw.restChance,
+				1,
+			),
+		};
+	}
+	const raw = record(source, label, value, TILES_COLLISION_KEYS);
 	return {
 		mode: "tiles",
 		cells: oneOf(
@@ -728,6 +869,82 @@ const collision = (
 			raw.restChance,
 			1,
 		),
+	};
+};
+
+const DECAL_TRACK_KEYS = ["alpha", "color"] as const;
+
+const decalTracks = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxDecalTracks => {
+	if (value === undefined) {
+		return { alpha: null, color: null };
+	}
+	const raw = record(source, label, value, DECAL_TRACK_KEYS);
+	return {
+		alpha: numberTrack(source, `${label}.alpha`, raw.alpha),
+		color: colorTrack(source, `${label}.color`, raw.color),
+	};
+};
+
+const DECAL_KEYS = [
+	"layer",
+	"order",
+	"blend",
+	"texture",
+	"size",
+	"aspect",
+	"rotation",
+	"lifetime",
+	"tracks",
+] as const;
+
+const decal = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxDecalSpec | null => {
+	if (value === undefined || value === null) {
+		return null;
+	}
+	const raw = record(source, label, value, DECAL_KEYS);
+	const aspect = num(source, `${label}.aspect`, raw.aspect, 1);
+	if (aspect <= 0) {
+		throw invalid(
+			source,
+			`${label}.aspect is ${aspect}; a decal with no height draws nothing.`,
+		);
+	}
+	return {
+		layer: text(source, `${label}.layer`, raw.layer),
+		order: withinLayerOrder(source, label, raw.order),
+		blend: oneOf(
+			source,
+			`${label}.blend`,
+			raw.blend,
+			QUAD_BLENDS,
+			"normal",
+		),
+		texture:
+			raw.texture === undefined || raw.texture === null
+				? null
+				: text(source, `${label}.texture`, raw.texture),
+		size: positiveRange(source, `${label}.size`, raw.size),
+		aspect,
+		rotation: degreesRange(
+			source,
+			`${label}.rotation`,
+			raw.rotation,
+			ZERO_RANGE,
+		),
+		lifetime: positiveRange(
+			source,
+			`${label}.lifetime`,
+			raw.lifetime,
+		),
+		tracks: decalTracks(source, `${label}.tracks`, raw.tracks),
 	};
 };
 
@@ -775,42 +992,6 @@ const capacityFor = (
 	return capacity;
 };
 
-const ZERO_RANGE: VfxRange = { min: 0, max: 0 };
-
-const withinLayerOrder = (
-	source: string,
-	label: string,
-	value: unknown,
-): number => {
-	const order = Math.round(num(source, `${label}.order`, value, 0));
-	if (order < 0 || order > 999) {
-		throw invalid(
-			source,
-			`${label}.order is ${order}; a within-layer order is 0..999.`,
-		);
-	}
-	return order;
-};
-
-const boundedCount = (
-	source: string,
-	label: string,
-	value: unknown,
-	ceiling: number,
-	fallback?: number,
-): number => {
-	const count = Math.round(
-		nonNegative(source, label, value, fallback),
-	);
-	if (count < 1 || count > ceiling) {
-		throw invalid(
-			source,
-			`${label} is ${count}; it must be 1..${ceiling}.`,
-		);
-	}
-	return count;
-};
-
 const PART_KEYS = [
 	"kind",
 	"layer",
@@ -831,7 +1012,9 @@ const PART_KEYS = [
 	"wind",
 	"weather",
 	"collision",
+	"decal",
 	"onDeath",
+	"texture",
 	"tracks",
 ] as const;
 
@@ -884,6 +1067,22 @@ const emitterPart = (
 			`${label} spawns in a camera band but simulates in local space; a band is placed from the camera, so its particles must live in world space.`,
 		);
 	}
+	const collide = collision(
+		source,
+		`${label}.collision`,
+		raw.collision,
+	);
+	const mark = decal(source, `${label}.decal`, raw.decal);
+	if (mark && collide.mode === "none") {
+		throw invalid(
+			source,
+			`${label} authors a decal but never collides; a mark is left where a particle hits something, so give it a collision mode.`,
+		);
+	}
+	const texture =
+		raw.texture === undefined || raw.texture === null
+			? null
+			: text(source, `${label}.texture`, raw.texture);
 	return {
 		kind: "emitter",
 		layer: text(source, `${label}.layer`, raw.layer),
@@ -920,11 +1119,13 @@ const emitterPart = (
 		stretch: nonNegative(source, `${label}.stretch`, raw.stretch, 0),
 		wind: num(source, `${label}.wind`, raw.wind, 0),
 		weather: weatherScaling(source, `${label}.weather`, raw.weather),
-		collision: collision(source, `${label}.collision`, raw.collision),
+		collision: collide,
+		decal: mark,
 		onDeath:
 			raw.onDeath === undefined || raw.onDeath === null
 				? null
 				: text(source, `${label}.onDeath`, raw.onDeath),
+		texture,
 		tracks: tracks(source, `${label}.tracks`, raw.tracks),
 		capacity: capacityFor(source, label, rate, burst, lifetime.max),
 	};
@@ -943,6 +1144,7 @@ const RIBBON_PART_KEYS = [
 	"length",
 	"path",
 	"width",
+	"pulse",
 	"tracks",
 	"wind",
 	"weather",
@@ -953,6 +1155,21 @@ const WANDER_PATH_KEYS = [
 	"amplitude",
 	"waves",
 	"tilt",
+] as const;
+
+const VERTICAL_PATH_KEYS = [
+	"generator",
+	"lean",
+	"bow",
+	"sway",
+] as const;
+
+const HELIX_PATH_KEYS = [
+	"generator",
+	"radius",
+	"turns",
+	"spin",
+	"topScale",
 ] as const;
 
 /**
@@ -993,6 +1210,30 @@ const ribbonPath = (
 				tilt: degrees(source, `${label}.tilt`, raw.tilt, 0),
 			};
 		}
+		case "vertical": {
+			const raw = record(source, label, value, VERTICAL_PATH_KEYS);
+			return {
+				generator: "vertical",
+				lean: nonNegative(source, `${label}.lean`, raw.lean, 0),
+				bow: nonNegative(source, `${label}.bow`, raw.bow, 0),
+				sway: nonNegative(source, `${label}.sway`, raw.sway, 0),
+			};
+		}
+		case "helix": {
+			const raw = record(source, label, value, HELIX_PATH_KEYS);
+			return {
+				generator: "helix",
+				radius: nonNegative(source, `${label}.radius`, raw.radius),
+				turns: nonNegative(source, `${label}.turns`, raw.turns, 1),
+				spin: num(source, `${label}.spin`, raw.spin, 0),
+				topScale: nonNegative(
+					source,
+					`${label}.topScale`,
+					raw.topScale,
+					1,
+				),
+			};
+		}
 	}
 	const unhandled: never = generator;
 	throw invalid(
@@ -1026,6 +1267,31 @@ const ribbonWidth = (
 		profile: numberTrack(source, `${label}.profile`, raw.profile),
 		taperHead: unit(source, `${label}.taperHead`, raw.taperHead, 0),
 		taperTail: unit(source, `${label}.taperTail`, raw.taperTail, 0),
+	};
+};
+
+const PULSE_KEYS = ["rate", "curve", "spread"] as const;
+
+const ribbonPulse = (
+	source: string,
+	label: string,
+	value: unknown,
+): VfxRibbonPulse | null => {
+	if (value === undefined) {
+		return null;
+	}
+	const raw = record(source, label, value, PULSE_KEYS);
+	const curve = numberTrack(source, `${label}.curve`, raw.curve);
+	if (!curve) {
+		throw invalid(
+			source,
+			`${label} has no curve; a pulse is the curve it samples.`,
+		);
+	}
+	return {
+		rate: nonNegative(source, `${label}.rate`, raw.rate, 1),
+		curve,
+		spread: nonNegative(source, `${label}.spread`, raw.spread, 0),
 	};
 };
 
@@ -1108,6 +1374,7 @@ const ribbonPart = (
 		length: positiveRange(source, `${label}.length`, raw.length),
 		path: ribbonPath(source, `${label}.path`, raw.path),
 		width: ribbonWidth(source, `${label}.width`, raw.width),
+		pulse: ribbonPulse(source, `${label}.pulse`, raw.pulse),
 		tracks: ribbonTracks(source, `${label}.tracks`, raw.tracks),
 		wind: num(source, `${label}.wind`, raw.wind, 0),
 		weather: weatherScaling(source, `${label}.weather`, raw.weather),
@@ -1187,26 +1454,39 @@ const assertBurstable = (
 };
 
 /**
- * Every part must draw into one of the **allocated** render slots.
+ * Every part — and every decal a part leaves behind, which draws on its own
+ * `(layer, order)` so a smear can sit under the particles that made it — must
+ * draw into one of the **allocated** render slots.
  *
  * The budget is spent — 4 of 4 — so counting distinct slots after the fact would
- * only report that the fifth one already exists. Checking each part against the
- * named allocation makes the exhaustion structural: a claimant that is not on the
+ * only report that the fifth one already exists. Checking each claimant against
+ * the named allocation makes the exhaustion structural: one that is not on the
  * list fails at load, with the list and the two ways out in the message.
  */
 const assertRenderSlots = (
 	source: string,
 	defs: ReadonlyMap<string, VfxDef>,
 ): void => {
+	const check = (
+		defId: string,
+		what: string,
+		layer: string,
+		order: number,
+	): void => {
+		if (isAllocatedVfxSlot(layer, order)) {
+			return;
+		}
+		throw invalid(
+			source,
+			`def "${defId}" draws ${what} into ${layer}#${order}, which is not an allocated VFX render slot. The allocation is full at ${VFX_MAX_RENDER_SLOTS} of ${VFX_MAX_RENDER_SLOTS}: ${describeVfxRenderSlots()}. Every slot owns a full-viewport render target every frame, so either draw into one of those and rely on submission order within it, or raise VFX_MAX_RENDER_SLOTS in engine/vfx/vfx-render-slots.ts with a measured VRAM and fill cost in hand.`,
+		);
+	};
 	for (const def of defs.values()) {
 		for (const part of def.parts) {
-			if (isAllocatedVfxSlot(part.layer, part.order)) {
-				continue;
+			check(def.id, "a part", part.layer, part.order);
+			if (part.kind === "emitter" && part.decal) {
+				check(def.id, "a decal", part.decal.layer, part.decal.order);
 			}
-			throw invalid(
-				source,
-				`def "${def.id}" draws into ${part.layer}#${part.order}, which is not an allocated VFX render slot. The allocation is full at ${VFX_MAX_RENDER_SLOTS} of ${VFX_MAX_RENDER_SLOTS}: ${describeVfxRenderSlots()}. Every slot owns a full-viewport render target every frame, so either draw into one of those and rely on submission order within it, or raise VFX_MAX_RENDER_SLOTS in engine/vfx/vfx-render-slots.ts with a measured VRAM and fill cost in hand.`,
-			);
 		}
 	}
 };

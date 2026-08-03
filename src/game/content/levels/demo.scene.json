@@ -219,7 +219,7 @@
 					"fixedRotation": true,
 					"linearDamping": 0,
 					"collisionLayer": "enemy",
-					"sensor": true,
+					"sensor": false,
 					"offsetX": 0,
 					"offsetY": 4,
 					"cornerRadius": 0,
@@ -247,7 +247,7 @@
 					"hp": 100,
 					"maxHp": 100
 				},
-				"HealthBar": {}
+				"DpsMeter": {}
 			}
 		},
 		{
@@ -5445,6 +5445,37 @@
 						"$type": "Vector2",
 						"x": 0,
 						"y": 0
+					}
+				}
+			}
+		},
+		{
+			"id": "c0111111-0000-4000-8000-000000000101",
+			"components": {
+				"Transform": {
+					"position": {
+						"$type": "Vector2",
+						"x": -1632,
+						"y": 816
+					},
+					"rotation": {
+						"$type": "Angle",
+						"radians": 0
+					},
+					"scale": {
+						"$type": "Vector2",
+						"x": 1,
+						"y": 1
+					}
+				},
+				"Emitter": {
+					"defId": "fire",
+					"enabled": true,
+					"rateScale": 1,
+					"offset": {
+						"$type": "Vector2",
+						"x": 0,
+						"y": -4
 					}
 				}
 			}

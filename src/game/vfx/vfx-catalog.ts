@@ -1,5 +1,12 @@
 import { registerVfxCatalog } from "../../engine/vfx/vfx-registry";
+import bloodJson from "../content/vfx/blood.vfx.json";
+import fireJson from "../content/vfx/fire.vfx.json";
 import leavesJson from "../content/vfx/leaves.vfx.json";
+import lootBeamCommonJson from "../content/vfx/loot-beam-common.vfx.json";
+import lootBeamEpicJson from "../content/vfx/loot-beam-epic.vfx.json";
+import lootBeamRareJson from "../content/vfx/loot-beam-rare.vfx.json";
+import lootBeamUncommonJson from "../content/vfx/loot-beam-uncommon.vfx.json";
+import lootBeamUniqueJson from "../content/vfx/loot-beam-unique.vfx.json";
 import rainHeavyJson from "../content/vfx/rain-heavy.vfx.json";
 import rainSplashJson from "../content/vfx/rain-splash.vfx.json";
 import rainJson from "../content/vfx/rain.vfx.json";
@@ -33,6 +40,13 @@ const DEFS: Readonly<Record<VfxDefId, unknown>> = {
 	sand: sandJson,
 	"wind-lines": windLinesJson,
 	leaves: leavesJson,
+	fire: fireJson,
+	blood: bloodJson,
+	"loot-beam-common": lootBeamCommonJson,
+	"loot-beam-uncommon": lootBeamUncommonJson,
+	"loot-beam-rare": lootBeamRareJson,
+	"loot-beam-epic": lootBeamEpicJson,
+	"loot-beam-unique": lootBeamUniqueJson,
 };
 
 /**

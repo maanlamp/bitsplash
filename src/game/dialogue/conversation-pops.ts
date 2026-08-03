@@ -1,4 +1,5 @@
-import type { Milliseconds } from "../../engine/duration";
+import { Ease } from "../../engine/animation/ease";
+import type { Milliseconds, Seconds } from "../../engine/duration";
 import type { ConversationComponent } from "./conversation-component";
 import { conversationWindow } from "./conversation-window";
 
@@ -49,9 +50,9 @@ export class ConversationPops {
 			const restored =
 				this.newest < 0 && (tween.elapsed as number) > 0;
 			if (arriving && !restored) {
-				tween.retarget(0, 1, POP_SECONDS, "easeOutBack");
+				tween.retarget(0, 1, POP_SECONDS, Ease.OutBack);
 			}
-			tween.tick(dt);
+			tween.tick((dt / 1000) as Seconds);
 		}
 		for (const index of indices) {
 			this.newest = Math.max(this.newest, index);

@@ -1,5 +1,5 @@
+import { Timeline } from "../animation/timeline";
 import { Tween } from "../animation/tween";
-import type { Seconds } from "../duration";
 import type { EntityId } from "../ecs";
 import { EntityRef } from "../entity-ref";
 import {
@@ -43,7 +43,11 @@ export class DialogueComponent {
 	 */
 	wrapped: WrappedText | null = null;
 	cps = 0;
-	pause = 0 as Seconds;
+	/**
+	 * Typewriter hold after a punctuation glyph. Transient like {@link wrapped}:
+	 * it is re-derived from the wrapped text as the reveal advances.
+	 */
+	pause = new Timeline();
 	complete = false;
 
 	@serialize() choices: string[] = [];

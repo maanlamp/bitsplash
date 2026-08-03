@@ -1,11 +1,12 @@
 /**
- * Smooth 1-D value noise and the integer hash it is built from.
+ * Smooth value noise in one and two dimensions, and the integer hashes it is
+ * built from.
  *
  * Deliberately separate from `hash.ts`: {@link hashCell} is contracted to be
  * keyed by position only and never time-based, and that contract stays intact.
- * These helpers exist for the opposite job — a continuous signal sampled along
- * one axis, typically the weather slice's ambient clock. They are still pure and
- * stateless, so nothing here ever needs saving.
+ * These helpers exist for the opposite job — a continuous signal sampled over an
+ * axis or a plane that may well be time, typically the weather slice's wind
+ * field. They are still pure and stateless, so nothing here ever needs saving.
  */
 
 const UNIT = 0x1_0000_0000;
@@ -63,4 +64,48 @@ export const valueNoise1 = (t: number, salt: number): number => {
 	const a = hashUnit(cell, salt);
 	const b = hashUnit(cell + 1, salt);
 	return a + (b - a) * smoothstep(t - cell);
+};
+
+const Y_STRIDE = 0x27d4_eb2d;
+
+/**
+ * {@link hash1} over a lattice point, folded into `[0, 1)`. The two coordinates
+ * are mixed before hashing, so `(3, 7)` and `(7, 3)` are unrelated draws.
+ *
+ * @example
+ * const strength = hashUnit2(gustCell, gustRow, 0x9e37); // [0, 1)
+ */
+export const hashUnit2 = (
+	x: number,
+	y: number,
+	salt: number,
+): number => hash1((x | 0) ^ Math.imul(y | 0, Y_STRIDE), salt) / UNIT;
+
+/**
+ * Smooth 2-D value noise in `[0, 1)`: the four surrounding lattice draws
+ * bilinearly blended with {@link smoothstep}, so the field is continuous in both
+ * axes and no cell boundary shows. Four hashes and no allocation, which is what
+ * makes it safe to sample per particle per frame.
+ *
+ * Feed it coordinates already divided by the cell size you want.
+ *
+ * @example
+ * const gust = valueNoise2(x / 240, y / 960, 0x2f9b);
+ */
+export const valueNoise2 = (
+	x: number,
+	y: number,
+	salt: number,
+): number => {
+	const cellX = Math.floor(x);
+	const cellY = Math.floor(y);
+	const fx = smoothstep(x - cellX);
+	const fy = smoothstep(y - cellY);
+	const x0y0 = hashUnit2(cellX, cellY, salt);
+	const x1y0 = hashUnit2(cellX + 1, cellY, salt);
+	const x0y1 = hashUnit2(cellX, cellY + 1, salt);
+	const x1y1 = hashUnit2(cellX + 1, cellY + 1, salt);
+	const top = x0y0 + (x1y0 - x0y0) * fx;
+	const bottom = x0y1 + (x1y1 - x0y1) * fx;
+	return top + (bottom - top) * fy;
 };

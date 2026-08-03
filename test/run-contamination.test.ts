@@ -15,6 +15,7 @@ import {
 	toSceneConfig,
 } from "../src/engine/scene/scene";
 import { deserializeWorld } from "../src/engine/serialization/deserialize";
+import { serializeWorld } from "../src/engine/serialization/serialize";
 import type {
 	SerializedEntity,
 	SerializedWorld,
@@ -25,6 +26,9 @@ import { World } from "../src/engine/world";
 import { moveEntity } from "../src/editor/commands";
 import { SceneDocument } from "../src/editor/scene-document";
 import { collisionMatrix } from "../src/game/collision";
+import { DamageEvent } from "../src/game/events";
+import { HealthComponent } from "../src/game/health/health-component";
+import { HitsplatComponent } from "../src/game/hitsplat/hitsplat-component";
 import { game as gameComposition } from "../src/game/compositions";
 import { registerPrefab } from "../src/game/prefabs";
 import { newGameSeed } from "../src/game/runtime/new-game-seed";
@@ -157,6 +161,40 @@ const differingIds = (
 		.map((e) => e.id);
 };
 
+/**
+ * Boot a real run world on the game composition, resolving the document's
+ * projection (plan D5): the player and scene prefabs spawn, a follow camera is
+ * created, and physics runs — the same world the shipped game steps.
+ */
+const bootRun = (
+	document: SceneDocument,
+	gravityY: number,
+): Promise<SequenceFixture> => {
+	const settings = memorySettings();
+	return SequenceFixture.create({
+		initialScene: DEMO,
+		seed: newGameSeed,
+		resolveScene: (): SceneDefinition =>
+			toSceneDefinition(document.toAuthoredScene()),
+		collisionMatrix,
+		input: emptyDevice,
+		actions: NULL_ACTIONS,
+		audio: silentAudio,
+		registerSystems: (world) => {
+			const { update, render } = gameComposition({
+				settings,
+				gravityY,
+			});
+			for (const system of update) {
+				world.ecs.addUpdateSystem(system);
+			}
+			for (const system of render) {
+				world.ecs.addRenderSystem(system);
+			}
+		},
+	});
+};
+
 describe("run contamination", () => {
 	beforeAll(registerGameContent);
 
@@ -168,32 +206,10 @@ describe("run contamination", () => {
 		const preRun = document.save();
 		document.markSaved(preRun);
 
-		// Boot a real run world: fresh World + Runtime on the game composition,
-		// resolving the dirty document's projection (plan D5). This spawns the
-		// player + scene prefabs, creates a follow camera, and runs physics.
-		const settings = memorySettings();
-		const fixture = await SequenceFixture.create({
-			initialScene: DEMO,
-			seed: newGameSeed,
-			resolveScene: (): SceneDefinition =>
-				toSceneDefinition(document.toAuthoredScene()),
-			collisionMatrix,
-			input: emptyDevice,
-			actions: NULL_ACTIONS,
-			audio: silentAudio,
-			registerSystems: (world) => {
-				const { update, render } = gameComposition({
-					settings,
-					gravityY: baseline.config.gravity.y,
-				});
-				for (const system of update) {
-					world.ecs.addUpdateSystem(system);
-				}
-				for (const system of render) {
-					world.ecs.addRenderSystem(system);
-				}
-			},
-		});
+		const fixture = await bootRun(
+			document,
+			baseline.config.gravity.y,
+		);
 
 		fixture.step(20);
 		// A goToScene transition: freeze the active scene, despawn, re-enter.
@@ -252,6 +268,67 @@ describe("run contamination", () => {
 			preRun.entities,
 			target.id,
 		);
+	});
+});
+
+/**
+ * A transient effect entity must be whole-or-nothing in a runtime snapshot. A
+ * hitsplat carries only an undecorated component, so it is invisible to
+ * `serializeWorld` — but the moment it also carries a serializable
+ * `TransformComponent`, capture writes half of it and restore thaws an entity
+ * no system owns: a transform-only orphan that never ages and never dies, one
+ * per hit taken, forever. Nothing surfaces that but a snapshot round-trip.
+ */
+describe("snapshot orphans", () => {
+	beforeAll(registerGameContent);
+
+	test("a live hitsplat leaves no transform-only orphan behind a snapshot", async () => {
+		const baseline = migratedDemo();
+		const document = openDocument(baseline);
+		const fixture = await bootRun(
+			document,
+			baseline.config.gravity.y,
+		);
+		fixture.step(20);
+
+		const settled = fixture.ecs.entities().length;
+
+		const victim = fixture.ecs.query(HealthComponent)[0];
+		if (!victim) {
+			throw new Error("the run world has nothing that can be hit");
+		}
+		fixture.world.events.emit(
+			new DamageEvent(victim[0], 7, false, "arrow", null),
+		);
+		fixture.step(1);
+
+		const splats = fixture.ecs.query(HitsplatComponent);
+		expect(splats.length).toBeGreaterThan(0);
+		const splatIds = new Set(splats.map(([id]) => id));
+
+		// The artifact itself: the snapshot carries no fragment of a hitsplat.
+		const snapshot = serializeWorld(fixture.ecs);
+		expect(
+			snapshot.filter((e) => splatIds.has(e.id as never)),
+		).toEqual([]);
+		expect(
+			snapshot.filter(
+				(e) => Object.keys(e.components).join() === "Transform",
+			),
+		).toEqual([]);
+
+		await fixture.saveAndReload();
+
+		// And the restored world: gone, rather than immortal.
+		fixture.step(120);
+		expect(
+			fixture.ecs.entities().filter((id) => splatIds.has(id)),
+		).toEqual([]);
+		expect(fixture.ecs.entities().length).toBeLessThanOrEqual(
+			settled,
+		);
+
+		fixture.dispose();
 	});
 });
 

@@ -8,6 +8,7 @@ import type { DialogueHudState } from "../dialogue/dialogue-hud-state";
 import { ConversationFocusSystem } from "../dialogue/conversation-focus-system";
 import { DialogueHudDynSystem } from "../dialogue/dialogue-hud-dyn-system";
 import { DialogueHudSyncSystem } from "../dialogue/dialogue-hud-sync-system";
+import { DpsMeterHudSystem } from "../dps-meter/dps-meter-hud-system";
 import type { HealthBarHudState } from "../health/health-bar-hud-state";
 import { HealthBarHudSystem } from "../health/health-bar-hud-system";
 import { HitsplatHudSystem } from "../hitsplat/hitsplat-hud-system";
@@ -50,6 +51,7 @@ export const createHudSystems = (
 		new HudSyncSystem(stores.hud),
 		new DialogueHudSyncSystem(stores.dialogue, lastUsedDevice),
 		new HealthBarHudSystem(stores.healthBars, ui.root, ui.dyn),
+		new DpsMeterHudSystem(ui.root, ui.dyn),
 		new InteractHintHudSystem(
 			stores.interactHint,
 			ui.root,

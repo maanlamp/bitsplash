@@ -1,3 +1,4 @@
+import type { EasePresetId } from "../animation/ease";
 import type { PartialWeatherChannels } from "../weather/channels";
 import type {
 	ActorRef,
@@ -241,9 +242,16 @@ export const follow = (
 export type FadeParams = Readonly<{
 	to: number;
 	duration: number;
-	easing?: string;
+	/** An {@link EasePresetId}; defaults to `"linear"`. */
+	easing?: EasePresetId;
 }>;
 
+/**
+ * Fade the screen to `to` over `duration` seconds, shaped by an ease preset.
+ *
+ * @example
+ * fade("ambush.blackout", { to: 1, duration: 0.6, easing: "inOutCubic" })
+ */
 export const fade = (
 	stepId: string,
 	params: FadeParams,

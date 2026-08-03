@@ -1,3 +1,4 @@
+import { Ease, easePreset } from "../animation/ease";
 import { Camera2DComponent } from "../camera/camera-2d-component";
 import { Camera2DFollowComponent } from "../camera/camera-2d-follow-component";
 import { borrowCameraFollow } from "../camera/camera-2d-follow-system";
@@ -32,6 +33,14 @@ const asSeconds = (
 	fallback: number,
 ): Seconds => (value ?? fallback) as Seconds;
 
+/**
+ * The fade op's authored `easing`. Authoring is type-checked by
+ * the builder's `EasePresetId` param; this resolves the id a
+ * def carries at runtime, and throws on one that names no preset.
+ */
+const fadeEase = (id: string | undefined): Ease =>
+	id === undefined ? Ease.Linear : easePreset(id);
+
 const fadeExecutor: OpExecutor = {
 	arm(ctx, params, memory) {
 		if (memory.issued === true) {
@@ -41,7 +50,7 @@ const fadeExecutor: OpExecutor = {
 			ctx.ecs,
 			params.to as number,
 			asSeconds(params.duration as number, 0),
-			(params.easing as string) ?? "linear",
+			fadeEase(params.easing as string | undefined),
 		);
 		memory.issued = true;
 	},

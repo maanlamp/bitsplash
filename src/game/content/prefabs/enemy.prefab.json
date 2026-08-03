@@ -43,6 +43,7 @@
 			"maxHp": 100
 		},
 		"HealthBar": {},
+		"Mortal": {},
 		"Respawn": {
 			"delay": {
 				"$type": "Duration",

@@ -12,6 +12,7 @@ import { FrameProfile } from "./profiling/frame-profile";
 import type { CollisionMatrix } from "./physics/collision";
 import type {
 	BodyDef,
+	MutableRaycastHit,
 	RaycastFilter,
 	RaycastHit,
 	Vec,
@@ -129,6 +130,19 @@ export class World {
 		filter: RaycastFilter,
 	): RaycastHit | null {
 		return this.physics.raycast(from, to, filter);
+	}
+
+	/**
+	 * {@link raycast} into a caller-owned hit, allocating nothing — for loops that
+	 * cast per entity per frame. The contact is only valid until the next cast.
+	 */
+	raycastInto(
+		from: Vec,
+		to: Vec,
+		filter: RaycastFilter,
+		out: MutableRaycastHit,
+	): boolean {
+		return this.physics.raycastInto(from, to, filter, out);
 	}
 
 	clear(): void {

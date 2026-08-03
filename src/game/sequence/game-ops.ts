@@ -49,7 +49,7 @@ import { DEFAULT_FONT } from "../dialogue/ink-fonts";
 import { ensureStory } from "../dialogue/ink-bindings";
 import { tagValue } from "../../engine/ink/ink-tags";
 import { FollowComponent } from "../follow/follow-component";
-import { HealthComponent } from "../health/health-component";
+import { isDead } from "../respawn/mortal-component";
 import { PickupComponent } from "../pickup/pickup-component";
 import { DialogueSourceComponent } from "../dialogue/dialogue-source-component";
 import { PlayerInputComponent } from "../player/player-input-component";
@@ -963,8 +963,7 @@ const enemiesDeadPredicate = (
 		if (sequenceTag.tag !== tag) {
 			continue;
 		}
-		const health = ctx.ecs.getComponent(id, HealthComponent);
-		if (!health || health.hp > 0) {
+		if (!isDead(ctx.ecs, id)) {
 			return false;
 		}
 	}

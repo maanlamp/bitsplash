@@ -90,6 +90,7 @@ export class MeleeSystem implements UpdateSystem {
 					stats.flavourSet,
 					attackerId,
 					origin.clone(),
+					origin.clone(),
 				),
 			);
 			const rb = ecs.getComponent(candId, PhysicsBodyComponent);

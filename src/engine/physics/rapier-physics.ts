@@ -6,6 +6,7 @@ import type { CollisionMatrix } from "./collision";
 import type {
 	BodyDef,
 	CollisionPair,
+	MutableRaycastHit,
 	RaycastFilter,
 	RaycastHit,
 	Vec,
@@ -35,6 +36,16 @@ const handle = (body: RigidBody): Native => body.native as Native;
 export class RapierPhysics extends Physics {
 	private readonly r: Rapier;
 	private readonly world: RAPIER_NS.World;
+
+	/** One ray refilled per cast; rapier reads it and keeps no reference. */
+	private readonly ray: RAPIER_NS.Ray;
+
+	/** Backs the allocating {@link raycast}, which copies out of it. */
+	private readonly hitScratch: MutableRaycastHit = {
+		point: new Vector2(0, 0),
+		normal: new Vector2(0, 0),
+		body: null,
+	};
 	private readonly matrix?: CollisionMatrix;
 	private readonly queue: RAPIER_NS.EventQueue;
 	private collisions: CollisionPair[] = [];
@@ -95,6 +106,7 @@ export class RapierPhysics extends Physics {
 		this.r = RAPIER;
 		this.matrix = matrix;
 		this.world = new this.r.World({ x: gravity.x, y: gravity.y });
+		this.ray = new this.r.Ray({ x: 0, y: 0 }, { x: 0, y: 0 });
 		this.world.lengthUnit = TILE_SIZE;
 		this.queue = new this.r.EventQueue(true);
 	}
@@ -244,8 +256,32 @@ export class RapierPhysics extends Physics {
 		to: Vec,
 		filter: RaycastFilter,
 	): RaycastHit | null {
-		const dir = { x: to.x - from.x, y: to.y - from.y };
-		const ray = new this.r.Ray({ x: from.x, y: from.y }, dir);
+		return this.raycastInto(from, to, filter, this.hitScratch)
+			? {
+					point: new Vector2(
+						this.hitScratch.point.x,
+						this.hitScratch.point.y,
+					),
+					normal: new Vector2(
+						this.hitScratch.normal.x,
+						this.hitScratch.normal.y,
+					),
+					body: this.hitScratch.body!,
+				}
+			: null;
+	}
+
+	raycastInto(
+		from: Vec,
+		to: Vec,
+		filter: RaycastFilter,
+		out: MutableRaycastHit,
+	): boolean {
+		const ray = this.ray;
+		ray.origin.x = from.x;
+		ray.origin.y = from.y;
+		ray.dir.x = to.x - from.x;
+		ray.dir.y = to.y - from.y;
 		const hit = this.world.castRayAndGetNormal(
 			ray,
 			1,
@@ -254,29 +290,45 @@ export class RapierPhysics extends Physics {
 			undefined,
 			undefined,
 			undefined,
-			(collider) => {
-				const body = collider.parent()?.userData as
-					| RigidBody
-					| undefined;
-				return body ? filter(body) : false;
-			},
+			this.rayPredicate(filter),
 		);
 		if (!hit) {
-			return null;
+			return false;
 		}
 		const body = hit.collider.parent()?.userData as
 			| RigidBody
 			| undefined;
 		if (!body) {
-			return null;
+			return false;
 		}
 		const point = ray.pointAt(hit.timeOfImpact);
-		return {
-			point: new Vector2(point.x, point.y),
-			normal: new Vector2(hit.normal.x, hit.normal.y),
-			body,
-		};
+		out.point.x = point.x;
+		out.point.y = point.y;
+		out.normal.x = hit.normal.x;
+		out.normal.y = hit.normal.y;
+		out.body = body;
+		return true;
 	}
+
+	/**
+	 * The collider predicate rapier takes, bound to `filter` without building a
+	 * closure per cast: the filter lives in a field the shared arrow reads.
+	 */
+	private rayPredicate(
+		filter: RaycastFilter,
+	): (collider: RAPIER_NS.Collider) => boolean {
+		this.rayFilter = filter;
+		return this.rayPredicateFn;
+	}
+
+	private rayFilter: RaycastFilter = () => true;
+
+	private readonly rayPredicateFn = (
+		collider: RAPIER_NS.Collider,
+	): boolean => {
+		const body = collider.parent()?.userData as RigidBody | undefined;
+		return body ? this.rayFilter(body) : false;
+	};
 
 	getPosition(body: RigidBody): Vector2 {
 		const t = handle(body).body.translation();

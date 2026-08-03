@@ -94,7 +94,7 @@ export class PlayerMovementSystem implements UpdateSystem {
 					dir,
 					vy,
 					onWall: player.onWall,
-					dashActive: player.dashTimeRemaining > 0,
+					dashActive: !player.dashTime.done(),
 					jumpWall: jumpType === "wall",
 					jumpNormal: jumpType === "normal",
 				},
@@ -114,21 +114,16 @@ export class PlayerMovementSystem implements UpdateSystem {
 		frozen: boolean,
 		s: number,
 	): boolean {
-		if (player.dashCooldownRemaining > 0) {
-			player.dashCooldownRemaining = Math.max(
-				0,
-				player.dashCooldownRemaining - s * 1000,
-			);
-		}
+		player.dashRecovery.tick(s as Seconds);
 
 		const dashHeld = player.canDash && !frozen && dashActive;
 
 		if (
 			dashHeld &&
-			player.dashTimeRemaining <= 0 &&
-			player.dashCooldownRemaining <= 0
+			player.dashTime.done() &&
+			player.dashRecovery.done()
 		) {
-			player.dashTimeRemaining = player.dashDuration.seconds * 1000;
+			player.dashTime.restart(player.dashDuration.seconds);
 			player.dashDir = dir !== 0 ? Math.sign(dir) : facing.dir;
 			rb.body!.linearVelocity = {
 				x: player.dashDir * player.dashSpeed,
@@ -136,14 +131,13 @@ export class PlayerMovementSystem implements UpdateSystem {
 			};
 		}
 
-		if (player.dashTimeRemaining <= 0) {
+		if (player.dashTime.done()) {
 			return false;
 		}
 
-		player.dashTimeRemaining -= s * 1000;
-		if (player.dashTimeRemaining <= 0) {
-			player.dashCooldownRemaining =
-				player.dashCooldown.seconds * 1000;
+		player.dashTime.tick(s as Seconds);
+		if (player.dashTime.done()) {
+			player.dashRecovery.restart(player.dashCooldown.seconds);
 		}
 		return true;
 	}

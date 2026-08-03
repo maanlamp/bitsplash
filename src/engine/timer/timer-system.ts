@@ -17,8 +17,8 @@ export const scheduleEvent = (
 export class TimerSystem implements UpdateSystem {
 	update({ time, ecs, events }: UpdateContext): void {
 		for (const [id, timer] of ecs.query(TimerComponent)) {
-			timer.remaining = (timer.remaining - time.dt) as Seconds;
-			if (timer.remaining <= 0) {
+			timer.countdown.tick(time.dt);
+			if (timer.countdown.done()) {
 				if (timer.event) {
 					events.emit(timer.event);
 				}

@@ -1,3 +1,5 @@
+import { Ease } from "../animation/ease";
+import { Tween } from "../animation/tween";
 import type { Seconds } from "../duration";
 import type { EntityId } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
@@ -18,22 +20,33 @@ export type CameraTransitionConfig = Readonly<{
 	duration?: Seconds;
 	fadeOut?: Seconds;
 	fadeIn?: Seconds;
-	easing?: string;
+	easing?: Ease;
 	followAfter?: ReadonlyArray<EntityId>;
 }>;
+
+const GLIDE_DURATION = 0.6 as Seconds;
 
 @serializable("CameraTransition")
 export class CameraTransitionComponent {
 	@serialize() mode: CameraTransitionMode = "cut";
 	@serialize() target: CameraTransitionTarget = "" as EntityId;
 	@serialize() zoom: number | null = null;
-	@serialize() duration: Seconds = 0.6 as Seconds;
 	@serialize() fadeOut: Seconds = 0.35 as Seconds;
 	@serialize() fadeIn: Seconds = 0.45 as Seconds;
-	@serialize() easing: string = "easeInOutCubic";
 	@serialize() followAfter: EntityId[] = [];
 
-	@serialize() elapsed = 0 as Seconds;
+	/**
+	 * The glide's clock and curve: a `0 → 1` scalar the system lerps both
+	 * position and zoom by. Its timeline holds the duration and the elapsed
+	 * time, so a snapshot taken mid-glide resumes rather than restarting.
+	 */
+	@serialize() glide = new Tween(
+		0,
+		1,
+		GLIDE_DURATION,
+		Ease.InOutCubic,
+	);
+
 	@serialize() fromPosition: Vector2 | null = null;
 	@serialize() fromZoom = 0;
 	@serialize() phase: "glide" | "out" | "in" = "glide";
@@ -48,10 +61,14 @@ export class CameraTransitionComponent {
 		this.mode = config.mode;
 		this.target = config.target;
 		this.zoom = config.zoom ?? null;
-		this.duration = config.duration ?? (0.6 as Seconds);
+		this.glide.retarget(
+			0,
+			1,
+			config.duration ?? GLIDE_DURATION,
+			config.easing ?? Ease.InOutCubic,
+		);
 		this.fadeOut = config.fadeOut ?? (0.35 as Seconds);
 		this.fadeIn = config.fadeIn ?? (0.45 as Seconds);
-		this.easing = config.easing ?? "easeInOutCubic";
 		this.followAfter = [...(config.followAfter ?? [])];
 	}
 }

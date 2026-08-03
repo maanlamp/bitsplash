@@ -24,6 +24,7 @@ import {
 const HOST = emitterId("01");
 const OTHER = emitterId("02");
 const RIBBONS = emitterId("03");
+const SMEARS = emitterId("04");
 
 /** Every component type name the snapshot is allowed to contain. */
 const ALLOWED_TYPES = ["Transform", "Emitter"];
@@ -195,6 +196,37 @@ describe("vfx snapshot semantics", () => {
 		}
 		const lives = [...band.band.age.subarray(0, band.band.count)];
 		expect(new Set(lives).size).toBe(STREAKS_BAND);
+
+		fixture.dispose();
+	});
+
+	test("decals are invisible to the snapshot and gone after a restore", async () => {
+		registerFixtureVfx();
+		const harness = vfxHarness({
+			scenes: {
+				[DEFAULT_VFX_SCENE]: {
+					emitters: [
+						{ id: SMEARS, defId: FIXTURE_EFFECTS.smear, x: 0, y: 0 },
+					],
+					solidCells: [[0, 1]],
+				},
+			},
+		});
+		const fixture = await SequenceFixture.create(harness.config);
+		fixture.step(30);
+
+		// The burst has fallen onto the tile below and left its marks.
+		expect(harness.systems().store.totalDecals()).toBeGreaterThan(0);
+
+		const snapshot = fixture.runtime.snapshot();
+		expect(JSON.stringify(snapshot)).not.toContain("decal");
+
+		await fixture.saveAndReload();
+
+		// A decal is run-state like any other: never captured, so nothing comes
+		// back. Unlike a particle population it does not re-seed either — a
+		// restored save shows clean walls, which is the trade the model makes.
+		expect(harness.systems().store.totalDecals()).toBe(0);
 
 		fixture.dispose();
 	});

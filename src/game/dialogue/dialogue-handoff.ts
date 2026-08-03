@@ -1,4 +1,5 @@
 import type { Story } from "inkjs";
+import { Ease } from "../../engine/animation/ease";
 import { DialogueComponent } from "../../engine/dialogue/dialogue-component";
 import {
 	gatherMessages,
@@ -6,7 +7,6 @@ import {
 	NO_SPEAKER_TAGS,
 	type SpeakerTags,
 } from "../../engine/dialogue/gather-messages";
-import type { Seconds } from "../../engine/duration";
 import type { ECS, EntityId } from "../../engine/ecs";
 import { hasFlagTag } from "../../engine/ink/ink-tags";
 import type { UpdateContext } from "../../engine/system";
@@ -232,7 +232,7 @@ const display = (
 	state.selectedOption = 0;
 	state.wrapped = null;
 	state.revealed = 0;
-	state.pause = 0 as Seconds;
+	state.pause.restart(0);
 	state.complete = false;
 };
 
@@ -356,7 +356,7 @@ export const resumeDialogue = (
 	storeTrailing(state, trailing);
 	state.opened = true;
 	state.phase = "open";
-	state.slide.retarget(1, 1, 0, "linear");
+	state.slide.retarget(1, 1, 0, Ease.Linear);
 	const conversation = conversationFor(ecs, sequence);
 	showNewest(conversation);
 	show(conversation, state, story);

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Ease } from "../src/engine/animation/ease";
 import { Tween } from "../src/engine/animation/tween";
 import { Camera2D } from "../src/engine/camera/camera-2d";
 import { Camera2DComponent } from "../src/engine/camera/camera-2d-component";
@@ -41,7 +42,7 @@ test("camera + follow + transition survive a save/restore round-trip", () => {
 		zoom: 2,
 		followAfter: [targetId],
 	});
-	transition.elapsed = 0.3 as Seconds;
+	transition.glide.tick(0.3 as Seconds);
 	transition.fromPosition = new Vector2(1, 2);
 	transition.fromZoom = 3;
 	transition.phase = "glide";
@@ -78,7 +79,7 @@ test("camera + follow + transition survive a save/restore round-trip", () => {
 	)!;
 	expect(rTransition.fromPosition).toBeInstanceOf(Vector2);
 	expect(rTransition.fromPosition!.x).toBe(1);
-	expect(rTransition.elapsed as number).toBe(0.3);
+	expect(rTransition.glide.elapsed as number).toBe(0.3);
 	expect(rTransition.followAfter).toEqual([targetId]);
 	expect(rTransition.fade).toBeNull();
 
@@ -93,7 +94,7 @@ test("camera + follow + transition survive a save/restore round-trip", () => {
 test("screen fade tween survives a save/restore round-trip", () => {
 	const ecs = new ECS();
 	const fade = new ScreenFadeComponent(0.5);
-	fade.tween = new Tween(0, 1, 0.5, "linear");
+	fade.tween = new Tween(0, 1, 0.5, Ease.Linear);
 	const fadeId = ecs.createEntity([fade]);
 
 	const before = serializeEntity(ecs, fadeId)!;

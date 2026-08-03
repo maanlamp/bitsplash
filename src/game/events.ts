@@ -17,6 +17,23 @@ export class InteractEvent {
 	) {}
 }
 
+/**
+ * One instance of damage landing on `target`.
+ *
+ * The two positions are deliberately separate and mean different things:
+ *
+ * - `origin` is the **stimulus position** perception consumes — where the victim
+ *   thinks the blow came from. An arrow offsets it backwards along the shot's
+ *   bearing so the enemy looks toward the archer rather than at its own wound.
+ * - `hitPoint` is the **precise impact point**, consumed only by VFX. It is
+ *   `null` when the emit site has none, which is the signal to fall back to a
+ *   burst on the target itself.
+ *
+ * @example
+ * events.emit(
+ *   new DamageEvent(victim, 7, false, "sword", attacker, origin, hit.point),
+ * );
+ */
 export class DamageEvent {
 	constructor(
 		public target: EntityId,
@@ -25,6 +42,7 @@ export class DamageEvent {
 		public flavourSet: string,
 		public source: EntityId | null,
 		public origin: Vector2 | null = null,
+		public hitPoint: Vector2 | null = null,
 	) {}
 }
 

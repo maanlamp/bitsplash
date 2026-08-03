@@ -1,4 +1,3 @@
-import { ease } from "../animation/easing";
 import type { Seconds } from "../duration";
 import type { ECS, EntityId } from "../ecs";
 import type { EffectHandle } from "../effect-handle";
@@ -123,12 +122,8 @@ export class CameraTransitionSystem implements UpdateSystem {
 		transition: CameraTransitionComponent,
 		dt: Seconds,
 	): void {
-		transition.elapsed = (transition.elapsed + dt) as Seconds;
-		const progress =
-			transition.duration > 0
-				? Math.min(1, transition.elapsed / transition.duration)
-				: 1;
-		if (progress >= 1) {
+		transition.glide.tick(dt);
+		if (transition.glide.done()) {
 			finish(ecs, cameraEntity, camera, follow, transition);
 			return;
 		}
@@ -138,7 +133,7 @@ export class CameraTransitionSystem implements UpdateSystem {
 			finish(ecs, cameraEntity, camera, follow, transition);
 			return;
 		}
-		const t = ease(transition.easing)(progress);
+		const t = transition.glide.value();
 		camera.position.set(
 			from.x + (destination.x - from.x) * t,
 			from.y + (destination.y - from.y) * t,

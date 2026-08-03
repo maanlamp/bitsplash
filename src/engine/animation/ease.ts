@@ -247,3 +247,52 @@ export class Ease implements ValueType {
 		return new Ease(this.x1, this.y1, this.x2, this.y2, this.label);
 	}
 }
+
+/**
+ * Every preset, keyed by the id authored data names it with — the one table
+ * both authored JSON (vfx defs) and authored TypeScript (sequence ops) resolve
+ * through, so an ease reference is never an ad-hoc string map per call site.
+ *
+ * @example
+ * const ease = easePreset(params.easing ?? "linear");
+ */
+export const EASE_PRESETS = {
+	linear: Ease.Linear,
+	inQuad: Ease.InQuad,
+	outQuad: Ease.OutQuad,
+	inOutQuad: Ease.InOutQuad,
+	inCubic: Ease.InCubic,
+	outCubic: Ease.OutCubic,
+	inOutCubic: Ease.InOutCubic,
+	inBack: Ease.InBack,
+	outBack: Ease.OutBack,
+	inOutBack: Ease.InOutBack,
+} as const satisfies Readonly<Record<string, Ease>>;
+
+/**
+ * The ids {@link EASE_PRESETS} accepts. Authored TypeScript takes this type
+ * rather than `string`, so a misspelled preset fails to compile.
+ */
+export type EasePresetId = keyof typeof EASE_PRESETS;
+
+/** Preset ids in table order, for editor pickers and error messages. */
+export const EASE_PRESET_IDS = Object.keys(
+	EASE_PRESETS,
+) as ReadonlyArray<EasePresetId>;
+
+/**
+ * Resolve a preset id to its curve.
+ *
+ * @throws if the id names no preset — a dangling reference from data
+ * TypeScript could not check (a scene file, a `.vfx.json`) fails loudly here
+ * rather than silently easing linearly.
+ */
+export const easePreset = (id: string): Ease => {
+	const preset = EASE_PRESETS[id as EasePresetId];
+	if (!preset) {
+		throw new Error(
+			`Ease: unknown preset "${id}"; expected one of ${EASE_PRESET_IDS.join(", ")}`,
+		);
+	}
+	return preset;
+};

@@ -1,3 +1,4 @@
+import { Timeline } from "../../engine/animation/timeline";
 import { Duration } from "../../engine/duration";
 import {
 	serializable,
@@ -12,8 +13,12 @@ export class WanderComponent {
 	@serialize({ group: "interval" }) maxInterval: Duration;
 
 	@serialize() origin: Vector2 | null = null;
-	elapsed: number = 0;
-	nextAt: number = 0;
+	/**
+	 * Idle dwell before the next destination is picked, retimed to a fresh
+	 * random draw between {@link minInterval} and {@link maxInterval} each time
+	 * it runs out.
+	 */
+	dwell = new Timeline();
 
 	constructor(
 		radiusTiles: number = 8,

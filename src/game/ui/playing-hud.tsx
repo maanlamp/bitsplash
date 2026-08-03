@@ -3,6 +3,7 @@ import type { BarkHudState } from "../dialogue/bark-hud-state";
 import { DialogueAdvanceHint } from "../dialogue/dialogue-advance-hint";
 import { DialogueHud } from "../dialogue/dialogue-hud";
 import type { DialogueHudState } from "../dialogue/dialogue-hud-state";
+import { DpsMeters } from "../dps-meter/dps-meter-hud";
 import { HealthBars } from "../health/health-bar-hud";
 import type { HealthBarHudState } from "../health/health-bar-hud-state";
 import { Hitsplats } from "../hitsplat/hitsplat-hud";
@@ -42,6 +43,7 @@ export const PlayingHud = ({
 }: PlayingHudProps) => (
 	<>
 		<HealthBars store={healthBars} />
+		<DpsMeters />
 		<Hitsplats />
 		<BarkHud store={barks} />
 		<QuestMarkers store={questMarkers} />

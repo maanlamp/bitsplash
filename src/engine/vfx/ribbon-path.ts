@@ -25,7 +25,11 @@ import type { Mutable } from "../mutable";
 
 const TAU = Math.PI * 2;
 
-export const VFX_RIBBON_PATHS = ["wander"] as const;
+export const VFX_RIBBON_PATHS = [
+	"wander",
+	"vertical",
+	"helix",
+] as const;
 
 export type VfxRibbonPathId = (typeof VFX_RIBBON_PATHS)[number];
 
@@ -48,8 +52,55 @@ export type VfxRibbonWanderPath = Readonly<{
 	tilt: number;
 }>;
 
+/**
+ * A column rising from its origin — the loot beam's main shaft.
+ *
+ * World y points **down**, so the path runs from the origin to `length` above
+ * it. Straightness is the point: the only departures are a per-instance lean,
+ * drawn off the seed so several strands of one beam do not overlap exactly, and
+ * a bow that breathes with the ambient clock. The bow is pinned at both ends by
+ * `sin(PI * u)`, so a beam never detaches from the thing it marks.
+ */
+export type VfxRibbonVerticalPath = Readonly<{
+	generator: "vertical";
+	/** Lateral offset of the top from the base, world units either way. */
+	lean: number;
+	/** Peak lateral bow at mid-height, world units. */
+	bow: number;
+	/** Bow cycles per second, phase-sampled off the ambient clock. */
+	sway: number;
+}>;
+
+/**
+ * A helix winding about a vertical axis — the Epic beam's orbiting strands.
+ *
+ * The 2D projection of a 3D helix is a sinusoid in `x` against a linear rise in
+ * `y`: the orbit's depth component is simply not drawn. That is the whole maths,
+ * and it is what makes the shape read as an orbit rather than as noise — the
+ * turns are evenly spaced in height and the strand reverses exactly at the
+ * radius, where a real orbit passes behind the axis.
+ *
+ * `spin` rotates the whole helix about its axis over time, so the strand appears
+ * to travel around the beam; `turns` sets how many times it wraps over the
+ * ribbon's length.
+ */
+export type VfxRibbonHelixPath = Readonly<{
+	generator: "helix";
+	/** Orbit radius at the base, world units. */
+	radius: number;
+	/** Full turns over the ribbon's whole length. */
+	turns: number;
+	/** Turns per second the helix rotates about its axis. */
+	spin: number;
+	/** Radius multiplier at the top: `1` is a cylinder, `0` a closing cone. */
+	topScale: number;
+}>;
+
 /** A validated path generator and its parameters. */
-export type VfxRibbonPath = VfxRibbonWanderPath;
+export type VfxRibbonPath =
+	| VfxRibbonWanderPath
+	| VfxRibbonVerticalPath
+	| VfxRibbonHelixPath;
 
 /** Everything a generator knows about the ribbon it is drawing this frame. */
 export type RibbonPathInput = Readonly<{
@@ -93,12 +144,19 @@ export const generateRibbonPath = (
 	px: number[],
 	py: number[],
 ): void => {
-	switch (path.generator) {
+	const generator = path.generator;
+	switch (generator) {
 		case "wander":
 			wanderPath(path, input, px, py);
 			return;
+		case "vertical":
+			verticalPath(path, input, px, py);
+			return;
+		case "helix":
+			helixPath(path, input, px, py);
+			return;
 	}
-	const unhandled: never = path.generator;
+	const unhandled: never = generator;
 	throw new Error(
 		`ribbon path generator "${String(unhandled)}" has no implementation.`,
 	);
@@ -128,5 +186,43 @@ const wanderPath = (
 		const travel = u * input.length;
 		px[i] = input.x + alongX * travel - alongY * lateral;
 		py[i] = input.y + alongY * travel + alongX * lateral;
+	}
+};
+
+/** A seeded draw in `[-1, 1]`, decorrelated from the seed's other uses. */
+const signed = (seed: number, salt: number): number =>
+	fract(seed * salt) * 2 - 1;
+
+const verticalPath = (
+	path: VfxRibbonVerticalPath,
+	input: RibbonPathInput,
+	px: number[],
+	py: number[],
+): void => {
+	const lean = path.lean * signed(input.seed, 5.17);
+	const bow =
+		path.bow *
+		Math.sin(TAU * path.sway * input.time + input.seed * TAU);
+	const last = input.points - 1;
+	for (let i = 0; i <= last; i++) {
+		const u = i / last;
+		px[i] = input.x + lean * u + bow * Math.sin(Math.PI * u);
+		py[i] = input.y - u * input.length;
+	}
+};
+
+const helixPath = (
+	path: VfxRibbonHelixPath,
+	input: RibbonPathInput,
+	px: number[],
+	py: number[],
+): void => {
+	const phase = input.seed * TAU + input.time * path.spin * TAU;
+	const last = input.points - 1;
+	for (let i = 0; i <= last; i++) {
+		const u = i / last;
+		const radius = path.radius * (1 + (path.topScale - 1) * u);
+		px[i] = input.x + Math.cos(TAU * path.turns * u + phase) * radius;
+		py[i] = input.y - u * input.length;
 	}
 };

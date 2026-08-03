@@ -4,8 +4,9 @@ import {
 } from "../../engine/system";
 import { getQuest } from "../quest/loader";
 import { QuestComponent } from "../quest/quest-component";
-import { QuestNoticeComponent } from "../quest/quest-notice-component";
+import { QUEST_NOTICE_ID } from "./hud-ids";
 import type { HudState } from "./hud-state";
+import { NoticeComponent } from "./notice-component";
 import { profiler } from "../../engine/profiling/profiler";
 
 const MAX_VISIBLE_QUESTS = 3;
@@ -28,9 +29,18 @@ export class HudSyncSystem implements UpdateSystem {
 	constructor(private readonly hud: HudState) {}
 
 	update({ ecs }: UpdateContext): void {
-		const [, notice] = ecs.queryFirst(QuestNoticeComponent) ?? [];
-		this.hud.setNotice(notice ? notice.text : null);
+		this.hud.setNotice(this.questNoticeText(ecs));
 		this.hud.setQuestLines(this.activeLines(ecs));
+	}
+
+	/** Text of the live quest toast, or `null` when none is up. */
+	private questNoticeText(ecs: UpdateContext["ecs"]): string | null {
+		for (const [, notice] of ecs.query(NoticeComponent)) {
+			if (notice.slot === QUEST_NOTICE_ID) {
+				return notice.text;
+			}
+		}
+		return null;
 	}
 
 	private activeLines(ecs: UpdateContext["ecs"]): string[] {

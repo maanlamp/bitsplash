@@ -1,6 +1,6 @@
+import type { Seconds } from "../../engine/duration";
 import type { EntityId } from "../../engine/ecs";
 import { PhysicsBodyComponent } from "../../engine/physics/physics-body-component";
-import { fadeAlpha } from "../../engine/render/color-resolver";
 import { entityTop } from "../../engine/sprite/entity-top";
 import {
 	type UpdateContext,
@@ -16,7 +16,7 @@ import type { HealthBarHudState } from "./health-bar-hud-state";
 import { healthNodeId } from "./health-bar-hud";
 import { profiler } from "../../engine/profiling/profiler";
 
-const FADE = 1;
+const FADE = 1 as Seconds;
 const BAR_WIDTH = 32;
 
 /**
@@ -51,14 +51,14 @@ export class HealthBarHudSystem implements UpdateSystem {
 				continue;
 			}
 			const bar = ecs.getComponent(id, HealthBarStateComponent);
-			if (!bar || bar.visible <= 0 || !rb.body) {
+			if (!bar || bar.visible.done() || !rb.body) {
 				this.dyn.setField(container.id, "alpha", 0);
 				continue;
 			}
 			const pct = Math.floor((health.hp / health.maxHp) * 100);
 			const color = `color-mix(in oklch, lime ${pct}%, red)`;
 			this.dyn.set(container.id, {
-				alpha: fadeAlpha(bar.visible, FADE),
+				alpha: bar.visible.fadeOut(FADE),
 				worldX: transform.position.x,
 				worldY:
 					entityTop(ecs, assetManager, id, GAP) ??

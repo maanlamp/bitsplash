@@ -1,4 +1,3 @@
-import { TransformComponent } from "../../engine/transform-component";
 import type { Seconds } from "../../engine/duration";
 import {
 	type UpdateContext,
@@ -10,6 +9,7 @@ import { profiler } from "../../engine/profiling/profiler";
 
 const DEFAULT_GRAVITY = 500;
 
+/** Hitsplats run on milliseconds `dt`, converted once per frame. */
 @profiler("Hitsplats", "Combat")
 export class HitsplatSystem implements UpdateSystem {
 	update({ dt, ecs }: UpdateContext): void {
@@ -18,15 +18,12 @@ export class HitsplatSystem implements UpdateSystem {
 		const gravity = styleEntry
 			? styleEntry[1].gravity
 			: DEFAULT_GRAVITY;
-		for (const [id, hitsplat, transform] of ecs.query(
-			HitsplatComponent,
-			TransformComponent,
-		)) {
+		for (const [id, hitsplat] of ecs.query(HitsplatComponent)) {
 			hitsplat.velocity.y += gravity * dtSeconds;
-			transform.position.x += hitsplat.velocity.x * dtSeconds;
-			transform.position.y += hitsplat.velocity.y * dtSeconds;
-			hitsplat.age = (hitsplat.age + dtSeconds) as Seconds;
-			if (hitsplat.age >= hitsplat.lifetime) {
+			hitsplat.position.x += hitsplat.velocity.x * dtSeconds;
+			hitsplat.position.y += hitsplat.velocity.y * dtSeconds;
+			hitsplat.life.tick(dtSeconds);
+			if (hitsplat.life.done()) {
 				ecs.destroy(id);
 			}
 		}

@@ -71,6 +71,21 @@ export class Timeline implements ValueType {
 		return Math.max(0, this.duration - this.elapsed) as Seconds;
 	}
 
+	/**
+	 * Tail-fade alpha in `[0, 1]`: fully opaque until `fade` seconds are left,
+	 * then a linear ramp reaching `0` exactly as the run ends. A non-positive
+	 * `fade` means no ramp — opaque until `done()`, then gone.
+	 *
+	 * @example
+	 * sprite.opacity.set(arrow.stuck.fadeOut(arrow.fade.seconds));
+	 */
+	fadeOut(fade: Seconds): number {
+		if (fade <= 0) {
+			return this.done() ? 0 : 1;
+		}
+		return Math.min(1, this.remaining() / fade);
+	}
+
 	/** Rewind to zero, optionally retiming the run. */
 	restart(duration?: number): void {
 		if (duration !== undefined) {

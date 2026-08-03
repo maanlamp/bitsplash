@@ -1,5 +1,6 @@
 import type { Story } from "inkjs";
 import type AssetManager from "../assets";
+import { Ease } from "../animation/ease";
 import { DialogueComponent } from "../dialogue/dialogue-component";
 import { InkStoryComponent } from "../ink/ink-story-component";
 import type { Seconds } from "../duration";
@@ -80,16 +81,11 @@ export class DialogueSystem implements UpdateSystem {
 		if (!state.opened) {
 			state.opened = true;
 			state.phase = "entering";
-			state.slide.retarget(
-				0,
-				1,
-				this.bindings.slideIn,
-				"easeOutBack",
-			);
+			state.slide.retarget(0, 1, this.bindings.slideIn, Ease.OutBack);
 			events.emit(new DialogueOpenedEvent(id));
 		}
 
-		state.slide.tick(dt);
+		state.slide.tick((dt / 1000) as Seconds);
 
 		if (state.phase === "closing") {
 			if (state.slide.done()) {
@@ -118,10 +114,10 @@ export class DialogueSystem implements UpdateSystem {
 		if (!state.complete) {
 			if (pressed) {
 				state.revealed = total;
-				state.pause = 0 as Seconds;
+				state.pause.restart(0);
 				consume();
-			} else if (state.pause > 0) {
-				state.pause = Math.max(0, state.pause - dt / 1000) as Seconds;
+			} else if (!state.pause.done()) {
+				state.pause.tick((dt / 1000) as Seconds);
 			} else {
 				const speed = wrapped.speeds[Math.floor(state.revealed)] ?? 1;
 				const cps = this.bindings.charactersPerSecond * speed;
@@ -141,7 +137,7 @@ export class DialogueSystem implements UpdateSystem {
 					}
 					const extra = wrapped.pauses[now - 1] ?? 0;
 					if (extra > 0) {
-						state.pause = (extra / cps) as Seconds;
+						state.pause.restart(extra / cps);
 					}
 				}
 			}
@@ -202,7 +198,7 @@ export class DialogueSystem implements UpdateSystem {
 				state.revealed,
 				state.wrapped.chars.length,
 			);
-			state.pause = 0 as Seconds;
+			state.pause.restart(0);
 			state.complete = state.revealed >= state.wrapped.chars.length;
 		}
 		return state.wrapped;
@@ -217,7 +213,7 @@ export class DialogueSystem implements UpdateSystem {
 			state.slide.value(),
 			0,
 			this.bindings.slideOut,
-			"easeInCubic",
+			Ease.InCubic,
 		);
 	}
 

@@ -9,12 +9,14 @@ import {
 	foliageSwayParams,
 	foliageSwayPhase,
 } from "../weather/foliage-sway-component";
-import { sampleWind } from "../weather/sample-wind";
+import { sampleWindFrame } from "../weather/sample-wind";
+import { weatherFrame } from "../weather/weather-frame";
 import { resolveSpriteDraw } from "./resolve-sprite-draw";
 
 export class SpriteRenderSystem implements RenderSystem {
 	render({ renderer, ecs, assetManager }: RenderContext): void {
 		const now = ambientTime(ecs);
+		const frame = weatherFrame(ecs);
 		for (const [id, sprite, transform] of ecs.query(
 			SpriteComponent,
 			TransformComponent,
@@ -53,9 +55,10 @@ export class SpriteRenderSystem implements RenderSystem {
 				sway: foliageSwayParams({
 					entity: id,
 					sway,
-					wind: sampleWind(
-						ecs,
+					wind: sampleWindFrame(
+						frame,
 						transform.position.x,
+						transform.position.y,
 						(now + foliageSwayPhase(id)) as Seconds,
 					),
 					height,

@@ -31,6 +31,21 @@ export type RaycastHit = Readonly<{
 	body: RigidBody;
 }>;
 
+/**
+ * A {@link RaycastHit} the caller owns and the cast writes into.
+ *
+ * `raycast` allocates its hit, which is right for the once-an-event casts — an
+ * arrow landing, a line of sight — and wrong for a loop casting per particle
+ * per frame. Such a caller keeps one of these as an instance field and reads it
+ * out before the next cast; `body` is only meaningful when
+ * {@link Physics.raycastInto} returned `true`.
+ */
+export type MutableRaycastHit = {
+	point: Vector2;
+	normal: Vector2;
+	body: RigidBody | null;
+};
+
 export type RaycastFilter = (body: RigidBody) => boolean;
 
 export abstract class Physics {
@@ -50,6 +65,20 @@ export abstract class Physics {
 		to: Vec,
 		filter: RaycastFilter,
 	): RaycastHit | null;
+
+	/**
+	 * {@link raycast} into a caller-owned hit, allocating nothing.
+	 *
+	 * Same cast, same filter, same result — it just writes the contact into `out`
+	 * and reports whether there was one. Anything retaining the point past the
+	 * call must copy it: the next cast overwrites it.
+	 */
+	abstract raycastInto(
+		from: Vec,
+		to: Vec,
+		filter: RaycastFilter,
+		out: MutableRaycastHit,
+	): boolean;
 
 	abstract getPosition(body: RigidBody): Vector2;
 	abstract getAngle(body: RigidBody): number;

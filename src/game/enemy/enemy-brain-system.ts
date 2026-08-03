@@ -16,6 +16,7 @@ import { TransformComponent } from "../../engine/transform-component";
 import Vector2 from "../../engine/vector2";
 import { MeleeComponent } from "../combat/melee-component";
 import { HealthComponent } from "../health/health-component";
+import { isDead } from "../respawn/mortal-component";
 import { EnemyBrainComponent } from "./enemy-brain-component";
 import {
 	type EnemyCtx,
@@ -60,10 +61,9 @@ export class EnemyBrainSystem implements UpdateSystem {
 					? ecs.getComponent(perception.targetId, TransformComponent)
 					: undefined;
 			const targetPos = target?.position ?? null;
-			const targetHealth =
-				perception.targetId !== null
-					? ecs.getComponent(perception.targetId, HealthComponent)
-					: undefined;
+			const targetDead =
+				perception.targetId !== null &&
+				isDead(ecs, perception.targetId);
 			const origin =
 				ecs.getComponent(id, WanderComponent)?.origin ??
 				transform.position;
@@ -72,7 +72,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 				perception,
 				brain,
 				health,
-				targetHealth,
+				targetDead,
 				agent,
 				transform,
 				targetPos,
@@ -118,7 +118,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 		perception: PerceptionComponent,
 		brain: EnemyBrainComponent,
 		health: HealthComponent,
-		targetHealth: HealthComponent | undefined,
+		targetDead: boolean,
 		agent: NavAgentComponent,
 		transform: TransformComponent,
 		targetPos: Vector2 | null,
@@ -154,9 +154,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 			unreachableTarget: agent.status === "unreachable" && engaged,
 			reachedGoal: agent.status === "arrived",
 			timeSinceSeen: perception.timeSinceSeen,
-			targetDead:
-				perception.targetId !== null &&
-				(!targetHealth || targetHealth.hp <= 0),
+			targetDead,
 			lowNerve:
 				health.maxHp > 0 && health.hp / health.maxHp <= fleeAt,
 			forgotten:
@@ -245,8 +243,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 			}
 			const wander = ecs.getComponent(id, WanderComponent);
 			if (wander) {
-				wander.elapsed = 0;
-				wander.nextAt = 0;
+				wander.dwell.restart(0);
 			}
 		}
 	}

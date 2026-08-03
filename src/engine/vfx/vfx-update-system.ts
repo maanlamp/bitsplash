@@ -1,7 +1,13 @@
 import type { Camera2D } from "../camera/camera-2d";
 import type { Seconds } from "../duration";
 import type { ECS, ReadonlyECS } from "../ecs";
+import type {
+	MutableRaycastHit,
+	RaycastFilter,
+} from "../physics/physics";
+import type { Mutable } from "../mutable";
 import { profiler } from "../profiling/profiler";
+import Vector2 from "../vector2";
 import { weatherParticleScale } from "../settings/weather-particle-scale";
 import { type UpdateContext, UpdateSystem } from "../system";
 import {
@@ -17,7 +23,7 @@ import {
 	type ExposureField,
 	exposureField,
 } from "../weather/exposure-field";
-import { sampleWind } from "../weather/sample-wind";
+import { sampleWindFrame } from "../weather/sample-wind";
 import {
 	type WeatherFrame,
 	weatherFrame,
@@ -27,6 +33,7 @@ import {
 	readonlyEmitter,
 } from "./emitter-component";
 import type {
+	VfxDecalSpec,
 	VfxDef,
 	VfxEmitterPart,
 	VfxRibbonPart,
@@ -54,6 +61,27 @@ import {
  * flash full; clamping trades a moment of slow motion for never doing that.
  */
 const MAX_STEP = 1 / 15;
+
+/**
+ * Shortest move segment worth casting, squared, in world units.
+ *
+ * Below it a particle has effectively not moved, and a zero-length ray either
+ * finds nothing or reports the degenerate toi-0 hit of a particle that already
+ * started inside a body. Both are noise; the segment is skipped.
+ */
+const MIN_SEGMENT_SQ = 1e-6;
+
+/**
+ * What a particle's segment cast may hit: everything solid, nothing that is only
+ * a trigger.
+ *
+ * Terrain is static bodies and characters and crates are dynamic ones, so the
+ * whole predicate reduces to "not a sensor" — an engine-level statement of the
+ * blood spec's "terrain + dynamic bodies, `!body.isSensor`", which named the two
+ * because those are the two kinds that exist. Hoisted because a closure per
+ * particle per frame is exactly what the no-allocation rule is about.
+ */
+const NOT_SENSOR: RaycastFilter = (body) => !body.isSensor;
 
 /**
  * The blocking classification a precipitation part is sheltered by, or `null`
@@ -144,6 +172,38 @@ export class VfxUpdateSystem implements UpdateSystem {
 	private cameraCentreY: number | null = null;
 	private cameraCut = false;
 
+	/**
+	 * Emit origins handed to the store, refilled per call.
+	 *
+	 * The store reads an origin and returns; nothing retains one past the call, so
+	 * one buffer per kind serves every emitting part instead of a literal per
+	 * spawn — and a spawn happens on most frames for every continuous emitter.
+	 */
+	private readonly emitOrigin: Mutable<VfxEmitOrigin> = {
+		x: 0,
+		y: 0,
+		spreadX: 0,
+		spreadY: 0,
+		angle: 0,
+	};
+
+	private readonly ribbonOrigin = { x: 0, y: 0 };
+
+	/** Segment endpoints handed to `world.raycastInto`, reused for every cast. */
+	private readonly rayFrom = { x: 0, y: 0 };
+	private readonly rayTo = { x: 0, y: 0 };
+
+	/**
+	 * The contact the cast writes into. One per system rather than one per
+	 * particle: a blood burst casts every droplet's segment every frame, and an
+	 * allocated hit per droplet is exactly what the no-allocation rule forbids.
+	 */
+	private readonly rayHit: MutableRaycastHit = {
+		point: new Vector2(0, 0),
+		normal: new Vector2(0, 0),
+		body: null,
+	};
+
 	constructor(readonly store: VfxStore) {}
 
 	update(ctx: UpdateContext): void {
@@ -158,11 +218,13 @@ export class VfxUpdateSystem implements UpdateSystem {
 		this.shelterCenterY = ctx.camera?.position.y ?? 0;
 		this.cameraCut = this.detectCameraCut(ctx.camera);
 		this.store.evict(ecs);
-		this.syncEmitters(ctx, dt);
+		const weather = weatherFrame(ecs);
+		this.syncEmitters(ctx, weather, dt);
 		const time = ambientTime(ecs);
 		for (const effect of this.store.effects()) {
-			this.advance(ecs, effect, dt, time);
+			this.advance(ctx, effect, dt, time);
 		}
+		this.store.decals.step(ecs, dt);
 		this.store.pruneLoose();
 	}
 
@@ -192,9 +254,12 @@ export class VfxUpdateSystem implements UpdateSystem {
 	 * Reconcile the store against the world's emitters, then spawn this frame's
 	 * particles.
 	 */
-	private syncEmitters(ctx: UpdateContext, dt: number): void {
+	private syncEmitters(
+		ctx: UpdateContext,
+		weather: WeatherFrame,
+		dt: number,
+	): void {
 		const { ecs } = ctx;
-		const weather = weatherFrame(ecs);
 		for (const [id, emitter, transform] of ecs.query(
 			EmitterComponent,
 			TransformComponent,
@@ -219,43 +284,62 @@ export class VfxUpdateSystem implements UpdateSystem {
 					originX,
 					originY,
 				);
-				this.start(ctx, effect, weather, config.rateScale);
 			}
 			effect.originX = originX;
 			effect.originY = originY;
 			effect.emitting = config.enabled;
-			if (!effect.emitting) {
+			this.stepHosted(ctx, effect, weather, config.rateScale, dt);
+		}
+	}
+
+	/**
+	 * Bring one hosted effect up to date: start it if this is its first frame,
+	 * then spawn the particles and ribbons this frame's rate asks for.
+	 *
+	 * Split out of the emitter sweep so the origin resolution and the stepping
+	 * read as the two things they are.
+	 */
+	private stepHosted(
+		ctx: UpdateContext,
+		effect: VfxEffect,
+		weather: WeatherFrame,
+		rateScale: number,
+		dt: number,
+	): void {
+		if (!effect.started) {
+			effect.started = true;
+			this.start(ctx, effect, weather, rateScale);
+		}
+		if (!effect.emitting) {
+			return;
+		}
+		for (const state of effect.parts) {
+			if (state.kind === "ribbon") {
+				this.topUpRibbons(
+					ctx.camera,
+					effect,
+					state.part,
+					state.band,
+					weather,
+					rateScale,
+				);
 				continue;
 			}
-			for (const state of effect.parts) {
-				if (state.kind === "ribbon") {
-					this.topUpRibbons(
-						ctx.camera,
-						effect,
-						state.part,
-						state.band,
-						weather,
-						config.rateScale,
-					);
-					continue;
-				}
-				const { part, pool } = state;
-				if (part.rate === 0) {
-					continue;
-				}
-				pool.accumulator +=
-					emissionRate(part, config.rateScale, weather) * dt;
-				const count = Math.floor(pool.accumulator);
-				if (count === 0) {
-					continue;
-				}
-				pool.accumulator -= count;
-				const origin = this.originFor(ctx.camera, effect, part);
-				if (origin) {
-					const before = pool.count;
-					this.store.emit(pool, part, count, origin);
-					this.cullSheltered(ecs, part, pool, before, effect);
-				}
+			const { part, pool } = state;
+			if (part.rate === 0) {
+				continue;
+			}
+			pool.accumulator += emissionRate(part, rateScale, weather) * dt;
+			const count = Math.floor(pool.accumulator);
+			if (count === 0) {
+				continue;
+			}
+			pool.accumulator -= count;
+			const origin = this.originFor(ctx.camera, effect, part);
+			if (origin) {
+				const before = pool.count;
+				this.store.emit(pool, part, count, origin);
+				this.cullSheltered(ctx.ecs, part, pool, before, effect);
 			}
 		}
 	}
@@ -434,27 +518,26 @@ export class VfxUpdateSystem implements UpdateSystem {
 		part: VfxEmitterPart,
 	): VfxEmitOrigin | null {
 		const shape = part.spawn;
+		const origin = this.emitOrigin;
+		origin.angle = 0;
 		if (shape.kind === "camera-band") {
 			if (!camera) {
 				return null;
 			}
 			const bounds = camera.visibleBounds();
-			return {
-				x: (bounds.min.x + bounds.max.x) / 2,
-				y: bounds.min.y + shape.offsetY,
-				spreadX: (bounds.max.x - bounds.min.x) * shape.widthScale,
-				spreadY: shape.height,
-				angle: 0,
-			};
+			origin.x = (bounds.min.x + bounds.max.x) / 2;
+			origin.y = bounds.min.y + shape.offsetY;
+			origin.spreadX =
+				(bounds.max.x - bounds.min.x) * shape.widthScale;
+			origin.spreadY = shape.height;
+			return origin;
 		}
 		const local = part.space === "local";
-		return {
-			x: local ? 0 : effect.originX,
-			y: local ? 0 : effect.originY,
-			spreadX: shape.kind === "box" ? shape.width : 0,
-			spreadY: shape.kind === "box" ? shape.height : 0,
-			angle: 0,
-		};
+		origin.x = local ? 0 : effect.originX;
+		origin.y = local ? 0 : effect.originY;
+		origin.spreadX = shape.kind === "box" ? shape.width : 0;
+		origin.spreadY = shape.kind === "box" ? shape.height : 0;
+		return origin;
 	}
 
 	/**
@@ -471,30 +554,30 @@ export class VfxUpdateSystem implements UpdateSystem {
 		effect: VfxEffect,
 		part: VfxRibbonPart,
 	): Readonly<{ x: number; y: number }> | null {
+		const origin = this.ribbonOrigin;
 		if (part.origin === "camera") {
 			if (!camera) {
 				return null;
 			}
 			const bounds = camera.visibleBounds();
-			return {
-				x: this.store.between(bounds.min.x, bounds.max.x),
-				y: this.store.between(bounds.min.y, bounds.max.y),
-			};
+			origin.x = this.store.between(bounds.min.x, bounds.max.x);
+			origin.y = this.store.between(bounds.min.y, bounds.max.y);
+			return origin;
 		}
 		const local = part.space === "local";
-		return {
-			x: local ? 0 : effect.originX,
-			y: local ? 0 : effect.originY,
-		};
+		origin.x = local ? 0 : effect.originX;
+		origin.y = local ? 0 : effect.originY;
+		return origin;
 	}
 
 	/** Integrate, collide, and age one effect's parts. */
 	private advance(
-		ecs: ReadonlyECS,
+		ctx: UpdateContext,
 		effect: VfxEffect,
 		dt: number,
 		time: Seconds,
 	): void {
+		const { ecs } = ctx;
 		for (const state of effect.parts) {
 			if (state.kind === "ribbon") {
 				this.advanceRibbons(
@@ -513,14 +596,14 @@ export class VfxUpdateSystem implements UpdateSystem {
 			}
 			const baseX = pool.local ? effect.originX : 0;
 			const baseY = pool.local ? effect.originY : 0;
-			const wind =
-				part.wind === 0
-					? 0
-					: part.wind * sampleWind(ecs, baseX, time);
+			const windGain = part.wind;
+			const frame = weatherFrame(ecs);
+			const collision = part.collision;
 			const response =
-				part.collision.mode === "tiles"
-					? part.collision.response
-					: "passThrough";
+				collision.mode === "none"
+					? "passThrough"
+					: collision.response;
+			const raycasting = collision.mode === "raycast";
 			const blocking = precipitationBlocking(part);
 			const collisionCells =
 				response === "passThrough"
@@ -543,23 +626,49 @@ export class VfxUpdateSystem implements UpdateSystem {
 					i++;
 					continue;
 				}
+				const fromX = pool.x[i]!;
+				const fromY = pool.y[i]!;
+				const wind =
+					windGain === 0
+						? 0
+						: windGain *
+							sampleWindFrame(
+								frame,
+								baseX + fromX,
+								baseY + fromY,
+								time,
+							);
 				const vx =
 					pool.vx[i]! + (wind - part.drag * pool.vx[i]!) * dt;
 				const vy =
 					pool.vy[i]! + (part.gravity - part.drag * pool.vy[i]!) * dt;
 				pool.vx[i] = vx;
 				pool.vy[i] = vy;
-				pool.x[i] = pool.x[i]! + vx * dt;
-				pool.y[i] = pool.y[i]! + vy * dt;
+				pool.x[i] = fromX + vx * dt;
+				pool.y[i] = fromY + vy * dt;
 				pool.rotation[i] = pool.rotation[i]! + pool.spin[i]! * dt;
 				if (
 					collisionCells !== null &&
 					pool.reacts(i) &&
-					inBlockingCell(
-						collisionCells,
-						baseX + pool.x[i]!,
-						baseY + pool.y[i]!,
-					)
+					(raycasting
+						? this.collideByRay(
+								ctx,
+								part,
+								pool,
+								i,
+								baseX,
+								baseY,
+								fromX,
+								fromY,
+							)
+						: this.collideByCell(
+								collisionCells,
+								part,
+								pool,
+								i,
+								baseX,
+								baseY,
+							))
 				) {
 					if (response === "rest") {
 						pool.rest(i);
@@ -578,6 +687,144 @@ export class VfxUpdateSystem implements UpdateSystem {
 				i++;
 			}
 		}
+	}
+
+	/**
+	 * Test a particle against the merged tile set and leave its mark if it hit.
+	 *
+	 * A cell test has no contact point and no surface normal, so the mark is laid
+	 * along the direction of travel — which is what a smear looks like anyway, and
+	 * all a settling leaf's ground mark needs.
+	 */
+	private collideByCell(
+		cells: ReadonlySet<number>,
+		part: VfxEmitterPart,
+		pool: VfxPool,
+		i: number,
+		baseX: number,
+		baseY: number,
+	): boolean {
+		const x = baseX + pool.x[i]!;
+		const y = baseY + pool.y[i]!;
+		if (!inBlockingCell(cells, x, y)) {
+			return false;
+		}
+		if (part.decal) {
+			this.store.spawnDecal(
+				part.decal,
+				null,
+				x,
+				y,
+				Math.atan2(pool.vy[i]!, pool.vx[i]!),
+			);
+		}
+		return true;
+	}
+
+	/**
+	 * Cast a particle's whole move segment against the physics world, snap it to
+	 * the surface it hit, and leave its mark there.
+	 *
+	 * This is the mode that can see dynamic bodies, which is what blood needs: a
+	 * spurt has to land on the enemy that was hit, not on the tile behind it. It
+	 * also cannot tunnel — a fast particle that would have skipped over a one-tile
+	 * ledge between two cell tests still finds it along the segment.
+	 *
+	 * A **degenerate hit** — one at the segment's own start — is **not** a
+	 * collision. Every burst fired at an impact point starts on the collider it
+	 * was fired at, so a droplet's first cast reports the surface it was born on;
+	 * treating that as a hit killed the whole spurt on its spawn frame and blood
+	 * never appeared. Ignoring it lets the spray leave the wound, and the droplet
+	 * collides normally on the first segment that actually travels.
+	 */
+	private collideByRay(
+		ctx: UpdateContext,
+		part: VfxEmitterPart,
+		pool: VfxPool,
+		i: number,
+		baseX: number,
+		baseY: number,
+		fromX: number,
+		fromY: number,
+	): boolean {
+		const originX = baseX + fromX;
+		const originY = baseY + fromY;
+		const targetX = baseX + pool.x[i]!;
+		const targetY = baseY + pool.y[i]!;
+		const dx = targetX - originX;
+		const dy = targetY - originY;
+		if (dx * dx + dy * dy < MIN_SEGMENT_SQ) {
+			return false;
+		}
+		this.rayFrom.x = originX;
+		this.rayFrom.y = originY;
+		this.rayTo.x = targetX;
+		this.rayTo.y = targetY;
+		const hit = this.rayHit;
+		if (
+			!ctx.world.raycastInto(
+				this.rayFrom,
+				this.rayTo,
+				NOT_SENSOR,
+				hit,
+			)
+		) {
+			return false;
+		}
+		const travelX = hit.point.x - originX;
+		const travelY = hit.point.y - originY;
+		if (travelX * travelX + travelY * travelY < MIN_SEGMENT_SQ) {
+			return false;
+		}
+		pool.x[i] = hit.point.x - baseX;
+		pool.y[i] = hit.point.y - baseY;
+		if (part.decal) {
+			this.mark(ctx.ecs, part.decal, hit);
+		}
+		return true;
+	}
+
+	/**
+	 * Place the decal a raycast hit earned, in the frame of reference the surface
+	 * deserves: pinned to the world on terrain, and stored as a body-space offset
+	 * on anything dynamic so the smear rides its victim.
+	 *
+	 * A dynamic body with no entity behind it — or one whose transform has already
+	 * gone — falls back to a world-static mark rather than being dropped: a smear
+	 * in the right place that does not follow beats no smear at all.
+	 */
+	private mark(
+		ecs: ReadonlyECS,
+		spec: VfxDecalSpec,
+		hit: MutableRaycastHit,
+	): void {
+		const angle =
+			Math.atan2(hit.normal.y, hit.normal.x) + Math.PI / 2;
+		const body = hit.body;
+		if (!body) {
+			return;
+		}
+		const host = body.userData;
+		if (host !== null && !body.isStatic) {
+			const transform = ecs.getComponent(host, TransformComponent);
+			if (transform) {
+				this.store.spawnDecal(
+					spec,
+					host,
+					hit.point.x - transform.position.x,
+					hit.point.y - transform.position.y,
+					angle,
+				);
+				return;
+			}
+		}
+		this.store.spawnDecal(
+			spec,
+			null,
+			hit.point.x,
+			hit.point.y,
+			angle,
+		);
 	}
 
 	/**
@@ -601,10 +848,9 @@ export class VfxUpdateSystem implements UpdateSystem {
 			return;
 		}
 		const baseX = band.local ? effect.originX : 0;
-		const drift =
-			part.wind === 0
-				? 0
-				: part.wind * sampleWind(ecs, baseX, time) * dt;
+		const baseY = band.local ? effect.originY : 0;
+		const windGain = part.wind;
+		const frame = weatherFrame(ecs);
 		let i = 0;
 		while (i < band.count) {
 			const age = band.age[i]! + dt;
@@ -613,7 +859,18 @@ export class VfxUpdateSystem implements UpdateSystem {
 				continue;
 			}
 			band.age[i] = age;
-			band.x[i] = band.x[i]! + drift;
+			if (windGain !== 0) {
+				band.x[i] =
+					band.x[i]! +
+					windGain *
+						sampleWindFrame(
+							frame,
+							baseX + band.x[i]!,
+							baseY + band.y[i]!,
+							time,
+						) *
+						dt;
+			}
 			i++;
 		}
 	}

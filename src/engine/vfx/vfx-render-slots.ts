@@ -14,10 +14,15 @@
  * as climate and effect ids: a slot is reached through {@link VFX_RENDER_SLOTS},
  * never as a bare `(layer, order)` a call site made up.
  *
- * **The allocation is full: 4 of 4.** If blood or fire needs a fifth, the options
- * are sharing an existing slot and relying on submission order within it, or
- * raising the budget with a *measured* VRAM and fill cost in hand. Do not raise
- * it speculatively.
+ * **The allocation is full: 4 of 4.** Fire shares the entity slot with the loot
+ * beam rather than claiming a fifth, and blood shares the weather slot, because
+ * the authored layer order runs `background, entities, foreground, terrain,
+ * overlay` — **terrain draws after entities**, so a smear in the entity band is
+ * hidden by the tiles it was sprayed onto. Sharing relies on submission order
+ * within a slot: decals draw before pools, so a smear sits under the spurt that
+ * made it. A
+ * fifth claimant either shares an existing slot too, or raises the budget with a
+ * *measured* VRAM and fill cost in hand. Do not raise it speculatively.
  */
 
 /** One allocated slot: where it draws, and what is allowed to draw there. */
@@ -34,7 +39,8 @@ export const VFX_RENDER_SLOTS = [
 	{
 		layer: "overlay",
 		order: 0,
-		contents: "rain, splash, leaves, snow, sand",
+		contents:
+			"rain, splash, leaves, snow, sand, blood and its smears",
 	},
 	{ layer: "overlay", order: 1, contents: "wind-line ribbons" },
 	{
@@ -42,7 +48,11 @@ export const VFX_RENDER_SLOTS = [
 		order: 2,
 		contents: "lightning bolt and its additive glow",
 	},
-	{ layer: "entities", order: 0, contents: "loot beam, helix" },
+	{
+		layer: "entities",
+		order: 0,
+		contents: "loot beam, helix, fire",
+	},
 ] as const satisfies ReadonlyArray<VfxRenderSlot>;
 
 /**

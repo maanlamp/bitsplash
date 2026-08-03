@@ -1,7 +1,9 @@
 import type { EntityId, ReadonlyECS } from "../ecs";
 import { randomRngSeed, rngNext } from "../rng";
 import { EmitterComponent } from "./emitter-component";
+import { VfxDecalRing } from "./vfx-decal-ring";
 import type {
+	VfxDecalSpec,
 	VfxDef,
 	VfxEmitterPart,
 	VfxRibbonPart,
@@ -24,10 +26,12 @@ import { resolveVfxDef } from "./vfx-registry";
  * the VFX doctrine note in `AGENTS.md` for why the state is deliberately
  * non-restorable.
  *
- * Ribbon bands live here for exactly that reason: put anywhere else they would be
- * restorable, and a ribbon's run-state is as cosmetic as a particle's. They
- * inherit the whole property — never captured, never restored, re-derived and
- * seeded by age on thaw.
+ * Ribbon bands and the decal ring live here for exactly that reason: put anywhere
+ * else they would be restorable, and a ribbon's or a smear's run-state is as
+ * cosmetic as a particle's. They inherit the whole property — never captured,
+ * never restored, re-derived and seeded by age on thaw. A save taken mid-fight
+ * comes back with the walls clean; that is the trade the storage model makes, and
+ * the same one that makes editor preview safe.
  */
 
 const FLAG_REACTS = 1;
@@ -205,6 +209,12 @@ export type VfxEffect = {
 	readonly def: VfxDef;
 	/** Whether the effect still emits. False after a burst, a disable, or a host death. */
 	emitting: boolean;
+	/**
+	 * Whether the update system has run this effect's opening burst and seeded its
+	 * steady-state population. False on the frame an effect appears — including one
+	 * added to a runtime entity between frames — and never reset.
+	 */
+	started: boolean;
 	/** Last known host origin in world units, including the emitter's offset. */
 	originX: number;
 	originY: number;
@@ -299,6 +309,13 @@ export class VfxStore {
 	private rng: number;
 
 	/**
+	 * Every decal in this world, capped and recycled. Lives here rather than in
+	 * components for the same reason the pools do: a mark on a wall is cosmetic
+	 * run-state and must be invisible to serialization.
+	 */
+	readonly decals = new VfxDecalRing();
+
+	/**
 	 * @param seed Pinned PRNG seed. Omit for an unpredictable one; pass a fixed
 	 * value in tests that assert on drawn values.
 	 */
@@ -318,9 +335,50 @@ export class VfxStore {
 		return min === max ? min : min + (max - min) * this.random();
 	}
 
-	/** The effect running for a host entity, or `null` when none is. */
+	/** The emitter-driven effect running for a host entity, or `null` when none is. */
 	attachedEffect(host: EntityId): VfxEffect | null {
 		return this.attached.get(host) ?? null;
+	}
+
+	/**
+	 * Leave a mark at an impact, drawing its size, jitter and lifetime from the
+	 * authored spec.
+	 *
+	 * `host` decides the frame of reference: `null` pins `x`/`y` in the world, and
+	 * an entity id makes them a body-space offset from that entity's transform, so
+	 * the mark travels with it. Recycles the oldest decal when the ring is full.
+	 *
+	 * @param angle Surface-derived orientation in radians; the spec's rotation
+	 * range is jitter on top of it.
+	 *
+	 * @example
+	 * store.spawnDecal(part.decal, null, hit.point.x, hit.point.y, surfaceAngle);
+	 */
+	spawnDecal(
+		spec: VfxDecalSpec,
+		host: EntityId | null,
+		x: number,
+		y: number,
+		angle: number,
+	): void {
+		this.decals.add(
+			spec,
+			host,
+			x,
+			y,
+			angle + this.between(spec.rotation.min, spec.rotation.max),
+			this.between(spec.size.min, spec.size.max),
+			this.between(spec.lifetime.min, spec.lifetime.max),
+		);
+	}
+
+	/**
+	 * Drop every decal riding a host — call it the moment a character dies, before
+	 * its entity goes, so a corpse that lingers does not keep wearing its blood
+	 * and a respawn reusing the id inherits none of it.
+	 */
+	clearDecals(host: EntityId): void {
+		this.decals.clearHost(host);
 	}
 
 	/**
@@ -339,6 +397,7 @@ export class VfxStore {
 			host,
 			def,
 			emitting: true,
+			started: false,
 			originX,
 			originY,
 			parts: buildParts(def),
@@ -400,6 +459,7 @@ export class VfxStore {
 	 * The `ecs.onDestroy` hook the update system installs normally handles
 	 * destruction first (turning it into a live-out rather than a drop); this poll
 	 * is the backstop for component removal, which fires no hook at all.
+
 	 */
 	evict(ecs: ReadonlyECS): void {
 		for (const host of this.attached.keys()) {
@@ -492,6 +552,7 @@ export class VfxStore {
 				host: null,
 				def,
 				emitting: false,
+				started: true,
 				originX: x,
 				originY: y,
 				parts: buildParts(def),
@@ -500,6 +561,7 @@ export class VfxStore {
 		spare.originX = x;
 		spare.originY = y;
 		spare.emitting = false;
+		spare.started = true;
 		return spare;
 	}
 
@@ -583,7 +645,7 @@ export class VfxStore {
 			);
 			pool.spin[i] = this.between(part.spin.min, part.spin.max);
 			pool.flags[i] =
-				part.collision.mode === "tiles" &&
+				part.collision.mode !== "none" &&
 				this.random() < part.collision.restChance
 					? FLAG_REACTS
 					: 0;
@@ -592,7 +654,10 @@ export class VfxStore {
 		}
 	}
 
-	/** Every running effect: hosted emitters first, then loose one-shots and remnants. */
+	/**
+	 * Every running effect: authored emitters first, then loose one-shots and
+	 * remnants.
+	 */
 	effects(): ReadonlyArray<VfxEffect> {
 		const out = this.effectScratch;
 		out.length = 0;
@@ -649,8 +714,8 @@ export class VfxStore {
 		return sum;
 	}
 
-	/** Number of loose one-shots and lived-out remnants currently running. */
-	looseCount(): number {
-		return this.loose.length;
+	/** Live decals in this world, across the whole ring. */
+	totalDecals(): number {
+		return this.decals.count;
 	}
 }

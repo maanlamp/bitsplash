@@ -19,6 +19,7 @@ import { PlayerInputComponent } from "../src/game/player/player-input-component"
 import { registerPrefab } from "../src/game/prefabs";
 import { newGameSeed } from "../src/game/runtime/new-game-seed";
 import { toSceneDefinition } from "../src/game/runtime/scene-runtime";
+import { registerVfxContent } from "../src/game/vfx/vfx-catalog";
 import { registerClimateContent } from "../src/game/weather/climate-catalog";
 import { SequenceFixture } from "./support/sequence-harness";
 
@@ -68,6 +69,11 @@ const registerGameContent = async (): Promise<void> => {
 	// second import is a no-op, so a test file that ran earlier and cleared the
 	// registry would leave the demo scene's authored weather override dangling.
 	registerClimateContent();
+	// Same reason, and the only place the shipped effect catalog is validated at
+	// all: every `*.vfx.json` is parsed here, so a mis-authored def, an
+	// unallocated render slot or an id that drifted from VFX_DEF_IDS throws in
+	// `bun check` instead of at the player's first frame.
+	registerVfxContent();
 	for (const path of new Glob(
 		"src/game/content/prefabs/*.prefab.json",
 	).scanSync(REPO_ROOT)) {

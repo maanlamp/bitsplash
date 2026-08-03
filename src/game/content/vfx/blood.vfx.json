@@ -1,0 +1,131 @@
+{
+	"id": "blood",
+	"parts": [
+		{
+			"kind": "emitter",
+			"layer": "overlay",
+			"order": 0,
+			"blend": "normal",
+			"space": "world",
+			"emission": {
+				"rate": 0,
+				"burst": 14
+			},
+			"spawn": {
+				"shape": "point"
+			},
+			"lifetime": {
+				"min": 0.3,
+				"max": 0.7
+			},
+			"size": {
+				"min": 1.5,
+				"max": 3
+			},
+			"speed": {
+				"min": 60,
+				"max": 210
+			},
+			"angle": {
+				"min": -52,
+				"max": 52
+			},
+			"gravity": 620,
+			"drag": 1.5,
+			"rotation": {
+				"min": 0,
+				"max": 360
+			},
+			"spin": {
+				"min": -260,
+				"max": 260
+			},
+			"stretch": 0.014,
+			"collision": {
+				"mode": "raycast",
+				"response": "die",
+				"restChance": 1
+			},
+			"decal": {
+				"layer": "overlay",
+				"order": 0,
+				"blend": "normal",
+				"size": {
+					"min": 4,
+					"max": 10
+				},
+				"aspect": 0.45,
+				"rotation": {
+					"min": -14,
+					"max": 14
+				},
+				"lifetime": {
+					"min": 8,
+					"max": 14
+				},
+				"tracks": {
+					"color": [
+						{
+							"t": 0,
+							"value": "#8c1119"
+						},
+						{
+							"t": 1,
+							"value": "#4a0a0e"
+						}
+					],
+					"alpha": [
+						{
+							"t": 0,
+							"value": 0.85
+						},
+						{
+							"t": 0.75,
+							"value": 0.7
+						},
+						{
+							"t": 1,
+							"value": 0
+						}
+					]
+				}
+			},
+			"tracks": {
+				"color": [
+					{
+						"t": 0,
+						"value": "#c4141f"
+					},
+					{
+						"t": 1,
+						"value": "#7d0d14"
+					}
+				],
+				"scale": [
+					{
+						"t": 0,
+						"value": 1
+					},
+					{
+						"t": 1,
+						"value": 0.55
+					}
+				],
+				"alpha": [
+					{
+						"t": 0,
+						"value": 1
+					},
+					{
+						"t": 0.7,
+						"value": 1
+					},
+					{
+						"t": 1,
+						"value": 0
+					}
+				]
+			}
+		}
+	]
+}

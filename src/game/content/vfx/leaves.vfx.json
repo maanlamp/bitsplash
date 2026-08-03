@@ -25,6 +25,23 @@
 				"response": "rest",
 				"restChance": 0.4
 			},
+			"decal": {
+				"layer": "overlay",
+				"order": 0,
+				"blend": "normal",
+				"size": { "min": 3, "max": 5 },
+				"aspect": 0.45,
+				"rotation": { "min": -14, "max": 14 },
+				"lifetime": { "min": 1.4, "max": 2.4 },
+				"tracks": {
+					"color": [{ "t": 0, "value": "#5e7f3a" }],
+					"alpha": [
+						{ "t": 0, "value": 0.5 },
+						{ "t": 0.55, "value": 0.4 },
+						{ "t": 1, "value": 0 }
+					]
+				}
+			},
 			"tracks": {
 				"color": [{ "t": 0, "value": "#7fae4e" }],
 				"alpha": [
@@ -58,6 +75,23 @@
 				"cells": "solid",
 				"response": "rest",
 				"restChance": 0.4
+			},
+			"decal": {
+				"layer": "overlay",
+				"order": 0,
+				"blend": "normal",
+				"size": { "min": 2.5, "max": 4 },
+				"aspect": 0.45,
+				"rotation": { "min": -14, "max": 14 },
+				"lifetime": { "min": 1.2, "max": 2.2 },
+				"tracks": {
+					"color": [{ "t": 0, "value": "#a4762a" }],
+					"alpha": [
+						{ "t": 0, "value": 0.5 },
+						{ "t": 0.55, "value": 0.4 },
+						{ "t": 1, "value": 0 }
+					]
+				}
 			},
 			"tracks": {
 				"color": [{ "t": 0, "value": "#d9a03c" }],

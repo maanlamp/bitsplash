@@ -5,12 +5,7 @@ import {
 	type LoadedFont,
 } from "../load";
 import type { Mutable } from "../mutable";
-import {
-	applyCompositeBlend,
-	applyQuadBlend,
-	BlendMode,
-	type QuadBlend,
-} from "../render/blend";
+import { applyQuadBlend, type QuadBlend } from "../render/blend";
 import {
 	type ColorInput,
 	ColorResolver,
@@ -601,8 +596,6 @@ type LayerState = {
 	used: boolean;
 	idle: number;
 	scratch: RenderTarget;
-	blend: BlendMode;
-	opacity: number;
 	/**
 	 * False once the layer has queued a command whose result depends on what
 	 * the layer is drawn over — an `"additive"` quad, or a raw callback that
@@ -1074,8 +1067,6 @@ export default class Renderer2D {
 				used: false,
 				idle: 0,
 				scratch: this.createRenderTarget(),
-				blend: BlendMode.NORMAL,
-				opacity: 1,
 				selfContained: true,
 			};
 			this.layers.set(id, layer);
@@ -1085,10 +1076,20 @@ export default class Renderer2D {
 		return layer;
 	}
 
-	setLayerBlend(id: number, blend: BlendMode, opacity = 1): void {
-		const layer = this.getLayer(id);
-		layer.blend = blend;
-		layer.opacity = opacity;
+	/**
+	 * Set the blend state every composite blit runs under: premultiplied
+	 * source-over.
+	 *
+	 * Layer scratch targets hold premultiplied colour — the per-quad fills
+	 * accumulate coverage into them — so compositing one is `ONE` over
+	 * `ONE_MINUS_SRC_ALPHA`, not the straight-alpha pair the fills themselves
+	 * use. Blend is a per-draw property now (see `applyQuadBlend`); the composite
+	 * has exactly this one mode and no caller may vary it.
+	 */
+	private sourceOver(): void {
+		const gl = this.gl;
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 	}
 
 	private ensureQuadCapacity(): void {
@@ -1946,12 +1947,11 @@ export default class Renderer2D {
 	 * Composite this frame's layers into `target`, in ascending layer id.
 	 *
 	 * A layer only needs a render target of its own when its result must exist
-	 * as a finished image before it can be combined — when it carries a
-	 * non-`NORMAL` {@link BlendMode}, a sub-1 opacity, or a command whose
-	 * output depends on what lies beneath it (see
+	 * as a finished image before it can be combined — when it carries a command
+	 * whose output depends on what lies beneath it (see
 	 * {@link LayerState.selfContained}). Every other layer draws straight into
-	 * `target`, which is exact because both the per-quad and the `NORMAL`
-	 * composite blend are source-over, and source-over is associative. That
+	 * `target`, which is exact because both the per-quad and the composite
+	 * blend are source-over, and source-over is associative. That
 	 * saves a full-viewport clear and a full-viewport blit per layer — the
 	 * dominant cost of a frame with little else in it.
 	 *
@@ -1995,10 +1995,7 @@ export default class Renderer2D {
 			if (layer.commands.length === 0) {
 				continue;
 			}
-			const offscreen =
-				!layer.selfContained ||
-				layer.blend !== BlendMode.NORMAL ||
-				layer.opacity < 1;
+			const offscreen = !layer.selfContained;
 			const fbo = offscreen ? layer.scratch.fbo : target.fbo;
 			if (offscreen) {
 				layer.scratch.resize(texW, texH);
@@ -2015,8 +2012,8 @@ export default class Renderer2D {
 			if (offscreen) {
 				gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
 				gl.viewport(0, 0, texW, texH);
-				applyCompositeBlend(gl, layer.blend);
-				this.drawBlit(layer.scratch.tex, layer.opacity, -1, 1, 1, -1);
+				this.sourceOver();
+				this.drawBlit(layer.scratch.tex, 1, -1, 1, 1, -1);
 			}
 		}
 		this.clipStack.length = 0;
@@ -2601,14 +2598,14 @@ export default class Renderer2D {
 		const right = ((dest.x + dest.w) / vw) * 2 - 1;
 		const top = 1 - (dest.y / vh) * 2;
 		const bottom = 1 - ((dest.y + dest.h) / vh) * 2;
-		applyCompositeBlend(gl, BlendMode.NORMAL);
+		this.sourceOver();
 		for (const target of targets) {
 			this.drawBlit(target.tex, 1, left, top, right, bottom);
 		}
 
 		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.viewport(0, 0, vw, vh);
-		applyCompositeBlend(gl, BlendMode.NORMAL);
+		this.sourceOver();
 		this.drawBlit(present.tex, 1, -1, 1, 1, -1);
 	}
 

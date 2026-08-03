@@ -1,12 +1,17 @@
 import type { KeyframesColor } from "../animation/keyframes";
+import type AssetManager from "../assets";
+import type { Seconds } from "../duration";
+import type { ReadonlyECS } from "../ecs";
 import type { MutableRGBA } from "../render/color-resolver";
 import { resolveRenderLayer } from "../render/render-layers";
-import type Renderer2D from "../render/renderer-2d";
 import type { QuadBlend } from "../render/blend";
+import type Renderer2D from "../render/renderer-2d";
+import type { TileSource } from "../render/renderer-2d";
 import { drawRibbon, type RibbonProfile } from "../render/ribbon";
 import { type RenderContext, RenderSystem } from "../system";
+import { TransformComponent } from "../transform-component";
 import { ambientTime } from "../weather/ambient-clock";
-import { sampleWind } from "../weather/sample-wind";
+import { sampleWindFrame } from "../weather/sample-wind";
 import { weatherFrame } from "../weather/weather-frame";
 import {
 	generateRibbonPath,
@@ -14,8 +19,8 @@ import {
 } from "./ribbon-path";
 import type {
 	VfxEmitterPart,
-	VfxPart,
 	VfxRibbonPart,
+	VfxRibbonPulse,
 } from "./vfx-def";
 import type {
 	VfxEffect,
@@ -24,6 +29,12 @@ import type {
 	VfxStore,
 } from "./vfx-store";
 import { vfxWeatherInfluence } from "./vfx-weather-influence";
+
+/**
+ * Anything that names a render slot: a part, or the decal spec hanging off one.
+ * Both are frozen def data, so the resolved layer memoizes against the object.
+ */
+type VfxSlotRef = Readonly<{ layer: string; order: number }>;
 
 /**
  * Draws every particle pool and ribbon band in the store.
@@ -48,14 +59,21 @@ import { vfxWeatherInfluence } from "./vfx-weather-influence";
  * grow once and are reused, and the {@link RibbonProfile} handed to `drawRibbon`
  * is a single long-lived object reading scratch fields — a closure per ribbon
  * per frame would allocate through the whole band.
+ *
+ * Decals draw first, before any pool or band, so a smear sits under the particles
+ * that made it wherever the two share a slot.
  */
 export class VfxRenderSystem implements RenderSystem {
-	private readonly slots = new Map<VfxPart, number>();
+	private readonly slots = new Map<VfxSlotRef, number>();
 	private readonly px: number[] = [0, 0, 0, 0];
 	private readonly py: number[] = [0, 0, 0, 0];
 	private readonly tint: MutableRGBA = [1, 1, 1, 1];
 	private readonly pathX: number[] = [];
 	private readonly pathY: number[] = [];
+	/** Corner UVs, in the renderer's TL, TR, BR, BL order: always the whole image. */
+	private readonly uv: ReadonlyArray<number> = [
+		0, 0, 1, 0, 1, 1, 0, 1,
+	];
 
 	/** Scratch state the ribbon profile reads, written per ribbon before the draw. */
 	private ribbonPart: VfxRibbonPart | null = null;
@@ -69,8 +87,10 @@ export class VfxRenderSystem implements RenderSystem {
 	private readonly quadOpts = {
 		px: this.px,
 		py: this.py,
+		uv: this.uv,
 		tint: this.tint,
 		blend: "normal" as QuadBlend,
+		image: undefined as TileSource | undefined,
 	};
 
 	private readonly ribbonInput: MutableRibbonPathInput = {
@@ -114,12 +134,13 @@ export class VfxRenderSystem implements RenderSystem {
 
 	constructor(readonly store: VfxStore) {}
 
-	render({ renderer, ecs }: RenderContext): void {
+	render({ renderer, ecs, assetManager }: RenderContext): void {
+		this.slots.clear();
+		this.drawDecals(renderer, ecs, assetManager);
 		const effects = this.store.effects();
 		if (effects.length === 0) {
 			return;
 		}
-		this.slots.clear();
 		const time = ambientTime(ecs);
 		const weather = weatherFrame(ecs);
 		for (const effect of effects) {
@@ -130,11 +151,11 @@ export class VfxRenderSystem implements RenderSystem {
 					}
 					this.drawBand(
 						renderer,
+						ecs,
 						this.slot(ecs, state.part),
 						effect,
 						state.part,
 						state.band,
-						sampleWind(ecs, effect.originX, time),
 						vfxWeatherInfluence(state.part.weather, weather),
 						time,
 					);
@@ -149,33 +170,112 @@ export class VfxRenderSystem implements RenderSystem {
 					effect,
 					state.part,
 					state.pool,
+					assetManager,
 				);
 			}
 		}
 	}
 
-	/** The resolved layer id for a part, memoized for the frame. */
-	private slot(ecs: RenderContext["ecs"], part: VfxPart): number {
-		const cached = this.slots.get(part);
+	/**
+	 * The resolved layer id for anything that names a slot — a part, or the decal
+	 * spec hanging off one — memoized for the frame.
+	 *
+	 * Keyed by the authored object itself: parts and decal specs are frozen def
+	 * data, so identity is stable for as long as the catalog is, and the lookup
+	 * builds no key string per call.
+	 */
+	private slot(ecs: ReadonlyECS, slot: VfxSlotRef): number {
+		const cached = this.slots.get(slot);
 		if (cached !== undefined) {
 			return cached;
 		}
-		const resolved = resolveRenderLayer(ecs, part.layer, part.order);
-		this.slots.set(part, resolved);
+		const resolved = resolveRenderLayer(ecs, slot.layer, slot.order);
+		this.slots.set(slot, resolved);
 		return resolved;
 	}
 
+	/**
+	 * Draw the decal ring: every live mark, as one oriented quad.
+	 *
+	 * An attached decal resolves against its host's transform here rather than
+	 * being written back into the ring, so it tracks a moving body for free and a
+	 * host that vanished between the update sweep and this draw simply skips a
+	 * frame instead of drawing at the origin.
+	 */
+	private drawDecals(
+		renderer: Renderer2D,
+		ecs: ReadonlyECS,
+		assetManager: AssetManager,
+	): void {
+		const ring = this.store.decals;
+		if (ring.count === 0) {
+			return;
+		}
+		for (let i = 0; i < ring.capacity; i++) {
+			const spec = ring.spec[i];
+			if (!spec) {
+				continue;
+			}
+			let x = ring.x[i]!;
+			let y = ring.y[i]!;
+			const host = ring.host[i] ?? null;
+			if (host !== null) {
+				const transform = ecs.getComponent(host, TransformComponent);
+				if (!transform) {
+					continue;
+				}
+				x += transform.position.x;
+				y += transform.position.y;
+			}
+			const image = spec.texture
+				? loadedImage(assetManager, spec.texture)
+				: undefined;
+			if (spec.texture && !image) {
+				continue;
+			}
+			const t = ring.age[i]! / ring.life[i]!;
+			const { alpha, color } = spec.tracks;
+			sampleTint(this.tint, color, t, alpha ? alpha.sample(t) : 1);
+			this.corners(
+				x,
+				y,
+				ring.halfWidth[i]!,
+				ring.halfHeight[i]!,
+				ring.rotation[i]!,
+			);
+			this.quadOpts.blend = spec.blend;
+			this.quadOpts.image = image;
+			renderer.drawCornerQuad(this.slot(ecs, spec), this.quadOpts);
+		}
+	}
+
+	/**
+	 * Draw one pool.
+	 *
+	 * The texture is resolved **once** for the whole pool: `getImage` is a map
+	 * lookup that also kicks off a load, and doing either per particle would be
+	 * both wasteful and wrong. A part whose texture has not finished loading draws
+	 * nothing this frame rather than a field of white squares.
+	 */
 	private drawPool(
 		renderer: Renderer2D,
 		layer: number,
 		effect: VfxEffect,
 		part: VfxEmitterPart,
 		pool: VfxPool,
+		assetManager: AssetManager,
 	): void {
+		const image = part.texture
+			? loadedImage(assetManager, part.texture)
+			: undefined;
+		if (part.texture && !image) {
+			return;
+		}
 		const baseX = pool.local ? effect.originX : 0;
 		const baseY = pool.local ? effect.originY : 0;
 		const { scale, alpha, color, rotation } = part.tracks;
 		this.quadOpts.blend = part.blend;
+		this.quadOpts.image = image;
 		for (let i = 0; i < pool.count; i++) {
 			const t = pool.age[i]! / pool.life[i]!;
 			sampleTint(this.tint, color, t, alpha ? alpha.sample(t) : 1);
@@ -205,19 +305,23 @@ export class VfxRenderSystem implements RenderSystem {
 	 * The weather influence multiplies the drawn alpha as well as the band's
 	 * population, so a wind line fades in as the gale builds rather than popping
 	 * into existence at full strength the frame the count reaches one.
+	 *
+	 * Each ribbon samples the wind at its own position, so a band spread across
+	 * the view leans with the gust cell passing over it rather than as one board.
 	 */
 	private drawBand(
 		renderer: Renderer2D,
+		ecs: RenderContext["ecs"],
 		layer: number,
 		effect: VfxEffect,
 		part: VfxRibbonPart,
 		band: VfxRibbonBand,
-		wind: number,
 		influence: number,
-		time: number,
+		time: Seconds,
 	): void {
 		const baseX = band.local ? effect.originX : 0;
 		const baseY = band.local ? effect.originY : 0;
+		const frame = weatherFrame(ecs);
 		const points = part.segments + 1;
 		this.pathX.length = points;
 		this.pathY.length = points;
@@ -233,14 +337,16 @@ export class VfxRenderSystem implements RenderSystem {
 				(alpha ? alpha.sample(t) : 1) * influence,
 			);
 			this.ribbonWidth =
-				part.width.base * (scale ? scale.sample(t) : 1);
+				part.width.base *
+				(scale ? scale.sample(t) : 1) *
+				pulseFactor(part.pulse, band.seed[i]!, time);
 			const input = this.ribbonInput;
 			input.x = baseX + band.x[i]!;
 			input.y = baseY + band.y[i]!;
 			input.length = band.length[i]!;
 			input.age = t;
 			input.seed = band.seed[i]!;
-			input.wind = wind;
+			input.wind = sampleWindFrame(frame, input.x, input.y, time);
 			input.time = time;
 			input.points = points;
 			generateRibbonPath(part.path, input, this.pathX, this.pathY);
@@ -278,6 +384,37 @@ export class VfxRenderSystem implements RenderSystem {
 		this.py[3] = y - uy + ly;
 	}
 }
+
+/**
+ * A part's or a decal's texture, or `undefined` while it is still loading.
+ *
+ * `getImage` starts the load on its first miss and returns nothing until it
+ * lands, so calling it every frame is both the request and the poll.
+ */
+const loadedImage = (
+	assetManager: AssetManager,
+	url: string,
+): HTMLImageElement | undefined => {
+	const image = assetManager.getImage(url);
+	return image ? image : undefined;
+};
+
+/**
+ * The pulse's width multiplier this frame: its curve read at the ribbon's phase,
+ * which is the ambient clock scaled by the pulse rate and offset by the ribbon's
+ * own seed. Sampled, never ticked — see {@link VfxRibbonPulse}.
+ */
+const pulseFactor = (
+	pulse: VfxRibbonPulse | null,
+	seed: number,
+	time: number,
+): number => {
+	if (!pulse) {
+		return 1;
+	}
+	const phase = time * pulse.rate + seed * pulse.spread;
+	return pulse.curve.sample(phase - Math.floor(phase));
+};
 
 /**
  * The width multiplier at arc position `t`: full in the middle, ramping from

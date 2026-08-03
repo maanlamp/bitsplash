@@ -113,7 +113,7 @@ const idSeed = (entity: EntityId): number => {
  *
  * @example
  * const t = (ambientTime(ecs) + foliageSwayPhase(id)) as Seconds;
- * const wind = sampleWind(ecs, transform.position.x, t);
+ * const wind = sampleWind(ecs, position.x, position.y, t);
  */
 export const foliageSwayPhase = (entity: EntityId): Seconds =>
 	(hashUnit(idSeed(entity), PHASE_SALT) *
