@@ -1,37 +1,27 @@
-import type {
-	BlendId,
-	BspritePoint,
-} from "../../engine/sprite/bsprite-manifest";
+import type { BlendId } from "../../engine/sprite/bsprite-manifest";
 import { loadImage } from "../../engine/load";
 import { Subscribable } from "../subscribable";
 import { type LayerInput, compositeFrame } from "./bake-compositor";
-import {
-	type BspriteArchive,
-	describeArchive,
-	unpackBsprite,
-} from "./bsprite-loader";
-import type { DocumentSnapshot } from "./bsprite-writer";
 import { canvasNativeBlend } from "./canvas-native-blend";
-import {
-	CelStore,
-	type CelStoreDescription,
-	type FrameSnapshot,
-	type LayerSnapshot,
-	type StrokeSnapshot,
-} from "./cel-store";
+import type { CelStoreDescription } from "./cel-store";
 import { type PixelBuffer, blankPixels } from "./pixel-buffer";
+import { SpriteEditCore } from "./sprite-edit-core";
 import {
 	type StrokeMode,
 	commitStrokeBuffer,
 	stampStrokePixel,
 } from "./stroke-buffer";
-import type { BspriteTag } from "../../engine/sprite/bsprite-manifest";
 
 export type {
 	LayerSnapshot,
 	FrameSnapshot,
 	StrokeSnapshot,
 } from "./cel-store";
+
+export type {
+	SelectionBridge,
+	SelectionSnapshot,
+} from "./sprite-edit-core";
 
 /**
  * A read-only view of a layer for the UI: its metadata plus a canvas that
@@ -46,28 +36,6 @@ export type LayerView = Readonly<{
 	blend: BlendId;
 	opacity: number;
 	visible: boolean;
-}>;
-
-/**
- * An opaque capture of the editor's selection state, restored on undo so that
- * undoing an edit also restores the marquee/floating selection that was active
- * when it ran.
- *
- * Selection is Phase 3 and does not exist yet; this is an opaque placeholder the
- * undo system already threads through so the interaction lands for free when the
- * selection suite is built. Phase 3 replaces it with the real mask type.
- */
-export type SelectionSnapshot = Readonly<Record<string, unknown>>;
-
-/**
- * The bridge the (Phase 3) selection system registers so the undo stack can
- * snapshot and restore selection state without the document knowing what a
- * selection is. Inert until {@link SpriteDocument.registerSelectionBridge} is
- * called with a real implementation.
- */
-export type SelectionBridge = Readonly<{
-	capture: () => SelectionSnapshot | null;
-	restore: (snapshot: SelectionSnapshot | null) => void;
 }>;
 
 type Surface = {
@@ -88,29 +56,32 @@ const createCanvas = (width: number, height: number): Surface => {
 };
 
 /**
- * The sprite editor's document: a DOM shell around a canvas-free {@link CelStore}
- * (layers × frames of pixel cels, plus tags and the editing cursor). It owns the
- * **stable composite canvas** the renderer caches by, the per-layer thumbnail
- * canvases, the live stroke buffer/preview, and change notifications; the model
- * itself — every structural edit, its inverse, and whole-image transforms — lives
- * in the store.
+ * The sprite editor's document: the **pixels-on-a-surface** half of sprite
+ * editing, wrapped around the canvas-free {@link SpriteEditCore} it owns and
+ * exposes as {@link core}. It owns the stable composite canvas the renderer
+ * caches by, the per-layer thumbnail canvases, and the live stroke buffer with
+ * its preview; every cel/layer/frame/tag/attachment edit, the editing cursor and
+ * the undo choke-point hooks live on the core, and tools and commands go there.
  *
  * Invariants:
  * - `canvas` is the **same** {@link HTMLCanvasElement} for the document's whole
  *   life. Recompositing draws the active frame into it in place; a rotate resizes
  *   the same element rather than replacing it, so renderer caches keyed on the
  *   object stay valid.
- * - The composite shows the **active frame**: all visible layers' cels for
- *   `activeFrameIndex`, through blend/opacity, via the same compositor the bake
+ * - The composite shows the **active frame**: all visible layers' cels for the
+ *   core's active frame, through blend/opacity, via the same compositor the bake
  *   uses (so preview and bake agree).
+ * - Every core notification is mirrored to this document's own subscribers, and
+ *   only after the canvas has caught up with it — so a subscriber that reads
+ *   `canvas` on change never sees stale pixels.
  */
 export class SpriteDocument extends Subscribable {
-	private store: CelStore;
+	readonly core: SpriteEditCore;
 	private composite: HTMLCanvasElement;
 	private compositeCtx: CanvasRenderingContext2D;
 	private thumbs = new Map<string, Surface>();
-	private _dirty = false;
-	private _dimensionsVersion = 0;
+	private seenPixelVersion: number;
+	private seenDimensionsVersion: number;
 	private strokeBuffer: PixelBuffer | null = null;
 	private strokeMode: StrokeMode | null = null;
 	private strokeColor = { r: 0, g: 0, b: 0 };
@@ -118,20 +89,22 @@ export class SpriteDocument extends Subscribable {
 	private strokeOpacityScale = 1;
 	private probedCss: string | null = null;
 	private probeCtx: CanvasRenderingContext2D | null = null;
-	private floatingCommit: (() => void) | null = null;
-	private selectionBridge: SelectionBridge | null = null;
-	private baseArchive: BspriteArchive | null = null;
-	private dirtyCels = new Set<string>();
-	private dirtyBakes = new Set<number>();
-	private structurallyDirty = false;
 
-	constructor(width: number, height: number) {
+	constructor(core: SpriteEditCore) {
 		super();
-		this.store = new CelStore(width, height);
-		const { canvas, ctx } = createCanvas(width, height);
+		this.core = core;
+		this.seenPixelVersion = core.pixelVersion;
+		this.seenDimensionsVersion = core.dimensionsVersion;
+		const { canvas, ctx } = createCanvas(core.width, core.height);
 		this.composite = canvas;
 		this.compositeCtx = ctx;
 		this.recomposite();
+		core.subscribe(this.onCoreChanged);
+	}
+
+	/** A blank document of the given size (the new-sprite path). */
+	static create(width: number, height: number): SpriteDocument {
+		return new SpriteDocument(SpriteEditCore.create(width, height));
 	}
 
 	/** Load a legacy PNG as a single layer, single frame (one cel). */
@@ -139,45 +112,27 @@ export class SpriteDocument extends Subscribable {
 		const image = await loadImage(url);
 		const width = image.naturalWidth;
 		const height = image.naturalHeight;
-		const doc = new SpriteDocument(width, height);
 		const { ctx } = createCanvas(width, height);
 		ctx.drawImage(image, 0, 0);
-		doc.store.putCel(
-			doc.store.activeLayerId,
-			0,
-			ctx.getImageData(0, 0, width, height),
+		return new SpriteDocument(
+			SpriteEditCore.fromSingleCel(
+				ctx.getImageData(0, 0, width, height),
+			),
 		);
-		doc.recomposite();
-		return doc;
 	}
 
 	/**
 	 * Construct a multi-frame document from a manifest-like description — the path
-	 * `.bsprite` load (step 15) and the `.aseprite` importer (step 18b) build a
-	 * document with, bypassing the timeline. See {@link CelStore.fromDescription}.
+	 * the `.aseprite`/`.ora`/`.pdn` importers build a document with, bypassing the
+	 * timeline. See {@link SpriteEditCore.fromDescription}.
 	 */
 	static fromDescription(desc: CelStoreDescription): SpriteDocument {
-		const store = CelStore.fromDescription(desc);
-		const doc = new SpriteDocument(store.width, store.height);
-		doc.store = store;
-		doc.recomposite();
-		return doc;
+		return new SpriteDocument(SpriteEditCore.fromDescription(desc));
 	}
 
-	/**
-	 * Load a `.bsprite` archive into a multi-frame document: decode every cel PNG
-	 * into the cel model ({@link describeArchive}) and retain the raw archive as
-	 * the save baseline, so the next save copies unchanged cel/bake PNGs
-	 * byte-verbatim (dirty-frame tracking). The engine's baked frames are ignored
-	 * — the editor rebakes from cels on save.
-	 */
+	/** Load a `.bsprite` archive. See {@link SpriteEditCore.fromBsprite}. */
 	static fromBsprite(bytes: Uint8Array): SpriteDocument {
-		const entries = unpackBsprite(bytes);
-		const doc = SpriteDocument.fromDescription(
-			describeArchive(entries),
-		);
-		doc.baseArchive = entries;
-		return doc;
+		return new SpriteDocument(SpriteEditCore.fromBsprite(bytes));
 	}
 
 	get canvas(): HTMLCanvasElement {
@@ -185,29 +140,30 @@ export class SpriteDocument extends Subscribable {
 	}
 
 	get width(): number {
-		return this.store.width;
+		return this.core.width;
 	}
 
 	get height(): number {
-		return this.store.height;
+		return this.core.height;
 	}
 
 	/**
-	 * A monotonically increasing counter bumped whenever the canvas dimensions
-	 * change (a rotate). Consumers that cache bounds derived from `width`/`height`
-	 * read this to know to re-read; the composite canvas object identity is stable
-	 * across the change, so pixel caches keyed on it need no re-subscription.
+	 * The core's {@link SpriteEditCore.dimensionsVersion}. Consumers that cache
+	 * bounds derived from `width`/`height` read this to know to re-read; the
+	 * composite canvas object identity is stable across the change, so pixel
+	 * caches keyed on it need no re-subscription.
 	 */
 	get dimensionsVersion(): number {
-		return this._dimensionsVersion;
+		return this.core.dimensionsVersion;
 	}
 
+	/** The core's dirty flag — the editor shell's editable-document contract. */
 	get dirty(): boolean {
-		return this._dirty;
+		return this.core.dirty;
 	}
 
 	get layers(): ReadonlyArray<LayerView> {
-		return this.store.layers.map((layer) => ({
+		return this.core.layers.map((layer) => ({
 			id: layer.id,
 			name: layer.name,
 			canvas: this.thumbs.get(layer.id)!.canvas,
@@ -215,358 +171,6 @@ export class SpriteDocument extends Subscribable {
 			opacity: layer.opacity,
 			visible: layer.visible,
 		}));
-	}
-
-	get frames(): ReadonlyArray<Readonly<{ duration: number }>> {
-		return this.store.frames;
-	}
-
-	get tags(): ReadonlyArray<BspriteTag> {
-		return this.store.tags;
-	}
-
-	get activeLayerId(): string {
-		return this.store.activeLayerId;
-	}
-
-	get activeFrameIndex(): number {
-		return this.store.activeFrameIndex;
-	}
-
-	setActiveLayer(id: string): void {
-		if (id === this.store.activeLayerId) {
-			return;
-		}
-		this.commitPendingFloatingEdit();
-		this.store.setActiveLayer(id);
-		this.notify();
-	}
-
-	setActiveFrame(index: number): void {
-		if (index === this.store.activeFrameIndex) {
-			return;
-		}
-		this.commitPendingFloatingEdit();
-		this.store.setActiveFrame(index);
-		this.recomposite();
-		this.notify();
-	}
-
-	layerIndex(id: string): number {
-		return this.store.layerIndex(id);
-	}
-
-	blankLayerSnapshot(): LayerSnapshot {
-		return this.store.blankLayerSnapshot();
-	}
-
-	snapshotLayer(id: string): LayerSnapshot | null {
-		return this.store.snapshotLayer(id);
-	}
-
-	insertLayer(snapshot: LayerSnapshot, index: number): void {
-		this.store.insertLayer(snapshot, index);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	removeLayer(id: string): void {
-		this.store.removeLayer(id);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	setLayerOrder(ids: ReadonlyArray<string>): void {
-		this.store.setLayerOrder(ids);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	renameLayer(id: string, name: string): void {
-		this.store.renameLayer(id, name);
-		this.markDirty();
-	}
-
-	setBlend(id: string, blend: BlendId): void {
-		this.store.setBlend(id, blend);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	setOpacity(id: string, opacity: number): void {
-		this.store.setOpacity(id, opacity);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	setVisible(id: string, visible: boolean): void {
-		this.store.setVisible(id, visible);
-		this.recomposite();
-		this.markBakesDirty();
-		this.markDirty();
-	}
-
-	insertFrame(index: number, duration: number): void {
-		this.store.insertFrame(index, duration);
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	removeFrame(index: number): FrameSnapshot {
-		const snapshot = this.store.removeFrame(index);
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-		return snapshot;
-	}
-
-	peekFrame(index: number): FrameSnapshot {
-		return this.store.peekFrame(index);
-	}
-
-	insertFrameSnapshot(index: number, snapshot: FrameSnapshot): void {
-		this.store.insertFrameSnapshot(index, snapshot);
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	duplicateFrame(index: number): void {
-		this.store.duplicateFrame(index);
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	moveFrame(from: number, to: number): void {
-		this.store.moveFrame(from, to);
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	setFrameDuration(index: number, duration: number): void {
-		this.store.setFrameDuration(index, duration);
-		this.markDirty();
-	}
-
-	/** The pixels of a (layer, frame) cel, or `null` when the cel is absent. */
-	getCel(layerId: string, frame: number): PixelBuffer | null {
-		return this.store.getCel(layerId, frame);
-	}
-
-	/**
-	 * Overwrite (or, with `null`, clear) a cel — the restore primitive the
-	 * cel-move inverse uses. Recomposites, marks the cel and its bake dirty.
-	 */
-	setCel(
-		layerId: string,
-		frame: number,
-		pixels: PixelBuffer | null,
-	): void {
-		this.store.setCel(layerId, frame, pixels);
-		this.recomposite();
-		this.markCelDirty(layerId, frame);
-		this.markDirty();
-	}
-
-	/**
-	 * Move (or, when `copy`, clone) the source cel's pixels into the destination
-	 * cel. Recomposites and marks both cels (and their bakes) dirty. See
-	 * {@link CelStore.moveCel}; the undoable command is `cel-commands.ts`.
-	 */
-	moveCel(
-		srcLayerId: string,
-		srcFrame: number,
-		dstLayerId: string,
-		dstFrame: number,
-		copy: boolean,
-	): void {
-		this.store.moveCel(
-			srcLayerId,
-			srcFrame,
-			dstLayerId,
-			dstFrame,
-			copy,
-		);
-		this.recomposite();
-		this.markCelDirty(srcLayerId, srcFrame);
-		this.markCelDirty(dstLayerId, dstFrame);
-		this.markDirty();
-	}
-
-	appendTag(tag: BspriteTag): void {
-		this.store.appendTag(tag);
-		this.markDirty();
-	}
-
-	insertTag(index: number, tag: BspriteTag): void {
-		this.store.insertTag(index, tag);
-		this.markDirty();
-	}
-
-	removeTag(index: number): BspriteTag | null {
-		const tag = this.store.removeTag(index);
-		this.markDirty();
-		return tag;
-	}
-
-	renameTag(index: number, name: string): void {
-		this.store.renameTag(index, name);
-		this.markDirty();
-	}
-
-	setTagRange(index: number, from: number, to: number): void {
-		this.store.setTagRange(index, from, to);
-		this.markDirty();
-	}
-
-	setTagLoop(index: number, loop: boolean): void {
-		this.store.setTagLoop(index, loop);
-		this.markDirty();
-	}
-
-	replaceTags(tags: readonly BspriteTag[]): void {
-		this.store.replaceTags(tags);
-		this.markDirty();
-	}
-
-	/** The attachment-point names present in the document, in insertion order. */
-	attachmentNames(): readonly string[] {
-		return this.store.attachmentNames();
-	}
-
-	/** The point for a name on a frame, or `undefined` when absent. */
-	attachmentPoint(
-		name: string,
-		frame: number,
-	): BspritePoint | undefined {
-		return this.store.attachmentPoint(name, frame);
-	}
-
-	/** A clone of every per-frame point stored under a name (for delete undo). */
-	attachmentFrames(
-		name: string,
-	): Readonly<Record<string, BspritePoint>> | undefined {
-		return this.store.attachmentFrames(name);
-	}
-
-	/** Create an empty attachment name (metadata-only edit). */
-	createAttachment(name: string): void {
-		this.store.createAttachment(name);
-		this.markDirty();
-	}
-
-	/** Delete an attachment name and all its per-frame points. */
-	deleteAttachment(name: string): void {
-		this.store.deleteAttachment(name);
-		this.markDirty();
-	}
-
-	/** Restore a captured attachment name — the delete inverse. */
-	restoreAttachment(
-		name: string,
-		frames: Readonly<Record<string, BspritePoint>>,
-	): void {
-		this.store.restoreAttachment(name, frames);
-		this.markDirty();
-	}
-
-	/** Rename an attachment name, preserving its points. */
-	renameAttachment(from: string, to: string): void {
-		this.store.renameAttachment(from, to);
-		this.markDirty();
-	}
-
-	/** Set (or move) the point for a name on a frame. */
-	setAttachmentPoint(
-		name: string,
-		frame: number,
-		point: BspritePoint,
-	): void {
-		this.store.setAttachmentPoint(name, frame, point);
-		this.markDirty();
-	}
-
-	/** Clear the point for a name on a frame; the name is kept. */
-	clearAttachmentPoint(name: string, frame: number): void {
-		this.store.clearAttachmentPoint(name, frame);
-		this.markDirty();
-	}
-
-	/**
-	 * Mirror the whole image horizontally: flips every cel across all frames as
-	 * one edit. Its own inverse; dimensions unchanged.
-	 */
-	flipHorizontal(): void {
-		this.store.flipHorizontal();
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	/** Mirror the whole image vertically; its own inverse. */
-	flipVertical(): void {
-		this.store.flipVertical();
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	/**
-	 * Rotate the whole image 90° clockwise: rotates every cel across all frames
-	 * and swaps `width`↔`height`. The **same** composite element is resized in
-	 * place (identity preserved) and `dimensionsVersion` bumped. Inverse is
-	 * {@link rotateCcw}.
-	 */
-	rotateCw(): void {
-		this.store.rotateCw();
-		this.resizeToStore();
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	/** Rotate the whole image 90° counter-clockwise; inverse of {@link rotateCw}. */
-	rotateCcw(): void {
-		this.store.rotateCcw();
-		this.resizeToStore();
-		this.recomposite();
-		this.markStructurallyDirty();
-		this.markDirty();
-	}
-
-	private resizeToStore(): void {
-		this.composite.width = this.store.width;
-		this.composite.height = this.store.height;
-		this.compositeCtx.imageSmoothingEnabled = false;
-		this._dimensionsVersion += 1;
-	}
-
-	registerFloatingCommit(commit: (() => void) | null): void {
-		this.floatingCommit = commit;
-	}
-
-	commitPendingFloatingEdit(): void {
-		this.floatingCommit?.();
-	}
-
-	registerSelectionBridge(bridge: SelectionBridge | null): void {
-		this.selectionBridge = bridge;
-	}
-
-	captureSelection(): SelectionSnapshot | null {
-		return this.selectionBridge?.capture() ?? null;
-	}
-
-	restoreSelection(snapshot: SelectionSnapshot | null): void {
-		this.selectionBridge?.restore(snapshot);
 	}
 
 	setPixel(x: number, y: number, css: string): void {
@@ -643,10 +247,11 @@ export class SpriteDocument extends Subscribable {
 
 	/**
 	 * Commit the active stroke into the active cel exactly once (paint = coverage
-	 * at target opacity; erase = destination-out), then end the stroke. A
-	 * fully-erased result drops the cel (kept sparse). A no-op stroke leaves the
-	 * cel untouched. The caller records the undo entry from the pre-stroke
-	 * snapshot (see `stroke.ts`).
+	 * at target opacity; erase = destination-out), then end the stroke. A no-op
+	 * stroke leaves the cel untouched. The pixels land through
+	 * {@link SpriteEditCore.writeStroke} — a fully-erased result drops the cel —
+	 * and the caller records the undo entry from the pre-stroke snapshot (see
+	 * `stroke.ts`).
 	 */
 	commitStroke(): void {
 		const buffer = this.strokeBuffer;
@@ -661,22 +266,13 @@ export class SpriteDocument extends Subscribable {
 			this.notify();
 			return;
 		}
-		const base = this.activeCel();
-		const opacity =
+		this.core.writeStroke(
+			buffer,
+			mode,
 			mode === "erase"
 				? 1
-				: this.strokeOpacity * this.strokeOpacityScale;
-		this.store.putCel(
-			this.store.activeLayerId,
-			this.store.activeFrameIndex,
-			commitStrokeBuffer(base, buffer, mode, opacity),
+				: this.strokeOpacity * this.strokeOpacityScale,
 		);
-		this.recomposite();
-		this.markCelDirty(
-			this.store.activeLayerId,
-			this.store.activeFrameIndex,
-		);
-		this.markDirty();
 	}
 
 	/**
@@ -746,27 +342,6 @@ export class SpriteDocument extends Subscribable {
 		return this.compositeCtx.getImageData(x, y, 1, 1).data[3] ?? 0;
 	}
 
-	/**
-	 * The alpha (`0..255`) of the **active cel** (active layer, active frame) at
-	 * `(x, y)`, or `0` when the cel or pixel is absent. Reads the cel directly, not
-	 * the composite, so the alpha-lock ink tests the target layer's silhouette and
-	 * stays constant across a live stroke (the stroke buffer is separate from the
-	 * cel until commit).
-	 */
-	activeCelAlpha(x: number, y: number): number {
-		if (!this.inBounds(x, y)) {
-			return 0;
-		}
-		const cel = this.store.getCel(
-			this.store.activeLayerId,
-			this.store.activeFrameIndex,
-		);
-		if (!cel) {
-			return 0;
-		}
-		return cel.data[(y * this.width + x) * 4 + 3] ?? 0;
-	}
-
 	colorAt(
 		x: number,
 		y: number,
@@ -776,134 +351,6 @@ export class SpriteDocument extends Subscribable {
 		}
 		const d = this.compositeCtx.getImageData(x, y, 1, 1).data;
 		return [d[0]!, d[1]!, d[2]!, d[3]!];
-	}
-
-	/**
-	 * The RGBA of the **active cel** (active layer, active frame) at `(x, y)`, or
-	 * `null` when the cel or pixel is absent. Reads the cel directly (not the
-	 * composite, not the live stroke buffer), so the shading ink shifts each pixel
-	 * off its committed base colour and re-reading a cell mid-stroke never
-	 * double-shifts — the mirror of {@link activeCelAlpha} for the alpha-lock ink.
-	 */
-	activeCelColorAt(
-		x: number,
-		y: number,
-	): [number, number, number, number] | null {
-		if (!this.inBounds(x, y)) {
-			return null;
-		}
-		const cel = this.store.getCel(
-			this.store.activeLayerId,
-			this.store.activeFrameIndex,
-		);
-		if (!cel) {
-			return null;
-		}
-		const i = (y * this.width + x) * 4;
-		return [
-			cel.data[i]!,
-			cel.data[i + 1]!,
-			cel.data[i + 2]!,
-			cel.data[i + 3]!,
-		];
-	}
-
-	/** Capture the active cel (active layer, active frame) for stroke undo. */
-	snapshot(): StrokeSnapshot {
-		return this.store.snapshot();
-	}
-
-	/** Restore a cel captured by {@link snapshot}. */
-	restore(snapshot: StrokeSnapshot): void {
-		this.store.restore(snapshot);
-		this.recomposite();
-		this.markCelDirty(snapshot.layerId, snapshot.frameIndex);
-		this.markDirty();
-	}
-
-	private activeCel(): PixelBuffer {
-		return (
-			this.store.getCel(
-				this.store.activeLayerId,
-				this.store.activeFrameIndex,
-			) ?? blankPixels(this.width, this.height)
-		);
-	}
-
-	markSaved(): void {
-		this._dirty = false;
-		this.notify();
-	}
-
-	/**
-	 * The archive the document was loaded from (or last saved as), or `null` for a
-	 * never-saved document. Passed to the writer as `previous` so unchanged
-	 * cel/bake PNG entries are copied byte-verbatim rather than re-encoded.
-	 */
-	get previousArchive(): BspriteArchive | null {
-		return this.baseArchive;
-	}
-
-	/**
-	 * Whether a cel's PNG must be re-encoded on the next save. `false` means the
-	 * writer may reuse the {@link previousArchive} entry byte-verbatim. A
-	 * structural edit (frame add/remove/reorder, whole-image transform) marks
-	 * every entry dirty conservatively, since it re-keys cel paths.
-	 */
-	isCelDirty(layerId: string, frameIndex: number): boolean {
-		return (
-			this.structurallyDirty ||
-			this.dirtyCels.has(this.dirtyKey(layerId, frameIndex))
-		);
-	}
-
-	/** Whether a frame's baked PNG must be re-encoded on the next save. */
-	isBakeDirty(frameIndex: number): boolean {
-		return this.structurallyDirty || this.dirtyBakes.has(frameIndex);
-	}
-
-	/**
-	 * Adopt the just-written archive as the new save baseline and clear all
-	 * dirty tracking, so the *next* save diffs against these bytes. Call after a
-	 * successful write, before {@link markSaved}.
-	 */
-	adoptSavedArchive(bytes: Uint8Array): void {
-		this.baseArchive = unpackBsprite(bytes);
-		this.dirtyCels.clear();
-		this.dirtyBakes.clear();
-		this.structurallyDirty = false;
-	}
-
-	private dirtyKey(layerId: string, frameIndex: number): string {
-		return `${layerId}#${frameIndex}`;
-	}
-
-	/** A pixel edit to one cel dirties that cel and its frame's bake. */
-	private markCelDirty(layerId: string, frameIndex: number): void {
-		this.dirtyCels.add(this.dirtyKey(layerId, frameIndex));
-		this.dirtyBakes.add(frameIndex);
-	}
-
-	/** A layer visual-property/order edit changes every bake but no cel pixels. */
-	private markBakesDirty(): void {
-		for (let frame = 0; frame < this.store.frames.length; frame++) {
-			this.dirtyBakes.add(frame);
-		}
-	}
-
-	/**
-	 * A structural edit re-keys cel paths (frame add/remove/reorder) or rewrites
-	 * every cel (whole-image transform), so byte-verbatim reuse by path is no
-	 * longer safe. Force a full re-encode on the next save — conservative but
-	 * never corrupting.
-	 */
-	private markStructurallyDirty(): void {
-		this.structurallyDirty = true;
-	}
-
-	/** Serialize the document for the `.bsprite` writer (all frames + metadata). */
-	toSnapshot(): DocumentSnapshot {
-		return this.store.toSnapshot();
 	}
 
 	toBlob(): Promise<Blob> {
@@ -929,43 +376,63 @@ export class SpriteDocument extends Subscribable {
 		return compositeFrame(
 			this.width,
 			this.height,
-			this.frameStack(frameIndex, false),
+			this.core.frameLayers(frameIndex),
 			canvasNativeBlend,
 		);
 	}
+
+	/**
+	 * Catch the canvas up with the core, then mirror the core's notification to
+	 * this document's subscribers: a rotate resizes the composite element in place
+	 * (identity preserved), and any edit that can have changed the composited
+	 * image repaints it and the thumbnails.
+	 */
+	private onCoreChanged = (): void => {
+		if (this.seenDimensionsVersion !== this.core.dimensionsVersion) {
+			this.seenDimensionsVersion = this.core.dimensionsVersion;
+			this.composite.width = this.core.width;
+			this.composite.height = this.core.height;
+			this.compositeCtx.imageSmoothingEnabled = false;
+		}
+		if (this.seenPixelVersion !== this.core.pixelVersion) {
+			this.seenPixelVersion = this.core.pixelVersion;
+			this.recomposite();
+		}
+		this.notify();
+	};
 
 	private frameStack(
 		frame: number,
 		withStroke: boolean,
 	): LayerInput[] {
-		const activeId = this.store.activeLayerId;
-		return this.store.layers.map((layer) => {
-			let pixels =
-				this.store.getCel(layer.id, frame) ??
-				blankPixels(this.width, this.height);
-			if (
-				withStroke &&
-				frame === this.store.activeFrameIndex &&
-				this.strokeBuffer &&
-				this.strokeMode &&
-				layer.id === activeId
-			) {
-				pixels = commitStrokeBuffer(
-					pixels,
-					this.strokeBuffer,
-					this.strokeMode,
-					this.strokeMode === "erase"
-						? 1
-						: this.strokeOpacity * this.strokeOpacityScale,
-				);
-			}
-			return {
-				visible: layer.visible,
-				opacity: layer.opacity,
-				blend: layer.blend,
-				pixels,
-			};
-		});
+		const stack = this.core.frameLayers(frame);
+		const buffer = this.strokeBuffer;
+		const mode = this.strokeMode;
+		if (
+			!withStroke ||
+			!buffer ||
+			!mode ||
+			frame !== this.core.activeFrameIndex
+		) {
+			return stack;
+		}
+		const index = this.core.layerIndex(this.core.activeLayerId);
+		const layer = stack[index];
+		if (!layer) {
+			return stack;
+		}
+		stack[index] = {
+			...layer,
+			pixels: commitStrokeBuffer(
+				layer.pixels,
+				buffer,
+				mode,
+				mode === "erase"
+					? 1
+					: this.strokeOpacity * this.strokeOpacityScale,
+			),
+		};
+		return stack;
 	}
 
 	private paintComposite(stack: LayerInput[]): void {
@@ -981,7 +448,7 @@ export class SpriteDocument extends Subscribable {
 	/** Recomposite the active frame and refresh the per-layer thumbnails. */
 	private recomposite(): void {
 		this.paintComposite(
-			this.frameStack(this.store.activeFrameIndex, false),
+			this.frameStack(this.core.activeFrameIndex, false),
 		);
 		this.refreshThumbnails();
 	}
@@ -989,16 +456,16 @@ export class SpriteDocument extends Subscribable {
 	/** Recomposite the active frame with the live stroke buffer folded in. */
 	private recompositePreview(): void {
 		this.paintComposite(
-			this.frameStack(this.store.activeFrameIndex, true),
+			this.frameStack(this.core.activeFrameIndex, true),
 		);
 	}
 
 	private refreshThumbnails(): void {
 		const width = this.width;
 		const height = this.height;
-		const frame = this.store.activeFrameIndex;
+		const frame = this.core.activeFrameIndex;
 		const live = new Set<string>();
-		for (const layer of this.store.layers) {
+		for (const layer of this.core.layers) {
 			live.add(layer.id);
 			let surface = this.thumbs.get(layer.id);
 			if (!surface) {
@@ -1013,7 +480,7 @@ export class SpriteDocument extends Subscribable {
 				surface.ctx.imageSmoothingEnabled = false;
 			}
 			surface.ctx.clearRect(0, 0, width, height);
-			const cel = this.store.getCel(layer.id, frame);
+			const cel = this.core.getCel(layer.id, frame);
 			if (cel) {
 				this.putBuffer(surface.ctx, cel);
 			}
@@ -1040,10 +507,5 @@ export class SpriteDocument extends Subscribable {
 
 	private inBounds(x: number, y: number): boolean {
 		return x >= 0 && y >= 0 && x < this.width && y < this.height;
-	}
-
-	private markDirty(): void {
-		this._dirty = true;
-		this.notify();
 	}
 }

@@ -24,6 +24,15 @@ export const unregisterRenderer = (renderer: Renderer2D): void => {
 /** The count of live renderers (diagnostics and tests). */
 export const liveRendererCount = (): number => liveRenderers.size;
 
+/** Every live renderer, for diagnostics that read their frame counters. */
+export const eachLiveRenderer = (
+	visit: (renderer: Renderer2D) => void,
+): void => {
+	for (const renderer of liveRenderers) {
+		visit(renderer);
+	}
+};
+
 /**
  * Free and drop the tile-array GPU cache entry for `source` in **every** live
  * renderer. The hot-reload path (editor save) calls this with the old backing

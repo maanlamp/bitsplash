@@ -8,7 +8,7 @@ import {
 } from "./image-commands";
 import type { PixelBuffer } from "./pixel-buffer";
 import type { SelectionController } from "./selection-controller";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 import { wrapShift } from "./wrap-shift";
 
 /**
@@ -23,50 +23,50 @@ import { wrapShift } from "./wrap-shift";
 
 /** Flip the active selection horizontally, else the whole image. */
 export const flipHorizontal = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	selection: SelectionController | null,
 ): void => {
 	if (selection?.flipHorizontal()) {
 		return;
 	}
-	flipImageHorizontal(doc, history);
+	flipImageHorizontal(core, history);
 };
 
 /** Flip the active selection vertically, else the whole image. */
 export const flipVertical = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	selection: SelectionController | null,
 ): void => {
 	if (selection?.flipVertical()) {
 		return;
 	}
-	flipImageVertical(doc, history);
+	flipImageVertical(core, history);
 };
 
 /** Rotate the active selection 90° clockwise, else the whole image. */
 export const rotateCw = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	selection: SelectionController | null,
 ): void => {
 	if (selection?.rotateCw()) {
 		return;
 	}
-	rotateImageCw(doc, history);
+	rotateImageCw(core, history);
 };
 
 /** Rotate the active selection 90° counter-clockwise, else the whole image. */
 export const rotateCcw = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	selection: SelectionController | null,
 ): void => {
 	if (selection?.rotateCcw()) {
 		return;
 	}
-	rotateImageCcw(doc, history);
+	rotateImageCcw(core, history);
 };
 
 const clone = (buffer: PixelBuffer): PixelBuffer => ({
@@ -83,7 +83,7 @@ const clone = (buffer: PixelBuffer): PixelBuffer => ({
  * wrapping is intentionally not implemented (flagged).
  */
 export const wrapShiftCel = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	dx: number,
 	dy: number,
@@ -91,16 +91,16 @@ export const wrapShiftCel = (
 	if (dx === 0 && dy === 0) {
 		return;
 	}
-	const layerId = doc.activeLayerId;
-	const frame = doc.activeFrameIndex;
-	const cel = doc.getCel(layerId, frame);
+	const layerId = core.activeLayerId;
+	const frame = core.activeFrameIndex;
+	const cel = core.getCel(layerId, frame);
 	if (!cel) {
 		return;
 	}
 	const before = clone(cel);
 	const after = wrapShift(cel, dx, dy);
-	runCommand(doc, history, {
-		redo: () => doc.setCel(layerId, frame, clone(after)),
-		undo: () => doc.setCel(layerId, frame, clone(before)),
+	runCommand(core, history, {
+		redo: () => core.setCel(layerId, frame, clone(after)),
+		undo: () => core.setCel(layerId, frame, clone(before)),
 	});
 };

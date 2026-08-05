@@ -1,7 +1,7 @@
 import type { History } from "../history";
 import { blankPixels } from "./pixel-buffer";
 import { type Rgba, replaceColor } from "./replace-color";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 import { recordStroke } from "./stroke";
 
 /**
@@ -16,20 +16,21 @@ import { recordStroke } from "./stroke";
  *
  * @example
  * // Recolour every exact-red pixel of the active cel to the active colour.
- * replaceActiveCelColor(doc, history, [255, 0, 0, 255], [0, 0, 255, 255]);
+ * replaceActiveCelColor(core, history, [255, 0, 0, 255], [0, 0, 255, 255]);
  */
 export const replaceActiveCelColor = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	from: Rgba,
 	to: Rgba,
 	tolerance = 0,
 ): void => {
-	const layerId = doc.activeLayerId;
-	const frame = doc.activeFrameIndex;
+	const layerId = core.activeLayerId;
+	const frame = core.activeFrameIndex;
 	const cel =
-		doc.getCel(layerId, frame) ?? blankPixels(doc.width, doc.height);
-	const before = doc.snapshot();
-	doc.setCel(layerId, frame, replaceColor(cel, from, to, tolerance));
-	recordStroke(doc, history, before);
+		core.getCel(layerId, frame) ??
+		blankPixels(core.width, core.height);
+	const before = core.snapshot();
+	core.setCel(layerId, frame, replaceColor(cel, from, to, tolerance));
+	recordStroke(core, history, before);
 };

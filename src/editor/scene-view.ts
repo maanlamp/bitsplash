@@ -10,10 +10,8 @@ import {
 	type UpdateSystem,
 } from "../engine/system";
 import { Camera2D } from "../engine/camera/camera-2d";
-import {
-	pickActiveCamera2D,
-	renderSceneToTexture,
-} from "../engine/camera/camera-2d-render";
+import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
+import { renderWorld } from "../engine/render/render-world";
 import {
 	CursorAuthority,
 	type CursorToken,
@@ -411,32 +409,21 @@ export class SceneView {
 		if (renderer.width <= 0 || renderer.height <= 0) {
 			return;
 		}
-		const camera = this.displayCamera();
-		renderer.beginFrame();
-		const ctx = {
-			renderer,
-			time,
-			ecs: this.scene.world.ecs,
-			input: this.input,
-			assetManager: this.services.assetManager,
-			uiScale: this.scene.config.uiScale ?? 1,
-			camera,
-		};
-		this.scene.world.ecs.render(ctx);
-		if (!this.suspended) {
-			for (const system of this.renderSystems) {
-				system.render(ctx);
-			}
-		}
-		const target = renderer.sceneTarget(this.scene);
-		renderSceneToTexture(renderer, this.scene, target, camera);
-		renderer.composite([target], {
-			x: 0,
-			y: 0,
-			w: renderer.width,
-			h: renderer.height,
+		renderer.frame((scope) => {
+			renderWorld(scope, {
+				world: this.scene.world,
+				camera: this.displayCamera(),
+				time,
+				input: this.input,
+				assetManager: this.services.assetManager,
+				uiScale: this.scene.config.uiScale ?? 1,
+				overlays: this.suspended ? null : this.renderSystems,
+				presentation: {
+					scene: this.scene,
+					targetKey: this.scene,
+				},
+			});
 		});
-		renderer.endFrame();
 	}
 
 	/**
@@ -450,26 +437,20 @@ export class SceneView {
 		if (renderer.width <= 0 || renderer.height <= 0) {
 			return;
 		}
-		const camera = pickActiveCamera2D(world.ecs);
-		renderer.beginFrame();
-		world.ecs.render({
-			renderer,
-			time,
-			ecs: world.ecs,
-			input: this.input,
-			assetManager: this.services.assetManager,
-			uiScale: this.scene.config.uiScale ?? 1,
-			camera,
+		renderer.frame((scope) => {
+			renderWorld(scope, {
+				world,
+				camera: pickActiveCamera2D(world.ecs),
+				time,
+				input: this.input,
+				assetManager: this.services.assetManager,
+				uiScale: this.scene.config.uiScale ?? 1,
+				presentation: {
+					scene: this.scene,
+					targetKey: this.scene,
+				},
+			});
 		});
-		const target = renderer.sceneTarget(this.scene);
-		renderSceneToTexture(renderer, this.scene, target, camera);
-		renderer.composite([target], {
-			x: 0,
-			y: 0,
-			w: renderer.width,
-			h: renderer.height,
-		});
-		renderer.endFrame();
 	}
 
 	dispose(): void {

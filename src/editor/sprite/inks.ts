@@ -45,12 +45,12 @@ export const alphaLockAllows = (celAlpha: number): boolean =>
  */
 const alphaLock: Ink = {
 	paint: (doc, x, y, css) => {
-		if (alphaLockAllows(doc.activeCelAlpha(x, y))) {
+		if (alphaLockAllows(doc.core.activeCelAlpha(x, y))) {
 			doc.setPixel(x, y, css);
 		}
 	},
 	erase: (doc, x, y) => {
-		if (alphaLockAllows(doc.activeCelAlpha(x, y))) {
+		if (alphaLockAllows(doc.core.activeCelAlpha(x, y))) {
 			doc.erasePixel(x, y);
 		}
 	},
@@ -71,7 +71,7 @@ const alphaLock: Ink = {
  */
 const shading: Ink = {
 	paint: (doc, x, y) => {
-		const rgba = doc.activeCelColorAt(x, y);
+		const rgba = doc.core.activeCelColorAt(x, y);
 		if (!rgba || rgba[3] !== 255) {
 			return;
 		}

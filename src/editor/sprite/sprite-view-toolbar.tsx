@@ -66,27 +66,27 @@ const SpriteViewToolbar = ({
 			<ViewToolbarButton
 				label="Flip horizontal"
 				shortcut="Shift+H"
-				onClick={() => flipHorizontal(doc, history, selection)}
+				onClick={() => flipHorizontal(doc.core, history, selection)}
 			>
 				<FlipHorizontalIcon />
 			</ViewToolbarButton>
 			<ViewToolbarButton
 				label="Flip vertical"
 				shortcut="Shift+V"
-				onClick={() => flipVertical(doc, history, selection)}
+				onClick={() => flipVertical(doc.core, history, selection)}
 			>
 				<FlipVerticalIcon />
 			</ViewToolbarButton>
 			<ViewToolbarSeparator />
 			<ViewToolbarButton
 				label="Rotate 90° clockwise"
-				onClick={() => rotateCw(doc, history, selection)}
+				onClick={() => rotateCw(doc.core, history, selection)}
 			>
 				<ArrowClockwiseIcon />
 			</ViewToolbarButton>
 			<ViewToolbarButton
 				label="Rotate 90° counter-clockwise"
-				onClick={() => rotateCcw(doc, history, selection)}
+				onClick={() => rotateCcw(doc.core, history, selection)}
 			>
 				<ArrowCounterClockwiseIcon />
 			</ViewToolbarButton>

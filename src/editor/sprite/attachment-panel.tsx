@@ -52,7 +52,7 @@ const AttachmentRow = ({
 		setEditing(false);
 		const trimmed = draft.trim();
 		if (trimmed && trimmed !== name && !existing.includes(trimmed)) {
-			renameAttachmentName(doc, history, name, trimmed);
+			renameAttachmentName(doc.core, history, name, trimmed);
 			if (active) {
 				state.setActiveAttachment(trimmed);
 			}
@@ -102,7 +102,7 @@ const AttachmentRow = ({
 					className={styles.rowButton}
 					onClick={(e) => {
 						e.stopPropagation();
-						deleteAttachmentName(doc, history, name);
+						deleteAttachmentName(doc.core, history, name);
 						if (active) {
 							state.setActiveAttachment(null);
 						}
@@ -140,12 +140,12 @@ const AttachmentPanel = ({
 		() => state.activeAttachment,
 	);
 
-	const names = doc.attachmentNames();
-	const frame = doc.activeFrameIndex;
+	const names = doc.core.attachmentNames();
+	const frame = doc.core.activeFrameIndex;
 
 	const addPoint = () => {
 		const name = nextDefaultName(names);
-		createAttachmentName(doc, history, name);
+		createAttachmentName(doc.core, history, name);
 		state.setActiveAttachment(name);
 	};
 
@@ -179,7 +179,7 @@ const AttachmentPanel = ({
 							name={name}
 							active={name === active}
 							hasPoint={
-								doc.attachmentPoint(name, frame) !== undefined
+								doc.core.attachmentPoint(name, frame) !== undefined
 							}
 							existing={names}
 						/>
@@ -190,15 +190,20 @@ const AttachmentPanel = ({
 				<div className={styles.frameRow}>
 					<span className={styles.frameLabel}>
 						Frame {frame + 1}:{" "}
-						{describePoint(doc.attachmentPoint(active, frame))}
+						{describePoint(doc.core.attachmentPoint(active, frame))}
 					</span>
-					{doc.attachmentPoint(active, frame) !== undefined && (
+					{doc.core.attachmentPoint(active, frame) !== undefined && (
 						<Tooltip label="Clear on this frame">
 							<Button
 								variant="icon"
 								className={styles.rowButton}
 								onClick={() =>
-									clearAttachmentPoint(doc, history, active, frame)
+									clearAttachmentPoint(
+										doc.core,
+										history,
+										active,
+										frame,
+									)
 								}
 								aria-label="Clear on this frame"
 							>

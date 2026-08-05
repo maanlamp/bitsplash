@@ -1,7 +1,6 @@
 import type { Time } from "../engine/clock";
 import type { Milliseconds } from "../engine/duration";
 import type { EntityId } from "../engine/ecs";
-import { pickActiveCamera2D } from "../engine/camera/camera-2d-render";
 import type { ActionProvider } from "../engine/input/bindings/action-provider";
 import type { DeviceSnapshot } from "../engine/input/device-snapshot";
 import { Input } from "../engine/input/input";
@@ -11,9 +10,12 @@ import type {
 	GameModule,
 	GameUi,
 } from "../engine/runtime/game-module";
+import { Host } from "../engine/runtime/host";
 import type { Runtime } from "../engine/runtime/runtime";
+import { Scene, SceneConfig } from "../engine/scene/scene";
 import type { GlobalServices } from "../engine/services";
 import type { World } from "../engine/world";
+import { RunDocumentPlugin } from "./run-document-plugin";
 import type { SceneDocument } from "./scene-document";
 import type { SceneView } from "./scene-view";
 
@@ -53,7 +55,7 @@ export type RunHostDeps = Readonly<{
 	ensureDocument: (sceneId: string) => SceneDocument;
 	/** Notified with the active scene id after each `goToScene` transition. */
 	onActiveSceneChange: (sceneId: string) => void;
-	/** Notified when mode/pause change so the playback bar can re-render. */
+	/** Notified when mode/freeze change so the playback bar can re-render. */
 	onChange: () => void;
 }>;
 
@@ -62,22 +64,27 @@ export type RunHostDeps = Readonly<{
  *
  * A run boots a fresh `World` + `Runtime` via the injected game module (same-world
  * reuse is a hard crash by design), seeded with `newGame` in the focused scene.
- * The run follows `goToScene` transitions, binding the active scene's document as
- * the command-router target so edits route to the run world. On stop the run
- * world is disposed and the edit worlds of run-visited scenes are rebuilt in
- * place from their documents.
+ * The frame itself belongs to the engine's {@link Host}; this class supplies the
+ * seams that make it a *run inside the editor* — a {@link Scene} projected over
+ * the runtime's live world, an input source that switches between real and muted
+ * as edit-while-running toggles, and a {@link RunDocumentPlugin} that rebinds the
+ * command router as the run moves between scenes. On stop the run world is
+ * disposed and the edit worlds of run-visited scenes are rebuilt in place.
  */
 export class RunHost {
 	private readonly runtime: Runtime;
 	private readonly gameUi: GameUi;
 	private readonly muted = new Input(document.createElement("div"));
-	private readonly visited = new Set<SceneDocument>();
+	private readonly documents: RunDocumentPlugin;
+	private readonly host: Host;
 
 	private mode: RunInputMode = "game";
-	private pausedValue = false;
 	private lastTime: Time | null = null;
 	private activeSceneId: string;
-	private activeDoc: SceneDocument | null = null;
+	private projected: Scene;
+	private projectedConfig: SceneConfig | null = null;
+	private projectedWorld: World | null = null;
+	private stepMuted = false;
 	private stopped = false;
 
 	constructor(
@@ -90,11 +97,34 @@ export class RunHost {
 			settings: deps.settings,
 			resolveScene: (id) => this.resolveScene(id),
 		});
-		this.runtime.world.setProfiling(true);
 		this.runtime.world.attachAudio(
 			deps.services.audio,
 			view.worldBus,
 		);
+		this.documents = new RunDocumentPlugin({
+			ensureDocument: deps.ensureDocument,
+			world: () => this.runtime.world,
+			config: () => this.runtime.config ?? null,
+		});
+		this.projected = this.project();
+		this.host = new Host({
+			sceneSource: { current: () => this.projected },
+			inputSource: { sample: () => this.device() },
+			ui: {
+				runtime: () => this.gameUi.ui,
+				width: () => this.view.renderer.width,
+				height: () => this.view.renderer.height,
+			},
+			// The editor advances its own per-window clock for every view it
+			// hosts, so it never calls `Host.advance`; this is the clock the
+			// engine's own consumers would use.
+			clock: deps.services.clock,
+			services: deps.services,
+			plugins: [this.documents],
+			// The profiler panel is a permanent editor affordance, so a run always
+			// carries per-system timing regardless of the build it runs in.
+			profiling: true,
+		});
 		this.mountUi();
 		this.runtime.newGame(deps.startSceneId);
 		this.syncActiveScene();
@@ -104,8 +134,13 @@ export class RunHost {
 		return this.mode;
 	}
 
-	get paused(): boolean {
-		return this.pausedValue;
+	/**
+	 * Whether the run is held in the editor's debugger: no ticker advances at all
+	 * until unfrozen or single-stepped. Distinct from the player's gameplay pause,
+	 * which the run world's own UI owns.
+	 */
+	get frozen(): boolean {
+		return this.host.frozen;
 	}
 
 	get activeScene(): string {
@@ -123,7 +158,7 @@ export class RunHost {
 
 	/** Whether `id` is a runtime-spawned entity in the active scene's document. */
 	isRuntimeEntity(id: EntityId): boolean {
-		return this.activeDoc?.isRuntimeEntity(id) ?? false;
+		return this.documents.isRuntimeEntity(id);
 	}
 
 	setMode(mode: RunInputMode): void {
@@ -138,22 +173,28 @@ export class RunHost {
 		this.setMode(this.mode === "game" ? "editor" : "game");
 	}
 
-	setPaused(paused: boolean): void {
-		this.pausedValue = paused;
+	freeze(frozen: boolean): void {
+		this.host.freeze(frozen);
 		this.deps.onChange();
 	}
 
-	togglePause(): void {
-		this.setPaused(!this.pausedValue);
+	toggleFreeze(): void {
+		this.freeze(!this.host.frozen);
 	}
 
 	/** Single-step: one fixed update of the run world with muted input. */
 	step(): void {
-		if (!this.pausedValue || this.lastTime === null) {
+		if (!this.host.frozen || this.lastTime === null) {
 			return;
 		}
-		this.runtime.world.requestSingleStep();
-		this.stepWorld(FIXED_DT_MS, this.lastTime, this.muted);
+		this.view.rollInput();
+		this.muted.update();
+		this.stepMuted = true;
+		try {
+			this.host.stepOnce(FIXED_DT_MS, this.lastTime);
+		} finally {
+			this.stepMuted = false;
+		}
 		this.followTransition();
 		this.deps.onChange();
 	}
@@ -168,18 +209,15 @@ export class RunHost {
 		this.lastTime = time;
 		this.view.rollInput();
 		this.muted.update();
-		const real = this.view.input;
-		const gameInput = this.mode === "game" ? real : this.muted;
-		if (!this.pausedValue) {
-			this.stepWorld(dt, time, gameInput);
+		this.host.step(dt, time);
+		if (!this.host.frozen) {
 			this.followTransition();
 		}
 	}
 
 	/** Clear per-frame UI and world events once every view has rendered. */
 	endFrame(): void {
-		this.gameUi.ui.clearEvents();
-		this.runtime.world.events.clear();
+		this.host.endFrame();
 	}
 
 	stop(): void {
@@ -188,56 +226,55 @@ export class RunHost {
 		}
 		this.stopped = true;
 		this.unmountUi();
-		for (const doc of this.visited) {
-			doc.unbindRun();
-			doc.rebuildLive();
-		}
+		this.host.stop();
 		this.runtime.dispose();
 		this.muted.dispose();
 	}
 
-	private stepWorld(
-		dt: Milliseconds,
-		time: Time,
-		input: DeviceSnapshot,
-	): void {
-		const world = this.runtime.world;
-		const actions = this.deps.actions;
-		const camera = pickActiveCamera2D(world.ecs);
-		const base = {
-			dt,
-			time,
-			ecs: world.ecs,
-			world,
-			assetManager: this.deps.services.assetManager,
-			audio: this.deps.services.audio,
-			events: world.events,
-			camera,
-		};
-		const uiScale = this.runtime.config?.uiScale ?? 1;
-		this.gameUi.ui.step(input, uiScale, dt / 1000, (masked) => {
-			actions.step(masked, dt);
-			world.ecs.update({ ...base, input: masked, actions });
-			world.ecs.flushDestroyed();
+	/**
+	 * This frame's input: the view's real device, or the muted one while editor
+	 * input owns the view and during a single step. The host resets action edges
+	 * whenever this returns a different device, so toggling edit-while-running
+	 * mid-hold cannot leave a pressed edge latched.
+	 */
+	private device(): DeviceSnapshot {
+		return this.stepMuted || this.mode === "editor"
+			? this.muted
+			: this.view.input;
+	}
+
+	/**
+	 * The runtime's live world seen as a {@link Scene} — what the host steps.
+	 * Rebuilt only when the runtime's scene, world or config actually changes, so
+	 * the host observes one stable scene per transition rather than one per frame.
+	 */
+	private project(): Scene {
+		this.projectedWorld = this.runtime.world;
+		this.projectedConfig = this.runtime.config ?? null;
+		return new Scene({
+			kind: "game",
+			name: this.activeSceneId,
+			config: this.projectedConfig ?? new SceneConfig(),
+			world: this.projectedWorld,
+			actions: this.deps.actions,
 		});
-		this.gameUi.ui.layout(
-			uiScale,
-			this.view.renderer.width,
-			this.view.renderer.height,
-			camera ?? undefined,
-		);
 	}
 
 	private followTransition(): void {
-		if (this.runtime.activeScene !== this.activeSceneId) {
+		if (
+			this.runtime.activeScene !== this.activeSceneId ||
+			this.runtime.world !== this.projectedWorld ||
+			(this.runtime.config ?? null) !== this.projectedConfig
+		) {
 			this.syncActiveScene();
 		}
 	}
 
 	/**
-	 * Rebind the command router to whichever scene the runtime is now in: unbind
-	 * the previous active document and bind the new one (lazily created if the
-	 * scene was entered mid-run with no open document).
+	 * Re-project whichever scene the runtime is now in and rebind the command
+	 * router to it. Called the moment a transition is observed rather than left to
+	 * the host's `onSceneChanged`, so routing never lags a frame behind the world
+	 * it targets; the plugin's own hook is idempotent and sees a no-op.
 	 */
 	private syncActiveScene(): void {
 		const id = this.runtime.activeScene;
@@ -245,14 +282,8 @@ export class RunHost {
 			return;
 		}
 		this.activeSceneId = id;
-		this.activeDoc?.unbindRun();
-		const doc = this.deps.ensureDocument(id);
-		doc.bindRun({
-			world: this.runtime.world,
-			config: this.runtime.config ?? doc.config,
-		});
-		this.activeDoc = doc;
-		this.visited.add(doc);
+		this.projected = this.project();
+		this.documents.enterScene(id);
 		this.deps.onActiveSceneChange(id);
 	}
 

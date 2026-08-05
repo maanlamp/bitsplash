@@ -19,6 +19,7 @@ import { audioFocus } from "../engine/audio/audio-focus";
 import { NULL_ACTIONS } from "../engine/input/bindings/action-provider";
 import type { FrameProfile } from "../engine/profiling/frame-profile";
 import type { GameModule } from "../engine/runtime/game-module";
+import { MAX_FRAME_MS } from "../engine/runtime/host";
 import { createGame } from "../engine/scene/registry";
 import type { DirEntry } from "../project-rpc";
 import { ActiveScene } from "./active-scene";
@@ -181,13 +182,6 @@ const NEW_SPRITE_VIEW = "sprite:new";
 const NEW_AUDIO_VIEW = "audio:new";
 
 /**
- * Largest dt any per-window frame loop advances — clamps startup, tab-throttle,
- * and cross-window handoff spikes so a view moved between windows (or a window
- * un-minimized) never steps a multi-second frame.
- */
-const MAX_DT = 100 as Milliseconds;
-
-/**
  * A pending dirty-guard for one window: the unsaved documents its close would
  * discard (by title) and the action to run if the user chooses Discard. Keyed by
  * window in the shell so the "Keep editing / Discard" dialog renders in the
@@ -282,7 +276,7 @@ const App = ({
 	}> | null>(null);
 	const [running, setRunning] = useState(false);
 	const [runMode, setRunMode] = useState<"game" | "editor">("game");
-	const [runPaused, setRunPaused] = useState(false);
+	const [runFrozen, setRunFrozen] = useState(false);
 	const [runningWindowId, setRunningWindowId] =
 		useState<WindowId | null>(null);
 	const playtestPhase = useSyncExternalStore(
@@ -1149,7 +1143,7 @@ const App = ({
 	const onRunChange = useCallback((): void => {
 		const host = runHostRef.current;
 		setRunMode(host ? host.inputMode : "game");
-		setRunPaused(host ? host.paused : false);
+		setRunFrozen(host ? host.frozen : false);
 	}, []);
 
 	const focusRunView = (): void => {
@@ -1231,7 +1225,7 @@ const App = ({
 		host.stop();
 		setRunning(false);
 		setRunMode("game");
-		setRunPaused(false);
+		setRunFrozen(false);
 		setRunningWindowId(null);
 	};
 
@@ -1257,8 +1251,8 @@ const App = ({
 		}
 	};
 
-	const toggleRunPause = (): void => {
-		runHostRef.current?.togglePause();
+	const toggleRunFreeze = (): void => {
+		runHostRef.current?.toggleFreeze();
 	};
 
 	const stepRun = (): void => {
@@ -1300,8 +1294,8 @@ const App = ({
 			if (first) {
 				dt = 0 as Milliseconds;
 				first = false;
-			} else if (dt > MAX_DT) {
-				dt = MAX_DT;
+			} else if (dt > MAX_FRAME_MS) {
+				dt = MAX_FRAME_MS;
 			} else if (dt < 0) {
 				dt = 0 as Milliseconds;
 			}
@@ -1683,11 +1677,11 @@ const App = ({
 				view={view}
 				onRun={startRun}
 				onStop={stopRun}
-				onPause={toggleRunPause}
+				onToggleFreeze={toggleRunFreeze}
 				onStep={stepRun}
 				onSetMode={setRunInputMode}
 				inputMode={runMode}
-				paused={runPaused}
+				frozen={runFrozen}
 				running={isAnchor}
 				lockedOut={lockedOut}
 				editorEnabled={windowEnabled}
@@ -1782,7 +1776,7 @@ const App = ({
 		stepRun,
 		startRun,
 		stopRun,
-		toggleRunPause,
+		toggleRunFreeze,
 		playGame,
 		closeView,
 		reopenClosed,

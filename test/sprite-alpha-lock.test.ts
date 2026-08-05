@@ -19,14 +19,16 @@ type Rec = {
 	erase: Array<[number, number]>;
 };
 
-/** A document stub whose only observable is the active-cel alpha map. */
+/** A document stub whose only observable is the core's active-cel alpha map. */
 const fakeDoc = (
 	opaque: ReadonlySet<string>,
 	rec: Rec,
 ): SpriteDocument =>
 	({
-		activeCelAlpha: (x: number, y: number) =>
-			opaque.has(`${x},${y}`) ? 255 : 0,
+		core: {
+			activeCelAlpha: (x: number, y: number) =>
+				opaque.has(`${x},${y}`) ? 255 : 0,
+		},
 		setPixel: (x: number, y: number) => rec.paint.push([x, y]),
 		erasePixel: (x: number, y: number) => rec.erase.push([x, y]),
 	}) as unknown as SpriteDocument;

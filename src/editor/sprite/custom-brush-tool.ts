@@ -36,14 +36,14 @@ export class CustomBrushTool implements SpriteTool {
 		if (ctx.button !== 0 || !ctx.overImage || !pattern) {
 			return;
 		}
-		const layerId = ctx.doc.activeLayerId;
-		const frameIndex = ctx.doc.activeFrameIndex;
-		const cel = ctx.doc.getCel(layerId, frameIndex);
+		const layerId = ctx.doc.core.activeLayerId;
+		const frameIndex = ctx.doc.core.activeFrameIndex;
+		const cel = ctx.doc.core.getCel(layerId, frameIndex);
 		const before = cel
 			? clone(cel)
 			: blankPixels(ctx.doc.width, ctx.doc.height);
 		const working = stampPatternOver(before, pattern, ctx.x, ctx.y);
-		ctx.doc.setCel(layerId, frameIndex, working);
+		ctx.doc.core.setCel(layerId, frameIndex, working);
 		session.custom = { layerId, frameIndex, before, working };
 		session.last = { x: ctx.x, y: ctx.y };
 		session.active = true;
@@ -65,7 +65,7 @@ export class CustomBrushTool implements SpriteTool {
 			working = stampPatternOver(working, pattern, x, y);
 		});
 		c.working = working;
-		ctx.doc.setCel(c.layerId, c.frameIndex, working);
+		ctx.doc.core.setCel(c.layerId, c.frameIndex, working);
 		session.last = { x: ctx.x, y: ctx.y };
 	}
 
@@ -78,9 +78,11 @@ export class CustomBrushTool implements SpriteTool {
 		session.custom = null;
 		session.last = null;
 		session.active = false;
-		runCommand(ctx.doc, ctx.history, {
-			redo: () => ctx.doc.setCel(layerId, frameIndex, clone(working)),
-			undo: () => ctx.doc.setCel(layerId, frameIndex, clone(before)),
+		runCommand(ctx.doc.core, ctx.history, {
+			redo: () =>
+				ctx.doc.core.setCel(layerId, frameIndex, clone(working)),
+			undo: () =>
+				ctx.doc.core.setCel(layerId, frameIndex, clone(before)),
 		});
 	}
 
@@ -89,7 +91,7 @@ export class CustomBrushTool implements SpriteTool {
 		if (!c) {
 			return;
 		}
-		ctx.doc.setCel(c.layerId, c.frameIndex, clone(c.before));
+		ctx.doc.core.setCel(c.layerId, c.frameIndex, clone(c.before));
 		session.custom = null;
 		session.last = null;
 		session.active = false;

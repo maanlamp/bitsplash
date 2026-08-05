@@ -1,8 +1,8 @@
 import type { Command, History } from "../history";
 import type {
 	SelectionSnapshot,
-	SpriteDocument,
-} from "./sprite-document";
+	SpriteEditCore,
+} from "./sprite-edit-core";
 
 /**
  * A single sprite-editor edit, expressed as its forward action and real
@@ -14,9 +14,9 @@ import type {
  *
  * @example
  * ```ts
- * runCommand(doc, history, {
- *   redo: () => doc.renameLayer(id, next),
- *   undo: () => doc.renameLayer(id, prev),
+ * runCommand(core, history, {
+ *   redo: () => core.renameLayer(id, next),
+ *   undo: () => core.renameLayer(id, prev),
  * });
  * ```
  */
@@ -29,13 +29,13 @@ export type SpriteCommand = Command;
  * 1. **Commits any pending floating edit first.** An uncommitted floating
  *    selection/transform is folded into its cel before an unrelated command
  *    runs (Phase 3 semantics). Inert today —
- *    {@link SpriteDocument.commitPendingFloatingEdit} is a no-op until the
+ *    {@link SpriteEditCore.commitPendingFloatingEdit} is a no-op until the
  *    selection suite registers a bridge.
  * 2. **Executes the command** by calling its `redo` once. Callers therefore do
  *    not pre-apply the edit; `redo` is the sole apply path.
  * 3. **Snapshots the selection state** and pairs it with the command so undo
  *    restores the selection that was active when the edit ran. Inert today —
- *    {@link SpriteDocument.captureSelection} returns `null` until Phase 3.
+ *    {@link SpriteEditCore.captureSelection} returns `null` until Phase 3.
  * 4. **Pushes** the wrapped command onto the undo stack.
  *
  * Phase 1 (cels/tags/timing) adds new structural edits by writing more
@@ -52,18 +52,18 @@ export type SpriteCommand = Command;
  * call, not a change to this contract.
  */
 export const runCommand = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	command: SpriteCommand,
 ): void => {
-	doc.commitPendingFloatingEdit();
-	const selection: SelectionSnapshot | null = doc.captureSelection();
+	core.commitPendingFloatingEdit();
+	const selection: SelectionSnapshot | null = core.captureSelection();
 	void command.redo();
 	history.push({
 		redo: command.redo,
 		undo: async () => {
 			await command.undo();
-			doc.restoreSelection(selection);
+			core.restoreSelection(selection);
 		},
 	});
 };

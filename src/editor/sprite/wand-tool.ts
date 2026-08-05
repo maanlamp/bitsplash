@@ -22,9 +22,9 @@ export class WandTool implements SpriteTool {
 			return;
 		}
 		const cel =
-			ctx.doc.getCel(
-				ctx.doc.activeLayerId,
-				ctx.doc.activeFrameIndex,
+			ctx.doc.core.getCel(
+				ctx.doc.core.activeLayerId,
+				ctx.doc.core.activeFrameIndex,
 			) ?? blankPixels(ctx.doc.width, ctx.doc.height);
 		ctx.selection.applyRegion(
 			wandMask(

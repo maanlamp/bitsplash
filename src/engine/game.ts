@@ -4,33 +4,30 @@ import type { AudioApi } from "./audio/audio-api";
 import type { AudioBus } from "./audio/audio-bus";
 import { audioFocus, GAME_AUDIO_OWNER } from "./audio/audio-focus";
 import { createAudio } from "./audio/create-audio";
-import {
-	pickActiveCamera2D,
-	renderSceneToTexture,
-} from "./camera/camera-2d-render";
+import { pickActiveCamera2D } from "./camera/camera-2d-render";
+import { renderWorld } from "./render/render-world";
 import { Clock } from "./clock";
 import type { Time } from "./clock";
 import type { Milliseconds } from "./duration";
 import EventBus from "./events";
-import { NULL_ACTIONS } from "./input/bindings/action-provider";
-import type { DeviceSnapshot } from "./input/device-snapshot";
 import { Input } from "./input/input";
 import { LocalStorageSettingsStore } from "./input/local-storage-settings-store";
 import type { SettingsStore } from "./input/settings-store";
 import Renderer2D from "./render/renderer-2d";
 import type { ReactNode } from "react";
+import { Host, type HostPlugin } from "./runtime/host";
 import { UiRuntime, type UiRuntimeOptions } from "./ui/ui-runtime";
 import type { Scene } from "./scene/scene";
 import type { GlobalServices } from "./services";
 import Viewport from "./camera/viewport";
-
-const MAX_FRAME_MS = 100 as Milliseconds;
 
 export type FrameInfo = Readonly<{ delta: number; fps: number }>;
 
 export type GameOptions = Readonly<{
 	onFrame?: (info: FrameInfo) => void;
 	settings?: SettingsStore;
+	/** Composed onto this game's {@link Host} — save driving, scene mounting. */
+	plugins?: ReadonlyArray<HostPlugin>;
 }>;
 
 /**
@@ -52,12 +49,12 @@ export class Game {
 	 */
 	readonly audioBus: AudioBus;
 	readonly services: GlobalServices;
+	/** The frame this game advances; the game owns everything around it. */
+	readonly host: Host;
 
 	private clock = new Clock();
 	private current: Scene | null = null;
-	private lastSource: DeviceSnapshot | null = null;
 	private ui: UiRuntime | null = null;
-	private isPaused = false;
 	private onFrame?: (info: FrameInfo) => void;
 	private rafId: number | null = null;
 	private running = false;
@@ -81,6 +78,23 @@ export class Game {
 			events: this.events,
 			settings: options.settings ?? new LocalStorageSettingsStore(),
 		};
+		this.host = new Host({
+			sceneSource: { current: () => this.current },
+			inputSource: {
+				sample: () => {
+					this.input.update();
+					return this.input;
+				},
+			},
+			ui: {
+				runtime: () => this.ui,
+				width: () => this.renderer.width,
+				height: () => this.renderer.height,
+			},
+			clock: this.clock,
+			services: this.services,
+			plugins: options.plugins,
+		});
 	}
 
 	get scene(): Scene | null {
@@ -99,8 +113,8 @@ export class Game {
 		}
 	}
 
-	get paused(): boolean {
-		return this.isPaused;
+	get gameplayPaused(): boolean {
+		return this.host.gameplayPaused;
 	}
 
 	get frameTime(): number {
@@ -112,15 +126,16 @@ export class Game {
 	}
 
 	/**
-	 * Pause or resume gameplay. Pausing also publishes a focus change, so the
-	 * game's bus mutes — a paused game ticks no systems, and nothing pushing is
-	 * no longer the same thing as nothing sounding.
+	 * The player's pause: the world stops simulating, the UI keeps stepping.
+	 * Pausing also publishes a focus change, so the game's bus mutes — a paused
+	 * game ticks no systems, and nothing pushing is no longer the same thing as
+	 * nothing sounding.
 	 */
-	setPaused(paused: boolean): void {
-		if (this.isPaused === paused) {
+	setGameplayPaused(paused: boolean): void {
+		if (this.host.gameplayPaused === paused) {
 			return;
 		}
-		this.isPaused = paused;
+		this.host.setGameplayPaused(paused);
 		audioFocus.setPaused(paused);
 	}
 
@@ -140,7 +155,7 @@ export class Game {
 		this.running = true;
 		const unregisterRealm = audioFocus.registerRealm(window);
 		audioFocus.setRealmOwner(window, GAME_AUDIO_OWNER);
-		audioFocus.setPaused(this.isPaused);
+		audioFocus.setPaused(this.host.gameplayPaused);
 		this.detachFocus = [
 			unregisterRealm,
 			audioFocus.gate(this.audioBus, GAME_AUDIO_OWNER),
@@ -154,39 +169,14 @@ export class Game {
 
 			const before = performance.now();
 			const rawDelta = (time - lastTime) as Milliseconds;
-			const delta = Math.min(rawDelta, MAX_FRAME_MS) as Milliseconds;
 			const fps = rawDelta > 0 ? 1000 / rawDelta : 0;
 			this.lastFps = fps;
 
-			this.clock.advance(delta);
-			const now = this.clock.snapshot(delta);
-
-			this.input.update();
-			const runGameplay = (masked: DeviceSnapshot): void => {
-				if (!this.isPaused) {
-					this.updateScene(delta, now, masked, this.input);
-				}
-			};
-			if (this.ui) {
-				const uiScale = this.current?.config.uiScale ?? 1;
-				this.ui.step(this.input, uiScale, delta / 1000, runGameplay);
-				const camera = this.current
-					? pickActiveCamera2D(this.current.world.ecs)
-					: null;
-				this.ui.layout(
-					uiScale,
-					this.renderer.width,
-					this.renderer.height,
-					camera ?? undefined,
-				);
-			} else {
-				runGameplay(this.input);
-			}
+			const now = this.host.advance(rawDelta);
+			this.host.step(rawDelta, now);
 			this.renderScene(now);
 			this.onFrame?.({ delta: rawDelta, fps });
-			this.renderer.endFrame();
-			this.ui?.clearEvents();
-			this.current?.world.events.clear();
+			this.host.endFrame();
 			this.events.clear();
 
 			this.lastFrameTime = performance.now() - before;
@@ -203,6 +193,7 @@ export class Game {
 
 	stop(): void {
 		this.running = false;
+		this.host.stop();
 		this.input.dispose();
 		for (const detach of this.detachFocus) {
 			detach();
@@ -216,60 +207,21 @@ export class Game {
 		}
 	}
 
-	private updateScene(
-		dt: Milliseconds,
-		time: Time,
-		input: DeviceSnapshot,
-		source: DeviceSnapshot,
-	): void {
-		const scene = this.current;
-		if (!scene) {
-			return;
-		}
-		const actions = scene.actions ?? NULL_ACTIONS;
-		if (source !== this.lastSource) {
-			actions.resetEdges();
-		}
-		this.lastSource = source;
-		actions.step(input, dt);
-		scene.world.ecs.update({
-			dt,
-			time,
-			ecs: scene.world.ecs,
-			world: scene.world,
-			input,
-			actions,
-			assetManager: this.assetManager,
-			audio: this.audio,
-			events: scene.world.events,
-			camera: pickActiveCamera2D(scene.world.ecs),
-		});
-		scene.world.ecs.flushDestroyed();
-	}
-
 	private renderScene(time: Time): void {
 		const scene = this.current;
 		if (!scene) {
 			return;
 		}
-		this.renderer.beginFrame();
-		const camera = pickActiveCamera2D(scene.world.ecs);
-		scene.world.ecs.render({
-			renderer: this.renderer,
-			time,
-			ecs: scene.world.ecs,
-			input: this.input,
-			assetManager: this.assetManager,
-			uiScale: scene.config.uiScale ?? 1,
-			camera,
-		});
-		const target = this.renderer.sceneTarget(this);
-		renderSceneToTexture(this.renderer, scene, target, camera);
-		this.renderer.composite([target], {
-			x: 0,
-			y: 0,
-			w: this.renderer.width,
-			h: this.renderer.height,
+		this.renderer.frame((scope) => {
+			renderWorld(scope, {
+				world: scene.world,
+				camera: pickActiveCamera2D(scene.world.ecs),
+				time,
+				input: this.input,
+				assetManager: this.assetManager,
+				uiScale: scene.config.uiScale ?? 1,
+				presentation: { scene, targetKey: this },
+			});
 		});
 	}
 }

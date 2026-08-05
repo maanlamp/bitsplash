@@ -17,22 +17,27 @@ import Tooltip from "./tooltip";
 type PlaybackBarProps = Readonly<{
 	onRun: () => void;
 	onStop: () => void;
-	onPause: () => void;
+	/**
+	 * Toggle the run's freeze — the editor's debugger hold, where no ticker
+	 * advances. Not the player's gameplay pause, which the run world's own UI
+	 * owns.
+	 */
+	onToggleFreeze: () => void;
 	onStep: () => void;
 	onSetMode: (mode: "game" | "editor") => void;
 	inputMode: "game" | "editor";
-	paused: boolean;
+	frozen: boolean;
 	running: boolean;
 }>;
 
 const PlaybackBar = ({
 	onRun,
 	onStop,
-	onPause,
+	onToggleFreeze,
 	onStep,
 	onSetMode,
 	inputMode,
-	paused,
+	frozen,
 	running,
 }: PlaybackBarProps) => (
 	<FloatingToolbar align="top">
@@ -72,16 +77,16 @@ const PlaybackBar = ({
 				<div className={styles.group}>
 					<span className={styles.groupLabel}>Playback</span>
 					<div className={styles.section}>
-						<Tooltip label={paused ? "Resume" : "Pause"} shortcut="P">
-							<Button variant="icon" onClick={onPause}>
-								{paused ? <PlayIcon /> : <PauseIcon />}
+						<Tooltip label={frozen ? "Resume" : "Pause"} shortcut="P">
+							<Button variant="icon" onClick={onToggleFreeze}>
+								{frozen ? <PlayIcon /> : <PauseIcon />}
 							</Button>
 						</Tooltip>
 						<Tooltip label="Step" shortcut=".">
 							<Button
 								variant="icon"
 								onClick={onStep}
-								disabled={!paused}
+								disabled={!frozen}
 							>
 								<SkipForwardIcon />
 							</Button>

@@ -1,7 +1,7 @@
 import type { BspritePoint } from "../../engine/sprite/bsprite-manifest";
 import type { History } from "../history";
 import { runCommand } from "./command-router";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /**
  * Attachment-point edits, each routed through {@link runCommand} with a **real
@@ -15,16 +15,16 @@ import type { SpriteDocument } from "./sprite-document";
 
 /** Create an empty attachment name; the inverse deletes it. No-op if it exists. */
 export const createAttachmentName = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	name: string,
 ): void => {
-	if (doc.attachmentNames().includes(name)) {
+	if (core.attachmentNames().includes(name)) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.createAttachment(name),
-		undo: () => doc.deleteAttachment(name),
+	runCommand(core, history, {
+		redo: () => core.createAttachment(name),
+		undo: () => core.deleteAttachment(name),
 	});
 };
 
@@ -33,17 +33,17 @@ export const createAttachmentName = (
  * restores the name with its captured points exactly.
  */
 export const deleteAttachmentName = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	name: string,
 ): void => {
-	const frames = doc.attachmentFrames(name);
+	const frames = core.attachmentFrames(name);
 	if (frames === undefined) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.deleteAttachment(name),
-		undo: () => doc.restoreAttachment(name, frames),
+	runCommand(core, history, {
+		redo: () => core.deleteAttachment(name),
+		undo: () => core.restoreAttachment(name, frames),
 	});
 };
 
@@ -52,18 +52,18 @@ export const deleteAttachmentName = (
  * absent, unchanged, or the target name is already taken.
  */
 export const renameAttachmentName = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	from: string,
 	to: string,
 ): void => {
-	const names = doc.attachmentNames();
+	const names = core.attachmentNames();
 	if (from === to || !names.includes(from) || names.includes(to)) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.renameAttachment(from, to),
-		undo: () => doc.renameAttachment(to, from),
+	runCommand(core, history, {
+		redo: () => core.renameAttachment(from, to),
+		undo: () => core.renameAttachment(to, from),
 	});
 };
 
@@ -73,13 +73,13 @@ export const renameAttachmentName = (
  * command first created the name) the name's absence.
  */
 export const setAttachmentPoint = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	name: string,
 	frame: number,
 	point: BspritePoint,
 ): void => {
-	const beforePoint = doc.attachmentPoint(name, frame);
+	const beforePoint = core.attachmentPoint(name, frame);
 	if (
 		beforePoint &&
 		beforePoint.x === point.x &&
@@ -87,15 +87,15 @@ export const setAttachmentPoint = (
 	) {
 		return;
 	}
-	const existed = doc.attachmentNames().includes(name);
-	const before = doc.attachmentFrames(name);
-	runCommand(doc, history, {
-		redo: () => doc.setAttachmentPoint(name, frame, point),
+	const existed = core.attachmentNames().includes(name);
+	const before = core.attachmentFrames(name);
+	runCommand(core, history, {
+		redo: () => core.setAttachmentPoint(name, frame, point),
 		undo: () => {
 			if (existed && before) {
-				doc.restoreAttachment(name, before);
+				core.restoreAttachment(name, before);
 			} else {
-				doc.deleteAttachment(name);
+				core.deleteAttachment(name);
 			}
 		},
 	});
@@ -106,17 +106,17 @@ export const setAttachmentPoint = (
  * has no point. The inverse restores the cleared point.
  */
 export const clearAttachmentPoint = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	name: string,
 	frame: number,
 ): void => {
-	const before = doc.attachmentPoint(name, frame);
+	const before = core.attachmentPoint(name, frame);
 	if (before === undefined) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.clearAttachmentPoint(name, frame),
-		undo: () => doc.setAttachmentPoint(name, frame, before),
+	runCommand(core, history, {
+		redo: () => core.clearAttachmentPoint(name, frame),
+		undo: () => core.setAttachmentPoint(name, frame, before),
 	});
 };

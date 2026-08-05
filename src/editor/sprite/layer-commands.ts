@@ -1,7 +1,7 @@
 import type { BlendId } from "../../engine/sprite/bsprite-manifest";
 import type { History } from "../history";
 import { runCommand } from "./command-router";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /**
  * Structural layer edits, each pushed as a command with a **real inverse** — the
@@ -14,20 +14,20 @@ import type { SpriteDocument } from "./sprite-document";
 
 /** Add a new blank layer above the current one and make it active. */
 export const addLayer = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 ): void => {
-	const snapshot = doc.blankLayerSnapshot();
-	const index = doc.layers.length;
-	const activeBefore = doc.activeLayerId;
-	runCommand(doc, history, {
+	const snapshot = core.blankLayerSnapshot();
+	const index = core.layers.length;
+	const activeBefore = core.activeLayerId;
+	runCommand(core, history, {
 		redo: () => {
-			doc.insertLayer(snapshot, index);
-			doc.setActiveLayer(snapshot.id);
+			core.insertLayer(snapshot, index);
+			core.setActiveLayer(snapshot.id);
 		},
 		undo: () => {
-			doc.removeLayer(snapshot.id);
-			doc.setActiveLayer(activeBefore);
+			core.removeLayer(snapshot.id);
+			core.setActiveLayer(activeBefore);
 		},
 	});
 };
@@ -38,82 +38,82 @@ export const addLayer = (
  * cel-scoped pixel snapshot. Refuses to delete the last remaining layer.
  */
 export const deleteLayer = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	id: string,
 ): void => {
-	if (doc.layers.length <= 1) {
+	if (core.layers.length <= 1) {
 		return;
 	}
-	const index = doc.layerIndex(id);
+	const index = core.layerIndex(id);
 	if (index < 0) {
 		return;
 	}
-	const snapshot = doc.snapshotLayer(id);
+	const snapshot = core.snapshotLayer(id);
 	if (!snapshot) {
 		return;
 	}
-	const activeBefore = doc.activeLayerId;
-	runCommand(doc, history, {
-		redo: () => doc.removeLayer(id),
+	const activeBefore = core.activeLayerId;
+	runCommand(core, history, {
+		redo: () => core.removeLayer(id),
 		undo: () => {
-			doc.insertLayer(snapshot, index);
-			doc.setActiveLayer(activeBefore);
+			core.insertLayer(snapshot, index);
+			core.setActiveLayer(activeBefore);
 		},
 	});
 };
 
 /** Rename a layer; the inverse renames it back. Captures no pixels. */
 export const renameLayer = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	id: string,
 	name: string,
 ): void => {
-	const layer = doc.layers.find((l) => l.id === id);
+	const layer = core.layers.find((l) => l.id === id);
 	if (!layer || layer.name === name) {
 		return;
 	}
 	const before = layer.name;
-	runCommand(doc, history, {
-		redo: () => doc.renameLayer(id, name),
-		undo: () => doc.renameLayer(id, before),
+	runCommand(core, history, {
+		redo: () => core.renameLayer(id, name),
+		undo: () => core.renameLayer(id, before),
 	});
 };
 
 /** Set a layer's blend mode; the inverse restores the prior mode. */
 export const setLayerBlend = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	id: string,
 	blend: BlendId,
 ): void => {
-	const layer = doc.layers.find((l) => l.id === id);
+	const layer = core.layers.find((l) => l.id === id);
 	if (!layer || layer.blend === blend) {
 		return;
 	}
 	const before = layer.blend;
-	runCommand(doc, history, {
-		redo: () => doc.setBlend(id, blend),
-		undo: () => doc.setBlend(id, before),
+	runCommand(core, history, {
+		redo: () => core.setBlend(id, blend),
+		undo: () => core.setBlend(id, before),
 	});
 };
 
 /** Toggle a layer's visibility; the inverse restores the prior value. */
 export const setLayerVisible = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	id: string,
 	visible: boolean,
 ): void => {
-	const layer = doc.layers.find((l) => l.id === id);
+	const layer = core.layers.find((l) => l.id === id);
 	if (!layer || layer.visible === visible) {
 		return;
 	}
 	const before = layer.visible;
-	runCommand(doc, history, {
-		redo: () => doc.setVisible(id, visible),
-		undo: () => doc.setVisible(id, before),
+	runCommand(core, history, {
+		redo: () => core.setVisible(id, visible),
+		undo: () => core.setVisible(id, before),
 	});
 };
 
@@ -123,7 +123,7 @@ export const setLayerVisible = (
  * no-op reorder records nothing.
  */
 export const commitLayerOrder = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	before: ReadonlyArray<string>,
 	after: ReadonlyArray<string>,
@@ -134,9 +134,9 @@ export const commitLayerOrder = (
 	) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.setLayerOrder(after),
-		undo: () => doc.setLayerOrder(before),
+	runCommand(core, history, {
+		redo: () => core.setLayerOrder(after),
+		undo: () => core.setLayerOrder(before),
 	});
 };
 
@@ -146,7 +146,7 @@ export const commitLayerOrder = (
  * no-op change records nothing.
  */
 export const commitLayerOpacity = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	id: string,
 	before: number,
@@ -155,8 +155,8 @@ export const commitLayerOpacity = (
 	if (before === after) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.setOpacity(id, after),
-		undo: () => doc.setOpacity(id, before),
+	runCommand(core, history, {
+		redo: () => core.setOpacity(id, after),
+		undo: () => core.setOpacity(id, before),
 	});
 };

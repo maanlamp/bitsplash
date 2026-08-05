@@ -40,8 +40,8 @@ export class SpriteOnionRenderSystem implements RenderSystem {
 	render({ renderer }: RenderContext): void {
 		const settings = this.onion.settings;
 		const ghosts = onionGhosts(
-			this.doc.activeFrameIndex,
-			this.doc.frames.length,
+			this.doc.core.activeFrameIndex,
+			this.doc.core.frames.length,
 			settings,
 		);
 		if (ghosts.length === 0) {

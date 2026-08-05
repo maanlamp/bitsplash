@@ -34,9 +34,9 @@ export class SpriteAttachmentRenderSystem implements RenderSystem {
 		if (name === null) {
 			return;
 		}
-		const point = this.doc.attachmentPoint(
+		const point = this.doc.core.attachmentPoint(
 			name,
-			this.doc.activeFrameIndex,
+			this.doc.core.activeFrameIndex,
 		);
 		if (!point) {
 			return;

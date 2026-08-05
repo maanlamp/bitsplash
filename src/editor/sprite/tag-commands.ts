@@ -1,7 +1,7 @@
 import type { BspriteTag } from "../../engine/sprite/bsprite-manifest";
 import type { History } from "../history";
 import { runCommand } from "./command-router";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /**
  * Tag edits, each routed through {@link runCommand} with a **real inverse**.
@@ -11,88 +11,88 @@ import type { SpriteDocument } from "./sprite-document";
 
 /** Append a new tag; the inverse removes it. */
 export const createTag = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	tag: BspriteTag,
 ): void => {
-	const index = doc.tags.length;
-	runCommand(doc, history, {
-		redo: () => doc.appendTag(tag),
+	const index = core.tags.length;
+	runCommand(core, history, {
+		redo: () => core.appendTag(tag),
 		undo: () => {
-			doc.removeTag(index);
+			core.removeTag(index);
 		},
 	});
 };
 
 /** Delete the tag at `index`; the inverse re-inserts it at that index. */
 export const deleteTag = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 ): void => {
-	const tag = doc.tags[index];
+	const tag = core.tags[index];
 	if (!tag) {
 		return;
 	}
 	const snapshot: BspriteTag = { ...tag };
-	runCommand(doc, history, {
+	runCommand(core, history, {
 		redo: () => {
-			doc.removeTag(index);
+			core.removeTag(index);
 		},
-		undo: () => doc.insertTag(index, snapshot),
+		undo: () => core.insertTag(index, snapshot),
 	});
 };
 
 /** Rename the tag at `index`; the inverse restores the prior name. */
 export const renameTag = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 	name: string,
 ): void => {
-	const before = doc.tags[index]?.name;
+	const before = core.tags[index]?.name;
 	if (before === undefined || before === name) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.renameTag(index, name),
-		undo: () => doc.renameTag(index, before),
+	runCommand(core, history, {
+		redo: () => core.renameTag(index, name),
+		undo: () => core.renameTag(index, before),
 	});
 };
 
 /** Set the tag's inclusive frame range; the inverse restores the prior range. */
 export const setTagRange = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 	from: number,
 	to: number,
 ): void => {
-	const tag = doc.tags[index];
+	const tag = core.tags[index];
 	if (!tag || (tag.from === from && tag.to === to)) {
 		return;
 	}
 	const beforeFrom = tag.from;
 	const beforeTo = tag.to;
-	runCommand(doc, history, {
-		redo: () => doc.setTagRange(index, from, to),
-		undo: () => doc.setTagRange(index, beforeFrom, beforeTo),
+	runCommand(core, history, {
+		redo: () => core.setTagRange(index, from, to),
+		undo: () => core.setTagRange(index, beforeFrom, beforeTo),
 	});
 };
 
 /** Toggle the tag's loop flag; the inverse restores the prior value. */
 export const setTagLoop = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 	loop: boolean,
 ): void => {
-	const before = doc.tags[index]?.loop;
+	const before = core.tags[index]?.loop;
 	if (before === undefined || before === loop) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.setTagLoop(index, loop),
-		undo: () => doc.setTagLoop(index, before),
+	runCommand(core, history, {
+		redo: () => core.setTagLoop(index, loop),
+		undo: () => core.setTagLoop(index, before),
 	});
 };

@@ -110,7 +110,7 @@ const PalettePanel = ({
 		const from = colors[selected]!;
 		const [r, g, b] = oklchToRgb255(state.l, state.c, state.h);
 		replaceActiveCelColor(
-			doc,
+			doc.core,
 			history,
 			[from.r, from.g, from.b, 255],
 			[r, g, b, Math.round(state.alpha * 255)],

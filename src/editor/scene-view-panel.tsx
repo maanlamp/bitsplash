@@ -37,11 +37,11 @@ const SceneViewPanel = ({
 	view,
 	onRun,
 	onStop,
-	onPause,
+	onToggleFreeze,
 	onStep,
 	onSetMode,
 	inputMode,
-	paused,
+	frozen,
 	running,
 	lockedOut,
 	editorEnabled,
@@ -54,11 +54,11 @@ const SceneViewPanel = ({
 	view: SceneView;
 	onRun: () => void;
 	onStop: () => void;
-	onPause: () => void;
+	onToggleFreeze: () => void;
 	onStep: () => void;
 	onSetMode: (mode: "game" | "editor") => void;
 	inputMode: "game" | "editor";
-	paused: boolean;
+	frozen: boolean;
 	running: boolean;
 	/**
 	 * True when a run is active in another scene view. One run at a time: this
@@ -292,11 +292,11 @@ const SceneViewPanel = ({
 				<PlaybackBar
 					onRun={onRun}
 					onStop={onStop}
-					onPause={onPause}
+					onToggleFreeze={onToggleFreeze}
 					onStep={onStep}
 					onSetMode={onSetMode}
 					inputMode={inputMode}
-					paused={paused}
+					frozen={frozen}
 					running={running}
 				/>
 				<Toolbar

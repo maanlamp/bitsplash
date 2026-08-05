@@ -41,7 +41,12 @@ const makeCtx = (
 ): ToolContext =>
 	({
 		doc: {
-			snapshot: () => ({ layerId: "l", frameIndex: 0, data: {} }),
+			core: {
+				snapshot: () => ({ layerId: "l", frameIndex: 0, data: {} }),
+				commitPendingFloatingEdit: () => {},
+				captureSelection: () => null,
+				restoreSelection: () => {},
+			},
 			beginStroke: () => rec.calls.push("begin"),
 			clearStroke: () => rec.calls.push("clear"),
 			refreshStrokePreview: () => rec.calls.push("refresh"),

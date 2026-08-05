@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { CelStore } from "../src/editor/sprite/cel-store";
 import { History } from "../src/editor/history";
 import { blankPixels } from "../src/editor/sprite/pixel-buffer";
 import { SelectionController } from "../src/editor/sprite/selection-controller";
@@ -7,82 +6,44 @@ import {
 	maskBounds,
 	rectMask,
 } from "../src/editor/sprite/selection-mask";
-import type {
-	SelectionSnapshot,
-	SpriteDocument,
-} from "../src/editor/sprite/sprite-document";
-
-const fakeDoc = (store: CelStore): SpriteDocument => {
-	let floatingCommit: (() => void) | null = null;
-	let bridge: {
-		capture: () => SelectionSnapshot | null;
-		restore: (s: SelectionSnapshot | null) => void;
-	} | null = null;
-	return {
-		get width() {
-			return store.width;
-		},
-		get height() {
-			return store.height;
-		},
-		get activeLayerId() {
-			return store.activeLayerId;
-		},
-		get activeFrameIndex() {
-			return store.activeFrameIndex;
-		},
-		getCel: (l: string, f: number) => store.getCel(l, f),
-		setCel: (l: string, f: number, p: unknown) =>
-			store.setCel(l, f, p as never),
-		registerFloatingCommit: (fn: (() => void) | null) => {
-			floatingCommit = fn;
-		},
-		commitPendingFloatingEdit: () => floatingCommit?.(),
-		registerSelectionBridge: (b: typeof bridge) => {
-			bridge = b;
-		},
-		captureSelection: () => bridge?.capture() ?? null,
-		restoreSelection: (s: SelectionSnapshot | null) =>
-			bridge?.restore(s),
-	} as unknown as SpriteDocument;
-};
+import { SpriteEditCore } from "../src/editor/sprite/sprite-edit-core";
 
 /** Fill a rectangular opaque block on the active cel. */
 const fillBlock = (
-	store: CelStore,
+	core: SpriteEditCore,
 	x0: number,
 	y0: number,
 	x1: number,
 	y1: number,
 	r = 200,
 ): void => {
-	const cel = blankPixels(store.width, store.height);
+	const cel = blankPixels(core.width, core.height);
 	for (let y = y0; y <= y1; y++) {
 		for (let x = x0; x <= x1; x++) {
-			const i = (y * store.width + x) * 4;
+			const i = (y * core.width + x) * 4;
 			cel.data[i] = r;
 			cel.data[i + 3] = 255;
 		}
 	}
-	store.putCel(store.activeLayerId, 0, cel);
+	core.setCel(core.activeLayerId, 0, cel);
 };
 
-const alpha = (store: CelStore, x: number, y: number): number =>
-	store.getCel(store.activeLayerId, 0)?.data[
-		(y * store.width + x) * 4 + 3
+const alpha = (core: SpriteEditCore, x: number, y: number): number =>
+	core.getCel(core.activeLayerId, 0)?.data[
+		(y * core.width + x) * 4 + 3
 	] ?? 0;
 
 const setup = () => {
-	const store = new CelStore(32, 32);
+	const core = SpriteEditCore.create(32, 32);
 	const history = new History();
-	const sel = new SelectionController(fakeDoc(store), history);
-	return { store, history, sel };
+	const sel = new SelectionController(core, history);
+	return { core, history, sel };
 };
 
 describe("rotateArbitrary (RotSprite on the float)", () => {
 	test("lifts a marquee to a float and rotates it", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 10, 12, 20, 16);
+		const { core, sel } = setup();
+		fillBlock(core, 10, 12, 20, 16);
 		sel.applyRegion(rectMask(32, 32, 10, 12, 20, 16), "replace");
 		expect(sel.rotateArbitrary(30)).toBe(true);
 		expect(sel.state.kind).toBe("floating");
@@ -99,22 +60,22 @@ describe("rotateArbitrary (RotSprite on the float)", () => {
 	});
 
 	test("commit after rotate writes once and is one undo entry", async () => {
-		const { store, history, sel } = setup();
-		fillBlock(store, 8, 8, 16, 16);
+		const { core, history, sel } = setup();
+		fillBlock(core, 8, 8, 16, 16);
 		sel.applyRegion(rectMask(32, 32, 8, 8, 16, 16), "replace");
 		sel.rotateArbitrary(90);
 		sel.commit();
 		expect(history.canUndo).toBe(true);
 		// One undo restores the pre-lift cel exactly.
-		const opaqueAfter = countOpaque(store);
+		const opaqueAfter = countOpaque(core);
 		expect(opaqueAfter).toBeGreaterThan(0);
 		history.undo();
 		await history.settle();
 		// The original 9×9 block (81 px) is restored.
-		expect(countOpaque(store)).toBe(9 * 9);
+		expect(countOpaque(core)).toBe(9 * 9);
 		history.redo();
 		await history.settle();
-		expect(countOpaque(store)).toBe(opaqueAfter);
+		expect(countOpaque(core)).toBe(opaqueAfter);
 		// Exactly one entry: a second undo is a no-op.
 		history.undo();
 		await history.settle();
@@ -122,8 +83,8 @@ describe("rotateArbitrary (RotSprite on the float)", () => {
 	});
 });
 
-const countOpaque = (store: CelStore): number => {
-	const cel = store.getCel(store.activeLayerId, 0);
+const countOpaque = (core: SpriteEditCore): number => {
+	const cel = core.getCel(core.activeLayerId, 0);
 	if (!cel) {
 		return 0;
 	}
@@ -138,8 +99,8 @@ const countOpaque = (store: CelStore): number => {
 
 describe("free transform (interactive session)", () => {
 	test("beginTransform lifts a marquee and starts an identity session", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 10, 10, 14, 14);
+		const { core, sel } = setup();
+		fillBlock(core, 10, 10, 14, 14);
 		sel.applyRegion(rectMask(32, 32, 10, 10, 14, 14), "replace");
 		expect(sel.beginTransform()).toBe(true);
 		expect(sel.transforming).toBe(true);
@@ -155,8 +116,8 @@ describe("free transform (interactive session)", () => {
 	});
 
 	test("scale 2× about the pivot doubles the float footprint", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 12, 12, 15, 15); // 4×4
+		const { core, sel } = setup();
+		fillBlock(core, 12, 12, 15, 15); // 4×4
 		sel.applyRegion(rectMask(32, 32, 12, 12, 15, 15), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ scaleX: 2, scaleY: 2 });
@@ -170,8 +131,8 @@ describe("free transform (interactive session)", () => {
 	});
 
 	test("confirm bakes the transform; a following commit writes it once", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 12, 12, 15, 15);
+		const { core, sel } = setup();
+		fillBlock(core, 12, 12, 15, 15);
 		sel.applyRegion(rectMask(32, 32, 12, 12, 15, 15), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ scaleX: 2, scaleY: 2 });
@@ -180,12 +141,12 @@ describe("free transform (interactive session)", () => {
 		expect(sel.state.kind).toBe("floating");
 		sel.commit();
 		// The scaled 8×8 block is now on the cel.
-		expect(countOpaque(store)).toBe(8 * 8);
+		expect(countOpaque(core)).toBe(8 * 8);
 	});
 
 	test("cancel restores the untransformed float, staying floating", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 12, 12, 15, 15);
+		const { core, sel } = setup();
+		fillBlock(core, 12, 12, 15, 15);
 		sel.applyRegion(rectMask(32, 32, 12, 12, 15, 15), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ scaleX: 3, scaleY: 3 });
@@ -199,8 +160,8 @@ describe("free transform (interactive session)", () => {
 	});
 
 	test("pivot-centred 90° rotation matches an exact rotateCw footprint", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 10, 12, 18, 14); // 9 wide × 3 tall
+		const { core, sel } = setup();
+		fillBlock(core, 10, 12, 18, 14); // 9 wide × 3 tall
 		sel.applyRegion(rectMask(32, 32, 10, 12, 18, 14), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ rotate: Math.PI / 2 });
@@ -215,8 +176,8 @@ describe("free transform (interactive session)", () => {
 	});
 
 	test("escape cancels the transform first, then drops the float", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 12, 12, 15, 15);
+		const { core, sel } = setup();
+		fillBlock(core, 12, 12, 15, 15);
 		sel.applyRegion(rectMask(32, 32, 12, 12, 15, 15), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ scaleX: 2, scaleY: 2 });
@@ -226,12 +187,12 @@ describe("free transform (interactive session)", () => {
 		sel.escape(); // drop the float back to a marquee
 		expect(sel.state.kind).toBe("marquee");
 		// The cel is untouched (escape never committed).
-		expect(alpha(store, 12, 12)).toBe(255);
+		expect(alpha(core, 12, 12)).toBe(255);
 	});
 
 	test("confirmOrCommit confirms while transforming, else commits", () => {
-		const { store, sel } = setup();
-		fillBlock(store, 12, 12, 15, 15);
+		const { core, sel } = setup();
+		fillBlock(core, 12, 12, 15, 15);
 		sel.applyRegion(rectMask(32, 32, 12, 12, 15, 15), "replace");
 		sel.beginTransform();
 		sel.updateTransform({ scaleX: 2, scaleY: 2 });
@@ -240,6 +201,6 @@ describe("free transform (interactive session)", () => {
 		expect(sel.state.kind).toBe("floating");
 		sel.confirmOrCommit(); // commits float
 		expect(sel.state.kind).toBe("marquee");
-		expect(countOpaque(store)).toBe(8 * 8);
+		expect(countOpaque(core)).toBe(8 * 8);
 	});
 });

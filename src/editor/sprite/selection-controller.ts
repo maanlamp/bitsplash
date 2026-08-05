@@ -32,8 +32,8 @@ import {
 } from "./selection-mask";
 import type {
 	SelectionSnapshot,
-	SpriteDocument,
-} from "./sprite-document";
+	SpriteEditCore,
+} from "./sprite-edit-core";
 
 /** Whether a float was lifted from the cel (a move) or dropped in (a paste). */
 type FloatSource = "move" | "paste";
@@ -128,9 +128,9 @@ const clonePixels = (buf: PixelBuffer): PixelBuffer => ({
  * The single owner of the sprite editor's selection + floating state.
  *
  * It registers the two B12 choke-point bridges on the document — the
- * floating-commit callback ({@link SpriteDocument.registerFloatingCommit}) and
+ * floating-commit callback ({@link SpriteEditCore.registerFloatingCommit}) and
  * the selection capture/restore bridge
- * ({@link SpriteDocument.registerSelectionBridge}) — so that:
+ * ({@link SpriteEditCore.registerSelectionBridge}) — so that:
  *
  * - every {@link runCommand} (and the document's own active-frame/layer switch,
  *   and save) first folds any uncommitted float into the cel as one undo entry;
@@ -146,12 +146,12 @@ export class SelectionController extends Subscribable {
 	private committing = false;
 
 	constructor(
-		private doc: SpriteDocument,
+		private core: SpriteEditCore,
 		private history: History,
 	) {
 		super();
-		doc.registerFloatingCommit(() => this.commit());
-		doc.registerSelectionBridge({
+		core.registerFloatingCommit(() => this.commit());
+		core.registerSelectionBridge({
 			capture: () => this.capture(),
 			restore: (snapshot) => this.restore(snapshot),
 		});
@@ -159,8 +159,8 @@ export class SelectionController extends Subscribable {
 
 	/** Detach the choke-point bridges (called when the document is replaced). */
 	dispose(): void {
-		this.doc.registerFloatingCommit(null);
-		this.doc.registerSelectionBridge(null);
+		this.core.registerFloatingCommit(null);
+		this.core.registerSelectionBridge(null);
 	}
 
 	get state(): SelectionState {
@@ -253,11 +253,11 @@ export class SelectionController extends Subscribable {
 			return false;
 		}
 		const mask = this._state.mask;
-		const layerId = this.doc.activeLayerId;
-		const frameIndex = this.doc.activeFrameIndex;
+		const layerId = this.core.activeLayerId;
+		const frameIndex = this.core.activeFrameIndex;
 		const cel = this.activeCel();
 		const { lifted, residue } = liftSelection(cel, mask);
-		this.doc.setCel(layerId, frameIndex, clonePixels(residue));
+		this.core.setCel(layerId, frameIndex, clonePixels(residue));
 		this.setState({
 			kind: "floating",
 			source: "move",
@@ -346,8 +346,8 @@ export class SelectionController extends Subscribable {
 		}
 		const t = transformClip(clip, transform);
 		const { lifted, mask } = placeClip(
-			this.doc.width,
-			this.doc.height,
+			this.core.width,
+			this.core.height,
 			t,
 			t.originX,
 			t.originY,
@@ -384,8 +384,8 @@ export class SelectionController extends Subscribable {
 		};
 		const rotated = rotateClip(source, (degrees * Math.PI) / 180);
 		const { lifted, mask } = placeClip(
-			this.doc.width,
-			this.doc.height,
+			this.core.width,
+			this.core.height,
 			rotated,
 			rotated.originX,
 			rotated.originY,
@@ -484,8 +484,8 @@ export class SelectionController extends Subscribable {
 		}
 		const { source } = s.transform;
 		const { lifted, mask } = placeClip(
-			this.doc.width,
-			this.doc.height,
+			this.core.width,
+			this.core.height,
 			source,
 			source.originX,
 			source.originY,
@@ -518,8 +518,8 @@ export class SelectionController extends Subscribable {
 		const { lifted, mask } = rasterizeClip(
 			transform.source,
 			matrix,
-			this.doc.width,
-			this.doc.height,
+			this.core.width,
+			this.core.height,
 		);
 		this.setState({ ...floating, transform, lifted, mask });
 	}
@@ -554,8 +554,8 @@ export class SelectionController extends Subscribable {
 			return;
 		}
 		const mask = this._state.mask;
-		const layerId = this.doc.activeLayerId;
-		const frameIndex = this.doc.activeFrameIndex;
+		const layerId = this.core.activeLayerId;
+		const frameIndex = this.core.activeFrameIndex;
 		const cel = this.activeCel();
 		const { lifted, residue } = liftSelection(cel, mask);
 		const clip = cropClip(lifted, mask);
@@ -563,11 +563,11 @@ export class SelectionController extends Subscribable {
 			setClipboard(clip);
 		}
 		const before = cel;
-		runCommand(this.doc, this.history, {
+		runCommand(this.core, this.history, {
 			redo: () =>
-				this.doc.setCel(layerId, frameIndex, clonePixels(residue)),
+				this.core.setCel(layerId, frameIndex, clonePixels(residue)),
 			undo: () =>
-				this.doc.setCel(layerId, frameIndex, clonePixels(before)),
+				this.core.setCel(layerId, frameIndex, clonePixels(before)),
 		});
 	}
 
@@ -587,14 +587,14 @@ export class SelectionController extends Subscribable {
 				? cloneMask(this._state.mask)
 				: null;
 		const { lifted, mask } = placeClip(
-			this.doc.width,
-			this.doc.height,
+			this.core.width,
+			this.core.height,
 			clip,
 			clip.originX,
 			clip.originY,
 		);
-		const layerId = this.doc.activeLayerId;
-		const frameIndex = this.doc.activeFrameIndex;
+		const layerId = this.core.activeLayerId;
+		const frameIndex = this.core.activeFrameIndex;
 		const cel = this.activeCel();
 		this.setState({
 			kind: "floating",
@@ -642,16 +642,16 @@ export class SelectionController extends Subscribable {
 		);
 		this.committing = true;
 		try {
-			runCommand(this.doc, this.history, {
+			runCommand(this.core, this.history, {
 				redo: () => {
-					this.doc.setCel(layerId, frameIndex, clonePixels(final));
+					this.core.setCel(layerId, frameIndex, clonePixels(final));
 					this.setState({
 						kind: "marquee",
 						mask: cloneMask(postMask),
 					});
 				},
 				undo: () => {
-					this.doc.setCel(layerId, frameIndex, clonePixels(before));
+					this.core.setCel(layerId, frameIndex, clonePixels(before));
 					this.setState(
 						preMask
 							? { kind: "marquee", mask: cloneMask(preMask) }
@@ -675,7 +675,11 @@ export class SelectionController extends Subscribable {
 			return;
 		}
 		if (s.kind === "floating") {
-			this.doc.setCel(s.layerId, s.frameIndex, clonePixels(s.before));
+			this.core.setCel(
+				s.layerId,
+				s.frameIndex,
+				clonePixels(s.before),
+			);
 			this.setState(
 				s.restoreMask
 					? { kind: "marquee", mask: s.restoreMask }
@@ -711,13 +715,13 @@ export class SelectionController extends Subscribable {
 	}
 
 	private activeCel(): PixelBuffer {
-		const cel = this.doc.getCel(
-			this.doc.activeLayerId,
-			this.doc.activeFrameIndex,
+		const cel = this.core.getCel(
+			this.core.activeLayerId,
+			this.core.activeFrameIndex,
 		);
 		return cel
 			? clonePixels(cel)
-			: blankPixels(this.doc.width, this.doc.height);
+			: blankPixels(this.core.width, this.core.height);
 	}
 
 	private setState(next: SelectionState): void {

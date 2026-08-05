@@ -41,6 +41,7 @@ import { OnionState } from "./onion-state";
 import { SelectionController } from "./selection-controller";
 import SpritePreviewPanel from "./sprite-preview-panel";
 import { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 import { SpriteEditorState } from "./sprite-editor-state";
 import styles from "./sprite-editor.module.scss";
 import SpriteViewToolbar from "./sprite-view-toolbar";
@@ -122,7 +123,7 @@ const SpriteEditor = ({
 			],
 			load: async () => {
 				if (assetUrl === null) {
-					return new SpriteDocument(
+					return SpriteDocument.create(
 						create?.width ?? 32,
 						create?.height ?? 32,
 					);
@@ -150,7 +151,7 @@ const SpriteEditor = ({
 			setSelection(null);
 			return;
 		}
-		const controller = new SelectionController(doc, history);
+		const controller = new SelectionController(doc.core, history);
 		setSelection(controller);
 		return () => {
 			controller.dispose();
@@ -260,14 +261,13 @@ const SpriteEditor = ({
 	}, [state, win]);
 
 	const serialize = (
-		document: SpriteDocument,
+		core: SpriteEditCore,
 		snapshot: DocumentSnapshot,
 	): Uint8Array =>
 		serializeBsprite(snapshot, {
-			previous: document.previousArchive ?? undefined,
-			isCelDirty: (layerId, frame) =>
-				document.isCelDirty(layerId, frame),
-			isBakeDirty: (frame) => document.isBakeDirty(frame),
+			previous: core.previousArchive ?? undefined,
+			isCelDirty: (layerId, frame) => core.isCelDirty(layerId, frame),
+			isBakeDirty: (frame) => core.isBakeDirty(frame),
 		});
 
 	/**
@@ -295,7 +295,7 @@ const SpriteEditor = ({
 		}
 		// Saving is an unrelated action: fold any uncommitted floating selection
 		// into the cel (one undo entry) before serializing.
-		doc.commitPendingFloatingEdit();
+		doc.core.commitPendingFloatingEdit();
 		// Create a brand-new .bsprite (blank one-frame document). A tileset carries
 		// a manifest tileset block so the engine classifies it by manifest.
 		if (assetUrl === null) {
@@ -304,11 +304,11 @@ const SpriteEditor = ({
 			}
 			const snapshot: DocumentSnapshot = isTileset
 				? {
-						...snapshotFromDocument(doc),
+						...snapshotFromDocument(doc.core),
 						tileset: { columns: SHEET_COLUMNS },
 					}
-				: snapshotFromDocument(doc);
-			const bytes = serialize(doc, snapshot);
+				: snapshotFromDocument(doc.core);
+			const bytes = serialize(doc.core, snapshot);
 			const result = await uploadAsset(
 				create.filename,
 				new Blob([bytes as BlobPart]),
@@ -318,8 +318,8 @@ const SpriteEditor = ({
 				window.alert(`"${create.filename}" already exists.`);
 				return;
 			}
-			doc.adoptSavedArchive(bytes);
-			doc.markSaved();
+			doc.core.adoptSavedArchive(bytes);
+			doc.core.markSaved();
 			onCreated(result.url);
 			return;
 		}
@@ -331,7 +331,10 @@ const SpriteEditor = ({
 				/\.[^.]+$/,
 				"",
 			)}.bsprite`;
-			const bytes = serialize(doc, snapshotFromDocument(doc));
+			const bytes = serialize(
+				doc.core,
+				snapshotFromDocument(doc.core),
+			);
 			const result = await uploadAsset(
 				filename,
 				new Blob([bytes as BlobPart]),
@@ -341,21 +344,21 @@ const SpriteEditor = ({
 				window.alert(`"${filename}" already exists.`);
 				return;
 			}
-			doc.adoptSavedArchive(bytes);
-			doc.markSaved();
+			doc.core.adoptSavedArchive(bytes);
+			doc.core.markSaved();
 			hotReload(result.url);
 			onCreated(result.url);
 			return;
 		}
 		// Overwrite the existing .bsprite in place.
-		const bytes = serialize(doc, snapshotFromDocument(doc));
+		const bytes = serialize(doc.core, snapshotFromDocument(doc.core));
 		await uploadAsset(
 			assetFilename(assetUrl),
 			new Blob([bytes as BlobPart]),
 			true,
 		);
-		doc.adoptSavedArchive(bytes);
-		doc.markSaved();
+		doc.core.adoptSavedArchive(bytes);
+		doc.core.markSaved();
 		hotReload(assetUrl);
 	};
 
@@ -422,13 +425,13 @@ const SpriteEditor = ({
 	// the conventional pixel-editor flip shortcuts; rotate-90 stays toolbar-only.
 	useScopedHotkeys(
 		"shift+h",
-		() => doc && flipHorizontalCommand(doc, history, selection),
+		() => doc && flipHorizontalCommand(doc.core, history, selection),
 		{ enabled: active },
 		[active, doc, history, selection],
 	);
 	useScopedHotkeys(
 		"shift+v",
-		() => doc && flipVerticalCommand(doc, history, selection),
+		() => doc && flipVerticalCommand(doc.core, history, selection),
 		{ enabled: active },
 		[active, doc, history, selection],
 	);
@@ -444,16 +447,16 @@ const SpriteEditor = ({
 			e.preventDefault();
 			switch (e.key) {
 				case "ArrowLeft":
-					wrapShiftCel(doc, history, -1, 0);
+					wrapShiftCel(doc.core, history, -1, 0);
 					break;
 				case "ArrowRight":
-					wrapShiftCel(doc, history, 1, 0);
+					wrapShiftCel(doc.core, history, 1, 0);
 					break;
 				case "ArrowUp":
-					wrapShiftCel(doc, history, 0, -1);
+					wrapShiftCel(doc.core, history, 0, -1);
 					break;
 				case "ArrowDown":
-					wrapShiftCel(doc, history, 0, 1);
+					wrapShiftCel(doc.core, history, 0, 1);
 					break;
 			}
 		},
@@ -474,13 +477,21 @@ const SpriteEditor = ({
 			e.preventDefault();
 			switch (e.key) {
 				case "ArrowLeft":
-					doc.setActiveFrame(
-						clampedIndex(doc.activeFrameIndex, -1, doc.frames.length),
+					doc.core.setActiveFrame(
+						clampedIndex(
+							doc.core.activeFrameIndex,
+							-1,
+							doc.core.frames.length,
+						),
 					);
 					break;
 				case "ArrowRight":
-					doc.setActiveFrame(
-						clampedIndex(doc.activeFrameIndex, 1, doc.frames.length),
+					doc.core.setActiveFrame(
+						clampedIndex(
+							doc.core.activeFrameIndex,
+							1,
+							doc.core.frames.length,
+						),
 					);
 					break;
 				case "ArrowUp":
@@ -488,10 +499,10 @@ const SpriteEditor = ({
 					const displayIds = [...doc.layers]
 						.reverse()
 						.map((l) => l.id);
-					doc.setActiveLayer(
+					doc.core.setActiveLayer(
 						adjacentLayerId(
 							displayIds,
-							doc.activeLayerId,
+							doc.core.activeLayerId,
 							e.key === "ArrowUp" ? -1 : 1,
 						),
 					);

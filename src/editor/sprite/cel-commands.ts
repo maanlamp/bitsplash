@@ -1,7 +1,7 @@
 import type { History } from "../history";
 import { runCommand } from "./command-router";
 import type { PixelBuffer } from "./pixel-buffer";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /** A (layer, frame) address of a single cel in the timeline grid. */
 export type CelRef = Readonly<{
@@ -23,7 +23,7 @@ export type CelRef = Readonly<{
  * copy (the conventional pixel-editor default — flagged for the user).
  */
 export const moveCel = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	src: CelRef,
 	dst: CelRef,
@@ -35,20 +35,20 @@ export const moveCel = (
 	) {
 		return;
 	}
-	const srcBefore: PixelBuffer | null = doc.getCel(
+	const srcBefore: PixelBuffer | null = core.getCel(
 		src.layerId,
 		src.frameIndex,
 	);
 	if (!srcBefore) {
 		return;
 	}
-	const dstBefore: PixelBuffer | null = doc.getCel(
+	const dstBefore: PixelBuffer | null = core.getCel(
 		dst.layerId,
 		dst.frameIndex,
 	);
-	runCommand(doc, history, {
+	runCommand(core, history, {
 		redo: () =>
-			doc.moveCel(
+			core.moveCel(
 				src.layerId,
 				src.frameIndex,
 				dst.layerId,
@@ -56,8 +56,8 @@ export const moveCel = (
 				copy,
 			),
 		undo: () => {
-			doc.setCel(dst.layerId, dst.frameIndex, dstBefore);
-			doc.setCel(src.layerId, src.frameIndex, srcBefore);
+			core.setCel(dst.layerId, dst.frameIndex, dstBefore);
+			core.setCel(src.layerId, src.frameIndex, srcBefore);
 		},
 	});
 };

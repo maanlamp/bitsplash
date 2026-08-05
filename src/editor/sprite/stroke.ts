@@ -2,9 +2,9 @@ import type { History } from "../history";
 import { runCommand } from "./command-router";
 import type { PixelBuffer } from "./pixel-buffer";
 import type {
-	SpriteDocument,
+	SpriteEditCore,
 	StrokeSnapshot,
-} from "./sprite-document";
+} from "./sprite-edit-core";
 
 const equal = (a: PixelBuffer, b: PixelBuffer): boolean => {
 	if (a.data.length !== b.data.length) {
@@ -20,8 +20,8 @@ const equal = (a: PixelBuffer, b: PixelBuffer): boolean => {
 
 /**
  * Record a committed stroke on the undo stack as one cel-scoped pixel command.
- * Snapshots the active layer after {@link SpriteDocument.commitStroke} has
- * folded the stroke buffer in, diffs it against the pre-stroke `before`
+ * Snapshots the active layer after the committed stroke has been folded into the
+ * cel ({@link SpriteEditCore.writeStroke}), diffs it against the pre-stroke `before`
  * snapshot, and — via the shared {@link runCommand} choke-point — pushes an
  * undo/redo pair over just that one cel's {@link ImageData}; a stroke that
  * changed nothing pushes nothing.
@@ -32,11 +32,11 @@ const equal = (a: PixelBuffer, b: PixelBuffer): boolean => {
  * fire uniformly for pixel and structural edits alike.
  */
 export const recordStroke = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	before: StrokeSnapshot,
 ): void => {
-	const after = doc.snapshot();
+	const after = core.snapshot();
 	if (
 		before.layerId === after.layerId &&
 		before.frameIndex === after.frameIndex &&
@@ -44,8 +44,8 @@ export const recordStroke = (
 	) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.restore(after),
-		undo: () => doc.restore(before),
+	runCommand(core, history, {
+		redo: () => core.restore(after),
+		undo: () => core.restore(before),
 	});
 };

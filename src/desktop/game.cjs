@@ -26,6 +26,12 @@ process.on("disconnect", () => {
 
 const devUrl = process.env.BITSPLASH_DEV_URL;
 
+// Set BITSPLASH_PROFILE to turn the game's per-system FrameProfile on: the
+// marker rides the loaded URL and `engine/runtime/host.ts` reads it. Wall-clock
+// frame timing comes from Chromium's own tracing over --remote-debugging-port,
+// because collecting per-system spans perturbs the frame it measures.
+const PROFILE_QUERY = process.env.BITSPLASH_PROFILE ? "?profile" : "";
+
 if (devUrl) {
 	app.on(
 		"certificate-error",
@@ -127,10 +133,12 @@ const createGameWindow = () => {
 		process.send?.(GAME_READY_MESSAGE);
 	});
 	if (devUrl) {
-		void window.loadURL(`${devUrl}/game.html`);
+		void window.loadURL(`${devUrl}/game.html${PROFILE_QUERY}`);
 	} else {
 		serveDist();
-		void window.loadURL(`${APP_SCHEME}://bundle/game.html`);
+		void window.loadURL(
+			`${APP_SCHEME}://bundle/game.html${PROFILE_QUERY}`,
+		);
 	}
 };
 

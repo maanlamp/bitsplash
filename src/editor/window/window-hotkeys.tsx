@@ -44,7 +44,7 @@ export type WindowHotkeyHandlers = Readonly<{
 	stepRun: () => void;
 	startRun: () => void;
 	stopRun: () => void;
-	toggleRunPause: () => void;
+	toggleRunFreeze: () => void;
 	playGame: () => void;
 	/** Close a view through the dirty guard and closed-stack machinery. */
 	closeView: (id: ViewId) => void;
@@ -95,7 +95,7 @@ export const WindowHotkeys = ({
 		stepRun,
 		startRun,
 		stopRun,
-		toggleRunPause,
+		toggleRunFreeze,
 		playGame,
 		closeView,
 		reopenClosed,
@@ -173,7 +173,7 @@ export const WindowHotkeys = ({
 				return;
 			}
 			if (running) {
-				toggleRunPause();
+				toggleRunFreeze();
 			} else {
 				startRun();
 			}

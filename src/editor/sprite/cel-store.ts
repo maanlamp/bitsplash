@@ -123,9 +123,10 @@ const clonePoints = (
  * This is the pure, canvas-free core — it holds only {@link PixelBuffer}s and
  * plain data, so the whole model (structural edits, their inverses, whole-image
  * transforms, multi-frame construction, and the serializer snapshot) is
- * headlessly testable. {@link import("./sprite-document").SpriteDocument} wraps
- * one of these and adds the DOM composite canvas, stroke preview, and change
- * notifications.
+ * headlessly testable. {@link import("./sprite-edit-core").SpriteEditCore} owns
+ * one of these and adds the edit surface around it (dirty tracking, undo hooks,
+ * change notifications); the DOM composite canvas and stroke preview live one
+ * layer further out, on {@link import("./sprite-document").SpriteDocument}.
  *
  * Cels are **sparse**: a (layer, frame) pair with no authored pixels has no
  * entry and is treated as fully transparent. Stored buffers are never mutated

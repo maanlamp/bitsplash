@@ -114,12 +114,21 @@ describe("stroke buffer math", () => {
 /**
  * A headless stand-in for the DOM {@link SpriteDocument} that mirrors its stroke
  * lifecycle on a plain pixel array using the same pure buffer functions, so the
- * tool → document → history contract can be asserted without a canvas.
+ * tool → document → history contract can be asserted without a canvas. `core`
+ * stands in for the document's {@link SpriteEditCore}, which is where the tool
+ * reads its pre-stroke snapshot and records the undo entry.
  */
 class FakeDoc {
 	readonly width = W;
 	readonly height = H;
 	layer = blankPixels(W, H);
+	readonly core = {
+		snapshot: (): StrokeSnapshot => this.snapshot(),
+		restore: (snap: StrokeSnapshot): void => this.restore(snap),
+		commitPendingFloatingEdit: (): void => {},
+		captureSelection: (): null => null,
+		restoreSelection: (): void => {},
+	};
 	private buffer: PixelBuffer | null = null;
 	private mode: "paint" | "erase" | null = null;
 	constructor(

@@ -14,15 +14,16 @@ import { recordStroke } from "../src/editor/sprite/stroke";
 import { blankPixels } from "../src/editor/sprite/pixel-buffer";
 import type {
 	SelectionSnapshot,
-	SpriteDocument,
-} from "../src/editor/sprite/sprite-document";
+	SpriteEditCore,
+} from "../src/editor/sprite/sprite-edit-core";
 
 /**
  * The structural + pixel undo commands are exercised against the **real**
  * canvas-free {@link CelStore} — not a hand-written double — so the assertions
  * cover the artifact that ships. `withHooks` attaches the three inert
- * choke-point hooks {@link runCommand} calls (the DOM {@link SpriteDocument}
- * implements them via bridges) so the store can stand in for the document.
+ * choke-point hooks {@link runCommand} calls (a real {@link SpriteEditCore}
+ * implements them via registered bridges) so the store can stand in for the
+ * edit core.
  */
 const withHooks = (
 	store: CelStore,
@@ -31,7 +32,7 @@ const withHooks = (
 		capture: () => SelectionSnapshot | null;
 		restore: (s: SelectionSnapshot | null) => void;
 	}> = {},
-): SpriteDocument => {
+): SpriteEditCore => {
 	const target = store as unknown as {
 		commitPendingFloatingEdit: () => void;
 		captureSelection: () => SelectionSnapshot | null;
@@ -40,7 +41,7 @@ const withHooks = (
 	target.commitPendingFloatingEdit = hooks.commit ?? (() => {});
 	target.captureSelection = hooks.capture ?? (() => null);
 	target.restoreSelection = hooks.restore ?? (() => {});
-	return store as unknown as SpriteDocument;
+	return store as unknown as SpriteEditCore;
 };
 
 const painted = (index: number, value: number) => {

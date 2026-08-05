@@ -15,7 +15,7 @@ import {
 	type PixelBuffer,
 	blankPixels,
 } from "../src/editor/sprite/pixel-buffer";
-import type { SpriteDocument } from "../src/editor/sprite/sprite-document";
+import type { SpriteEditCore } from "../src/editor/sprite/sprite-edit-core";
 
 const pixel = (
 	buf: PixelBuffer,
@@ -123,9 +123,9 @@ describe("rotate pixel math", () => {
 });
 
 /**
- * A headless stand-in for {@link SpriteDocument} whose flip ops run the same
+ * A headless stand-in for {@link SpriteEditCore} whose flip ops run the same
  * pure transforms on a plain pixel buffer, so the command routing and undo
- * inverse can be asserted without a canvas.
+ * inverse can be asserted over one buffer rather than a whole cel model.
  */
 class FakeDoc {
 	buffer: PixelBuffer;
@@ -145,8 +145,8 @@ class FakeDoc {
 	restoreSelection(): void {}
 }
 
-const asDoc = (fake: FakeDoc): SpriteDocument =>
-	fake as unknown as SpriteDocument;
+const asCore = (fake: FakeDoc): SpriteEditCore =>
+	fake as unknown as SpriteEditCore;
 
 describe("flip commands", () => {
 	test("flip records one undo entry and undoes back to the original", async () => {
@@ -154,7 +154,7 @@ describe("flip commands", () => {
 		const history = new History();
 		const original = fake.buffer.data.slice();
 
-		flipImageHorizontal(asDoc(fake), history);
+		flipImageHorizontal(asCore(fake), history);
 		expect(history.canUndo).toBe(true);
 		expect(fake.buffer.data).not.toEqual(original);
 
@@ -168,7 +168,7 @@ describe("flip commands", () => {
 	test("redo re-applies the same flip", async () => {
 		const fake = new FakeDoc(4, 3);
 		const history = new History();
-		flipImageVertical(asDoc(fake), history);
+		flipImageVertical(asCore(fake), history);
 		const flipped = fake.buffer.data.slice();
 
 		history.undo();
@@ -181,7 +181,7 @@ describe("flip commands", () => {
 	test("routing through runCommand directly matches the helper", () => {
 		const fake = new FakeDoc(3, 3);
 		const history = new History();
-		runCommand(asDoc(fake), history, {
+		runCommand(asCore(fake), history, {
 			redo: () => fake.flipHorizontal(),
 			undo: () => fake.flipHorizontal(),
 		});

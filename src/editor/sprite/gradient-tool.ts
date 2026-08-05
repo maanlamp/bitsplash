@@ -45,7 +45,7 @@ export class GradientTool implements SpriteTool {
 		if (ctx.button !== 0 || !ctx.overImage) {
 			return;
 		}
-		session.snapshot = ctx.doc.snapshot();
+		session.snapshot = ctx.doc.core.snapshot();
 		session.shape = { x0: ctx.x, y0: ctx.y };
 		ctx.doc.beginStroke();
 		ctx.capture();
@@ -64,7 +64,7 @@ export class GradientTool implements SpriteTool {
 			return;
 		}
 		ctx.doc.commitStroke();
-		recordStroke(ctx.doc, ctx.history, session.snapshot);
+		recordStroke(ctx.doc.core, ctx.history, session.snapshot);
 		session.snapshot = null;
 		session.shape = null;
 	}

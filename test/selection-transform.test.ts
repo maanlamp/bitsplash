@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { CelStore } from "../src/editor/sprite/cel-store";
 import { blankPixels } from "../src/editor/sprite/pixel-buffer";
 import {
 	type SelectionClip,
@@ -11,45 +10,7 @@ import {
 	rectMask,
 } from "../src/editor/sprite/selection-mask";
 import { History } from "../src/editor/history";
-import type {
-	SelectionSnapshot,
-	SpriteDocument,
-} from "../src/editor/sprite/sprite-document";
-
-const fakeDoc = (store: CelStore): SpriteDocument => {
-	let floatingCommit: (() => void) | null = null;
-	let bridge: {
-		capture: () => SelectionSnapshot | null;
-		restore: (s: SelectionSnapshot | null) => void;
-	} | null = null;
-	return {
-		get width() {
-			return store.width;
-		},
-		get height() {
-			return store.height;
-		},
-		get activeLayerId() {
-			return store.activeLayerId;
-		},
-		get activeFrameIndex() {
-			return store.activeFrameIndex;
-		},
-		getCel: (l: string, f: number) => store.getCel(l, f),
-		setCel: (l: string, f: number, p: unknown) =>
-			store.setCel(l, f, p as never),
-		registerFloatingCommit: (fn: (() => void) | null) => {
-			floatingCommit = fn;
-		},
-		commitPendingFloatingEdit: () => floatingCommit?.(),
-		registerSelectionBridge: (b: typeof bridge) => {
-			bridge = b;
-		},
-		captureSelection: () => bridge?.capture() ?? null,
-		restoreSelection: (s: SelectionSnapshot | null) =>
-			bridge?.restore(s),
-	} as unknown as SpriteDocument;
-};
+import { SpriteEditCore } from "../src/editor/sprite/sprite-edit-core";
 
 /** A clip whose pixels carry a distinct colour per cell for unambiguous mapping. */
 const rampClip = (
@@ -125,21 +86,21 @@ describe("transformClip (pure buffer + mask + origin)", () => {
 	});
 });
 
-const alpha = (store: CelStore, x: number, y: number): number =>
-	store.getCel(store.activeLayerId, 0)?.data[
-		(y * store.width + x) * 4 + 3
+const alpha = (core: SpriteEditCore, x: number, y: number): number =>
+	core.getCel(core.activeLayerId, 0)?.data[
+		(y * core.width + x) * 4 + 3
 	] ?? 0;
 
 describe("SelectionController transforms (float buffer + mask + offset)", () => {
 	const setup = () => {
-		const store = new CelStore(8, 8);
+		const core = SpriteEditCore.create(8, 8);
 		const history = new History();
-		const sel = new SelectionController(fakeDoc(store), history);
-		return { store, sel, layerId: store.activeLayerId };
+		const sel = new SelectionController(core, history);
+		return { core, sel, layerId: core.activeLayerId };
 	};
 
 	test("flip of a marquee lifts to a float and mirrors in place", () => {
-		const { store, sel, layerId } = setup();
+		const { core, sel, layerId } = setup();
 		const cel = blankPixels(8, 8);
 		// Two-cell horizontal bar at (2,2)-(3,2): make (2,2) opaque, (3,2) opaque
 		// with a marker so the mirror is observable.
@@ -148,7 +109,7 @@ describe("SelectionController transforms (float buffer + mask + offset)", () => 
 			cel.data[i] = x === 2 ? 100 : 200;
 			cel.data[i + 3] = 255;
 		}
-		store.putCel(layerId, 0, cel);
+		core.setCel(layerId, 0, cel);
 		sel.applyRegion(rectMask(8, 8, 2, 2, 3, 2), "replace");
 		expect(sel.flipHorizontal()).toBe(true);
 		expect(sel.state.kind).toBe("floating");
@@ -162,12 +123,12 @@ describe("SelectionController transforms (float buffer + mask + offset)", () => 
 	});
 
 	test("rotate-cw then rotate-ccw restores the float's pixels (identity)", () => {
-		const { store, sel, layerId } = setup();
+		const { core, sel, layerId } = setup();
 		const cel = blankPixels(8, 8);
 		const i = (2 * 8 + 2) * 4;
 		cel.data[i] = 150;
 		cel.data[i + 3] = 255;
-		store.putCel(layerId, 0, cel);
+		core.setCel(layerId, 0, cel);
 		// Even × even bounds so the bounds-centre re-centring inverts exactly.
 		sel.applyRegion(rectMask(8, 8, 1, 1, 4, 2), "replace");
 		sel.beginMove();
@@ -191,20 +152,20 @@ describe("SelectionController transforms (float buffer + mask + offset)", () => 
 	});
 
 	test("committing a flipped float writes the mirrored pixels once", () => {
-		const { store, sel, layerId } = setup();
+		const { core, sel, layerId } = setup();
 		const cel = blankPixels(8, 8);
 		for (const x of [2, 3]) {
 			const idx = (2 * 8 + x) * 4;
 			cel.data[idx] = x === 2 ? 100 : 200;
 			cel.data[idx + 3] = 255;
 		}
-		store.putCel(layerId, 0, cel);
+		core.setCel(layerId, 0, cel);
 		sel.applyRegion(rectMask(8, 8, 2, 2, 3, 2), "replace");
 		sel.flipHorizontal();
 		sel.commit();
-		expect(alpha(store, 2, 2)).toBe(255);
-		expect(alpha(store, 3, 2)).toBe(255);
-		expect(store.getCel(layerId, 0)!.data[(2 * 8 + 2) * 4]).toBe(200);
-		expect(store.getCel(layerId, 0)!.data[(2 * 8 + 3) * 4]).toBe(100);
+		expect(alpha(core, 2, 2)).toBe(255);
+		expect(alpha(core, 3, 2)).toBe(255);
+		expect(core.getCel(layerId, 0)!.data[(2 * 8 + 2) * 4]).toBe(200);
+		expect(core.getCel(layerId, 0)!.data[(2 * 8 + 3) * 4]).toBe(100);
 	});
 });

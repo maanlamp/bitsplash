@@ -3,6 +3,7 @@ import { Game } from "../../engine/game";
 import type { ECS } from "../../engine/ecs";
 import { LastUsedDevice } from "../../engine/input/last-used-device";
 import { resolveFont } from "../../engine/text/resolve-font";
+import type { HostPlugin } from "../../engine/runtime/host";
 import type { Runtime } from "../../engine/runtime/runtime";
 import { SaveDriver } from "../../engine/save/save-driver";
 import { FsSaveStore } from "../../engine/save/fs-save-store";
@@ -60,13 +61,23 @@ export class GameShell {
 	private paintEcs: ECS | null = null;
 	private toastSeq = 0;
 
+	/**
+	 * The save side of the shell as host behaviour: when a load replaces the
+	 * runtime, mount the new one. The {@link Host} holds no runtime itself, so the
+	 * swap arrives here rather than inside the frame.
+	 */
+	private readonly savePlugin: HostPlugin = {
+		onRuntimeChanged: (runtime) => this.mount(runtime),
+	};
+
 	constructor() {
 		this.game = new Game({
 			onFrame: ({ delta }) => {
-				if (!this.game.paused) {
+				if (!this.game.gameplayPaused) {
 					void this.driver.tick(delta);
 				}
 			},
+			plugins: [this.savePlugin],
 		});
 		this.driver = this.makeDriver(
 			createFreshRuntime(this.game.services.settings),
@@ -102,7 +113,7 @@ export class GameShell {
 		}
 		this.started = true;
 		this.mount(this.driver.runtime);
-		this.game.setPaused(true);
+		this.game.setGameplayPaused(true);
 		this.uiState.setPhase("menu");
 		// The accessibility pass comes before anything playable, which is how
 		// consent is obtained before exposure rather than after it.
@@ -163,14 +174,14 @@ export class GameShell {
 	private openPause(): void {
 		this.uiState.setView("root");
 		this.uiState.setPaused(true);
-		this.game.setPaused(true);
+		this.game.setGameplayPaused(true);
 		void this.refreshSaves();
 	}
 
 	private closePause(): void {
 		this.uiState.setPaused(false);
 		this.uiState.setView("root");
-		this.game.setPaused(false);
+		this.game.setGameplayPaused(false);
 		this.game.viewport.element.focus();
 	}
 
@@ -186,7 +197,7 @@ export class GameShell {
 		this.uiState.setPaused(false);
 		this.uiState.setView("root");
 		this.uiState.setPhase("playing");
-		this.game.setPaused(false);
+		this.game.setGameplayPaused(false);
 	}
 
 	private async continueLatest(): Promise<void> {
@@ -211,7 +222,7 @@ export class GameShell {
 		this.uiState.setPaused(false);
 		this.uiState.setView("root");
 		this.uiState.setPhase("playing");
-		this.game.setPaused(false);
+		this.game.setGameplayPaused(false);
 	}
 
 	private async deleteSlot(slot: string): Promise<void> {
@@ -252,7 +263,7 @@ export class GameShell {
 		this.uiState.setPaused(false);
 		this.uiState.setView("root");
 		this.uiState.setPhase("menu");
-		this.game.setPaused(true);
+		this.game.setGameplayPaused(true);
 		void this.refreshSaves();
 	}
 
@@ -284,7 +295,8 @@ export class GameShell {
 				createFreshRuntime(this.game.services.settings),
 			now: () => Date.now(),
 			autosaveIntervalMs: AUTOSAVE_INTERVAL_MS,
-			onRuntimeChanged: (next) => this.mount(next),
+			onRuntimeChanged: (next) =>
+				this.game.host.notifyRuntimeChanged(next),
 		});
 	}
 

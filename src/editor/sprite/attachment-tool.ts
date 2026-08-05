@@ -42,9 +42,9 @@ export class AttachmentTool implements SpriteTool {
 		if (name === null || !ctx.overImage) {
 			return;
 		}
-		const frame = ctx.doc.activeFrameIndex;
+		const frame = ctx.doc.core.activeFrameIndex;
 		if (ctx.button === 2) {
-			clearAttachmentPoint(ctx.doc, ctx.history, name, frame);
+			clearAttachmentPoint(ctx.doc.core, ctx.history, name, frame);
 			return;
 		}
 		if (ctx.button !== 0) {
@@ -52,11 +52,11 @@ export class AttachmentTool implements SpriteTool {
 		}
 		session.attachment = {
 			name,
-			before: ctx.doc.attachmentPoint(name, frame),
+			before: ctx.doc.core.attachmentPoint(name, frame),
 		};
 		session.active = true;
 		ctx.capture();
-		ctx.doc.setAttachmentPoint(name, frame, this.cell(ctx));
+		ctx.doc.core.setAttachmentPoint(name, frame, this.cell(ctx));
 	}
 
 	onMove(ctx: ToolContext, session: ToolSession): void {
@@ -64,9 +64,9 @@ export class AttachmentTool implements SpriteTool {
 		if (!drag) {
 			return;
 		}
-		ctx.doc.setAttachmentPoint(
+		ctx.doc.core.setAttachmentPoint(
 			drag.name,
-			ctx.doc.activeFrameIndex,
+			ctx.doc.core.activeFrameIndex,
 			this.cell(ctx),
 		);
 	}
@@ -78,18 +78,18 @@ export class AttachmentTool implements SpriteTool {
 		}
 		session.attachment = null;
 		session.active = false;
-		const frame = ctx.doc.activeFrameIndex;
-		const final = ctx.doc.attachmentPoint(drag.name, frame);
+		const frame = ctx.doc.core.activeFrameIndex;
+		const final = ctx.doc.core.attachmentPoint(drag.name, frame);
 		// Restore the pre-drag state so the recorded command captures the correct
 		// inverse; the command's `redo` re-applies the final point.
 		if (drag.before) {
-			ctx.doc.setAttachmentPoint(drag.name, frame, drag.before);
+			ctx.doc.core.setAttachmentPoint(drag.name, frame, drag.before);
 		} else {
-			ctx.doc.clearAttachmentPoint(drag.name, frame);
+			ctx.doc.core.clearAttachmentPoint(drag.name, frame);
 		}
 		if (final) {
 			setAttachmentPoint(
-				ctx.doc,
+				ctx.doc.core,
 				ctx.history,
 				drag.name,
 				frame,
@@ -105,11 +105,11 @@ export class AttachmentTool implements SpriteTool {
 		}
 		session.attachment = null;
 		session.active = false;
-		const frame = ctx.doc.activeFrameIndex;
+		const frame = ctx.doc.core.activeFrameIndex;
 		if (drag.before) {
-			ctx.doc.setAttachmentPoint(drag.name, frame, drag.before);
+			ctx.doc.core.setAttachmentPoint(drag.name, frame, drag.before);
 		} else {
-			ctx.doc.clearAttachmentPoint(drag.name, frame);
+			ctx.doc.core.clearAttachmentPoint(drag.name, frame);
 		}
 	}
 

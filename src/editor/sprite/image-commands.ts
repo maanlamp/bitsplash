@@ -1,6 +1,6 @@
 import type { History } from "../history";
 import { runCommand } from "./command-router";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /**
  * Whole-image transform commands, routed through {@link runCommand} so they
@@ -12,23 +12,23 @@ import type { SpriteDocument } from "./sprite-document";
 
 /** Mirror the whole image horizontally as one undoable edit. */
 export const flipImageHorizontal = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 ): void => {
-	runCommand(doc, history, {
-		redo: () => doc.flipHorizontal(),
-		undo: () => doc.flipHorizontal(),
+	runCommand(core, history, {
+		redo: () => core.flipHorizontal(),
+		undo: () => core.flipHorizontal(),
 	});
 };
 
 /** Mirror the whole image vertically as one undoable edit. */
 export const flipImageVertical = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 ): void => {
-	runCommand(doc, history, {
-		redo: () => doc.flipVertical(),
-		undo: () => doc.flipVertical(),
+	runCommand(core, history, {
+		redo: () => core.flipVertical(),
+		undo: () => core.flipVertical(),
 	});
 };
 
@@ -38,22 +38,22 @@ export const flipImageVertical = (
  * counter-clockwise rotation (the exact opposite), not a repeat.
  */
 export const rotateImageCw = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 ): void => {
-	runCommand(doc, history, {
-		redo: () => doc.rotateCw(),
-		undo: () => doc.rotateCcw(),
+	runCommand(core, history, {
+		redo: () => core.rotateCw(),
+		undo: () => core.rotateCcw(),
 	});
 };
 
 /** Rotate the whole image 90° counter-clockwise as one undoable edit. */
 export const rotateImageCcw = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 ): void => {
-	runCommand(doc, history, {
-		redo: () => doc.rotateCcw(),
-		undo: () => doc.rotateCw(),
+	runCommand(core, history, {
+		redo: () => core.rotateCcw(),
+		undo: () => core.rotateCw(),
 	});
 };

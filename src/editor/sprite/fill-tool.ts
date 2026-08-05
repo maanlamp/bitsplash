@@ -26,9 +26,9 @@ export class FillTool implements SpriteTool {
 			return;
 		}
 		const cel =
-			ctx.doc.getCel(
-				ctx.doc.activeLayerId,
-				ctx.doc.activeFrameIndex,
+			ctx.doc.core.getCel(
+				ctx.doc.core.activeLayerId,
+				ctx.doc.core.activeFrameIndex,
 			) ?? blankPixels(ctx.doc.width, ctx.doc.height);
 		const cells = computeFill(
 			cel,
@@ -40,13 +40,13 @@ export class FillTool implements SpriteTool {
 		if (cells.length === 0) {
 			return;
 		}
-		const snapshot = ctx.doc.snapshot();
+		const snapshot = ctx.doc.core.snapshot();
 		ctx.doc.beginStroke();
 		for (const [x, y] of cells) {
 			ctx.paint(x, y);
 		}
 		ctx.doc.commitStroke();
-		recordStroke(ctx.doc, ctx.history, snapshot);
+		recordStroke(ctx.doc.core, ctx.history, snapshot);
 	}
 
 	cursor(overImage: boolean): CursorValue {

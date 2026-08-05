@@ -32,6 +32,7 @@ import {
 } from "../render/programs";
 import { RenderTarget } from "../render/render-target";
 import { FontAtlas, type GlyphQuad } from "../text/font-atlas";
+import { FrameScope } from "./frame-scope";
 import {
 	registerRenderer,
 	unregisterRenderer,
@@ -683,6 +684,9 @@ export default class Renderer2D {
 		TILE_FLOATS * VERTS_PER_QUAD * 1024,
 	);
 	private tileVerts = 0;
+	private drawCallCount = 0;
+	private disposedScratch = 0;
+	private readonly scope = new FrameScope(this);
 
 	private layers = new Map<number, LayerState>();
 	private texCache = new WeakMap<TileSource, WebGLTexture>();
@@ -1890,9 +1894,53 @@ export default class Renderer2D {
 		);
 	}
 
+	/**
+	 * Run `cb` as one frame: {@link beginFrame} before, {@link endFrame} after —
+	 * even if `cb` throws. The scope handed to `cb` is dead once it returns, and
+	 * `frame` returns nothing, so the pairing cannot be got wrong by a caller.
+	 *
+	 * @example
+	 * renderer.frame((scope) => renderWorld(scope, options));
+	 */
+	frame(cb: (scope: FrameScope) => void): void {
+		this.beginFrame();
+		try {
+			this.scope.run(cb);
+		} finally {
+			this.endFrame();
+		}
+	}
+
+	/** Draw calls issued this frame — an exact integer for a given scene, so lockable. */
+	get drawCalls(): number {
+		return this.drawCallCount;
+	}
+
+	/** Quad vertices staged this frame — an exact integer for a given scene, so lockable. */
+	get quadVertexCount(): number {
+		return this.quadVerts;
+	}
+
+	/** Tile vertices staged this frame — an exact integer for a given scene, so lockable. */
+	get tileVertexCount(): number {
+		return this.tileVerts;
+	}
+
+	/** Layers held live, each owning a scratch target — an exact integer for a given scene, so lockable. */
+	get layerCount(): number {
+		return this.layers.size;
+	}
+
+	/** Scratch targets released by the frame just ended — an exact integer for a given scene, so lockable. */
+	get scratchTargetsDisposed(): number {
+		return this.disposedScratch;
+	}
+
 	beginFrame(): void {
 		this.quadVerts = 0;
 		this.tileVerts = 0;
+		this.drawCallCount = 0;
+		this.disposedScratch = 0;
 		for (const layer of this.layers.values()) {
 			layer.commands.length = 0;
 			layer.used = false;
@@ -2366,6 +2414,7 @@ export default class Renderer2D {
 			gl.bindTexture(gl.TEXTURE_2D_ARRAY, cmd.texture);
 			gl.bindVertexArray(cmd.batch.vao);
 			gl.drawArrays(gl.TRIANGLES, 0, cmd.batch.vertCount);
+			this.drawCallCount += 1;
 			gl.bindVertexArray(null);
 			return;
 		}
@@ -2399,6 +2448,7 @@ export default class Renderer2D {
 			gl.bindVertexArray(this.quadVao);
 		}
 		gl.drawArrays(gl.TRIANGLES, cmd.start, cmd.count);
+		this.drawCallCount += 1;
 		gl.bindVertexArray(null);
 	}
 
@@ -2435,6 +2485,7 @@ export default class Renderer2D {
 			gl.DYNAMIC_DRAW,
 		);
 		gl.drawArrays(gl.TRIANGLES, 0, VERTS_PER_QUAD);
+		this.drawCallCount += 1;
 		gl.bindVertexArray(null);
 	}
 
@@ -2573,6 +2624,7 @@ export default class Renderer2D {
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.blitVbo);
 		gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
+		this.drawCallCount += 1;
 		gl.bindVertexArray(null);
 	}
 
@@ -2619,6 +2671,7 @@ export default class Renderer2D {
 				layer.idle = now;
 			} else if (now - layer.idle > MAX_IDLE_SECONDS * 1000) {
 				layer.scratch.dispose();
+				this.disposedScratch += 1;
 				this.layers.delete(id);
 			}
 		}

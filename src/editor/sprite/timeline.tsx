@@ -131,7 +131,7 @@ const FrameHeaderCell = ({
 			active && styles.frameHeaderActive,
 		)}
 		style={{ gridColumn: gridColumn(index), gridRow: 2 }}
-		onPointerDown={() => doc.setActiveFrame(index)}
+		onPointerDown={() => doc.core.setActiveFrame(index)}
 		onDragOver={(e) => {
 			if (dragState?.kind === "frame") {
 				e.preventDefault();
@@ -140,7 +140,7 @@ const FrameHeaderCell = ({
 		onDrop={(e) => {
 			if (dragState?.kind === "frame") {
 				e.preventDefault();
-				moveFrame(doc, history, dragState.index, index);
+				moveFrame(doc.core, history, dragState.index, index);
 			}
 		}}
 	>
@@ -160,7 +160,9 @@ const FrameHeaderCell = ({
 		</div>
 		<FrameDurationField
 			value={duration}
-			onCommit={(next) => setFrameDuration(doc, history, index, next)}
+			onCommit={(next) =>
+				setFrameDuration(doc.core, history, index, next)
+			}
 		/>
 	</div>
 );
@@ -199,8 +201,8 @@ const CelCell = ({
 		}}
 		draggable
 		onPointerDown={() => {
-			doc.setActiveLayer(layerId);
-			doc.setActiveFrame(frameIndex);
+			doc.core.setActiveLayer(layerId);
+			doc.core.setActiveFrame(frameIndex);
 		}}
 		onDragStart={(e) =>
 			beginDrag(e, { kind: "cel", layerId, frameIndex })
@@ -218,7 +220,7 @@ const CelCell = ({
 			if (dragState?.kind === "cel") {
 				e.preventDefault();
 				moveCel(
-					doc,
+					doc.core,
 					history,
 					{
 						layerId: dragState.layerId,
@@ -231,7 +233,7 @@ const CelCell = ({
 		}}
 	>
 		<CelThumbnail
-			source={doc.getCel(layerId, frameIndex)}
+			source={doc.core.getCel(layerId, frameIndex)}
 			width={doc.width}
 			height={doc.height}
 			size={36}
@@ -264,7 +266,12 @@ const LayerAxisRow = ({
 
 	const commitName = () => {
 		setEditing(false);
-		renameLayer(doc, history, layer.id, name.trim() || layer.name);
+		renameLayer(
+			doc.core,
+			history,
+			layer.id,
+			name.trim() || layer.name,
+		);
 	};
 
 	const dropLayer = (targetId: string) => {
@@ -277,7 +284,7 @@ const LayerAxisRow = ({
 		const at = without.indexOf(targetId);
 		without.splice(at < 0 ? without.length : at, 0, dragged);
 		commitLayerOrder(
-			doc,
+			doc.core,
 			history,
 			dragState.before,
 			[...without].reverse(),
@@ -291,7 +298,7 @@ const LayerAxisRow = ({
 				active && styles.layerAxisActive,
 			)}
 			style={{ gridColumn: 1, gridRow: gridRow(row) }}
-			onPointerDown={() => doc.setActiveLayer(layer.id)}
+			onPointerDown={() => doc.core.setActiveLayer(layer.id)}
 			onDragOver={(e) => {
 				if (dragState?.kind === "layer") {
 					e.preventDefault();
@@ -327,7 +334,12 @@ const LayerAxisRow = ({
 					className={styles.layerIconButton}
 					onClick={(e) => {
 						e.stopPropagation();
-						setLayerVisible(doc, history, layer.id, !layer.visible);
+						setLayerVisible(
+							doc.core,
+							history,
+							layer.id,
+							!layer.visible,
+						);
 					}}
 				>
 					{layer.visible ? <EyeIcon /> : <EyeSlashIcon />}
@@ -370,7 +382,7 @@ const LayerAxisRow = ({
 				value={layer.blend}
 				onValueChange={(v) =>
 					setLayerBlend(
-						doc,
+						doc.core,
 						history,
 						layer.id,
 						v as LayerView["blend"],
@@ -442,14 +454,14 @@ const LayerAxisRow = ({
 									if (beforeOpacity.current === null) {
 										beforeOpacity.current = layer.opacity;
 									}
-									doc.setOpacity(layer.id, v);
+									doc.core.setOpacity(layer.id, v);
 								}}
 								onCommit={() => {
 									const before =
 										beforeOpacity.current ?? layer.opacity;
 									beforeOpacity.current = null;
 									commitLayerOpacity(
-										doc,
+										doc.core,
 										history,
 										layer.id,
 										before,
@@ -468,7 +480,7 @@ const LayerAxisRow = ({
 					disabled={!canDelete}
 					onClick={(e) => {
 						e.stopPropagation();
-						deleteLayer(doc, history, layer.id);
+						deleteLayer(doc.core, history, layer.id);
 					}}
 				>
 					<TrashIcon />
@@ -498,7 +510,7 @@ const TagBar = ({
 
 	const commitName = () => {
 		setEditing(false);
-		renameTag(doc, history, index, name.trim() || tag.name);
+		renameTag(doc.core, history, index, name.trim() || tag.name);
 	};
 
 	// Live-preview the range while dragging an edge, then reset and record one
@@ -532,13 +544,13 @@ const TagBar = ({
 				target,
 				frameCount,
 			);
-			doc.setTagRange(index, latest.from, latest.to);
+			doc.core.setTagRange(index, latest.from, latest.to);
 		};
 		const up = () => {
 			handle.removeEventListener("pointermove", move);
 			handle.removeEventListener("pointerup", up);
-			doc.setTagRange(index, origin.from, origin.to);
-			setTagRange(doc, history, index, latest.from, latest.to);
+			doc.core.setTagRange(index, origin.from, origin.to);
+			setTagRange(doc.core, history, index, latest.from, latest.to);
 		};
 		handle.addEventListener("pointermove", move);
 		handle.addEventListener("pointerup", up);
@@ -586,7 +598,9 @@ const TagBar = ({
 					type="button"
 					className={styles.tagButton}
 					data-on={tag.loop ? "" : undefined}
-					onClick={() => setTagLoop(doc, history, index, !tag.loop)}
+					onClick={() =>
+						setTagLoop(doc.core, history, index, !tag.loop)
+					}
 					aria-label="Toggle loop"
 				>
 					<RepeatIcon />
@@ -596,7 +610,7 @@ const TagBar = ({
 				<button
 					type="button"
 					className={styles.tagButton}
-					onClick={() => deleteTag(doc, history, index)}
+					onClick={() => deleteTag(doc.core, history, index)}
 					aria-label="Delete tag"
 				>
 					<XIcon />
@@ -653,12 +667,12 @@ const Timeline = ({
 		}
 	}, [viewState]);
 
-	const frames = doc.frames;
+	const frames = doc.core.frames;
 	const frameCount = frames.length;
-	const activeFrame = doc.activeFrameIndex;
-	const activeLayer = doc.activeLayerId;
+	const activeFrame = doc.core.activeFrameIndex;
+	const activeLayer = doc.core.activeLayerId;
 	const layers = [...doc.layers].reverse();
-	const tags = doc.tags;
+	const tags = doc.core.tags;
 
 	// Keep the active cel visible as it moves (arrow-key navigation or a click on
 	// a partly-scrolled cell). `nearest` leaves an already-visible cell put, so a
@@ -683,7 +697,7 @@ const Timeline = ({
 					<Button
 						variant="icon"
 						onClick={() =>
-							createTag(doc, history, {
+							createTag(doc.core, history, {
 								name: "tag",
 								from: 0,
 								to: frameCount - 1,
@@ -700,7 +714,7 @@ const Timeline = ({
 				<Tooltip label="Add layer">
 					<Button
 						variant="icon"
-						onClick={() => addLayer(doc, history)}
+						onClick={() => addLayer(doc.core, history)}
 					>
 						<PlusIcon weight="bold" />
 					</Button>
@@ -709,7 +723,7 @@ const Timeline = ({
 				<Tooltip label="Add frame">
 					<Button
 						variant="icon"
-						onClick={() => addFrame(doc, history, activeFrame)}
+						onClick={() => addFrame(doc.core, history, activeFrame)}
 					>
 						<PlusIcon weight="bold" />
 					</Button>
@@ -717,7 +731,9 @@ const Timeline = ({
 				<Tooltip label="Duplicate frame">
 					<Button
 						variant="icon"
-						onClick={() => duplicateFrame(doc, history, activeFrame)}
+						onClick={() =>
+							duplicateFrame(doc.core, history, activeFrame)
+						}
 					>
 						<CopyIcon />
 					</Button>
@@ -726,7 +742,9 @@ const Timeline = ({
 					<Button
 						variant="icon"
 						disabled={frameCount <= 1}
-						onClick={() => deleteFrame(doc, history, activeFrame)}
+						onClick={() =>
+							deleteFrame(doc.core, history, activeFrame)
+						}
 					>
 						<TrashIcon />
 					</Button>

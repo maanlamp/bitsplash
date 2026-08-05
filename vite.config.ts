@@ -5,6 +5,7 @@ import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
 import { cachedBabel } from "./vite-babel-cache";
+import { qaBridge } from "./vite-qa-bridge";
 
 /**
  * Babel is the slow, single-threaded pass on the dev hot path: it runs the
@@ -94,6 +95,7 @@ export default defineConfig(({ command }) => ({
 		inkCodegen(),
 		suppressSceneHmr(),
 		servePopout(),
+		qaBridge(),
 		react(),
 		// Dev serves warm from an on-disk transform cache; production builds run
 		// Babel straight (uncached) so shipped output is never cache-dependent.

@@ -6,14 +6,16 @@ import type { SpriteDocument } from "../src/editor/sprite/sprite-document";
 
 type Rgba = [number, number, number, number];
 
-/** A doc stub exposing an active-cel colour map and recording painted CSS. */
+/** A doc stub whose core exposes an active-cel colour map; records painted CSS. */
 const fakeDoc = (
 	cel: ReadonlyMap<string, Rgba>,
 	painted: Array<[number, number, string]>,
 ): SpriteDocument =>
 	({
-		activeCelColorAt: (x: number, y: number) =>
-			cel.get(`${x},${y}`) ?? null,
+		core: {
+			activeCelColorAt: (x: number, y: number) =>
+				cel.get(`${x},${y}`) ?? null,
+		},
 		setPixel: (x: number, y: number, css: string) =>
 			painted.push([x, y, css]),
 	}) as unknown as SpriteDocument;

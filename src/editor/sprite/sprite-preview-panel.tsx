@@ -71,9 +71,9 @@ const SpritePreviewPanel = ({
 			last = now;
 
 			const range = activePreviewRange(
-				doc.activeFrameIndex,
-				doc.tags,
-				doc.frames.length,
+				doc.core.activeFrameIndex,
+				doc.core.tags,
+				doc.core.frames.length,
 			);
 			const key = `${range.from}:${range.to}:${range.loop}`;
 			if (key !== rangeKey) {
@@ -90,7 +90,7 @@ const SpritePreviewPanel = ({
 				playback = advancePreview(
 					playback,
 					dt,
-					doc.frames.map((f) => f.duration),
+					doc.core.frames.map((f) => f.duration),
 					range,
 				);
 			}

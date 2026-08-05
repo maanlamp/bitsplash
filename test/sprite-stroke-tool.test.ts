@@ -17,10 +17,15 @@ const scenario = () => {
 	let captured = false;
 	const base = {
 		doc: {
-			snapshot: () => ({
-				layerId: "layer",
-				data: { data: new Uint8ClampedArray(0) },
-			}),
+			core: {
+				snapshot: () => ({
+					layerId: "layer",
+					data: { data: new Uint8ClampedArray(0) },
+				}),
+				commitPendingFloatingEdit: () => {},
+				captureSelection: () => null,
+				restoreSelection: () => {},
+			},
 			beginStroke: () => rec.calls.push("begin"),
 			commitStroke: () => rec.calls.push("commit"),
 			cancelStroke: () => rec.calls.push("cancel"),

@@ -2,7 +2,7 @@ import type { BspriteTag } from "../../engine/sprite/bsprite-manifest";
 import type { History } from "../history";
 import { DEFAULT_FRAME_DURATION_MS } from "./cel-store";
 import { runCommand } from "./command-router";
-import type { SpriteDocument } from "./sprite-document";
+import type { SpriteEditCore } from "./sprite-edit-core";
 
 /**
  * Structural frame edits, each routed through {@link runCommand} with a **real
@@ -17,15 +17,15 @@ import type { SpriteDocument } from "./sprite-document";
 
 /** Add a blank frame immediately after `index`, defaulting to the active frame. */
 export const addFrame = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
-	index: number = doc.activeFrameIndex,
+	index: number = core.activeFrameIndex,
 ): void => {
 	const at = index + 1;
-	runCommand(doc, history, {
-		redo: () => doc.insertFrame(at, DEFAULT_FRAME_DURATION_MS),
+	runCommand(core, history, {
+		redo: () => core.insertFrame(at, DEFAULT_FRAME_DURATION_MS),
 		undo: () => {
-			doc.removeFrame(at);
+			core.removeFrame(at);
 		},
 	});
 };
@@ -36,52 +36,52 @@ export const addFrame = (
  * undoes exactly. Refuses to delete the last remaining frame.
  */
 export const deleteFrame = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 ): void => {
 	if (
-		doc.frames.length <= 1 ||
+		core.frames.length <= 1 ||
 		index < 0 ||
-		index >= doc.frames.length
+		index >= core.frames.length
 	) {
 		return;
 	}
-	const removed = doc.peekFrame(index);
-	const tagsBefore: BspriteTag[] = doc.tags.map((tag) => ({
+	const removed = core.peekFrame(index);
+	const tagsBefore: BspriteTag[] = core.tags.map((tag) => ({
 		...tag,
 	}));
-	runCommand(doc, history, {
+	runCommand(core, history, {
 		redo: () => {
-			doc.removeFrame(index);
+			core.removeFrame(index);
 		},
 		undo: () => {
-			doc.insertFrameSnapshot(index, removed);
-			doc.replaceTags(tagsBefore);
+			core.insertFrameSnapshot(index, removed);
+			core.replaceTags(tagsBefore);
 		},
 	});
 };
 
 /** Duplicate the frame at `index`, inserting the copy right after it. */
 export const duplicateFrame = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 ): void => {
-	if (index < 0 || index >= doc.frames.length) {
+	if (index < 0 || index >= core.frames.length) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.duplicateFrame(index),
+	runCommand(core, history, {
+		redo: () => core.duplicateFrame(index),
 		undo: () => {
-			doc.removeFrame(index + 1);
+			core.removeFrame(index + 1);
 		},
 	});
 };
 
 /** Move the frame at `from` to `to`; the inverse moves it back. */
 export const moveFrame = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	from: number,
 	to: number,
@@ -90,30 +90,30 @@ export const moveFrame = (
 		from === to ||
 		from < 0 ||
 		to < 0 ||
-		from >= doc.frames.length ||
-		to >= doc.frames.length
+		from >= core.frames.length ||
+		to >= core.frames.length
 	) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.moveFrame(from, to),
-		undo: () => doc.moveFrame(to, from),
+	runCommand(core, history, {
+		redo: () => core.moveFrame(from, to),
+		undo: () => core.moveFrame(to, from),
 	});
 };
 
 /** Set a frame's display duration (ms); the inverse restores the prior value. */
 export const setFrameDuration = (
-	doc: SpriteDocument,
+	core: SpriteEditCore,
 	history: History,
 	index: number,
 	duration: number,
 ): void => {
-	const before = doc.frames[index]?.duration;
+	const before = core.frames[index]?.duration;
 	if (before === undefined || before === duration || duration <= 0) {
 		return;
 	}
-	runCommand(doc, history, {
-		redo: () => doc.setFrameDuration(index, duration),
-		undo: () => doc.setFrameDuration(index, before),
+	runCommand(core, history, {
+		redo: () => core.setFrameDuration(index, duration),
+		undo: () => core.setFrameDuration(index, before),
 	});
 };
