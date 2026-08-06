@@ -17,8 +17,28 @@ const { GAME_READY_MESSAGE } = require("./game-ready.cjs");
 // before userData is read.
 app.setName("Bitsplash Playtest");
 
+// One game window per userData profile. Two are never wanted, and under `vite`
+// they are actively harmful: each page carries its own QA bridge on the shared
+// HMR channel, so a stale window answers `scripts/probe.ts` and silently
+// attributes its own frame times and counters to the run under test.
+if (!app.requestSingleInstanceLock()) {
+	app.quit();
+}
+
 app.commandLine.appendSwitch("disable-gpu-vsync");
 app.commandLine.appendSwitch("disable-frame-rate-limit");
+
+// Under BITSPLASH_QA, expose CDP so `scripts/frame-trace.ts` can read Chromium's
+// own compositor trace. Presented-frame timing cannot be observed from the page:
+// requestAnimationFrame reports main-thread callback cadence, which keeps to
+// schedule even while the compositor falls behind, so a page-side number can look
+// healthy while the picture visibly stutters.
+if (process.env.BITSPLASH_QA) {
+	app.commandLine.appendSwitch(
+		"remote-debugging-port",
+		process.env.BITSPLASH_CDP_PORT || "9222",
+	);
+}
 
 process.on("disconnect", () => {
 	app.quit();
@@ -30,7 +50,15 @@ const devUrl = process.env.BITSPLASH_DEV_URL;
 // marker rides the loaded URL and `engine/runtime/host.ts` reads it. Wall-clock
 // frame timing comes from Chromium's own tracing over --remote-debugging-port,
 // because collecting per-system spans perturbs the frame it measures.
-const PROFILE_QUERY = process.env.BITSPLASH_PROFILE ? "?profile" : "";
+const PROFILE_QUERY = process.env.BITSPLASH_PROFILE ? "profile" : "";
+
+// Extra query parameters for the loaded page, so a QA run can select a code path
+// the page reads from its own URL without needing a bespoke shell per switch.
+// e.g. BITSPLASH_QUERY=domui=dom-hidden
+const EXTRA_QUERY = process.env.BITSPLASH_QUERY || "";
+
+const QUERY = [PROFILE_QUERY, EXTRA_QUERY].filter(Boolean).join("&");
+const QUERY_SUFFIX = QUERY ? `?${QUERY}` : "";
 
 if (devUrl) {
 	app.on(
@@ -126,18 +154,32 @@ const createGameWindow = () => {
 			preload: path.join(__dirname, "preload.cjs"),
 			contextIsolation: true,
 			nodeIntegration: false,
+			// Chromium throttles requestAnimationFrame in a window that is not
+			// frontmost, which silently ruins any frame-time measurement taken
+			// while a terminal has focus. Off only under BITSPLASH_QA, so the
+			// shipping window keeps Chromium's default behaviour.
+			...(process.env.BITSPLASH_QA
+				? { backgroundThrottling: false }
+				: {}),
 		},
 	});
+
+	if (process.env.BITSPLASH_QA) {
+		window.once("ready-to-show", () => {
+			window.show();
+			window.focus();
+		});
+	}
 
 	window.webContents.once("did-finish-load", () => {
 		process.send?.(GAME_READY_MESSAGE);
 	});
 	if (devUrl) {
-		void window.loadURL(`${devUrl}/game.html${PROFILE_QUERY}`);
+		void window.loadURL(`${devUrl}/game.html${QUERY_SUFFIX}`);
 	} else {
 		serveDist();
 		void window.loadURL(
-			`${APP_SCHEME}://bundle/game.html${PROFILE_QUERY}`,
+			`${APP_SCHEME}://bundle/game.html${QUERY_SUFFIX}`,
 		);
 	}
 };

@@ -1,17 +1,42 @@
-import { QA_ENDPOINT, type QaResponse } from "../qa/qa-protocol";
+import {
+	type InputStep,
+	QA_ENDPOINT,
+	type QaResponse,
+} from "../qa/qa-protocol";
 
 const DEFAULT_ORIGIN = "https://localhost:5173";
 
 const USAGE = `bun run scripts/probe.ts <command> [options]
 
   entities [--with <Component,...>]   dump entities, optionally only those carrying every named component
-  profile --frames <n>                per-system update timings over n frames
+  profile --frames <n>                per-system update timings over n frames (CPU only)
   render  --frames <n>                renderer batching counters over n frames
+  frametime --frames <n>              wall-clock interval between presented frames
+  input --script <steps>              drive the real input path
 
   --origin <url>                      dev server to reach (default ${DEFAULT_ORIGIN})
 
-The probe measures; it does not reproduce. Scripted input was built and dropped
-because its runs diverged — drive reproduction from headless fixtures instead.
+Script steps are \`KEY+KEY:frames\` separated by commas; an empty key list is a
+wait, which is how a step releases a key. Activation happens on the press edge,
+so two presses of the same key need a gap between them.
+
+An \`@\` prefix dispatches a real DOM KeyboardEvent code instead of feeding the
+engine snapshot, for keys the shell binds on \`window\` rather than through input —
+pause, quicksave and quickload. Those codes are case-sensitive.
+
+  input --script 'ARROWDOWN:2,:20,ENTER:2,:300'   focus a menu button, start a run
+  input --script '@Escape:2,:60'                  open the pause menu
+
+Nothing is focused on the main menu at rest, so a script has to move focus before
+it can confirm.
+
+Input is injected into the snapshot the host already sampled, so it travels the
+same path a player's does — normaliser, dispatcher, focus, activation. Nothing
+reaches past the UI, which is the point: a build that passes every headless
+fixture can still be unplayable.
+
+\`profile\` measures CPU inside the update span; \`frametime\` is what a frame-rate
+target is actually about. Use both — they answer different questions.
 
 Frame-driven commands need frames, so keep the game window visible: Chromium
 throttles requestAnimationFrame in a backgrounded window. The probe only exists
@@ -57,6 +82,40 @@ const componentNames = (
 		: [];
 };
 
+/**
+ * Parse `KEY+KEY:frames,...` into steps. An empty key list is a wait, which is
+ * how a script releases a key — the UI activates on the press edge, so two
+ * consecutive presses of the same key need a gap between them.
+ *
+ * @example
+ * parseScript("ENTER:2,:120,ESCAPE:2,:60"); // start a run, wait, pause, settle
+ */
+const parseScript = (raw: string): ReadonlyArray<InputStep> =>
+	raw
+		.split(",")
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0)
+		.map((part) => {
+			const [keysRaw, framesRaw] = part.split(":");
+			const frames = Number(framesRaw ?? "1");
+			if (!Number.isInteger(frames) || frames < 1) {
+				fail(`step "${part}" wants a positive frame count after ":"`);
+			}
+			const tokens = (keysRaw ?? "")
+				.split("+")
+				.map((key) => key.trim())
+				.filter((key) => key.length > 0);
+			// `@Escape` is a DOM KeyboardEvent code and keeps its case; a bare key
+			// goes to the engine snapshot, which upper-cases.
+			const dom = tokens
+				.filter((key) => key.startsWith("@"))
+				.map((key) => key.slice(1));
+			const keys = tokens
+				.filter((key) => !key.startsWith("@"))
+				.map((key) => key.toUpperCase());
+			return { keys, dom, frames };
+		});
+
 const ask = async (
 	origin: string,
 	body: object,
@@ -98,6 +157,22 @@ const report = (response: QaResponse): void => {
 		}
 		return;
 	}
+	if (response.kind === "input") {
+		console.log(
+			`script finished; scene: ${response.scene ?? "(none)"}`,
+		);
+		return;
+	}
+	if (response.kind === "frametime") {
+		const i = response.intervals;
+		console.log(`frames: ${i.frames}`);
+		console.log(
+			`frame interval ms: mean ${i.meanMs.toFixed(3)}  p50 ${i.p50Ms.toFixed(3)}` +
+				`  p95 ${i.p95Ms.toFixed(3)}  p99 ${i.p99Ms.toFixed(3)}  max ${i.maxMs.toFixed(3)}`,
+		);
+		console.log(`mean fps: ${i.fpsMean.toFixed(1)}`);
+		return;
+	}
 	if (response.kind === "profile") {
 		const spans = response.frames.map((f) => f.updateSpanMs);
 		console.log(`frames: ${spans.length}`);
@@ -136,9 +211,6 @@ const report = (response: QaResponse): void => {
 	console.log(
 		`  quad vertices:   ${column((c) => c.quadVertexCount)}`,
 	);
-	console.log(
-		`  tile vertices:   ${column((c) => c.tileVertexCount)}`,
-	);
 	console.log(`  layers:          ${column((c) => c.layerCount)}`);
 	console.log(
 		`  scratch freed:   ${column((c) => c.scratchTargetsDisposed)}`,
@@ -165,6 +237,30 @@ const main = async (): Promise<void> => {
 	if (command === "profile" || command === "render") {
 		report(
 			await ask(origin, { kind: command, frames: frameCount(args) }),
+		);
+		return;
+	}
+	if (command === "frametime") {
+		report(
+			await ask(origin, {
+				kind: "frametime",
+				frames: frameCount(args),
+			}),
+		);
+		return;
+	}
+	if (command === "input") {
+		const script = flag(args, "script");
+		if (!script) {
+			fail(
+				"input wants --script, e.g. --script 'ENTER:2,:120,ESCAPE:2,:60'",
+			);
+		}
+		report(
+			await ask(origin, {
+				kind: "input",
+				steps: parseScript(script),
+			}),
 		);
 		return;
 	}

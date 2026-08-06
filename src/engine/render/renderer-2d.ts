@@ -1921,11 +1921,6 @@ export default class Renderer2D {
 		return this.quadVerts;
 	}
 
-	/** Tile vertices staged this frame — an exact integer for a given scene, so lockable. */
-	get tileVertexCount(): number {
-		return this.tileVerts;
-	}
-
 	/** Layers held live, each owning a scratch target — an exact integer for a given scene, so lockable. */
 	get layerCount(): number {
 		return this.layers.size;

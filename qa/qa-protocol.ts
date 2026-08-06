@@ -19,6 +19,36 @@ export const QA_ENDPOINT = "/__bitsplash_qa";
  * belongs to headless fixtures, which are deterministic by construction, and the
  * probe keeps only what is worth trusting: exact counters and real timings.
  */
+/**
+ * One step of an input script: hold `keys` and `pad` buttons for `frames`
+ * frames. An empty step is a wait.
+ *
+ * Input is injected into the real `DeviceSnapshot` the host already builds, so a
+ * step drives the same path a player does — `input-normalizer` to
+ * `event-dispatcher` to focus resolution to `onActivate`. Nothing bypasses the
+ * UI, which is the point: a build that passes headless fixtures can still be
+ * unplayable, and only the real input path can catch that.
+ *
+ * Frame counts, not milliseconds, so a step means the same thing whatever the
+ * frame rate.
+ */
+export type InputStep = Readonly<{
+	keys?: ReadonlyArray<string>;
+	pad?: ReadonlyArray<string>;
+	/**
+	 * `KeyboardEvent.code` values dispatched as real DOM events on `window`,
+	 * keydown on the step's first frame and keyup on its last.
+	 *
+	 * Not everything a player presses reaches the engine's snapshot: the game
+	 * shell binds pause, quicksave and quickload to a `window` keydown listener,
+	 * so those are unreachable to {@link keys} and need a genuine DOM event.
+	 * Codes are case-sensitive here (`"Escape"`, `"F5"`), unlike {@link keys},
+	 * which the keyboard layer upper-cases.
+	 */
+	dom?: ReadonlyArray<string>;
+	frames: number;
+}>;
+
 export type QaRequest =
 	| Readonly<{
 			id: number;
@@ -26,7 +56,28 @@ export type QaRequest =
 			with: ReadonlyArray<string>;
 	  }>
 	| Readonly<{ id: number; kind: "profile"; frames: number }>
-	| Readonly<{ id: number; kind: "render"; frames: number }>;
+	| Readonly<{ id: number; kind: "render"; frames: number }>
+	| Readonly<{
+			id: number;
+			kind: "input";
+			steps: ReadonlyArray<InputStep>;
+	  }>
+	| Readonly<{ id: number; kind: "frametime"; frames: number }>;
+
+/**
+ * Wall-clock interval between presented frames, which is what a frame-rate
+ * target is actually about. Distinct from {@link FrameTimings}, which is
+ * CPU time inside the update span and excludes all GPU and compositing work.
+ */
+export type FrameIntervals = Readonly<{
+	frames: number;
+	meanMs: number;
+	p50Ms: number;
+	p95Ms: number;
+	p99Ms: number;
+	maxMs: number;
+	fpsMean: number;
+}>;
 
 export type EntityDump = Readonly<{
 	id: number;
@@ -39,7 +90,6 @@ export type EntityDump = Readonly<{
 export type RenderCounters = Readonly<{
 	drawCalls: number;
 	quadVertexCount: number;
-	tileVertexCount: number;
 	layerCount: number;
 	scratchTargetsDisposed: number;
 }>;
@@ -69,4 +119,16 @@ export type QaResponse =
 			ok: true;
 			kind: "render";
 			frames: ReadonlyArray<RenderCounters>;
+	  }>
+	| Readonly<{
+			id: number;
+			ok: true;
+			kind: "input";
+			scene: string | null;
+	  }>
+	| Readonly<{
+			id: number;
+			ok: true;
+			kind: "frametime";
+			intervals: FrameIntervals;
 	  }>;

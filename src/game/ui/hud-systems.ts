@@ -12,6 +12,7 @@ import { DpsMeterHudSystem } from "../dps-meter/dps-meter-hud-system";
 import type { HealthBarHudState } from "../health/health-bar-hud-state";
 import { HealthBarHudSystem } from "../health/health-bar-hud-system";
 import { HitsplatHudSystem } from "../hitsplat/hitsplat-hud-system";
+import { HitsplatStormSystem } from "../hitsplat/hitsplat-storm-system";
 import type { InteractHintHudState } from "../interaction/interact-hint-hud-state";
 import { InteractHintHudSystem } from "../interaction/interact-hint-hud-system";
 import type { QuestMarkerHudState } from "../quest/quest-marker-hud-state";
@@ -41,12 +42,21 @@ export type HudSystems = Readonly<{
 	render: ReadonlyArray<RenderSystem>;
 }>;
 
+/**
+ * `?hitsplatstorm` saturates the hitsplat pool, to put the HUD under a repeatable
+ * load for `scripts/frame-trace.ts`. Absent it this is the shipping set.
+ */
+const storm =
+	typeof window !== "undefined" &&
+	new URLSearchParams(window.location.search).has("hitsplatstorm");
+
 export const createHudSystems = (
 	ui: UiRuntime,
 	stores: HudStores,
 	lastUsedDevice: LastUsedDevice,
 ): HudSystems => ({
 	update: [
+		...(storm ? [new HitsplatStormSystem()] : []),
 		new LastUsedDeviceSystem(lastUsedDevice),
 		new HudSyncSystem(stores.hud),
 		new DialogueHudSyncSystem(stores.dialogue, lastUsedDevice),

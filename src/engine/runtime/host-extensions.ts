@@ -11,12 +11,21 @@ const registered: Array<HostPlugin> = [];
  * never includes can observe the running app without the app carrying a branch
  * for it.
  *
- * Observation only — a plugin cannot displace a host's input. Injecting input
- * belonged to a scripted-input probe that was built, measured and dropped
- * because its runs diverged; reproduction lives in headless fixtures instead.
+ * A plugin may also overlay the sampled input via
+ * {@link import("./host").HostPlugin.interceptInput}, so a QA script can drive
+ * the real path — normaliser, dispatcher, focus resolution, activation — rather
+ * than reaching past the UI to call handlers directly. This previously said
+ * observation only, on the grounds that an earlier scripted-input probe's runs
+ * diverged. That was a finding about the determinism of *batching counters*, and
+ * it does not generalise: frame-interval and playability checks do not need
+ * bit-identical runs, and driving real input is the one thing headless fixtures
+ * cannot do. A build that passes every fixture can still be unplayable.
+ *
+ * Deterministic per-frame reproduction still belongs in headless fixtures.
  *
  * @example
  * registerHostPlugin({ onSceneChanged: (id, world) => record(id, world) });
+ * registerHostPlugin({ interceptInput: (input) => withKeysHeld(input, ["ENTER"]) });
  */
 export const registerHostPlugin = (plugin: HostPlugin): void => {
 	registered.push(plugin);

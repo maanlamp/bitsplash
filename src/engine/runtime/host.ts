@@ -91,6 +91,12 @@ export type HostPlugin = Readonly<{
 	onSceneChanged?(id: string, world: World): void;
 	onRuntimeChanged?(runtime: Runtime): void;
 	onStop?(): void;
+	/**
+	 * Replace the snapshot the host just sampled. Return the input unchanged to
+	 * pass it through. Applied in registration order, so a later plugin sees an
+	 * earlier one's result.
+	 */
+	interceptInput?(input: DeviceSnapshot): DeviceSnapshot;
 }>;
 
 export type HostOptions = Readonly<{
@@ -278,7 +284,12 @@ export class Host {
 		this.frameDt = dt;
 		this.frameTime = time;
 		this.syncScene();
-		const device = this.inputSource.sample();
+		let device = this.inputSource.sample();
+		// A plugin may overlay input on the sampled snapshot, so a QA script
+		// drives the same path a player does rather than reaching past the UI.
+		for (const plugin of this.plugins) {
+			device = plugin.interceptInput?.(device) ?? device;
+		}
 		this.sampled = device;
 		const ui = this.uiSurface.runtime();
 		if (!ui) {
