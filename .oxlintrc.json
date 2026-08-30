@@ -34,6 +34,7 @@
 				"allowWithDecorator": true
 			}
 		],
+		"typescript/consistent-return": "off",
 		"curly": ["error", "all"],
 		"eqeqeq": ["error", "always"],
 		"func-style": [

@@ -226,14 +226,16 @@ const ProjectTree = ({
 		? loadedScene(focusedSceneId)
 		: null;
 	useEffect(() => {
-		if (focusedScene) {
-			return focusedScene.ecs.subscribe(force);
+		if (!focusedScene) {
+			return undefined;
 		}
+		return focusedScene.ecs.subscribe(force);
 	}, [focusedScene]);
 	useEffect(() => {
-		if (focusedStore) {
-			return focusedStore.subscribe(force);
+		if (!focusedStore) {
+			return undefined;
 		}
+		return focusedStore.subscribe(force);
 	}, [focusedStore]);
 
 	const selection = focusedStore?.selection ?? null;

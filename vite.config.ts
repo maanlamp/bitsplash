@@ -11,6 +11,7 @@ const suppressSceneHmr = (): Plugin => ({
 		if (ctx.file.endsWith(".scene.json")) {
 			return [];
 		}
+		return undefined;
 	},
 });
 
@@ -75,11 +76,7 @@ export default defineConfig(() => ({
 		inkCodegen(),
 		suppressSceneHmr(),
 		servePopout(),
-		// The React Compiler runs natively in Oxc, in dev and build alike, so
-		// the two paths never diverge.
 		react({ compiler: true }),
-		// Only the filtered files ever reach Babel, so the cache wrapper only
-		// hashes those; dev serves them warm, builds always run uncached.
 		viteDecorators(),
 	],
 	assetsInclude: ["**/*.zip", "**/*.bsprite"],

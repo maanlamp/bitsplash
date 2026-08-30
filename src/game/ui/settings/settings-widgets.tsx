@@ -147,6 +147,7 @@ const RowShell = ({
 					onStep(1);
 					return true;
 				}
+				return false;
 			}}
 		>
 			<Text
@@ -294,6 +295,7 @@ export const MenuSwitch = ({
 					onChange(true);
 					return true;
 				}
+				return false;
 			}}
 		>
 			<Text
