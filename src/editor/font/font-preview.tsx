@@ -211,10 +211,6 @@ const FontPreview = ({
 	const families = useFamilies(assetManager, assetUrl, size);
 
 	useEffect(() => {
-		setFamilyIndex(0);
-	}, [assetUrl]);
-
-	useEffect(() => {
 		const next = Number(sizeText);
 		if (!Number.isFinite(next)) {
 			return;

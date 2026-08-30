@@ -172,7 +172,7 @@ export const viteDecorators = (): Plugin => {
 				const nameHints = new Map<Node, string>();
 				let touched = false;
 				const helpers = new Set<string>();
-				const use = (name: string): string => {
+				const needs = (name: string): string => {
 					helpers.add(name);
 					return name;
 				};
@@ -208,7 +208,7 @@ export const viteDecorators = (): Plugin => {
 						| undefined;
 					source.appendLeft(
 						stmtStart,
-						`const ${slot} = ${use("__vslot")}();\n`,
+						`const ${slot} = ${needs("__vslot")}();\n`,
 					);
 
 					// Decorator expressions and computed keys are all evaluated
@@ -437,15 +437,15 @@ export const viteDecorators = (): Plugin => {
 								source.overwrite(
 									member.start,
 									member.end,
-									`${isStatic ? "static " : ""}#${key.name as string}(...a){return ${use("__vpm")}(${slot},${slotIndex}).apply(this,a);}`,
+									`${isStatic ? "static " : ""}#${key.name as string}(...a){return ${needs("__vpm")}(${slot},${slotIndex}).apply(this,a);}`,
 								);
 							} else {
 								source.overwrite(
 									fn.start,
 									fn.end,
 									kind === "setter"
-										? `(v){${use("__vpcall")}(${slot},${slotIndex},this,v);}`
-										: `(){return ${use("__vpcall")}(${slot},${slotIndex},this);}`,
+										? `(v){${needs("__vpcall")}(${slot},${slotIndex},this,v);}`
+										: `(){return ${needs("__vpcall")}(${slot},${slotIndex},this);}`,
 								);
 							}
 						}
@@ -456,7 +456,7 @@ export const viteDecorators = (): Plugin => {
 							if (kind === "field" && defer && isStatic) {
 								deferredInit.set(
 									member,
-									`${use("__vf")}(${slot},${slotIndex},this,${initial})`,
+									`${needs("__vf")}(${slot},${slotIndex},this,${initial})`,
 								);
 							} else if (kind === "field") {
 								if (value === null) {
@@ -468,13 +468,13 @@ export const viteDecorators = (): Plugin => {
 											?.end ?? key.end;
 									source.appendLeft(
 										anchor,
-										` = ${use("__vf")}(${slot},${slotIndex},this,void 0)`,
+										` = ${needs("__vf")}(${slot},${slotIndex},this,void 0)`,
 									);
 								} else {
 									source.overwrite(
 										value.start,
 										value.end,
-										`${use("__vf")}(${slot},${slotIndex},this,${initial})`,
+										`${needs("__vf")}(${slot},${slotIndex},this,${initial})`,
 									);
 								}
 							} else {
@@ -491,14 +491,14 @@ export const viteDecorators = (): Plugin => {
 								const st = isStatic ? "static " : "";
 								const store =
 									defer && isStatic
-										? `static ${backing};static{${use("__vdefer")}(${slot},function(){this.${backing} = ${use("__vf")}(${slot},${slotIndex},this,${initial});});}`
-										: `${st}${backing} = ${use("__vf")}(${slot},${slotIndex},this,${initial});`;
+										? `static ${backing};static{${needs("__vdefer")}(${slot},function(){this.${backing} = ${needs("__vf")}(${slot},${slotIndex},this,${initial});});}`
+										: `${st}${backing} = ${needs("__vf")}(${slot},${slotIndex},this,${initial});`;
 								source.overwrite(
 									member.start,
 									member.end,
 									store +
-										`${st}get ${accessName}(){return ${use("__vget")}(${slot},${slotIndex},this);}` +
-										`${st}set ${accessName}(v){${use("__vset")}(${slot},${slotIndex},this,v);}`,
+										`${st}get ${accessName}(){return ${needs("__vget")}(${slot},${slotIndex},this);}` +
+										`${st}set ${accessName}(v){${needs("__vset")}(${slot},${slotIndex},this,v);}`,
 								);
 								entries.push(
 									`[${nameExpr},"accessor",${isStatic},${isPrivate},${decoratorList},(o)=>o.${backing},(o,v)=>{o.${backing}=v;},(o)=>${backing} in o,0]`,
@@ -521,12 +521,12 @@ export const viteDecorators = (): Plugin => {
 
 					source.appendLeft(
 						body.start + 1,
-						`static{${use("__vsetup")}(${slot},this,${classDecoratorList},[${entries.join(",")}]);}`,
+						`static{${needs("__vsetup")}(${slot},this,${classDecoratorList},[${entries.join(",")}]);}`,
 					);
 					if (ordered.some((member) => member.static === true)) {
 						source.appendLeft(
 							body.end - 1,
-							`static{${use("__vsinit")}(${slot},this);}`,
+							`static{${needs("__vsinit")}(${slot},this);}`,
 						);
 					}
 					if (needsInstanceInit) {
@@ -539,7 +539,7 @@ export const viteDecorators = (): Plugin => {
 						// which pins the other half.
 						source.appendLeft(
 							body.start + 1,
-							`#${slot}i = ${use("__vinit")}(${slot},this);`,
+							`#${slot}i = ${needs("__vinit")}(${slot},this);`,
 						);
 					}
 
@@ -552,7 +552,7 @@ export const viteDecorators = (): Plugin => {
 							if (member.type === "StaticBlock") {
 								source.appendLeft(
 									member.start,
-									`static{${use("__vdefer")}(${slot},function()`,
+									`static{${needs("__vdefer")}(${slot},function()`,
 								);
 								source.appendRight(member.end, `);}`);
 								source.remove(member.start, member.start + 6);
@@ -572,7 +572,7 @@ export const viteDecorators = (): Plugin => {
 								source.overwrite(
 									member.start,
 									member.end,
-									`static{${use("__vdefer")}(${slot},function(){${target} = ${
+									`static{${needs("__vdefer")}(${slot},function(){${target} = ${
 										deferredInit.get(member) ??
 										(value === null ? "void 0" : text(value))
 									};});}`,
@@ -594,11 +594,11 @@ export const viteDecorators = (): Plugin => {
 						}
 						source.appendLeft(
 							node.start,
-							`${name} = ${use("__vclass")}(${slot},`,
+							`${name} = ${needs("__vclass")}(${slot},`,
 						);
 						source.appendRight(
 							node.end,
-							`,${JSON.stringify(declaredName)});\n${use("__vstatics")}(${slot},${name});${
+							`,${JSON.stringify(declaredName)});\n${needs("__vstatics")}(${slot},${name});${
 								exported ? `\nexport {${name}};` : ""
 							}`,
 						);
@@ -606,7 +606,7 @@ export const viteDecorators = (): Plugin => {
 						// No binding to reassign, so wrap the expression itself.
 						source.appendLeft(
 							node.start,
-							`${use("__vclass")}(${slot},`,
+							`${needs("__vclass")}(${slot},`,
 						);
 						source.appendRight(
 							node.end,
@@ -615,7 +615,7 @@ export const viteDecorators = (): Plugin => {
 					} else {
 						source.appendRight(
 							node.end,
-							`\n${name} = ${use("__vclass")}(${slot},${name});`,
+							`\n${name} = ${needs("__vclass")}(${slot},${name});`,
 						);
 					}
 				};

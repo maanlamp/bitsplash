@@ -304,7 +304,7 @@ const InspectorBody = ({
 		<div className={styles.inspector}>
 			{runtime && (
 				<div className={styles.runtimeBadge}>
-					Runtime entity — changes won't be saved
+					Runtime entity — changes won’t be saved
 				</div>
 			)}
 			{ecs.componentsOf(selected).map((component) => (
