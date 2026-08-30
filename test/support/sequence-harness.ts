@@ -86,7 +86,13 @@ export type HarnessConfig = Readonly<{
 	assetManager?: AssetManager;
 }>;
 
-const stubService = <T>(label: string): T =>
+/**
+ * A stand-in for a service the harness does not provide, typed `never` because
+ * that is what it is: every access throws, so no value of it is usable. A
+ * branch that can only ever receive the stub is a type error rather than a
+ * runtime one.
+ */
+const stubService = (label: string): never =>
 	new Proxy(
 		{},
 		{
@@ -96,7 +102,7 @@ const stubService = <T>(label: string): T =>
 				);
 			},
 		},
-	) as T;
+	) as never;
 
 export class SequenceFixture {
 	private runtimeValue: Runtime;
