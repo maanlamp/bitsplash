@@ -48,13 +48,15 @@
 		"@types/rbush": "4.0.0",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
-		"@vitejs/plugin-react": "6.0.1",
-		"babel-plugin-react-compiler": "1.0.0",
+		"@types/react-reconciler": "0.33.0",
+		"@vitejs/plugin-react": "6.1.1",
 		"concurrently": "10.0.3",
 		"globals": "17.6.0",
+		"oxc-transform-react": "0.147.0",
 		"oxlint-tsgolint": "0.23.0",
+		"playwright": "1.62.1",
 		"typescript": "7.0.2",
-		"vite": "8.1.5",
+		"vite": "8.2.2",
 		"vite-plugin-mkcert": "2.1.0"
 	}
 }

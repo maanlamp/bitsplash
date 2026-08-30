@@ -1,5 +1,7 @@
-import babel from "@rolldown/plugin-babel";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import babel, {
+	defineRolldownBabelPreset,
+} from "@rolldown/plugin-babel";
+import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
@@ -7,20 +9,38 @@ import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
 import { cachedBabel } from "./vite-babel-cache";
 
 /**
- * Babel is the slow, single-threaded pass on the dev hot path: it runs the
- * `2023-11` decorator transform (Oxc can't do standard decorators) plus the
- * React Compiler. Options are shared between dev and build; only dev wraps them
- * in {@link cachedBabel} (see below).
+ * Matches any line that could carry a decorator: an `@identifier` on a line
+ * that is not a JSDoc continuation. Deliberately loose — it stays correct for
+ * decorators renamed on import and for ones that do not exist yet, since it
+ * never looks at our three decorators by name. Over-matching is free (Babel
+ * finds nothing to lower and passes the file through); under-matching would
+ * ship unlowered decorator syntax, so the bias is one-directional. Currently
+ * 201 of 785 source modules.
+ */
+const DECORATOR_SYNTAX = /^[^*\n]*@[A-Za-z_$]/m;
+
+/**
+ * Babel now exists solely for the `2023-11` standard-decorator transform: Oxc
+ * lowers only legacy decorators, and `@serializable`/`@serialize`/`@profiler`
+ * need `context.metadata` (oxc-project/oxc#9170 is open and on hold). The
+ * React Compiler moved off Babel onto oxc's native pass — see `react()` below.
+ *
+ * Wrapped in a preset purely so Rolldown can skip the files whose source has no
+ * decorator syntax at all before Babel is ever started on them.
  */
 const babelOptions: Parameters<typeof babel>[0] = {
-	plugins: [
-		["@babel/plugin-proposal-decorators", { version: "2023-11" }],
-	],
-	overrides: [
-		{
-			exclude: /[\\/]src[\\/]engine[\\/]ui[\\/]/,
-			presets: [reactCompilerPreset()],
-		},
+	presets: [
+		defineRolldownBabelPreset({
+			preset: () => ({
+				plugins: [
+					[
+						"@babel/plugin-proposal-decorators",
+						{ version: "2023-11" },
+					],
+				],
+			}),
+			rolldown: { filter: { code: DECORATOR_SYNTAX } },
+		}),
 	],
 };
 
@@ -94,9 +114,11 @@ export default defineConfig(({ command }) => ({
 		inkCodegen(),
 		suppressSceneHmr(),
 		servePopout(),
-		react(),
-		// Dev serves warm from an on-disk transform cache; production builds run
-		// Babel straight (uncached) so shipped output is never cache-dependent.
+		// The React Compiler runs natively in Oxc, in dev and build alike, so
+		// the two paths never diverge.
+		react({ compiler: true }),
+		// Only the filtered files ever reach Babel, so the cache wrapper only
+		// hashes those; dev serves them warm, builds always run uncached.
 		command === "serve"
 			? cachedBabel(babelOptions)
 			: babel(babelOptions),

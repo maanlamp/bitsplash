@@ -31,14 +31,13 @@ const CACHE_DIR = resolve("node_modules/.cache/bitsplash-babel");
 /**
  * A stable salt covering everything that changes Babel's output besides the
  * source itself: the plugin versions on the hot path and the exact options we
- * pass (decorator version, React-compiler preset, engine/ui exclude). Any of
- * these changing invalidates the whole cache by producing a new salt.
+ * pass (the decorator version and the syntax filter). The React Compiler runs
+ * natively in Oxc outside this plugin, so it is deliberately not salted here.
  */
 const computeSalt = (options: BabelOptions): string => {
 	const pkgs = [
 		"@babel/core",
 		"@babel/plugin-proposal-decorators",
-		"babel-plugin-react-compiler",
 		"@vitejs/plugin-react",
 		"@rolldown/plugin-babel",
 	];
