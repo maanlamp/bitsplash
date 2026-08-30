@@ -75,7 +75,8 @@ const alpha = (store: CelStore, x: number, y: number): number =>
 const setup = () => {
 	const store = new CelStore(32, 32);
 	const history = new History();
-	const sel = new SelectionController(fakeDoc(store), history);
+	const sel = new SelectionController(history);
+	sel.attach(fakeDoc(store));
 	return { store, history, sel };
 };
 
