@@ -1,6 +1,6 @@
 import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpRight";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
 import { useWindowWindow } from "../window/window-context";
 import {
@@ -117,8 +117,6 @@ const SpriteEditor = ({
 	onCreated: (url: string) => void;
 	active: boolean;
 }>) => {
-	const [selection, setSelection] =
-		useState<SelectionController | null>(null);
 	const win = useWindowWindow();
 	const assetManager = useAssetManager();
 	const { doc, history, controllers, viewState, undoable } =
@@ -142,29 +140,27 @@ const SpriteEditor = ({
 				}
 				return SpriteDocument.load(assetUrl);
 			},
-			createControllers: () => ({
+			createControllers: (entryHistory) => ({
 				state: new SpriteEditorState(),
 				onion: new OnionState(),
+				selection: new SelectionController(entryHistory),
 			}),
+			disposeControllers: (c) => c.selection.detach(),
 			onDirty,
 			active,
 		});
-	const { state, onion } = controllers;
+	const { state, onion, selection } = controllers;
 
 	// The selection controller owns the marquee/floating state and registers the
-	// B12 choke-point bridges on the document; it is scoped to one document, so a
-	// reload builds a fresh one and disposes the old.
+	// B12 choke-point bridges on the document; it lives with the view and binds
+	// to whichever document is loaded, so a reload starts it from empty again.
 	useEffect(() => {
 		if (!doc) {
 			return;
 		}
-		const controller = new SelectionController(doc, history);
-		setSelection(controller);
-		return () => {
-			controller.dispose();
-			setSelection(null);
-		};
-	}, [doc, history]);
+		selection.attach(doc);
+		return () => selection.detach();
+	}, [doc, selection]);
 
 	// A tileset's width must be an exact multiple of SHEET_COLUMNS for its autotile
 	// columns to line up; the new-tileset dialog snaps to a valid width, but a
@@ -371,31 +367,31 @@ const SpriteEditor = ({
 	// Copy/cut/paste route through the internal editor clipboard.
 	useScopedHotkeys(
 		"enter",
-		() => selection?.confirmOrCommit(),
+		() => selection.confirmOrCommit(),
 		{ enabled: active },
 		[active, selection],
 	);
 	useScopedHotkeys(
 		"escape",
-		() => selection?.escape(),
+		() => selection.escape(),
 		{ enabled: active },
 		[active, selection],
 	);
 	useScopedHotkeys(
 		"mod+c",
-		() => selection?.copy(),
+		() => selection.copy(),
 		{ enabled: active },
 		[active, selection],
 	);
 	useScopedHotkeys(
 		"mod+x",
-		() => selection?.cut(),
+		() => selection.cut(),
 		{ enabled: active },
 		[active, selection],
 	);
 	useScopedHotkeys(
 		"mod+v",
-		() => selection?.paste(),
+		() => selection.paste(),
 		{ enabled: active },
 		[active, selection],
 	);
@@ -409,7 +405,7 @@ const SpriteEditor = ({
 		(e) => {
 			e.preventDefault();
 			state.setTool("transform");
-			selection?.beginTransform();
+			selection.beginTransform();
 		},
 		{ enabled: active, preventDefault: true },
 		[active, state, selection],
@@ -518,7 +514,7 @@ const SpriteEditor = ({
 							/>
 						)}
 						<div className={styles.spriteBody}>
-							{doc && selection ? (
+							{doc ? (
 								isTileset ? (
 									<Split
 										direction="row"
@@ -599,9 +595,7 @@ const SpriteEditor = ({
 									state={state}
 								/>
 							)}
-							{selection && !isTileset && (
-								<TransformPanel selection={selection} />
-							)}
+							{!isTileset && <TransformPanel selection={selection} />}
 						</div>
 					</div>
 					<div className={styles.spriteTimeline}>

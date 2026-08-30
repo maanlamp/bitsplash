@@ -134,7 +134,8 @@ describe("SelectionController transforms (float buffer + mask + offset)", () => 
 	const setup = () => {
 		const store = new CelStore(8, 8);
 		const history = new History();
-		const sel = new SelectionController(fakeDoc(store), history);
+		const sel = new SelectionController(history);
+		sel.attach(fakeDoc(store));
 		return { store, sel, layerId: store.activeLayerId };
 	};
 
