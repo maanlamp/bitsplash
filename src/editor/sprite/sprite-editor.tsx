@@ -156,7 +156,6 @@ const SpriteEditor = ({
 	// reload builds a fresh one and disposes the old.
 	useEffect(() => {
 		if (!doc) {
-			setSelection(null);
 			return;
 		}
 		const controller = new SelectionController(doc, history);
