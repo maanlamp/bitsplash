@@ -2,6 +2,7 @@
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"plugins": ["typescript", "unicorn", "oxc", "react"],
 	"jsPlugins": ["./require-default-fields-oxc-plugin.ts"],
+	"ignorePatterns": ["scripts/**"],
 	"categories": {
 		"correctness": "error",
 		"suspicious": "error"
@@ -44,7 +45,11 @@
 				"allowArrowFunctions": true
 			}
 		],
-		"ecs-conventions/require-default-fields": "error"
+		"ecs-conventions/require-default-fields": "error",
+		"react/no-unknown-property": "error",
+		"react/checked-requires-onchange-or-readonly": "error",
+		"react/jsx-no-target-blank": "error",
+		"react/no-unescaped-entities": "error"
 	},
 	"env": {
 		"builtin": true
