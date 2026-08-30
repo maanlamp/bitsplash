@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import type { SplitDirection } from "./layout";
 import styles from "./workspace.module.scss";
 
@@ -58,7 +58,10 @@ const Splitter = ({
 		onResizeCancel?.();
 	};
 
-	useEffect(() => detachKey, []);
+	const detachKeyOnUnmount = useEffectEvent((): void => {
+		detachKey();
+	});
+	useEffect(() => () => detachKeyOnUnmount(), []);
 
 	const onPointerDown = (
 		event: React.PointerEvent<HTMLDivElement>,

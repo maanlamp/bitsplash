@@ -34,7 +34,9 @@ const SpritePreviewPanel = ({
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [playing, setPlaying] = useState(true);
 	const playingRef = useRef(playing);
-	playingRef.current = playing;
+	useEffect(() => {
+		playingRef.current = playing;
+	});
 
 	const [label, setLabel] = useState<string>("");
 
