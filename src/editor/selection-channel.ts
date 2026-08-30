@@ -38,14 +38,23 @@ export class SelectionChannel extends Subscribable {
 	private storeUnsub: (() => void) | null = null;
 	private readonly activeUnsub: () => void;
 
+	private resolve: (sceneId: string) => SelectionContext | null;
+
 	constructor(
 		private readonly active: ActiveScene,
-		private readonly resolve: (
-			sceneId: string,
-		) => SelectionContext | null,
+		resolve: (sceneId: string) => SelectionContext | null = () =>
+			null,
 	) {
 		super();
+		this.resolve = resolve;
 		this.activeUnsub = active.subscribe(() => this.rebind());
+		this.rebind();
+	}
+
+	setResolver(
+		resolve: (sceneId: string) => SelectionContext | null,
+	): void {
+		this.resolve = resolve;
 		this.rebind();
 	}
 
