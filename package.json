@@ -40,11 +40,7 @@
 		"yoga-layout": "3.2.1"
 	},
 	"devDependencies": {
-		"@babel/core": "7.29.0",
-		"@babel/plugin-proposal-decorators": "7.29.7",
 		"@dimforge/rapier2d-compat": "0.19.3",
-		"@rolldown/plugin-babel": "0.2.3",
-		"@types/babel__core": "7.20.5",
 		"@types/node": "24.12.3",
 		"@types/rbush": "4.0.0",
 		"@types/react": "19.2.14",
@@ -53,6 +49,8 @@
 		"@vitejs/plugin-react": "6.1.1",
 		"concurrently": "10.0.3",
 		"globals": "17.6.0",
+		"magic-string": "1.2.3",
+		"oxc-parser": "0.147.0",
 		"oxc-transform-react": "0.147.0",
 		"oxlint-tsgolint": "0.23.0",
 		"playwright": "1.62.1",

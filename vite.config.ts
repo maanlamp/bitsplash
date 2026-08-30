@@ -1,48 +1,9 @@
-import babel, {
-	defineRolldownBabelPreset,
-} from "@rolldown/plugin-babel";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
-import { cachedBabel } from "./vite-babel-cache";
-
-/**
- * Matches any line that could carry a decorator: an `@identifier` on a line
- * that is not a JSDoc continuation. Deliberately loose — it stays correct for
- * decorators renamed on import and for ones that do not exist yet, since it
- * never looks at our three decorators by name. Over-matching is free (Babel
- * finds nothing to lower and passes the file through); under-matching would
- * ship unlowered decorator syntax, so the bias is one-directional. Currently
- * 201 of 785 source modules.
- */
-const DECORATOR_SYNTAX = /^[^*\n]*@[A-Za-z_$]/m;
-
-/**
- * Babel now exists solely for the `2023-11` standard-decorator transform: Oxc
- * lowers only legacy decorators, and `@serializable`/`@serialize`/`@profiler`
- * need `context.metadata` (oxc-project/oxc#9170 is open and on hold). The
- * React Compiler moved off Babel onto oxc's native pass — see `react()` below.
- *
- * Wrapped in a preset purely so Rolldown can skip the files whose source has no
- * decorator syntax at all before Babel is ever started on them.
- */
-const babelOptions: Parameters<typeof babel>[0] = {
-	presets: [
-		defineRolldownBabelPreset({
-			preset: () => ({
-				plugins: [
-					[
-						"@babel/plugin-proposal-decorators",
-						{ version: "2023-11" },
-					],
-				],
-			}),
-			rolldown: { filter: { code: DECORATOR_SYNTAX } },
-		}),
-	],
-};
+import { viteDecorators } from "./vite-decorators";
 
 const suppressSceneHmr = (): Plugin => ({
 	name: "suppress-scene-hmr",
@@ -108,7 +69,7 @@ const CROSS_ORIGIN_ISOLATION = {
 	"Cross-Origin-Embedder-Policy": "credentialless",
 };
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
 	plugins: [
 		mkcert(),
 		inkCodegen(),
@@ -119,9 +80,7 @@ export default defineConfig(({ command }) => ({
 		react({ compiler: true }),
 		// Only the filtered files ever reach Babel, so the cache wrapper only
 		// hashes those; dev serves them warm, builds always run uncached.
-		command === "serve"
-			? cachedBabel(babelOptions)
-			: babel(babelOptions),
+		viteDecorators(),
 	],
 	assetsInclude: ["**/*.zip", "**/*.bsprite"],
 	optimizeDeps: { exclude: ["@dimforge/rapier2d"] },

@@ -23,5 +23,9 @@
 		"erasableSyntaxOnly": true,
 		"noFallthroughCasesInSwitch": true
 	},
-	"include": ["vite.config.ts", "scripts/perf-dev-startup.ts"]
+	"include": [
+		"vite.config.ts",
+		"vite-decorators.ts",
+		"scripts/perf-dev-startup.ts"
+	]
 }
