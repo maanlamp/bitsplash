@@ -42,7 +42,7 @@ const SpritePreviewPanel = ({
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d") ?? null;
 		if (!canvas || !ctx) {
-			return undefined;
+			return;
 		}
 		ctx.imageSmoothingEnabled = false;
 

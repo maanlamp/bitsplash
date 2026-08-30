@@ -60,7 +60,7 @@ const PerfOverlay = ({ view }: Readonly<{ view: SceneView }>) => {
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) {
-			return undefined;
+			return;
 		}
 		const dpr = window.devicePixelRatio;
 		const contexts = canvasRefs.current.map((canvas) => {

@@ -227,13 +227,13 @@ const ProjectTree = ({
 		: null;
 	useEffect(() => {
 		if (!focusedScene) {
-			return undefined;
+			return;
 		}
 		return focusedScene.ecs.subscribe(force);
 	}, [focusedScene]);
 	useEffect(() => {
 		if (!focusedStore) {
-			return undefined;
+			return;
 		}
 		return focusedStore.subscribe(force);
 	}, [focusedStore]);

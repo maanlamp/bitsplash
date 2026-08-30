@@ -26,7 +26,7 @@ const ColorSquare = ({
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d");
 		if (!ctx) {
-			return undefined;
+			return;
 		}
 		const frame = requestAnimationFrame(() => {
 			const img = ctx.createImageData(SIZE, SIZE);

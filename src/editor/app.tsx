@@ -590,7 +590,7 @@ const App = ({
 
 	useEffect(() => {
 		if (!focusedStore) {
-			return undefined;
+			return;
 		}
 		return focusedStore.subscribe(forceStore);
 	}, [focusedStore]);

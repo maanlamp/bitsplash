@@ -111,7 +111,7 @@ const Timeline = ({
 	useEffect(() => {
 		const lane = laneRef.current;
 		if (!lane) {
-			return undefined;
+			return;
 		}
 		const observer = new ResizeObserver(() => {
 			const next = lane.clientWidth;
@@ -128,7 +128,7 @@ const Timeline = ({
 		const root = rootRef.current;
 		const lane = laneRef.current;
 		if (!root || !lane) {
-			return undefined;
+			return;
 		}
 		const onWheel = (event: WheelEvent): void => {
 			event.preventDefault();
@@ -138,7 +138,7 @@ const Timeline = ({
 				applyOffset(
 					offsetRef.current + event.deltaY / Math.max(px, 0.000001),
 				);
-				return undefined;
+				return;
 			}
 			const mouseX = Math.max(0, event.clientX - rect.left);
 			const before =
