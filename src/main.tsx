@@ -14,6 +14,9 @@ const runtimeReady = (async (): Promise<void> => {
 		import("./engine/physics/rapier-physics"),
 	]);
 	await rapier.loadRapier();
+	// Read by `scripts/perf-dev-startup.ts` to separate "the editor painted"
+	// from "the game runtime is actually usable".
+	performance.mark("runtime-live");
 })();
 
 createRoot(document.getElementById("root")!).render(
