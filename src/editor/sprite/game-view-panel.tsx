@@ -39,10 +39,8 @@ const GameViewPanel = ({
 	const containerRef = useRef<HTMLDivElement>(null);
 	// Rebuild on a dimension change (rotate) so the sample bounds re-read
 	// `doc.width`/`height`; the composite canvas identity is stable across it.
-	const dimensionsVersion = useSyncExternalStore(
-		doc.subscribe,
-		() => doc.dimensionsVersion,
-	);
+	useSyncExternalStore(doc.subscribe, () => doc.dimensionsVersion);
+	const { width, height } = doc;
 
 	useEffect(() => {
 		const container = containerRef.current;
@@ -53,7 +51,7 @@ const GameViewPanel = ({
 		const { game, scene } = createPreviewGame();
 		const detach = game.viewport.attach(container);
 		const element = game.viewport.element;
-		const srcSize = doc.width / SHEET_COLUMNS;
+		const srcSize = width / SHEET_COLUMNS;
 		const hover: HoverState = { x: 0, y: 0, active: false };
 
 		const grid = new TileGrid();
@@ -112,7 +110,7 @@ const GameViewPanel = ({
 		};
 
 		const resolveAt = (wx: number, wy: number) => {
-			const rows = Math.max(1, Math.round(doc.height / srcSize));
+			const rows = Math.max(1, Math.round(height / srcSize));
 			return resolveWorldPixel(grid, rows, srcSize, wx, wy, (x, y) =>
 				doc.alphaAt(x, y),
 			);
@@ -276,7 +274,7 @@ const GameViewPanel = ({
 			stop();
 			detach();
 		};
-	}, [doc, state, history, selection, dimensionsVersion]);
+	}, [doc, state, history, selection, width, height]);
 
 	return (
 		<div ref={containerRef} className={styles.spriteCanvasHost} />

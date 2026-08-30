@@ -16,6 +16,7 @@ import {
 	type CSSProperties,
 	type DragEvent as ReactDragEvent,
 	type PointerEvent as ReactPointerEvent,
+	type Ref,
 	type RefObject,
 	useEffect,
 	useRef,
@@ -171,7 +172,6 @@ const CelCell = ({
 	row,
 	activeCel,
 	columnActive,
-	version,
 	elementRef,
 }: Readonly<{
 	doc: SpriteDocument;
@@ -181,8 +181,7 @@ const CelCell = ({
 	row: number;
 	activeCel: boolean;
 	columnActive: boolean;
-	version: number;
-	elementRef?: RefObject<HTMLDivElement | null>;
+	elementRef?: Ref<HTMLDivElement>;
 }>) => (
 	<div
 		ref={elementRef}
@@ -228,13 +227,7 @@ const CelCell = ({
 			}
 		}}
 	>
-		<CelThumbnail
-			source={doc.getCel(layerId, frameIndex)}
-			width={doc.width}
-			height={doc.height}
-			size={36}
-			version={version}
-		/>
+		<CelThumbnail cel={doc.celThumb(layerId, frameIndex)} size={36} />
 	</div>
 );
 
@@ -245,7 +238,6 @@ const LayerAxisRow = ({
 	row,
 	active,
 	canDelete,
-	version,
 }: Readonly<{
 	doc: SpriteDocument;
 	history: History;
@@ -253,7 +245,6 @@ const LayerAxisRow = ({
 	row: number;
 	active: boolean;
 	canDelete: boolean;
-	version: number;
 }>) => {
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
@@ -331,12 +322,7 @@ const LayerAxisRow = ({
 					{layer.visible ? <EyeIcon /> : <EyeSlashIcon />}
 				</Button>
 			</Tooltip>
-			<LayerThumbnail
-				source={layer.canvas}
-				width={doc.width}
-				height={doc.height}
-				version={version}
-			/>
+			<LayerThumbnail layer={doc.layerThumb(layer.id)} />
 			{editing ? (
 				<input
 					className={styles.layerName}
@@ -631,12 +617,10 @@ const Timeline = ({
 	onion: OnionState;
 	viewState: DocumentViewState;
 }>) => {
-	const version = useSyncExternalStore(
-		doc.subscribe,
-		() => doc.version,
-	);
+	useSyncExternalStore(doc.subscribe, () => doc.version);
 	const laneRef = useRef<HTMLDivElement | null>(null);
-	const activeCelRef = useRef<HTMLDivElement | null>(null);
+	const [activeCelEl, setActiveCelEl] =
+		useState<HTMLDivElement | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
 	// Restore the scroll offset a prior mount recorded (a cross-window move
@@ -662,11 +646,11 @@ const Timeline = ({
 	// a partly-scrolled cell). `nearest` leaves an already-visible cell put, so a
 	// click never jumps the grid.
 	useEffect(() => {
-		activeCelRef.current?.scrollIntoView({
+		activeCelEl?.scrollIntoView({
 			block: "nearest",
 			inline: "nearest",
 		});
-	}, [activeFrame, activeLayer]);
+	}, [activeCelEl]);
 
 	const gridStyle: CSSProperties = {
 		gridTemplateColumns: `var(--axis-width) repeat(${frameCount}, var(--col-width))`,
@@ -790,7 +774,6 @@ const Timeline = ({
 							row={r}
 							active={layer.id === activeLayer}
 							canDelete={layers.length > 1}
-							version={version}
 						/>
 					))}
 					{layers.map((layer, r) =>
@@ -807,8 +790,7 @@ const Timeline = ({
 									row={r}
 									activeCel={activeCel}
 									columnActive={i === activeFrame}
-									version={version}
-									elementRef={activeCel ? activeCelRef : undefined}
+									elementRef={activeCel ? setActiveCelEl : undefined}
 								/>
 							);
 						}),

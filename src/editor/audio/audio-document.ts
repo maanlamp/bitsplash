@@ -94,20 +94,26 @@ export class AudioDocument extends Subscribable {
 	}
 
 	clipPeaks(clip: AudioClip): ReadonlyArray<Peak> {
-		const peaks = this.sourcePeaks();
-		const total = this._source.duration;
-		if (total <= 0) {
-			return [];
-		}
-		const from = Math.floor(
-			(clip.sourceOffset / total) * peaks.length,
-		);
-		const to = Math.ceil(
-			((clip.sourceOffset + clip.duration) / total) * peaks.length,
-		);
-		return peaks.slice(
-			Math.max(0, from),
-			Math.min(peaks.length, Math.max(from + 1, to)),
+		return this.cached(
+			`peaks:${clip.id}:${clip.sourceOffset}:${clip.duration}`,
+			() => {
+				const peaks = this.sourcePeaks();
+				const total = this._source.duration;
+				if (total <= 0) {
+					return [];
+				}
+				const from = Math.floor(
+					(clip.sourceOffset / total) * peaks.length,
+				);
+				const to = Math.ceil(
+					((clip.sourceOffset + clip.duration) / total) *
+						peaks.length,
+				);
+				return peaks.slice(
+					Math.max(0, from),
+					Math.min(peaks.length, Math.max(from + 1, to)),
+				);
+			},
 		);
 	}
 
