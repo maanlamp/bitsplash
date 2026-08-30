@@ -345,8 +345,6 @@ const App = ({
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
 	const assetBrowserHistoryRef = useRef(new History());
-	const [activeSceneViewId, setActiveSceneViewId] =
-		useState<ViewId | null>(null);
 	const [activeWindowId, setActiveWindowId] =
 		useState<WindowId>(HUB_WINDOW_ID);
 	const activeWindowIdRef = useRef(activeWindowId);
@@ -357,7 +355,26 @@ const App = ({
 	const [workspace, setWorkspace] = useState<WorkspaceState>(() =>
 		loadWorkspace(isStructurallyValidViewId, `scene:${startScene}`),
 	);
+	const [activeSceneViewId, setActiveSceneViewId] =
+		useState<ViewId | null>(() => {
+			const focused = hubOf(workspace).focused;
+			return focused && isSceneView(focused) ? focused : null;
+		});
 	const workspaceRef = useRef(workspace);
+	/**
+	 * Move the global active-scene pointer onto the active window's newly focused
+	 * view, when that view is a scene view. Layout mutations that re-focus a view
+	 * without going through {@link markActive} (a close picking the next tab, a
+	 * prune) still park the pointer on the scene view they land on.
+	 */
+	const syncActiveSceneView = (ws: WorkspaceState): void => {
+		const focused = (
+			getWindow(ws, activeWindowIdRef.current) ?? hubOf(ws)
+		).focused;
+		if (focused && isSceneView(focused)) {
+			setActiveSceneViewId(focused);
+		}
+	};
 	const updateWorkspace = (
 		next: WorkspaceState | ((prev: WorkspaceState) => WorkspaceState),
 	): void => {
@@ -366,6 +383,7 @@ const App = ({
 		workspaceRef.current = value;
 		setWorkspace(value);
 		saveWorkspace(value);
+		syncActiveSceneView(value);
 	};
 
 	const hub = hubOf(workspace);
@@ -429,11 +447,6 @@ const App = ({
 	/** The window the user last interacted with; commands resolve within it. */
 	const activeWindow = getWindow(workspace, activeWindowId) ?? hub;
 	const focusedView = activeWindow.focused;
-	useEffect(() => {
-		if (focusedView && isSceneView(focusedView)) {
-			setActiveSceneViewId(focusedView);
-		}
-	}, [focusedView]);
 
 	/**
 	 * Mark `windowId` as the active window and — only when its newly focused view
@@ -503,6 +516,53 @@ const App = ({
 		return false;
 	};
 
+	const [dirtyViews, setDirtyViews] = useState<ReadonlySet<ViewId>>(
+		() => new Set(),
+	);
+	const dirtyViewsRef = useRef(dirtyViews);
+	useEffect(() => {
+		dirtyViewsRef.current = dirtyViews;
+	});
+	const setViewDirty = (id: ViewId, dirty: boolean): void => {
+		setDirtyViews((prev) => {
+			if (prev.has(id) === dirty) {
+				return prev;
+			}
+			const next = new Set(prev);
+			if (dirty) {
+				next.add(id);
+			} else {
+				next.delete(id);
+			}
+			return next;
+		});
+	};
+	/**
+	 * Reflect a document's dirty state onto every open view of its scene (plan
+	 * D13: dirty lives on the document, shared across its views). A save through
+	 * any view clears the marker on all of them, in every window.
+	 */
+	const setSceneDirty = (sceneId: string, dirty: boolean): void => {
+		setDirtyViews((prev) => {
+			const next = new Set(prev);
+			let changed = false;
+			for (const id of allWorkspaceViewIds(workspaceRef.current)) {
+				if (!isSceneView(id) || parseViewId(id).param !== sceneId) {
+					continue;
+				}
+				if (dirty && !next.has(id)) {
+					next.add(id);
+					changed = true;
+				} else if (!dirty && next.has(id)) {
+					next.delete(id);
+					changed = true;
+				}
+			}
+			return changed ? next : prev;
+		});
+	};
+	const isViewDirty = (id: ViewId): boolean => dirtyViews.has(id);
+
 	const ensureDocSubscription = (
 		sceneId: string,
 		doc: SceneDocument,
@@ -571,6 +631,19 @@ const App = ({
 		}
 	};
 
+	const stopRun = (): void => {
+		const host = runHostRef.current;
+		if (!host) {
+			return;
+		}
+		runHostRef.current = null;
+		host.stop();
+		setRunning(false);
+		setRunMode("game");
+		setRunPaused(false);
+		setRunningWindowId(null);
+	};
+
 	const activeSceneId =
 		activeSceneViewId && windowOfView(workspace, activeSceneViewId)
 			? activeSceneViewId
@@ -600,44 +673,53 @@ const App = ({
 		return focusedStore.subscribe(forceStore);
 	}, [focusedStore]);
 
-	useLayoutEffect(() => {
-		const open = new Set(
-			allWorkspaceViewIds(workspace).filter(isSceneView),
-		);
-		if (game) {
-			for (const id of open) {
-				ensureSceneView(id);
-			}
-		}
-		for (const id of sceneViewsRef.current.keys()) {
-			if (!open.has(id)) {
-				// The run's anchor view is about to be disposed (its tab or window
-				// closed via any path): stop the run before disposing the SceneView
-				// it references, so the frame loop never touches a dead view.
-				if (
-					runStopsOnViewClose(runHostRef.current?.view.id ?? null, id)
-				) {
-					stopRun();
+	const reconcileSceneViews = useEffectEvent(
+		(ws: WorkspaceState, instance: Game | null): void => {
+			const open = new Set(
+				allWorkspaceViewIds(ws).filter(isSceneView),
+			);
+			if (instance) {
+				for (const id of open) {
+					ensureSceneView(id);
 				}
-				disposeSceneView(id);
 			}
-		}
-		const project = projectRef.current;
-		if (!project) {
-			return;
-		}
-		const scenes = new Set<string>();
-		for (const id of open) {
-			const sceneId = parseViewId(id).param;
-			if (sceneId) {
-				scenes.add(sceneId);
+			for (const id of sceneViewsRef.current.keys()) {
+				if (!open.has(id)) {
+					// The run's anchor view is about to be disposed (its tab or window
+					// closed via any path): stop the run before disposing the SceneView
+					// it references, so the frame loop never touches a dead view.
+					if (
+						runStopsOnViewClose(
+							runHostRef.current?.view.id ?? null,
+							id,
+						)
+					) {
+						stopRun();
+					}
+					disposeSceneView(id);
+				}
 			}
-		}
-		for (const sceneId of scenes) {
-			if (project.hasDocument(sceneId)) {
-				setSceneDirty(sceneId, project.document(sceneId).dirty);
+			const project = projectRef.current;
+			if (!project) {
+				return;
 			}
-		}
+			const scenes = new Set<string>();
+			for (const id of open) {
+				const sceneId = parseViewId(id).param;
+				if (sceneId) {
+					scenes.add(sceneId);
+				}
+			}
+			for (const sceneId of scenes) {
+				if (project.hasDocument(sceneId)) {
+					setSceneDirty(sceneId, project.document(sceneId).dirty);
+				}
+			}
+		},
+	);
+
+	useLayoutEffect(() => {
+		reconcileSceneViews(workspace, game);
 	}, [workspace, game]);
 
 	/** The focused view id of a specific window (window-local, from live layout). */
@@ -660,53 +742,6 @@ const App = ({
 	const [guards, setGuards] = useState<
 		ReadonlyMap<WindowId, GuardRequest>
 	>(() => new Map());
-
-	const [dirtyViews, setDirtyViews] = useState<ReadonlySet<ViewId>>(
-		() => new Set(),
-	);
-	const dirtyViewsRef = useRef(dirtyViews);
-	useEffect(() => {
-		dirtyViewsRef.current = dirtyViews;
-	});
-	const setViewDirty = (id: ViewId, dirty: boolean): void => {
-		setDirtyViews((prev) => {
-			if (prev.has(id) === dirty) {
-				return prev;
-			}
-			const next = new Set(prev);
-			if (dirty) {
-				next.add(id);
-			} else {
-				next.delete(id);
-			}
-			return next;
-		});
-	};
-	/**
-	 * Reflect a document's dirty state onto every open view of its scene (plan
-	 * D13: dirty lives on the document, shared across its views). A save through
-	 * any view clears the marker on all of them, in every window.
-	 */
-	const setSceneDirty = (sceneId: string, dirty: boolean): void => {
-		setDirtyViews((prev) => {
-			const next = new Set(prev);
-			let changed = false;
-			for (const id of allWorkspaceViewIds(workspaceRef.current)) {
-				if (!isSceneView(id) || parseViewId(id).param !== sceneId) {
-					continue;
-				}
-				if (dirty && !next.has(id)) {
-					next.add(id);
-					changed = true;
-				} else if (!dirty && next.has(id)) {
-					next.delete(id);
-					changed = true;
-				}
-			}
-			return changed ? next : prev;
-		});
-	};
-	const isViewDirty = (id: ViewId): boolean => dirtyViews.has(id);
 
 	const openView = (
 		id: ViewId,
@@ -1144,10 +1179,7 @@ const App = ({
 		projectRef.current?.store(sceneId).inspectWorld();
 	};
 
-	useEffect(() => {
-		if (!selectedEntity && !inspectingWorld) {
-			return;
-		}
+	const revealInspector = useEffectEvent((): void => {
 		const ws = workspaceRef.current;
 		if (windowOfView(ws, "inspector")) {
 			return;
@@ -1164,6 +1196,13 @@ const App = ({
 		updateWorkspace(
 			updateWindow(ws, window.id, (w) => ({ ...w, root })),
 		);
+	});
+
+	useEffect(() => {
+		if (!selectedEntity && !inspectingWorld) {
+			return;
+		}
+		revealInspector();
 	}, [selectedEntity, inspectingWorld]);
 
 	const onRunChange = useCallback((): void => {
@@ -1242,19 +1281,6 @@ const App = ({
 			windowOfView(workspaceRef.current, activeId) ?? HUB_WINDOW_ID,
 		);
 		requestAnimationFrame(focusRunView);
-	};
-
-	const stopRun = (): void => {
-		const host = runHostRef.current;
-		if (!host) {
-			return;
-		}
-		runHostRef.current = null;
-		host.stop();
-		setRunning(false);
-		setRunMode("game");
-		setRunPaused(false);
-		setRunningWindowId(null);
 	};
 
 	const setRunInputMode = (mode: "game" | "editor"): void => {
@@ -1410,24 +1436,18 @@ const App = ({
 		});
 	};
 
-	useEffect(() => {
-		let cancelled = false;
-		let stop: (() => void) | null = null;
-
-		void runtimeReady.then(() => {
-			if (cancelled) {
-				return;
-			}
+	const bootRuntime = useEffectEvent(
+		(scene: string): (() => void) => {
 			gameRef.current = null;
-			const instance = createGame(startScene);
+			const instance = createGame(scene);
 			gameRef.current = instance;
 			projectRef.current = new Project(instance.services, {
-				[startScene]: instance.scene!,
+				[scene]: instance.scene!,
 			});
 			setGame(instance);
 			resolveReady();
 
-			stop = () => {
+			return () => {
 				for (const id of sceneViewsRef.current.keys()) {
 					disposeSceneView(id);
 				}
@@ -1437,6 +1457,18 @@ const App = ({
 				resetReady();
 				setGame(null);
 			};
+		},
+	);
+
+	useEffect(() => {
+		let cancelled = false;
+		let stop: (() => void) | null = null;
+
+		void runtimeReady.then(() => {
+			if (cancelled) {
+				return;
+			}
+			stop = bootRuntime(startScene);
 		});
 
 		return () => {
@@ -1447,8 +1479,12 @@ const App = ({
 
 	// The hub loop runs on the main window and lives for the app's lifetime;
 	// satellite loops start/stop with their windows (see the satellite manager).
-	useEffect(() => {
+	const startHubLoop = useEffectEvent((): void => {
 		startWindowLoop(HUB_WINDOW_ID, window);
+	});
+
+	useEffect(() => {
+		startHubLoop();
 		const loops = windowLoopsRef.current;
 		return () => {
 			for (const stop of loops.values()) {
@@ -1460,17 +1496,23 @@ const App = ({
 
 	// Stop the frame loop of any window that has left the workspace (a collapsed
 	// satellite, an OS-closed window), so a loop never targets a dead window.
-	useEffect(() => {
-		const live = new Set(workspace.windows.map((w) => w.id));
-		const dead: WindowId[] = [];
-		for (const id of windowLoopsRef.current.keys()) {
-			if (!live.has(id)) {
-				dead.push(id);
+	const stopDeadWindowLoops = useEffectEvent(
+		(ws: WorkspaceState): void => {
+			const live = new Set(ws.windows.map((w) => w.id));
+			const dead: WindowId[] = [];
+			for (const id of windowLoopsRef.current.keys()) {
+				if (!live.has(id)) {
+					dead.push(id);
+				}
 			}
-		}
-		for (const id of dead) {
-			stopWindowLoop(id);
-		}
+			for (const id of dead) {
+				stopWindowLoop(id);
+			}
+		},
+	);
+
+	useEffect(() => {
+		stopDeadWindowLoops(workspace);
 	}, [workspace]);
 
 	// Flush the debounced workspace synchronously before a reload/close so the
@@ -1498,8 +1540,16 @@ const App = ({
 	// realm with the target window id; the hub runs the guard (rendering the
 	// dialog into that window) and replies via `allowClose` when the close may
 	// proceed. Registered only in the hub realm — the sole owner of dirty state.
+	const onNativeCloseRequested = useEffectEvent(
+		(windowId: WindowId): void => {
+			requestWindowClose(windowId);
+		},
+	);
+
 	useEffect(() => {
-		return windowControls()?.onCloseRequested(requestWindowClose);
+		return windowControls()?.onCloseRequested((windowId) => {
+			onNativeCloseRequested(windowId);
+		});
 	}, []);
 
 	// Publish whether any guard dialog is open so the frame loops can pause the
@@ -1507,6 +1557,12 @@ const App = ({
 	useEffect(() => {
 		setGuardDialogOpen(guards.size > 0);
 	}, [guards]);
+
+	const adoptAssetListing = useEffectEvent(
+		(entries: ReadonlyArray<AssetEntry>): void => {
+			updateWorkspace((ws) => pruneAssetViews(ws, entries));
+		},
+	);
 
 	// Boot: resolve the asset root + listing, then prune asset views against the
 	// real list (fixes the boot-prune bug where views were dropped against an
@@ -1518,20 +1574,24 @@ const App = ({
 		void getAssetsRoot().then(setAssetsRoot);
 		void listAssetsDeep().then((entries) => {
 			setAssets(entries);
-			updateWorkspace((ws) => pruneAssetViews(ws, entries));
+			adoptAssetListing(entries);
 		});
 	}, []);
 
-	useEffect(() => {
-		if (!game) {
-			return;
-		}
+	const pruneUnknownSceneViews = useEffectEvent((): void => {
 		updateWorkspace((ws) =>
 			pruneWorkspace(
 				ws,
 				(id) => !isSceneView(id) || isValidViewId(id, []),
 			),
 		);
+	});
+
+	useEffect(() => {
+		if (!game) {
+			return;
+		}
+		pruneUnknownSceneViews();
 	}, [game]);
 
 	/**
