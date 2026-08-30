@@ -1,11 +1,9 @@
 import { Menu } from "@base-ui/react/menu";
-import {
-	DownloadSimpleIcon,
-	PlusIcon,
-	SwapIcon,
-	TrashIcon,
-	UploadSimpleIcon,
-} from "@phosphor-icons/react";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/icons/DownloadSimple";
+import { PlusIcon } from "@phosphor-icons/react/dist/icons/Plus";
+import { SwapIcon } from "@phosphor-icons/react/dist/icons/Swap";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
+import { UploadSimpleIcon } from "@phosphor-icons/react/dist/icons/UploadSimple";
 import clsx from "clsx";
 import { useState, useSyncExternalStore } from "react";
 import { oklchToRgb255, rgbToOklch } from "../color/oklch";
@@ -63,6 +61,17 @@ let dragIndex: number | null = null;
  * attachment panel top-left) — a conventional minimal placement flagged for user
  * feedback.
  */
+const exportTo = (ext: string, text: string) => {
+	void (async () => {
+		const result = await uploadAsset(
+			`palette${ext}`,
+			new Blob([text]),
+			true,
+		);
+		window.alert(`Palette exported to ${result.url}`);
+	})();
+};
+
 const PalettePanel = ({
 	doc,
 	history,
@@ -137,17 +146,6 @@ const PalettePanel = ({
 			} catch {
 				window.alert(`Could not read a palette from "${path}".`);
 			}
-		})();
-	};
-
-	const exportTo = (ext: string, text: string) => {
-		void (async () => {
-			const result = await uploadAsset(
-				`palette${ext}`,
-				new Blob([text]),
-				true,
-			);
-			window.alert(`Palette exported to ${result.url}`);
 		})();
 	};
 

@@ -1,13 +1,11 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	GameControllerIcon,
-	PauseIcon,
-	PencilIcon,
-	PlayIcon,
-	SkipForwardIcon,
-	StopIcon,
-} from "@phosphor-icons/react";
+import { GameControllerIcon } from "@phosphor-icons/react/dist/icons/GameController";
+import { PauseIcon } from "@phosphor-icons/react/dist/icons/Pause";
+import { PencilIcon } from "@phosphor-icons/react/dist/icons/Pencil";
+import { PlayIcon } from "@phosphor-icons/react/dist/icons/Play";
+import { SkipForwardIcon } from "@phosphor-icons/react/dist/icons/SkipForward";
+import { StopIcon } from "@phosphor-icons/react/dist/icons/Stop";
 import Button from "./button";
 import FloatingToolbar from "./floating-toolbar";
 import styles from "./playback-bar.module.scss";

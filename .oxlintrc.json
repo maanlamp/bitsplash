@@ -6,6 +6,17 @@
 		"correctness": "error"
 	},
 	"rules": {
+		"no-restricted-imports": [
+			"error",
+			{
+				"paths": [
+					{
+						"name": "@phosphor-icons/react",
+						"message": "The package barrel builds a React element for all ~3000 icons at module scope - it cost 383ms of startup before this rule existed. Import the one icon instead: `@phosphor-icons/react/dist/icons/Plus` (exports `PlusIcon`), `dist/lib/context` for `IconContext`, `dist/lib/types` for the `Icon` type."
+					}
+				]
+			}
+		],
 		"curly": ["error", "all"],
 		"eqeqeq": ["error", "always"],
 		"func-style": [

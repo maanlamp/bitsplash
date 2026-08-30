@@ -1,12 +1,10 @@
 import { NumberField } from "@base-ui/react/number-field";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	ArrowsHorizontalIcon,
-	ArrowsVerticalIcon,
-	CircleIcon,
-	SquareIcon,
-} from "@phosphor-icons/react";
+import { ArrowsHorizontalIcon } from "@phosphor-icons/react/dist/icons/ArrowsHorizontal";
+import { ArrowsVerticalIcon } from "@phosphor-icons/react/dist/icons/ArrowsVertical";
+import { CircleIcon } from "@phosphor-icons/react/dist/icons/Circle";
+import { SquareIcon } from "@phosphor-icons/react/dist/icons/Square";
 import { useSyncExternalStore } from "react";
 import Tooltip from "../tooltip";
 import controls from "../styles/controls.module.scss";

@@ -1,18 +1,16 @@
 import { NumberField } from "@base-ui/react/number-field";
 import { Popover } from "@base-ui/react/popover";
 import { Select } from "@base-ui/react/select";
-import {
-	CaretDownIcon,
-	CopyIcon,
-	DotsSixVerticalIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	PlusIcon,
-	RepeatIcon,
-	TagIcon,
-	TrashIcon,
-	XIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CopyIcon } from "@phosphor-icons/react/dist/icons/Copy";
+import { DotsSixVerticalIcon } from "@phosphor-icons/react/dist/icons/DotsSixVertical";
+import { EyeIcon } from "@phosphor-icons/react/dist/icons/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/icons/EyeSlash";
+import { PlusIcon } from "@phosphor-icons/react/dist/icons/Plus";
+import { RepeatIcon } from "@phosphor-icons/react/dist/icons/Repeat";
+import { TagIcon } from "@phosphor-icons/react/dist/icons/Tag";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
+import { XIcon } from "@phosphor-icons/react/dist/icons/X";
 import clsx from "clsx";
 import {
 	type CSSProperties,
@@ -271,7 +269,7 @@ const LayerAxisRow = ({
 		if (dragState?.kind !== "layer" || dragState.id === targetId) {
 			return;
 		}
-		const display = [...dragState.before].reverse();
+		const display = [...dragState.before].toReversed();
 		const dragged = dragState.id;
 		const without = display.filter((id) => id !== dragged);
 		const at = without.indexOf(targetId);
@@ -280,7 +278,7 @@ const LayerAxisRow = ({
 			doc,
 			history,
 			dragState.before,
-			[...without].reverse(),
+			[...without].toReversed(),
 		);
 	};
 
@@ -657,7 +655,7 @@ const Timeline = ({
 	const frameCount = frames.length;
 	const activeFrame = doc.activeFrameIndex;
 	const activeLayer = doc.activeLayerId;
-	const layers = [...doc.layers].reverse();
+	const layers = [...doc.layers].toReversed();
 	const tags = doc.tags;
 
 	// Keep the active cel visible as it moves (arrow-key navigation or a click on

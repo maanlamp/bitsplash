@@ -1,24 +1,22 @@
-import {
-	ArrowsOutCardinalIcon,
-	CircleIcon,
-	CirclesThreeIcon,
-	DotsNineIcon,
-	EraserIcon,
-	EyedropperIcon,
-	FrameCornersIcon,
-	GradientIcon,
-	HandIcon,
-	type Icon,
-	LassoIcon,
-	LineSegmentIcon,
-	MagicWandIcon,
-	PaintBrushIcon,
-	PaintBucketIcon,
-	PushPinIcon,
-	RectangleIcon,
-	SelectionIcon,
-	StampIcon,
-} from "@phosphor-icons/react";
+import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/icons/ArrowsOutCardinal";
+import { CircleIcon } from "@phosphor-icons/react/dist/icons/Circle";
+import { CirclesThreeIcon } from "@phosphor-icons/react/dist/icons/CirclesThree";
+import { DotsNineIcon } from "@phosphor-icons/react/dist/icons/DotsNine";
+import { EraserIcon } from "@phosphor-icons/react/dist/icons/Eraser";
+import { EyedropperIcon } from "@phosphor-icons/react/dist/icons/Eyedropper";
+import { FrameCornersIcon } from "@phosphor-icons/react/dist/icons/FrameCorners";
+import { GradientIcon } from "@phosphor-icons/react/dist/icons/Gradient";
+import { HandIcon } from "@phosphor-icons/react/dist/icons/Hand";
+import { LassoIcon } from "@phosphor-icons/react/dist/icons/Lasso";
+import { LineSegmentIcon } from "@phosphor-icons/react/dist/icons/LineSegment";
+import { MagicWandIcon } from "@phosphor-icons/react/dist/icons/MagicWand";
+import { PaintBrushIcon } from "@phosphor-icons/react/dist/icons/PaintBrush";
+import { PaintBucketIcon } from "@phosphor-icons/react/dist/icons/PaintBucket";
+import { PushPinIcon } from "@phosphor-icons/react/dist/icons/PushPin";
+import { RectangleIcon } from "@phosphor-icons/react/dist/icons/Rectangle";
+import { SelectionIcon } from "@phosphor-icons/react/dist/icons/Selection";
+import { StampIcon } from "@phosphor-icons/react/dist/icons/Stamp";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import { AttachmentTool } from "./attachment-tool";
 import { BrushTool } from "./brush-tool";
 import { CustomBrushTool } from "./custom-brush-tool";

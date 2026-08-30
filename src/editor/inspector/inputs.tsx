@@ -2,12 +2,10 @@ import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
 import { Input } from "@base-ui/react/input";
 import { NumberField as BaseNumberField } from "@base-ui/react/number-field";
 import { Select } from "@base-ui/react/select";
-import {
-	CaretDownIcon,
-	CaretUpIcon,
-	CheckIcon,
-	DotsSixVerticalIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CaretUpIcon } from "@phosphor-icons/react/dist/icons/CaretUp";
+import { CheckIcon } from "@phosphor-icons/react/dist/icons/Check";
+import { DotsSixVerticalIcon } from "@phosphor-icons/react/dist/icons/DotsSixVertical";
 import clsx from "clsx";
 import { useEffect, useState, type ReactNode } from "react";
 import type { SelectOption } from "../../engine/serialization/serializable-value";

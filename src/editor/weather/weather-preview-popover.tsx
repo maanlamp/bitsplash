@@ -1,6 +1,6 @@
 import { Popover } from "@base-ui/react/popover";
 import { Slider } from "@base-ui/react/slider";
-import { CloudRainIcon } from "@phosphor-icons/react";
+import { CloudRainIcon } from "@phosphor-icons/react/dist/icons/CloudRain";
 import clsx from "clsx";
 import { WEATHER_CHANNELS } from "../../engine/weather/channels";
 import { climatePresets } from "../../engine/weather/climate-registry";

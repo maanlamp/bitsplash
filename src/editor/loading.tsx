@@ -1,4 +1,4 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react";
+import { SpinnerGapIcon } from "@phosphor-icons/react/dist/icons/SpinnerGap";
 import clsx from "clsx";
 import styles from "./loading.module.scss";
 

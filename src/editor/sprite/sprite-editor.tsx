@@ -1,7 +1,5 @@
-import {
-	ArrowUUpLeftIcon,
-	ArrowUUpRightIcon,
-} from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpLeft";
+import { ArrowUUpRightIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpRight";
 import { useEffect, useRef, useState } from "react";
 import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
 import { useWindowWindow } from "../window/window-context";
@@ -92,6 +90,17 @@ const isEditableTarget = (): boolean => {
 		el.isContentEditable
 	);
 };
+
+const serialize = (
+	document: SpriteDocument,
+	snapshot: DocumentSnapshot,
+): Uint8Array =>
+	serializeBsprite(snapshot, {
+		previous: document.previousArchive ?? undefined,
+		isCelDirty: (layerId, frame) =>
+			document.isCelDirty(layerId, frame),
+		isBakeDirty: (frame) => document.isBakeDirty(frame),
+	});
 
 const SpriteEditor = ({
 	assetUrl,
@@ -258,17 +267,6 @@ const SpriteEditor = ({
 		win.addEventListener("blur", onBlur);
 		return () => win.removeEventListener("blur", onBlur);
 	}, [state, win]);
-
-	const serialize = (
-		document: SpriteDocument,
-		snapshot: DocumentSnapshot,
-	): Uint8Array =>
-		serializeBsprite(snapshot, {
-			previous: document.previousArchive ?? undefined,
-			isCelDirty: (layerId, frame) =>
-				document.isCelDirty(layerId, frame),
-			isBakeDirty: (frame) => document.isBakeDirty(frame),
-		});
 
 	/**
 	 * Hot reload after a save: evict the URL on the shared editor asset manager
@@ -486,7 +484,7 @@ const SpriteEditor = ({
 				case "ArrowUp":
 				case "ArrowDown": {
 					const displayIds = [...doc.layers]
-						.reverse()
+						.toReversed()
 						.map((l) => l.id);
 					doc.setActiveLayer(
 						adjacentLayerId(

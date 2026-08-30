@@ -1,13 +1,11 @@
 import { Select } from "@base-ui/react/select";
-import {
-	CaretDownIcon,
-	CubeIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	ImageIcon,
-	PlusIcon,
-	TrashIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CubeIcon } from "@phosphor-icons/react/dist/icons/Cube";
+import { EyeIcon } from "@phosphor-icons/react/dist/icons/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/icons/EyeSlash";
+import { ImageIcon } from "@phosphor-icons/react/dist/icons/Image";
+import { PlusIcon } from "@phosphor-icons/react/dist/icons/Plus";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
 import clsx from "clsx";
 import { Reorder } from "motion/react";
 import { useEffect, useReducer, useRef, useState } from "react";

@@ -1,10 +1,8 @@
 import { Input } from "@base-ui/react/input";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	MagnifyingGlassIcon,
-	ProhibitIcon,
-} from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlass";
+import { ProhibitIcon } from "@phosphor-icons/react/dist/icons/Prohibit";
 import {
 	chromeDark,
 	ObjectInspector,
@@ -316,7 +314,7 @@ export const ConsoleView = () => {
 				active.has(entry.level) &&
 				(needle === "" || searchText(entry).includes(needle)),
 		);
-		return filtered.reverse();
+		return filtered.toReversed();
 	}, [entries, levels, deferredQuery]);
 
 	return (

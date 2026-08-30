@@ -1,21 +1,19 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
-import {
-	ArrowSquareOutIcon,
-	ArrowUpIcon,
-	CaretLeftIcon,
-	CaretRightIcon,
-	CubeIcon,
-	FileAudioIcon,
-	FileIcon,
-	FileImageIcon,
-	FolderIcon,
-	FolderPlusIcon,
-	type Icon,
-	PencilSimpleIcon,
-	SquaresFourIcon,
-	TextAaIcon,
-	TrashIcon,
-} from "@phosphor-icons/react";
+import { ArrowSquareOutIcon } from "@phosphor-icons/react/dist/icons/ArrowSquareOut";
+import { ArrowUpIcon } from "@phosphor-icons/react/dist/icons/ArrowUp";
+import { CaretLeftIcon } from "@phosphor-icons/react/dist/icons/CaretLeft";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/icons/CaretRight";
+import { CubeIcon } from "@phosphor-icons/react/dist/icons/Cube";
+import { FileAudioIcon } from "@phosphor-icons/react/dist/icons/FileAudio";
+import { FileIcon } from "@phosphor-icons/react/dist/icons/File";
+import { FileImageIcon } from "@phosphor-icons/react/dist/icons/FileImage";
+import { FolderIcon } from "@phosphor-icons/react/dist/icons/Folder";
+import { FolderPlusIcon } from "@phosphor-icons/react/dist/icons/FolderPlus";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/icons/PencilSimple";
+import { SquaresFourIcon } from "@phosphor-icons/react/dist/icons/SquaresFour";
+import { TextAaIcon } from "@phosphor-icons/react/dist/icons/TextAa";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import clsx from "clsx";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { DirEntry } from "../../project-rpc";

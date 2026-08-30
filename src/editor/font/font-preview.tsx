@@ -1,9 +1,7 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	MagnifyingGlassMinusIcon,
-	MagnifyingGlassPlusIcon,
-} from "@phosphor-icons/react";
+import { MagnifyingGlassMinusIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlassMinus";
+import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlassPlus";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type AssetManager from "../../engine/assets";

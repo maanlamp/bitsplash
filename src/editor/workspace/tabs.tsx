@@ -1,5 +1,6 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { ArrowSquareOutIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon } from "@phosphor-icons/react/dist/icons/ArrowSquareOut";
+import { XIcon } from "@phosphor-icons/react/dist/icons/X";
 import clsx from "clsx";
 import { type ReactNode, useSyncExternalStore } from "react";
 import surface from "../styles/surface.module.scss";

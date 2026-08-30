@@ -1,4 +1,4 @@
-import { XIcon } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react/dist/icons/X";
 import { Toast } from "@base-ui/react/toast";
 import { useEffect, useState } from "react";
 import styles from "./toaster.module.scss";

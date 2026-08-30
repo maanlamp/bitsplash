@@ -1,15 +1,13 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	ArrowUUpLeftIcon,
-	ArrowUUpRightIcon,
-	CursorIcon,
-	MicrophoneIcon,
-	PlayIcon,
-	ScissorsIcon,
-	StopIcon,
-	TrashIcon,
-} from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpLeft";
+import { ArrowUUpRightIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpRight";
+import { CursorIcon } from "@phosphor-icons/react/dist/icons/Cursor";
+import { MicrophoneIcon } from "@phosphor-icons/react/dist/icons/Microphone";
+import { PlayIcon } from "@phosphor-icons/react/dist/icons/Play";
+import { ScissorsIcon } from "@phosphor-icons/react/dist/icons/Scissors";
+import { StopIcon } from "@phosphor-icons/react/dist/icons/Stop";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
 import { useEffect, useRef, useState } from "react";
 import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
 import type {

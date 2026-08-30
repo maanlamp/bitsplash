@@ -1,9 +1,7 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
-import {
-	FileAudioIcon,
-	FileImageIcon,
-	SquaresFourIcon,
-} from "@phosphor-icons/react";
+import { FileAudioIcon } from "@phosphor-icons/react/dist/icons/FileAudio";
+import { FileImageIcon } from "@phosphor-icons/react/dist/icons/FileImage";
+import { SquaresFourIcon } from "@phosphor-icons/react/dist/icons/SquaresFour";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import surface from "./styles/surface.module.scss";

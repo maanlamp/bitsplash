@@ -1,12 +1,10 @@
 import { NumberField } from "@base-ui/react/number-field";
-import {
-	ArrowClockwiseIcon,
-	ArrowCounterClockwiseIcon,
-	FlipHorizontalIcon,
-	FlipVerticalIcon,
-	FrameCornersIcon,
-	StampIcon,
-} from "@phosphor-icons/react";
+import { ArrowClockwiseIcon } from "@phosphor-icons/react/dist/icons/ArrowClockwise";
+import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/dist/icons/ArrowCounterClockwise";
+import { FlipHorizontalIcon } from "@phosphor-icons/react/dist/icons/FlipHorizontal";
+import { FlipVerticalIcon } from "@phosphor-icons/react/dist/icons/FlipVertical";
+import { FrameCornersIcon } from "@phosphor-icons/react/dist/icons/FrameCorners";
+import { StampIcon } from "@phosphor-icons/react/dist/icons/Stamp";
 import { useState, useSyncExternalStore } from "react";
 import type { History } from "../history";
 import ViewToolbar, {
