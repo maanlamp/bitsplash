@@ -112,18 +112,20 @@ export const useFamilies = (
 	url: string,
 	size: number,
 ): ReadonlyArray<LoadedFont> | null => {
-	const [families, setFamilies] =
-		useState<ReadonlyArray<LoadedFont> | null>(null);
+	const [loaded, setLoaded] = useState<Readonly<{
+		key: string;
+		families: ReadonlyArray<LoadedFont>;
+	}> | null>(null);
+	const key = `${url}@${size}`;
 	useEffect(() => {
-		setFamilies(null);
 		if (!assetManager || !url) {
 			return;
 		}
 		let raf = 0;
 		const poll = () => {
-			const loaded = assetManager.getFontFamilies(url, size);
-			if (loaded) {
-				setFamilies(loaded);
+			const families = assetManager.getFontFamilies(url, size);
+			if (families) {
+				setLoaded({ key: `${url}@${size}`, families });
 			} else {
 				raf = requestAnimationFrame(poll);
 			}
@@ -131,7 +133,7 @@ export const useFamilies = (
 		poll();
 		return () => cancelAnimationFrame(raf);
 	}, [assetManager, url, size]);
-	return families;
+	return loaded && loaded.key === key ? loaded.families : null;
 };
 
 export const BlittedLine = ({
