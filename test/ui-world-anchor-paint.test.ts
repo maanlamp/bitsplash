@@ -117,11 +117,14 @@ test("a zero-size world-anchored wrapper still paints its children", () => {
 	const ui = headlessUi();
 	mountSync(
 		ui,
-		createElement(View, {
-			id: "wrapper",
-			worldLayer: "overlay",
-			style: { position: "absolute" },
-			children: createElement(View, {
+		createElement(
+			View,
+			{
+				id: "wrapper",
+				worldLayer: "overlay",
+				style: { position: "absolute" },
+			},
+			createElement(View, {
 				id: "bar",
 				style: {
 					position: "absolute",
@@ -132,7 +135,7 @@ test("a zero-size world-anchored wrapper still paints its children", () => {
 					backgroundColor: [1, 1, 1, 1],
 				},
 			}),
-		}),
+		),
 	);
 	ui.layout(1, 200, 200);
 	const wrapperId = findById(ui.root.tree, "wrapper")!.id;

@@ -27,8 +27,10 @@ const captureWindow = async (): Promise<string | null> => {
 const loadImage = (src: string): Promise<HTMLImageElement> =>
 	new Promise((resolve, reject) => {
 		const img = new Image();
-		img.onload = () => resolve(img);
-		img.onerror = () => reject(new Error("capture load failed"));
+		img.addEventListener("load", () => resolve(img));
+		img.addEventListener("error", () =>
+			reject(new Error("capture load failed")),
+		);
 		img.src = src;
 	});
 

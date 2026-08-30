@@ -108,6 +108,7 @@ class GranularShifter extends AudioWorkletProcessor {
 		}
 
 		if (this.done && this.grains.length === 0) {
+			// oxlint-disable-next-line unicorn/require-post-message-target-origin -- a processor's `port` is a MessagePort, whose second argument is a transfer list, not an origin
 			this.port.postMessage("ended");
 			return false;
 		}

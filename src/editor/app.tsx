@@ -1596,11 +1596,10 @@ const App = ({
 			selectedEntity &&
 			selectionChannelRef.current
 		) {
-			const runtime = !!(
+			const runtime =
 				running &&
 				runHostRef.current?.view === focusedSceneView &&
-				runHostRef.current.isRuntimeEntity(selectedEntity)
-			);
+				runHostRef.current.isRuntimeEntity(selectedEntity);
 			return (
 				<div
 					className={clsx(

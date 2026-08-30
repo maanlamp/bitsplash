@@ -114,10 +114,7 @@ export class ECS {
 		return id;
 	}
 
-	addComponent<T extends object>(
-		entity: EntityId,
-		component: T,
-	): void {
+	addComponent(entity: EntityId, component: object): void {
 		const map = this.components.get(entity)!;
 		let proto = Object.getPrototypeOf(component);
 		while (proto && proto !== Object.prototype) {

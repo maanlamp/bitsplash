@@ -21,13 +21,27 @@
 		"react/react-in-jsx-scope": "off",
 		"typescript/no-explicit-any": "error",
 		"typescript/no-unsafe-type-assertion": "off",
-		"no-underscore-dangle": ["error", { "allowAfterThis": true }],
+		"no-underscore-dangle": [
+			"error",
+			{
+				"allowAfterThis": true,
+				"allow": ["__class"]
+			}
+		],
+		"typescript/no-extraneous-class": [
+			"error",
+			{
+				"allowWithDecorator": true
+			}
+		],
 		"curly": ["error", "all"],
 		"eqeqeq": ["error", "always"],
 		"func-style": [
 			"error",
 			"expression",
-			{ "allowArrowFunctions": true }
+			{
+				"allowArrowFunctions": true
+			}
 		],
 		"ecs-conventions/require-default-fields": "error"
 	},

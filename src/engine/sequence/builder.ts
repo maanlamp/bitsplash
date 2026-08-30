@@ -30,16 +30,16 @@ const RESERVED_TYPES: ReadonlySet<string> = new Set([
 	"wait",
 ]);
 
-const leaf = <P extends OpParams>(
+const leaf = (
 	type: string,
 	stepId: string,
-	params: P,
+	params: OpParams,
 ): LeafOpNode => ({ kind: "op", type, stepId, params });
 
-const predicate = <P extends OpParams>(
-	name: string,
-	params: P,
-): PredicateRef => ({ predicate: name, params });
+const predicate = (name: string, params: OpParams): PredicateRef => ({
+	predicate: name,
+	params,
+});
 
 export const seq = (
 	stepId: string,
@@ -362,9 +362,9 @@ export type ReachedParams = Readonly<{
 export const reached = (params: ReachedParams): PredicateRef =>
 	predicate(PREDICATE_IDS.reached, params);
 
-export const castRole = <P extends OpParams>(
+export const castRole = (
 	resolver: string,
-	params?: P,
+	params?: OpParams,
 ): CastResolverRef =>
 	params === undefined ? { resolver } : { resolver, params };
 

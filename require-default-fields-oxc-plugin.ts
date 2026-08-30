@@ -1,3 +1,51 @@
+/* oxlint-disable typescript/no-explicit-any -- oxlint does not export its AST node types (only `RuleTester` is public from `oxlint/plugins-dev`), so rule visitors are untyped. */
+/** The decorators whose classes this rule applies to. */
+const DECORATORS = new Set(["serializable"]);
+
+const getDecoratorNames = (node: any): string[] =>
+	(node.decorators ?? [])
+		.map((d: any) => {
+			if (d.expression.type === "CallExpression") {
+				return d.expression.callee.name;
+			}
+			if (d.expression.type === "Identifier") {
+				return d.expression.name;
+			}
+			return null;
+		})
+		.filter(Boolean);
+
+const getMatchingDecorator = (node: any): string | undefined =>
+	getDecoratorNames(node).find((name: string) =>
+		DECORATORS.has(name),
+	);
+
+/** Field names the constructor already defaults through a parameter property. */
+const paramDefaults = (node: any): Set<string> => {
+	const ctor = node.body.body.find(
+		(m: any) =>
+			m.type === "MethodDefinition" && m.kind === "constructor",
+	);
+	if (!ctor) {
+		return new Set();
+	}
+	return new Set(
+		ctor.value.params
+			.filter(
+				(p: any) =>
+					(p.type === "TSParameterProperty" &&
+						p.parameter.type === "AssignmentPattern") ||
+					p.type === "AssignmentPattern",
+			)
+			.map((p: any) => {
+				const inner =
+					p.type === "TSParameterProperty" ? p.parameter : p;
+				return inner.left?.name ?? inner.name;
+			})
+			.filter(Boolean),
+	);
+};
+
 const rule = {
 	meta: {
 		type: "problem" as const,
@@ -8,53 +56,6 @@ const rule = {
 		},
 	},
 	create(context: { report: Function }) {
-		const DECORATORS = new Set(["serializable"]);
-
-		const getDecoratorNames = (node: any): string[] => {
-			return (node.decorators ?? [])
-				.map((d: any) => {
-					if (d.expression.type === "CallExpression") {
-						return d.expression.callee.name;
-					}
-					if (d.expression.type === "Identifier") {
-						return d.expression.name;
-					}
-					return null;
-				})
-				.filter(Boolean);
-		};
-
-		const getMatchingDecorator = (node: any): string | undefined => {
-			return getDecoratorNames(node).find((name) =>
-				DECORATORS.has(name),
-			);
-		};
-
-		const paramDefaults = (node: any): Set<string> => {
-			const ctor = node.body.body.find(
-				(m: any) =>
-					m.type === "MethodDefinition" && m.kind === "constructor",
-			);
-			if (!ctor) {
-				return new Set();
-			}
-			return new Set(
-				ctor.value.params
-					.filter(
-						(p: any) =>
-							(p.type === "TSParameterProperty" &&
-								p.parameter.type === "AssignmentPattern") ||
-							p.type === "AssignmentPattern",
-					)
-					.map((p: any) => {
-						const inner =
-							p.type === "TSParameterProperty" ? p.parameter : p;
-						return inner.left?.name ?? inner.name;
-					})
-					.filter(Boolean),
-			);
-		};
-
 		return {
 			ClassDeclaration(node: any) {
 				const decorator = getMatchingDecorator(node);
