@@ -102,7 +102,13 @@ const LayerRow = ({
 					className={styles.layerIconButton}
 					onClick={(e) => {
 						e.stopPropagation();
-						layer.visible = !layer.visible;
+						const target = view.scene.ecs.getComponent(
+							id,
+							TileLayerComponent,
+						);
+						if (target) {
+							target.visible = !target.visible;
+						}
 						bump();
 					}}
 				>

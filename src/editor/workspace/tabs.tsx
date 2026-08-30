@@ -1,6 +1,7 @@
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { ArrowSquareOutIcon } from "@phosphor-icons/react/dist/icons/ArrowSquareOut";
 import { XIcon } from "@phosphor-icons/react/dist/icons/X";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import clsx from "clsx";
 import { type ReactNode, useSyncExternalStore } from "react";
 import surface from "../styles/surface.module.scss";
@@ -46,18 +47,19 @@ const useDraggingView = (): ViewId | null => {
 
 const Tab = ({
 	id,
+	icon: Icon,
 	active,
 	single,
 	views,
 	api,
 }: Readonly<{
 	id: ViewId;
+	icon: Icon;
 	active: boolean;
 	single: boolean;
 	views: ReadonlyArray<ViewId>;
 	api: TabApi;
 }>) => {
-	const Icon = viewIcon(id, api.isTileset(id));
 	const controller = useTabDragController();
 	const dragging = useDraggingView();
 	const portalContainer = usePortalContainer();
@@ -177,6 +179,7 @@ const TabsView = ({
 				<Tab
 					key={view}
 					id={view}
+					icon={viewIcon(view, api.isTileset(view))}
 					active={view === node.active}
 					single={node.views.length === 1}
 					views={node.views}

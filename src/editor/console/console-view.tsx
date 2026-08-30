@@ -123,7 +123,16 @@ const nodeRenderer = (props: NodeRendererProps): React.ReactNode => {
 	);
 };
 
-const primitiveClass = (value: SnapshotValue): string | undefined => {
+type SnapshotPrimitive = Exclude<SnapshotValue, object>;
+
+type SnapshotContainer = Exclude<
+	SnapshotValue,
+	SnapshotPrimitive | RegExp
+>;
+
+const primitiveClass = (
+	value: SnapshotPrimitive,
+): string | undefined => {
 	switch (typeof value) {
 		case "string":
 			return styles.string;
@@ -139,21 +148,23 @@ const primitiveClass = (value: SnapshotValue): string | undefined => {
 	}
 };
 
-const primitiveText = (value: SnapshotValue): string => {
+const primitiveText = (value: SnapshotPrimitive): string => {
 	if (value === undefined) {
 		return "undefined";
 	}
 	if (value === null) {
 		return "null";
 	}
-	if (typeof value === "symbol" || value instanceof RegExp) {
+	if (typeof value === "symbol") {
 		return value.toString();
 	}
 	return String(value);
 };
 
 /** True for values react-inspector should render as an expandable tree. */
-const isInspectable = (value: SnapshotValue): boolean =>
+const isInspectable = (
+	value: SnapshotValue,
+): value is SnapshotContainer =>
 	typeof value === "object" &&
 	value !== null &&
 	!(value instanceof RegExp);
