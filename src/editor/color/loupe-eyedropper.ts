@@ -42,6 +42,10 @@ const RADIUS = (COUNT * PIXEL) / 2;
 // Renders the overlay and binds listeners in `doc` — the owning window's
 // document — so the loupe appears and captures input in the window it was
 // launched from rather than the main realm.
+const onContext = (e: Event): void => {
+	e.preventDefault();
+};
+
 const runLoupe = (
 	img: HTMLImageElement,
 	doc: Document,
@@ -188,10 +192,6 @@ const runLoupe = (
 				cleanup(null);
 			}
 		};
-		const onContext = (e: Event): void => {
-			e.preventDefault();
-		};
-
 		view.addEventListener("pointermove", onMove, true);
 		view.addEventListener("pointerdown", onDown, true);
 		view.addEventListener("keydown", onKey, true);

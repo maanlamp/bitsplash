@@ -79,33 +79,33 @@ const assignChanged = (
 	}
 };
 
+const detach = (parent: UiNode, child: UiNode): void => {
+	const index = parent.children.indexOf(child);
+	if (index >= 0) {
+		parent.children.splice(index, 1);
+	}
+};
+
+const insert = (
+	parent: UiNode,
+	child: UiNode,
+	before: UiNode | null,
+): void => {
+	const existing = parent.children.indexOf(child);
+	if (existing >= 0) {
+		parent.children.splice(existing, 1);
+	}
+	const at = before ? parent.children.indexOf(before) : -1;
+	const index = at >= 0 ? at : parent.children.length;
+	parent.children.splice(index, 0, child);
+};
+
 export const createHostConfig = (
 	options: HostConfigOptions = {},
 ): UiHostConfig => {
 	const yoga = options.yoga;
 	let nextId = 1;
 	let currentPriority: number = NoEventPriority;
-
-	const detach = (parent: UiNode, child: UiNode): void => {
-		const index = parent.children.indexOf(child);
-		if (index >= 0) {
-			parent.children.splice(index, 1);
-		}
-	};
-
-	const insert = (
-		parent: UiNode,
-		child: UiNode,
-		before: UiNode | null,
-	): void => {
-		const existing = parent.children.indexOf(child);
-		if (existing >= 0) {
-			parent.children.splice(existing, 1);
-		}
-		const at = before ? parent.children.indexOf(before) : -1;
-		const index = at >= 0 ? at : parent.children.length;
-		parent.children.splice(index, 0, child);
-	};
 
 	const freeSubtree = (node: UiNode): void => {
 		for (const child of node.children) {

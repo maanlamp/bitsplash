@@ -831,7 +831,7 @@ export default class Renderer2D {
 
 	private setupQuadVao(vbo: WebGLBuffer): WebGLVertexArrayObject {
 		const gl = this.gl;
-		const vao = gl.createVertexArray()!;
+		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 		const stride = QUAD_FLOATS * 4;
@@ -847,7 +847,7 @@ export default class Renderer2D {
 
 	private setupTileVao(vbo: WebGLBuffer): WebGLVertexArrayObject {
 		const gl = this.gl;
-		const vao = gl.createVertexArray()!;
+		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 		const stride = TILE_FLOATS * 4;
@@ -865,7 +865,7 @@ export default class Renderer2D {
 
 	private setupBlitVao(vbo: WebGLBuffer): WebGLVertexArrayObject {
 		const gl = this.gl;
-		const vao = gl.createVertexArray()!;
+		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 		const stride = 4 * 4;
@@ -921,7 +921,7 @@ export default class Renderer2D {
 			Math.round(sourceHeight(source) / srcSize),
 		);
 		const count = columns * rows;
-		const texture = gl.createTexture()!;
+		const texture = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
 		gl.texStorage3D(
 			gl.TEXTURE_2D_ARRAY,
@@ -1011,7 +1011,7 @@ export default class Renderer2D {
 			return cached;
 		}
 		const gl = this.gl;
-		const texture = gl.createTexture()!;
+		const texture = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, texture);
 		gl.texImage2D(
 			gl.TEXTURE_2D,

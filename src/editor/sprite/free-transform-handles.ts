@@ -37,6 +37,11 @@ export type TransformRect = Readonly<{
  * interactive tool both derive their positions from this one function so the
  * drawn handles and the hit-tested handles can never drift.
  */
+const mid = (a: HandlePoint, b: HandlePoint): HandlePoint => ({
+	x: (a.x + b.x) / 2,
+	y: (a.y + b.y) / 2,
+});
+
 export const transformHandlePoints = (
 	rect: TransformRect,
 	params: FreeTransformParams,
@@ -61,10 +66,6 @@ export const transformHandlePoints = (
 	const se = applyAffine(m, ox + width, oy + height);
 	const sw = applyAffine(m, ox, oy + height);
 	const center = applyAffine(m, ox + width / 2, oy + height / 2);
-	const mid = (a: HandlePoint, b: HandlePoint): HandlePoint => ({
-		x: (a.x + b.x) / 2,
-		y: (a.y + b.y) / 2,
-	});
 	const n = mid(nw, ne);
 	const e = mid(ne, se);
 	const s = mid(se, sw);
@@ -126,6 +127,12 @@ export const hitTestHandle = (
 	return pointInQuad(point, h.nw, h.ne, h.se, h.sw) ? "move" : null;
 };
 
+const sign = (
+	o: HandlePoint,
+	u: HandlePoint,
+	v: HandlePoint,
+): number => (u.x - o.x) * (v.y - o.y) - (u.y - o.y) * (v.x - o.x);
+
 const pointInQuad = (
 	p: HandlePoint,
 	a: HandlePoint,
@@ -133,11 +140,6 @@ const pointInQuad = (
 	c: HandlePoint,
 	d: HandlePoint,
 ): boolean => {
-	const sign = (
-		o: HandlePoint,
-		u: HandlePoint,
-		v: HandlePoint,
-	): number => (u.x - o.x) * (v.y - o.y) - (u.y - o.y) * (v.x - o.x);
 	const s1 = sign(a, b, p);
 	const s2 = sign(b, c, p);
 	const s3 = sign(c, d, p);

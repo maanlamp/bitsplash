@@ -30,7 +30,7 @@ describe("dockZone", () => {
 				seen.add(dockZone(rect, x + 0.5, y + 0.5));
 			}
 		}
-		expect([...seen].sort()).toEqual([
+		expect([...seen].toSorted()).toEqual([
 			"bottom",
 			"center",
 			"left",

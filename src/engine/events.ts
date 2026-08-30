@@ -1,5 +1,6 @@
 import type { EntityId } from "./ecs";
 
+// oxlint-disable-next-line typescript/no-explicit-any -- constructor params are contravariant; `unknown[]` rejects real event classes
 type EventType<T> = abstract new (...args: any[]) => T;
 
 export default class EventBus {

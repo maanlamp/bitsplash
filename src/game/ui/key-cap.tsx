@@ -110,7 +110,7 @@ export const KeyCap = ({
 		<View id={id} style={capStyle}>
 			{showHold && insets ? (
 				<HoldRing
-					id={holdRingNodeId(id!)}
+					id={holdRingNodeId(id)}
 					style={RING_STYLE}
 					frame={frame as TileSource}
 					insets={insets}

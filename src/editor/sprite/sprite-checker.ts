@@ -91,9 +91,9 @@ export class SpriteCheckerSystem implements RenderSystem {
 			return this.resources;
 		}
 		const program = compileProgram(gl, VS, FS);
-		const vao = gl.createVertexArray()!;
+		const vao = gl.createVertexArray();
 		gl.bindVertexArray(vao);
-		const vbo = gl.createBuffer()!;
+		const vbo = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
 		gl.bufferData(
 			gl.ARRAY_BUFFER,

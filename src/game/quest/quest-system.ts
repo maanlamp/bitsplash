@@ -39,9 +39,7 @@ export class QuestSystem implements UpdateSystem {
 		for (const event of events.read(DeathEvent)) {
 			const marker = ecs
 				.componentsOf(event.entity)
-				.find((c) => c instanceof QuestMarkerTagComponent) as
-				| QuestMarkerTagComponent
-				| undefined;
+				.find((c) => c instanceof QuestMarkerTagComponent);
 			if (marker?.type === "kill") {
 				this.trackTagged(ecs, "killTagged");
 			}
@@ -49,9 +47,7 @@ export class QuestSystem implements UpdateSystem {
 		for (const event of events.read(PickupCollectedEvent)) {
 			const marker = ecs
 				.componentsOf(event.entity)
-				.find((c) => c instanceof QuestMarkerTagComponent) as
-				| QuestMarkerTagComponent
-				| undefined;
+				.find((c) => c instanceof QuestMarkerTagComponent);
 			if (marker?.type === "collect") {
 				this.trackTagged(ecs, "collectTagged");
 			}

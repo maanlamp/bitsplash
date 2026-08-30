@@ -266,6 +266,43 @@ const pruneAssetViews = (
 		(id) => !isAssetView(id) || isValidViewId(id, assets),
 	);
 
+const saveScene = async (
+	sceneId: string,
+	view: SceneView,
+): Promise<void> => {
+	view.flushGestures();
+	const file = view.document.save();
+	await saveLevel(sceneId, JSON.stringify(file, null, "\t"));
+	view.document.markSaved(file);
+};
+
+const anchorView = (window: WindowLayout): ViewId | null => {
+	if (window.focused && isSceneView(window.focused)) {
+		return window.focused;
+	}
+	return (
+		firstSceneView(window.root) ??
+		window.focused ??
+		allViewIds(window.root)[0] ??
+		null
+	);
+};
+
+const playGame = (): void => {
+	void launchPlaytest().catch(() =>
+		toastError("Couldn't launch the game"),
+	);
+};
+
+const renderConsole = () => <ConsoleView />;
+
+/** Wrap a lazy-only view (needs no runtime): suspend on the panel chunk. */
+const lazyView = (element: ReactNode) => (
+	<Suspense fallback={<Loading />}>{element}</Suspense>
+);
+
+const norm = (value: string) => value.replace(/\\/g, "/");
+
 const App = ({
 	startScene,
 	runtimeReady,
@@ -442,16 +479,6 @@ const App = ({
 				viewport?.resumeResize();
 			}
 		}
-	};
-
-	const saveScene = async (
-		sceneId: string,
-		view: SceneView,
-	): Promise<void> => {
-		view.flushGestures();
-		const file = view.document.save();
-		await saveLevel(sceneId, JSON.stringify(file, null, "\t"));
-		view.document.markSaved(file);
 	};
 
 	const hasOpenSceneView = (sceneId: string): boolean => {
@@ -668,18 +695,6 @@ const App = ({
 		});
 	};
 	const isViewDirty = (id: ViewId): boolean => dirtyViews.has(id);
-
-	const anchorView = (window: WindowLayout): ViewId | null => {
-		if (window.focused && isSceneView(window.focused)) {
-			return window.focused;
-		}
-		return (
-			firstSceneView(window.root) ??
-			window.focused ??
-			allViewIds(window.root)[0] ??
-			null
-		);
-	};
 
 	const openView = (
 		id: ViewId,
@@ -1024,7 +1039,6 @@ const App = ({
 		if (entry.isDirectory || !assetsRoot) {
 			return;
 		}
-		const norm = (value: string) => value.replace(/\\/g, "/");
 		const rootNorm = norm(assetsRoot);
 		const pathNorm = norm(entry.path);
 		if (pathNorm.startsWith(`${rootNorm}/`)) {
@@ -1083,8 +1097,8 @@ const App = ({
 			prev.some((a) => a.url === url)
 				? prev
 				: [...prev, entry]
-						.sort((a, b) => a.name.localeCompare(b.name))
-						.sort((a, b) => a.ext.localeCompare(b.ext)),
+						.toSorted((a, b) => a.name.localeCompare(b.name))
+						.toSorted((a, b) => a.ext.localeCompare(b.ext)),
 		);
 		removeViewNow(entry.isAudio ? NEW_AUDIO_VIEW : NEW_SPRITE_VIEW);
 		openView(assetViewId(entry));
@@ -1139,12 +1153,6 @@ const App = ({
 			updateWindow(ws, window.id, (w) => ({ ...w, root })),
 		);
 	}, [selectedEntity, inspectingWorld]);
-
-	const playGame = (): void => {
-		void launchPlaytest().catch(() =>
-			toastError("Couldn't launch the game"),
-		);
-	};
 
 	const onRunChange = useCallback((): void => {
 		const host = runHostRef.current;
@@ -1608,8 +1616,6 @@ const App = ({
 		return <div className={styles.placeholder}>Nothing selected</div>;
 	};
 
-	const renderConsole = () => <ConsoleView />;
-
 	const resolveActiveProfile =
 		useCallback((): FrameProfile | null => {
 			const view = focusedSceneViewRef.current;
@@ -1714,11 +1720,6 @@ const App = ({
 				{render}
 			</RuntimeSuspender>
 		</Suspense>
-	);
-
-	/** Wrap a lazy-only view (needs no runtime): suspend on the panel chunk. */
-	const lazyView = (element: ReactNode) => (
-		<Suspense fallback={<Loading />}>{element}</Suspense>
 	);
 
 	const renderView = (id: ViewId, windowLayout: WindowLayout) => {

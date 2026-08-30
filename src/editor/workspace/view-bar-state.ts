@@ -1,5 +1,4 @@
 import {
-	type ViewId,
 	type WindowId,
 	windowOfView,
 	type Workspace,
@@ -31,7 +30,7 @@ export const viewBarState = (
 	kind: ViewKind,
 	windowId: WindowId,
 ): ViewBarState => {
-	const home = windowOfView(ws, makeViewId(kind) as ViewId);
+	const home = windowOfView(ws, makeViewId(kind));
 	if (home === null) {
 		return "closed";
 	}

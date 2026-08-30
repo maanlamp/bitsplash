@@ -250,7 +250,7 @@ export const parseOra = (bytes: Uint8Array): OraDocument => {
 	refuseIfUnsupported(FORMAT, unsupported);
 
 	// stack.xml lists layers top→bottom; .bsprite is bottom→top.
-	const ordered = pending.slice().reverse();
+	const ordered = pending.slice().toReversed();
 	const layers: OraLayer[] = ordered.map((entry) => {
 		const png = entries[entry.src];
 		if (!png) {

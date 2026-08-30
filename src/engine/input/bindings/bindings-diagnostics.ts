@@ -36,10 +36,12 @@ export class ConflictDiagnostics {
 		const conflicts: Conflict[] = [];
 		for (const [token, set] of owners) {
 			if (set.size >= 2) {
-				conflicts.push({ token, actions: [...set].sort() });
+				conflicts.push({ token, actions: [...set].toSorted() });
 			}
 		}
-		return conflicts.sort((a, b) => a.token.localeCompare(b.token));
+		return conflicts.toSorted((a, b) =>
+			a.token.localeCompare(b.token),
+		);
 	}
 
 	linked(expansion: Expansion): LinkedPair[] {

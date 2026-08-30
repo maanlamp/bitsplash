@@ -84,7 +84,7 @@ const roundRectMask = (): boolean[] => {
 const erode = (mask: readonly boolean[]): boolean[] => {
 	const at = (x: number, y: number): boolean =>
 		x >= 0 && y >= 0 && x < SIZE && y < SIZE
-			? mask[y * SIZE + x]!
+			? mask[y * SIZE + x]
 			: false;
 	const out: boolean[] = [];
 	for (let y = 0; y < SIZE; y++) {
@@ -153,7 +153,7 @@ const entries: Zippable = {
 	],
 };
 for (let frame = 0; frame < FRAMES.length; frame++) {
-	const png = encodePng(FRAMES[frame]!);
+	const png = encodePng(FRAMES[frame]);
 	const stored: Zippable[string] = [png, { level: 0, mtime: MTIME }];
 	entries[`layers/${LAYER_ID}/${frame}.png`] = stored;
 	entries[`bakes/${frame}.png`] = stored;

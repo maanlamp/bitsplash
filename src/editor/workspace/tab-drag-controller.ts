@@ -561,7 +561,7 @@ export class TabDragController {
 		}
 		if (state.ghostDoc !== doc) {
 			state.ghost?.remove();
-			const clone = doc.importNode(state.tabEl, true) as HTMLElement;
+			const clone = doc.importNode(state.tabEl, true);
 			clone.className = `${state.tabEl.className} ${this.config.ghostClassName}`;
 			clone.style.position = "fixed";
 			clone.style.pointerEvents = "none";

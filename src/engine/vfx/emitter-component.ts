@@ -62,7 +62,7 @@ export type ReadonlyEmitter = Readonly<EmitterComponent>;
  * builds get the compile-time half only ({@link ReadonlyEmitter}) and hand back
  * the instance itself, so the sim never touches a proxy.
  */
-const DEV_BUILD = import.meta.env.PROD !== true;
+const DEV_BUILD = !import.meta.env.PROD;
 
 const views = new WeakMap<EmitterComponent, ReadonlyEmitter>();
 

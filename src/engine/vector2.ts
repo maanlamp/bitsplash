@@ -214,7 +214,7 @@ export default class Vector2 implements ValueType {
 		if (vOrX instanceof Vector2) {
 			return this.clone().sub(vOrX).length();
 		}
-		return this.clone().sub(new Vector2(vOrX, y!)).length();
+		return this.clone().sub(new Vector2(vOrX, y)).length();
 	}
 
 	distanceToSq(v: Vector2): number;
@@ -223,7 +223,7 @@ export default class Vector2 implements ValueType {
 		if (vOrX instanceof Vector2) {
 			return this.clone().sub(vOrX).lengthSq();
 		}
-		return this.clone().sub(new Vector2(vOrX, y!)).lengthSq();
+		return this.clone().sub(new Vector2(vOrX, y)).lengthSq();
 	}
 
 	angle(): number {

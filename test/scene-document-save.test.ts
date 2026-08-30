@@ -58,8 +58,8 @@ const openDocument = (baseline: SceneFile): SceneDocument => {
 	return new SceneDocument(scene, baseline);
 };
 
-const json = (file: SceneFile): string =>
-	JSON.stringify(file, null, "\t");
+const json = (value: unknown): string =>
+	JSON.stringify(value, null, "\t");
 
 beforeAll(async () => {
 	await loadRapierHeadless();
@@ -200,9 +200,6 @@ describe("scene document save (replay onto scratch)", () => {
 // break the round-trip here. This replaces the old registry-derived denylist
 // (which asserted no `runtime: true` component appears in a level file).
 describe("committed level files round-trip losslessly", () => {
-	const json = (world: unknown): string =>
-		JSON.stringify(world, null, "\t");
-
 	const levels = [
 		...new Glob("src/game/content/levels/*.scene.json").scanSync("."),
 	];

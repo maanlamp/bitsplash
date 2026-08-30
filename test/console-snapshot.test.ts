@@ -24,13 +24,15 @@ const asObject = (
 const field = (obj: SnapshotObject, key: string): SnapshotValue => {
 	const value = obj[key];
 	expect(value).toBeDefined();
-	return value as SnapshotValue;
+	return value;
 };
 
 /** Reads the render tag off a possibly-undefined snapshot node. */
+const named = function doThing(): void {};
+
 const tagOf = (
 	value: SnapshotValue | undefined,
-): SnapshotTag | undefined => snapshotTag(value as SnapshotValue);
+): SnapshotTag | undefined => snapshotTag(value);
 
 describe("snapshot — primitives", () => {
 	test("passes primitives through unchanged", () => {
@@ -244,7 +246,6 @@ describe("snapshot — exotic leaves", () => {
 	});
 
 	test("function leaf carries its name", () => {
-		const named = function doThing(): void {};
 		expect(tagOf(snapshot(named))).toEqual({
 			kind: "function",
 			label: "ƒ doThing",

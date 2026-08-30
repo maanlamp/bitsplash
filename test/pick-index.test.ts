@@ -17,6 +17,29 @@ import { TransformComponent } from "../src/engine/transform-component";
 import Vector2 from "../src/engine/vector2";
 import { World } from "../src/engine/world";
 
+const pickAt = (doc: SceneDocument, x: number, y: number) => {
+	const ecs = doc.scene.world.ecs;
+	getPickIndex(ecs).maintain();
+	return pickEntityAt(ecs, new Vector2(x, y));
+};
+
+const makeEntity = (doc: SceneDocument, x: number): EntityId =>
+	createEntity(doc, [
+		new TransformComponent(new Vector2(x, 0)),
+		new PhysicsBodyComponent("static", 8, 8),
+	]);
+
+const emptyFile = (): SceneFile =>
+	migrateRenderLayers(
+		{
+			version: 1,
+			kind: "platformer",
+			config: { gravity: { x: 0, y: 20 } },
+			entities: [],
+		},
+		"demo",
+	);
+
 const loadRapierHeadless = (): Promise<void> =>
 	loadRapier(async () => {
 		const mod =
@@ -80,17 +103,6 @@ describe("pick index maintenance across churn", () => {
 		await loadRapierHeadless();
 	});
 
-	const emptyFile = (): SceneFile =>
-		migrateRenderLayers(
-			{
-				version: 1,
-				kind: "platformer",
-				config: { gravity: { x: 0, y: 20 } },
-				entities: [],
-			},
-			"demo",
-		);
-
 	const openDocument = (): SceneDocument => {
 		const baseline = emptyFile();
 		const config = toSceneConfig(baseline.config);
@@ -107,18 +119,6 @@ describe("pick index maintenance across churn", () => {
 
 	// Re-fetch the ecs each call: a rebuild/revert may swap the world, and the
 	// index is keyed per-ecs — a stale ecs reference would query a dead index.
-	const pickAt = (doc: SceneDocument, x: number, y: number) => {
-		const ecs = doc.scene.world.ecs;
-		getPickIndex(ecs).maintain();
-		return pickEntityAt(ecs, new Vector2(x, y));
-	};
-
-	const makeEntity = (doc: SceneDocument, x: number): EntityId =>
-		createEntity(doc, [
-			new TransformComponent(new Vector2(x, 0)),
-			new PhysicsBodyComponent("static", 8, 8),
-		]);
-
 	test("pick is correct after an undo/redo replay", () => {
 		const doc = openDocument();
 		const id = makeEntity(doc, 100);

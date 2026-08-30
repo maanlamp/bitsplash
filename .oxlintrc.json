@@ -1,9 +1,10 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": ["typescript", "unicorn", "oxc"],
+	"plugins": ["typescript", "unicorn", "oxc", "react"],
 	"jsPlugins": ["./require-default-fields-oxc-plugin.ts"],
 	"categories": {
-		"correctness": "error"
+		"correctness": "error",
+		"suspicious": "error"
 	},
 	"rules": {
 		"no-restricted-imports": [
@@ -17,6 +18,10 @@
 				]
 			}
 		],
+		"react/react-in-jsx-scope": "off",
+		"typescript/no-explicit-any": "error",
+		"typescript/no-unsafe-type-assertion": "off",
+		"no-underscore-dangle": ["error", { "allowAfterThis": true }],
 		"curly": ["error", "all"],
 		"eqeqeq": ["error", "always"],
 		"func-style": [

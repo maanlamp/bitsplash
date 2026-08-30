@@ -129,8 +129,8 @@ describe("undo-reselect", () => {
 		doc.undo();
 		expect(doc.scene.world.ecs.entities()).toContain(idA);
 		expect(doc.scene.world.ecs.entities()).toContain(idB);
-		expect([...store.selection.ids].sort()).toEqual(
-			[idA, idB].sort(),
+		expect([...store.selection.ids].toSorted()).toEqual(
+			[idA, idB].toSorted(),
 		);
 	});
 });

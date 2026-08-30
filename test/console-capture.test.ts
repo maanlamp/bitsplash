@@ -48,7 +48,7 @@ afterAll(() => {
 
 const first = (entry: ConsoleEntry): SnapshotValue => {
 	expect(entry.args.length).toBeGreaterThan(0);
-	return entry.args[0] as SnapshotValue;
+	return entry.args[0];
 };
 
 describe("console capture", () => {

@@ -7,6 +7,12 @@ import {
 } from "../src/editor/sprite/onion-skin";
 import { blankPixels } from "../src/editor/sprite/pixel-buffer";
 
+const solid = (r: number, g: number, b: number, a: number) => {
+	const buf = blankPixels(1, 1);
+	buf.data.set([r, g, b, a]);
+	return buf;
+};
+
 const on = (patch: Partial<OnionSettings>): OnionSettings => ({
 	...DEFAULT_ONION,
 	enabled: true,
@@ -66,12 +72,6 @@ describe("onionGhosts", () => {
 });
 
 describe("tintPixels", () => {
-	const solid = (r: number, g: number, b: number, a: number) => {
-		const buf = blankPixels(1, 1);
-		buf.data.set([r, g, b, a]);
-		return buf;
-	};
-
 	test("full strength replaces colour with the tint, keeping alpha", () => {
 		const out = tintPixels(solid(10, 20, 30, 200), [255, 0, 0], 1);
 		expect([...out.data]).toEqual([255, 0, 0, 200]);

@@ -49,14 +49,14 @@ const identifier = (raw: string): string => {
 	const head = parts[0] ?? "";
 	const camel = [
 		head,
-		...parts.slice(1).map((p) => p[0]!.toUpperCase() + p.slice(1)),
+		...parts.slice(1).map((p) => p[0].toUpperCase() + p.slice(1)),
 	].join("");
 	return IDENT.test(camel) ? camel : `_${camel}`;
 };
 
 const pascalCase = (raw: string): string => {
 	const member = identifier(raw);
-	return member[0]!.toUpperCase() + member.slice(1);
+	return member[0].toUpperCase() + member.slice(1);
 };
 
 const claim = (

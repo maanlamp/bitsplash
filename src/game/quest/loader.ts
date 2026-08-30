@@ -29,7 +29,7 @@ let modules: Record<string, { default: QuestDef }> = {};
 try {
 	modules = import.meta.glob("../content/quests/*.json", {
 		eager: true,
-	}) as Record<string, { default: QuestDef }>;
+	});
 } catch {
 	modules = {};
 }

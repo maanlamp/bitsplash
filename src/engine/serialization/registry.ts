@@ -12,6 +12,7 @@ export type SerializedEntity = Readonly<{
 
 export type SerializedWorld = ReadonlyArray<SerializedEntity>;
 
+// oxlint-disable-next-line typescript/no-explicit-any -- constructor params are contravariant; `unknown[]` rejects real component classes
 export type ComponentClass = new (...args: any[]) => object;
 
 export type SerializableType = Readonly<{

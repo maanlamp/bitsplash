@@ -47,7 +47,7 @@ export class Gamepads {
 				this.current[key] = state;
 			}
 
-			const buttons = state.buttons as Record<string, boolean>;
+			const buttons = state.buttons;
 			for (const held of Object.keys(buttons)) {
 				delete buttons[held];
 			}
@@ -57,7 +57,7 @@ export class Gamepads {
 				}
 			});
 
-			const axes = state.axes as Record<string, Vector2>;
+			const axes = state.axes;
 			for (let i = 0; i < pad.axes.length; i += 2) {
 				const pair = String(i / 2);
 				const vec = (axes[pair] ??= new Vector2(0, 0));

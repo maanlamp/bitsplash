@@ -167,7 +167,7 @@ const GLYPHS: Record<EmotionId, (mask: Mask) => void> = {
 const dilate = (mask: Mask): Mask => {
 	const at = (x: number, y: number): boolean =>
 		x >= 0 && y >= 0 && x < SIZE && y < SIZE
-			? mask[y * SIZE + x]!
+			? mask[y * SIZE + x]
 			: false;
 	const out = blankMask();
 	for (let y = 0; y < SIZE; y++) {

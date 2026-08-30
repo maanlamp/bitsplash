@@ -8,9 +8,11 @@ import type {
 } from "./system";
 
 type ComponentClass<T extends object = object> = abstract new (
+	// oxlint-disable-next-line typescript/no-explicit-any -- constructor params are contravariant; `unknown[]` rejects real component classes
 	...args: any[]
 ) => T;
 type ConcreteComponentClass<T extends object = object> = new (
+	// oxlint-disable-next-line typescript/no-explicit-any -- constructor params are contravariant; `unknown[]` rejects real component classes
 	...args: any[]
 ) => T;
 export type EntityId = ReturnType<
@@ -260,6 +262,7 @@ export class ECS {
 		this.syncDense();
 		const scratch = this.queryScratch;
 		scratch.length = classes.length;
+		// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous query tuple; `unknown` only moves the cast to every callsite
 		const results: Array<[EntityId, ...any[]]> = [];
 		const maps = this.denseMaps;
 
@@ -277,6 +280,7 @@ export class ECS {
 			if (!matched) {
 				continue;
 			}
+			// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous query tuple; `unknown` only moves the cast to every callsite
 			const tuple: [EntityId, ...any[]] = [this.denseIds[i]!];
 			for (let c = 0; c < classes.length; c++) {
 				tuple.push(scratch[c]);
@@ -320,6 +324,7 @@ export class ECS {
 			if (!matched) {
 				continue;
 			}
+			// oxlint-disable-next-line typescript/no-explicit-any -- heterogeneous query tuple; `unknown` only moves the cast to every callsite
 			const tuple: [EntityId, ...any[]] = [this.denseIds[i]!];
 			for (let c = 0; c < classes.length; c++) {
 				tuple.push(scratch[c]);

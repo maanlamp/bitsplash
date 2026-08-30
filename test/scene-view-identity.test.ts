@@ -30,6 +30,38 @@ import { deserializeWorld } from "../src/engine/serialization/deserialize";
 import type { GlobalServices } from "../src/engine/services";
 import { World } from "../src/engine/world";
 
+const hub = (workspace: Workspace) =>
+	getWindow(workspace, HUB_WINDOW_ID)!;
+
+const loadRapierHeadless = (): Promise<void> =>
+	loadRapier(async () => {
+		const mod =
+			(await import("@dimforge/rapier2d-compat")) as unknown as {
+				init: () => Promise<void>;
+			};
+		await mod.init();
+		return mod as never;
+	});
+
+const isValid = (id: string): boolean =>
+	(isSceneView(id) && !isLegacyMultiViewId(id)) ||
+	isValidViewId(id, []);
+
+const tabsWorkspace = (
+	views: ReadonlyArray<string>,
+	focused: string,
+): Workspace => ({
+	version: WORKSPACE_VERSION,
+	mutedViews: [],
+	windows: [
+		{
+			id: HUB_WINDOW_ID,
+			focused,
+			root: { type: "tabs", id: "tg-test", views, active: focused },
+		},
+	],
+});
+
 const rawFile = (): SceneFile => ({
 	version: 1,
 	kind: "platformer",
@@ -84,31 +116,9 @@ describe("workspace persistence migration", () => {
 	// Mirrors the predicate the editor shell passes to loadWorkspace: keep a
 	// scene view only when it is not a legacy multi-view id, else fall back to
 	// asset/panel validation.
-	const isValid = (id: string): boolean =>
-		(isSceneView(id) && !isLegacyMultiViewId(id)) ||
-		isValidViewId(id, []);
-
 	const persist = (workspace: Workspace): void => {
 		storage.set("editor-workspace", JSON.stringify(workspace));
 	};
-
-	const tabsWorkspace = (
-		views: ReadonlyArray<string>,
-		focused: string,
-	): Workspace => ({
-		version: WORKSPACE_VERSION,
-		mutedViews: [],
-		windows: [
-			{
-				id: HUB_WINDOW_ID,
-				focused,
-				root: { type: "tabs", id: "tg-test", views, active: focused },
-			},
-		],
-	});
-
-	const hub = (workspace: Workspace) =>
-		getWindow(workspace, HUB_WINDOW_ID)!;
 
 	test("a legacy layout with only a primary scene id loads unchanged", () => {
 		persist(tabsWorkspace(["scene:demo"], "scene:demo"));
@@ -149,16 +159,6 @@ describe("workspace persistence migration", () => {
 });
 
 describe("shared per-scene document ownership", () => {
-	const loadRapierHeadless = (): Promise<void> =>
-		loadRapier(async () => {
-			const mod =
-				(await import("@dimforge/rapier2d-compat")) as unknown as {
-					init: () => Promise<void>;
-				};
-			await mod.init();
-			return mod as never;
-		});
-
 	beforeAll(async () => {
 		await loadRapierHeadless();
 	});

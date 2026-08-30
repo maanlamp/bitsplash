@@ -21,6 +21,25 @@ import { PlayerSettings } from "../src/engine/settings/player-settings";
 
 const storage = new Map<string, string>();
 
+const isValid = (id: string): boolean => id !== "scene:gone";
+
+const workspaceWith = (views: ReadonlyArray<string>): Workspace => ({
+	version: WORKSPACE_VERSION,
+	mutedViews: [],
+	windows: [
+		{
+			id: "hub",
+			focused: views[0] ?? null,
+			root: {
+				type: "tabs",
+				id: "tg-test",
+				views,
+				active: views[0] ?? "",
+			},
+		},
+	],
+});
+
 const installLocalStorage = (): void => {
 	(globalThis as { localStorage?: Storage }).localStorage = {
 		getItem: (key: string) => storage.get(key) ?? null,
@@ -84,27 +103,6 @@ describe("player settings survive a reload", () => {
 
 describe("a scene view's mute survives the workspace", () => {
 	beforeAll(installLocalStorage);
-
-	const isValid = (id: string): boolean => id !== "scene:gone";
-
-	const workspaceWith = (
-		views: ReadonlyArray<string>,
-	): Workspace => ({
-		version: WORKSPACE_VERSION,
-		mutedViews: [],
-		windows: [
-			{
-				id: "hub",
-				focused: views[0] ?? null,
-				root: {
-					type: "tabs",
-					id: "tg-test",
-					views,
-					active: views[0] ?? "",
-				},
-			},
-		],
-	});
 
 	test("a muted view is still muted after a reload", () => {
 		storage.clear();

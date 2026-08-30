@@ -45,7 +45,7 @@ const typeNames = (world: SerializedWorld): string[] =>
 		...new Set(
 			world.flatMap((entity) => Object.keys(entity.components)),
 		),
-	].sort();
+	].toSorted();
 
 afterAll(clearVfxCatalog);
 
@@ -84,18 +84,18 @@ describe("vfx snapshot semantics", () => {
 
 		// Exactly the three authored entities: no particle and no ribbon ever
 		// became one.
-		expect(scene.map((entity) => entity.id).sort()).toEqual(
-			[HOST, OTHER, RIBBONS].sort(),
+		expect(scene.map((entity) => entity.id).toSorted()).toEqual(
+			[HOST, OTHER, RIBBONS].toSorted(),
 		);
 		expect(snapshot.persistent).toEqual([]);
-		expect(typeNames(scene)).toEqual([...ALLOWED_TYPES].sort());
+		expect(typeNames(scene)).toEqual([...ALLOWED_TYPES].toSorted());
 
 		// The emitter serializes its authored config and nothing else — no pool,
 		// no accumulator, no `fired` flag.
 		const emitter = scene.find((entity) => entity.id === HOST)!
 			.components.Emitter!;
-		expect(Object.keys(emitter).sort()).toEqual(
-			["defId", "enabled", "offset", "rateScale"].sort(),
+		expect(Object.keys(emitter).toSorted()).toEqual(
+			["defId", "enabled", "offset", "rateScale"].toSorted(),
 		);
 		expect(emitter.defId).toBe(FIXTURE_EFFECTS.drift);
 
