@@ -590,7 +590,7 @@ const App = ({
 
 	useEffect(() => {
 		if (!focusedStore) {
-			return;
+			return undefined;
 		}
 		return focusedStore.subscribe(forceStore);
 	}, [focusedStore]);
@@ -1208,10 +1208,12 @@ const App = ({
 		if (!view || !activeId || !sceneId) {
 			return;
 		}
-		const gameModule = gameModuleRef.current;
-		gameUiRef.current ??= gameModule.createGameUi(instance.services);
+		const runtimeModule = gameModuleRef.current;
+		gameUiRef.current ??= runtimeModule.createGameUi(
+			instance.services,
+		);
 		runHostRef.current = new RunHost(view, {
-			gameModule,
+			gameModule: runtimeModule,
 			services: instance.services,
 			settings: instance.services.settings,
 			actions: view.scene.actions ?? NULL_ACTIONS,

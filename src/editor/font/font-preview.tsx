@@ -117,7 +117,7 @@ export const useFamilies = (
 	useEffect(() => {
 		setFamilies(null);
 		if (!assetManager || !url) {
-			return;
+			return undefined;
 		}
 		let raf = 0;
 		const poll = () => {
@@ -217,7 +217,7 @@ const FontPreview = ({
 	useEffect(() => {
 		const next = Number(sizeText);
 		if (!Number.isFinite(next)) {
-			return;
+			return undefined;
 		}
 		const id = window.setTimeout(() => {
 			setSize(clamp(Math.round(next), MIN_SIZE, MAX_SIZE));

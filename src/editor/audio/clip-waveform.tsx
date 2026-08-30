@@ -23,7 +23,7 @@ const ClipWaveform = ({
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) {
-			return;
+			return undefined;
 		}
 		const observer = new ResizeObserver(() => {
 			setSize({

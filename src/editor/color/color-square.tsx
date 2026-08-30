@@ -26,16 +26,16 @@ const ColorSquare = ({
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext("2d");
 		if (!ctx) {
-			return;
+			return undefined;
 		}
 		const frame = requestAnimationFrame(() => {
 			const img = ctx.createImageData(SIZE, SIZE);
 			const data = img.data;
 			for (let y = 0; y < SIZE; y++) {
 				const lightness = 1 - y / (SIZE - 1);
-				const rowMax = chromaInGamut(lightness, CHROMA_MAX, h);
+				const maxChroma = chromaInGamut(lightness, CHROMA_MAX, h);
 				for (let x = 0; x < SIZE; x++) {
-					const chroma = (x / (SIZE - 1)) * rowMax;
+					const chroma = (x / (SIZE - 1)) * maxChroma;
 					const [r, g, b] = oklchToRgb255(lightness, chroma, h);
 					const i = (y * SIZE + x) * 4;
 					data[i] = r;

@@ -84,7 +84,7 @@ export const useDocumentEditor = <D extends EditableDocument, C>(
 	useEffect(() => {
 		if (!doc) {
 			dirtyCbRef.current(false);
-			return;
+			return undefined;
 		}
 		const sync = () => {
 			dirtyCbRef.current(doc.dirty);

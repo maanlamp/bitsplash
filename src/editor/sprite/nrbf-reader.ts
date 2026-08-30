@@ -162,7 +162,7 @@ class NrbfReader {
 	}
 
 	read(): NrbfResult {
-		if (this.u8() !== RecordType.SerializedStreamHeader) {
+		if (this.recordTag() !== RecordType.SerializedStreamHeader) {
 			throw new Error("Not an NRBF stream (missing header record).");
 		}
 		this.rootId = this.i32();
@@ -174,7 +174,7 @@ class NrbfReader {
 		}
 
 		while (true) {
-			const record = this.u8();
+			const record = this.recordTag();
 			if (record === RecordType.MessageEnd) {
 				break;
 			}
@@ -194,7 +194,7 @@ class NrbfReader {
 
 	/** Read one record at the cursor and return the value it denotes. */
 	private readRecord(): Node {
-		const record = this.u8();
+		const record = this.recordTag();
 		switch (record) {
 			case RecordType.ClassWithId:
 				return this.readClassWithId();
@@ -247,14 +247,17 @@ class NrbfReader {
 	private readMemberTypeInfo(count: number): MemberSpec[] {
 		const binaryTypes: BinaryType[] = [];
 		for (let i = 0; i < count; i++) {
-			binaryTypes.push(this.u8() as BinaryType);
+			binaryTypes.push(this.binaryTypeTag());
 		}
 		const members: MemberSpec[] = [];
 		for (const binaryType of binaryTypes) {
 			switch (binaryType) {
 				case BinaryType.Primitive:
 				case BinaryType.PrimitiveArray:
-					members.push({ binaryType, primitive: this.u8() });
+					members.push({
+						binaryType,
+						primitive: this.primitiveTag(),
+					});
 					break;
 				case BinaryType.SystemClass:
 					this.readString();
@@ -342,7 +345,7 @@ class NrbfReader {
 
 	private readArraySinglePrimitive(): Node[] {
 		const { objectId, length } = this.readArrayInfo();
-		const primitive = this.u8() as Primitive;
+		const primitive = this.primitiveTag();
 		const items: Node[] = [];
 		for (let i = 0; i < length; i++) {
 			items.push(this.readPrimitive(primitive));
@@ -403,7 +406,7 @@ class NrbfReader {
 	private readObjectItems(length: number): Node[] {
 		const items: Node[] = [];
 		while (items.length < length) {
-			const record = this.u8();
+			const record = this.recordTag();
 			if (record === RecordType.ObjectNull) {
 				items.push(null);
 			} else if (record === RecordType.ObjectNullMultiple256) {
@@ -425,7 +428,7 @@ class NrbfReader {
 	}
 
 	private readMemberPrimitiveTyped(): Scalar {
-		const primitive = this.u8() as Primitive;
+		const primitive = this.primitiveTag();
 		return this.readPrimitive(primitive);
 	}
 
@@ -498,6 +501,26 @@ class NrbfReader {
 
 	private u8(): number {
 		return this.bytes[this.pos++]!;
+	}
+
+	/**
+	 * The next byte, read as one of the format's byte-wide tags.
+	 *
+	 * Every tag in NRBF is a single byte, so reading one is `u8` plus the
+	 * knowledge of which enum this position holds. That knowledge belongs here
+	 * rather than at the ~10 call sites, each of which would otherwise repeat
+	 * the same assertion.
+	 */
+	private recordTag(): RecordType {
+		return this.u8() as RecordType;
+	}
+
+	private binaryTypeTag(): BinaryType {
+		return this.u8() as BinaryType;
+	}
+
+	private primitiveTag(): Primitive {
+		return this.u8() as Primitive;
 	}
 
 	private i16(): number {

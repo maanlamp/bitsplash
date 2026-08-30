@@ -565,10 +565,10 @@ const degreesRange = (
 	value: unknown,
 	fallback: VfxRange,
 ): VfxRange => {
-	const degrees = range(source, label, value, fallback);
+	const inDegrees = range(source, label, value, fallback);
 	return {
-		min: degrees.min * DEG_TO_RAD,
-		max: degrees.max * DEG_TO_RAD,
+		min: inDegrees.min * DEG_TO_RAD,
+		max: inDegrees.max * DEG_TO_RAD,
 	};
 };
 
