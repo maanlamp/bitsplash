@@ -62,9 +62,6 @@ const AudioEditor = ({
 	const [playhead, setPlayhead] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
-	const [trackHeight, setTrackHeight] = useState(
-		DEFAULT_TRACK_HEIGHT,
-	);
 	const handleRef = useRef<PlaybackHandle | null>(null);
 	const rafRef = useRef(0);
 
@@ -86,19 +83,17 @@ const AudioEditor = ({
 		});
 	const { state, recorder } = controllers;
 
+	// Restore the timeline track height a prior mount recorded (a cross-window
+	// move remounts the editor); a fresh view keeps the default.
+	const [trackHeight, setTrackHeight] = useState(
+		() => viewState.trackHeight ?? DEFAULT_TRACK_HEIGHT,
+	);
+
 	const tool = useEditorValue(state, (s) => s.tool);
 	const selectedClipId = useEditorValue(
 		state,
 		(s) => s.selectedClipId,
 	);
-
-	// Restore the timeline track height a prior mount recorded (a cross-window
-	// move remounts the editor); a fresh view keeps the default.
-	useEffect(() => {
-		if (viewState.trackHeight !== null) {
-			setTrackHeight(viewState.trackHeight);
-		}
-	}, [viewState]);
 
 	const stopPlayback = (): void => {
 		handleRef.current?.stop();

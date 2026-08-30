@@ -7,7 +7,7 @@ import { CaretUpIcon } from "@phosphor-icons/react/dist/icons/CaretUp";
 import { CheckIcon } from "@phosphor-icons/react/dist/icons/Check";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/dist/icons/DotsSixVertical";
 import clsx from "clsx";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { SelectOption } from "../../engine/serialization/serializable-value";
 import { openFileDialog, resolveToWebPath } from "../project-io";
 import controls from "../styles/controls.module.scss";
@@ -74,21 +74,16 @@ export const TextInput = ({
 	value: string;
 	onCommit: (s: string) => void;
 }>) => {
-	const [text, setText] = useState(value);
-	const [focused, setFocused] = useState(false);
-	useEffect(() => {
-		if (!focused) {
-			setText(value);
-		}
-	}, [value, focused]);
+	const [draft, setDraft] = useState<string | null>(null);
+	const text = draft ?? value;
 	return (
 		<Input
 			className={styles.input}
 			value={text}
-			onFocus={() => setFocused(true)}
-			onChange={(e) => setText(e.target.value)}
+			onFocus={() => setDraft(value)}
+			onChange={(e) => setDraft(e.target.value)}
 			onBlur={() => {
-				setFocused(false);
+				setDraft(null);
 				onCommit(text);
 			}}
 			onKeyDown={(e) => {
