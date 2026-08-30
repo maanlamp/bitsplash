@@ -242,7 +242,7 @@ export const fixtureCamera = (ecs: ReadonlyECS): Camera2D => {
 
 /** A pinned entity id, so assertions survive a save/restore round trip. */
 export const emitterId = (suffix: string): EntityId =>
-	`00000000-0000-4000-8000-0000000000${suffix}` as EntityId;
+	`00000000-0000-4000-8000-0000000000${suffix}`;
 
 export const DEFAULT_VFX_SCENE = "field";
 

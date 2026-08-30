@@ -693,9 +693,9 @@ export class SelectionController extends Subscribable {
 			return {
 				kind: "marquee",
 				mask: cloneMask(this._state.mask),
-			} as unknown as SelectionSnapshot;
+			};
 		}
-		return { kind: "none" } as unknown as SelectionSnapshot;
+		return { kind: "none" };
 	}
 
 	private restore(snapshot: SelectionSnapshot | null): void {

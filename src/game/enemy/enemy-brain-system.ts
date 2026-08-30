@@ -89,7 +89,7 @@ export class EnemyBrainSystem implements UpdateSystem {
 				transform,
 				targetPos,
 				origin,
-				brain.machine.elapsed as Seconds,
+				brain.machine.elapsed,
 			);
 
 			const result = stepMachine(

@@ -44,7 +44,7 @@ export const focusNeighborsOf = (
 ): Partial<Record<FocusDirection, string>> | null => {
 	const neighbors = node.props.focusNeighbors;
 	if (neighbors && typeof neighbors === "object") {
-		return neighbors as Partial<Record<FocusDirection, string>>;
+		return neighbors;
 	}
 	return null;
 };

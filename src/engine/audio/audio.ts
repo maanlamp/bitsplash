@@ -319,10 +319,7 @@ export default class AudioManager implements AudioApi {
 	}
 
 	private destinationFor(bus?: AudioBus): AudioNode {
-		return (
-			busInput(bus ?? this.master) ??
-			(this.ctx.destination as AudioNode)
-		);
+		return busInput(bus ?? this.master) ?? this.ctx.destination;
 	}
 
 	private getSource(url: string): AudioBuffer | void {

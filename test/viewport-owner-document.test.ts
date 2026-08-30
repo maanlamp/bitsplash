@@ -35,7 +35,7 @@ class FakeCanvas {
 	height = 0;
 	style: Record<string, string> & { cssText: string } = {
 		cssText: "",
-	} as Record<string, string> & { cssText: string };
+	};
 	parent: FakeElement | null = null;
 	rect = { width: 100, height: 50 };
 	constructor(readonly ownerDocument: FakeDocument) {}

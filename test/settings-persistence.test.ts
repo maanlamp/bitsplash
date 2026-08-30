@@ -52,7 +52,7 @@ const installLocalStorage = (): void => {
 		clear: () => storage.clear(),
 		key: () => null,
 		length: 0,
-	} as Storage;
+	};
 	(globalThis as { window?: unknown }).window ??= globalThis;
 };
 

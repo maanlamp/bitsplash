@@ -44,8 +44,7 @@ const tagObject = (
 };
 
 /** Builds a leaf node carrying only the (non-enumerable) render tag — no children. */
-const leaf = (tag: SnapshotTag): SnapshotObject =>
-	tagObject({} as SnapshotObject, tag);
+const leaf = (tag: SnapshotTag): SnapshotObject => tagObject({}, tag);
 
 /** A truncation sentinel for the `rest` children dropped past a breadth cap. */
 const moreLeaf = (rest: number): SnapshotObject =>
@@ -269,7 +268,7 @@ const walkTypedArray = (
 	}
 	seen.delete(node);
 	return {
-		value: tagObject(value as SnapshotObject, {
+		value: tagObject(value, {
 			kind: "class",
 			name,
 		}),
@@ -373,7 +372,7 @@ const walkObject = (
 
 	const value = isPlain
 		? (node as SnapshotObject)
-		: tagObject(node as SnapshotObject, {
+		: tagObject(node, {
 				kind: "class",
 				name: name as string,
 			});

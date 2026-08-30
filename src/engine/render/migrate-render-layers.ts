@@ -1,4 +1,3 @@
-import type { EntityId } from "../ecs";
 import type { SceneFile } from "../scene/scene";
 import type { SerializedEntity } from "../serialization/registry";
 import { encodeComponents } from "../serialization/serialize";
@@ -35,7 +34,7 @@ export const migrateRenderLayers = (
 		renderLayerDef(id),
 	);
 	const entity: SerializedEntity = {
-		id: `${sceneId}:render-layers` as EntityId,
+		id: `${sceneId}:render-layers`,
 		components: encodeComponents([component]),
 	};
 	return { ...file, entities: [...file.entities, entity] };

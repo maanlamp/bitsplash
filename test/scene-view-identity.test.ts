@@ -110,7 +110,7 @@ describe("workspace persistence migration", () => {
 			clear: () => storage.clear(),
 			key: () => null,
 			length: 0,
-		} as Storage;
+		};
 	});
 
 	// Mirrors the predicate the editor shell passes to loadWorkspace: keep a

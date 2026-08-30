@@ -138,7 +138,7 @@ describe("pick index maintenance across churn", () => {
 
 		doc.record({
 			kind: "entity-move",
-			id: id as never,
+			id: id,
 			before: { x: 100, y: 0 },
 			after: { x: 300, y: 0 },
 		});

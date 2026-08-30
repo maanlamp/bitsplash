@@ -1,4 +1,3 @@
-import type { EntityId } from "../../engine/ecs";
 import type { EntityRef } from "../../engine/entity-ref";
 import type { FieldBinding } from "../commands";
 import type { SelectOption } from "../../engine/serialization/serializable-value";
@@ -21,9 +20,7 @@ export const EntityRefPicker = ({
 		<EnumSelect
 			value={value.id ?? NONE}
 			options={options}
-			onCommit={(v) =>
-				binding.commit(["id"], v === NONE ? null : (v as EntityId))
-			}
+			onCommit={(v) => binding.commit(["id"], v === NONE ? null : v)}
 		/>
 	);
 };

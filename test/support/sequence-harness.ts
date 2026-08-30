@@ -16,10 +16,7 @@ import type {
 } from "../../src/engine/sprite/sprite-asset";
 import { SpriteComponent } from "../../src/engine/sprite/sprite-component";
 import { SpriteTagPlaybackSystem } from "../../src/engine/sprite/sprite-tag-playback-system";
-import type {
-	Milliseconds,
-	Seconds,
-} from "../../src/engine/duration";
+import type { Milliseconds } from "../../src/engine/duration";
 import type { ActionProvider } from "../../src/engine/input/bindings/action-provider";
 import type { DeviceSnapshot } from "../../src/engine/input/device-snapshot";
 import type { CollisionMatrix } from "../../src/engine/physics/collision";
@@ -199,7 +196,7 @@ export class SequenceFixture {
 		for (let i = 0; i < frames; i++) {
 			const ctx = this.buildContext();
 			this.world.ecs.update(ctx);
-			this.world.step((FRAME_MS / 1000) as Seconds);
+			this.world.step((FRAME_MS / 1000));
 			this.world.ecs.flushDestroyed();
 			this.world.events.clear();
 			this.frame += 1;
@@ -255,7 +252,7 @@ export const useDiskFetch = (): (() => void) => {
 		if (!url.includes("://") && existsSync(url)) {
 			return Promise.resolve(new Response(readFileSync(url)));
 		}
-		return original(input as RequestInfo, init);
+		return original(input, init);
 	}) as typeof fetch;
 	return () => {
 		globalThis.fetch = original;

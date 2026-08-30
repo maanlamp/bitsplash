@@ -149,7 +149,7 @@ const primitiveText = (value: SnapshotValue): string => {
 	if (typeof value === "symbol" || value instanceof RegExp) {
 		return value.toString();
 	}
-	return String(value as string | number | boolean | bigint);
+	return String(value);
 };
 
 /** True for values react-inspector should render as an expandable tree. */
