@@ -4,7 +4,6 @@ import {
 	type ReactNode,
 	Suspense,
 	use,
-	useCallback,
 	useEffect,
 	useEffectEvent,
 	useLayoutEffect,
@@ -413,24 +412,25 @@ const App = ({
 	const debugFlagsRef = useRef(new DebugFlags());
 	const docUnsubsRef = useRef(new Map<string, () => void>());
 	const closedStackRef = useRef(new ClosedStack());
-	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const runHostRef = useRef<RunHost | null>(null);
 	const [activeScene] = useState(() => new ActiveScene());
 	const [selectionChannel] = useState(
-		() =>
-			new SelectionChannel(activeScene, (sceneId) => {
-				const project = projectRef.current;
-				if (!project) {
-					return null;
-				}
-				const document = project.document(sceneId);
-				return {
-					store: project.store(sceneId),
-					document,
-					ecs: document.scene.ecs,
-				};
-			}),
+		() => new SelectionChannel(activeScene),
 	);
+	useLayoutEffect(() => {
+		selectionChannel.setResolver((sceneId) => {
+			const project = projectRef.current;
+			if (!project) {
+				return null;
+			}
+			const document = project.document(sceneId);
+			return {
+				store: project.store(sceneId),
+				document,
+				ecs: document.scene.ecs,
+			};
+		});
+	}, [selectionChannel]);
 	const gameUiRef = useRef<ReturnType<
 		GameModule["createGameUi"]
 	> | null>(null);
@@ -662,7 +662,6 @@ const App = ({
 	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
 
 	useEffect(() => {
-		focusedSceneViewRef.current = focusedSceneView;
 		activeScene.set(focusedSceneView ? focusedSceneId : null);
 	}, [focusedSceneView, focusedSceneId, activeScene]);
 
@@ -743,10 +742,8 @@ const App = ({
 		ReadonlyMap<WindowId, GuardRequest>
 	>(() => new Map());
 
-	const openView = (
-		id: ViewId,
-		targetWindowId: WindowId = activeWindowIdRef.current,
-	): void => {
+	const openView = (id: ViewId, windowIdHint?: WindowId): void => {
+		const targetWindowId = windowIdHint ?? activeWindowIdRef.current;
 		const ws = workspaceRef.current;
 		const home = windowOfView(ws, id);
 		if (home) {
@@ -1038,16 +1035,13 @@ const App = ({
 		dropClassName: workspaceStyles.dropOverlay ?? "",
 		ghostClassName: workspaceStyles.tabGhost ?? "",
 	};
-	const [dragController] = useState(
-		() => new TabDragController(dragConfig),
-	);
+	const [dragController] = useState(() => new TabDragController());
 	useLayoutEffect(() => {
 		dragController.setConfig(dragConfig);
 	});
 
-	const reopenClosed = (
-		targetWindowId: WindowId = activeWindowIdRef.current,
-	): void => {
+	const reopenClosed = (windowIdHint?: WindowId): void => {
+		const targetWindowId = windowIdHint ?? activeWindowIdRef.current;
 		const result = closedStackRef.current.materialize(
 			(id) => windowOfView(workspaceRef.current, id) !== null,
 			(id) =>
@@ -1205,11 +1199,11 @@ const App = ({
 		revealInspector();
 	}, [selectedEntity, inspectingWorld]);
 
-	const onRunChange = useCallback((): void => {
+	const onRunChange = (): void => {
 		const host = runHostRef.current;
 		setRunMode(host ? host.inputMode : "game");
 		setRunPaused(host ? host.paused : false);
-	}, []);
+	};
 
 	const focusRunView = (): void => {
 		runHostRef.current?.view.viewport.element.focus();
@@ -1260,9 +1254,9 @@ const App = ({
 			return;
 		}
 		const runtimeModule = gameModule;
-		gameUiRef.current ??= runtimeModule.createGameUi(
-			instance.services,
-		);
+		gameUiRef.current =
+			gameUiRef.current ??
+			runtimeModule.createGameUi(instance.services);
 		runHostRef.current = new RunHost(view, {
 			gameModule: runtimeModule,
 			services: instance.services,
@@ -1612,10 +1606,8 @@ const App = ({
 					setAddTarget({
 						entity,
 						windowId:
-							windowOfView(
-								workspaceRef.current,
-								makeViewId("tree"),
-							) ?? activeWindowIdRef.current,
+							windowOfView(workspace, makeViewId("tree")) ??
+							activeWindowId,
 					}),
 				select: (entity) =>
 					entity
@@ -1682,22 +1674,20 @@ const App = ({
 		return <div className={styles.placeholder}>Nothing selected</div>;
 	};
 
-	const resolveActiveProfile =
-		useCallback((): FrameProfile | null => {
-			const view = focusedSceneViewRef.current;
-			if (!view) {
-				return null;
-			}
-			const host = runHostRef.current;
-			if (
-				host &&
-				(view === host.view ||
-					parseViewId(view.id).param === host.activeScene)
-			) {
-				return host.world.profile;
-			}
-			return view.scene.world.profile;
-		}, []);
+	const resolveActiveProfile = (): FrameProfile | null => {
+		if (!focusedSceneView) {
+			return null;
+		}
+		const host = runHostRef.current;
+		if (
+			host &&
+			(focusedSceneView === host.view ||
+				parseViewId(focusedSceneView.id).param === host.activeScene)
+		) {
+			return host.world.profile;
+		}
+		return focusedSceneView.scene.world.profile;
+	};
 
 	const renderProfiler = () => (
 		<ProfilerView resolveProfile={resolveActiveProfile} />

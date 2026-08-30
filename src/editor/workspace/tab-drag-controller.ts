@@ -142,9 +142,9 @@ export class TabDragController {
 	private state: DragState | null = null;
 	private listeners = new Set<() => void>();
 
-	constructor(private config: TabDragConfig) {}
+	private config!: TabDragConfig;
 
-	/** Update the injected config (fresh workspace getters, realms) each render. */
+	/** Install the injected config (fresh workspace getters, realms) each render. */
 	setConfig(config: TabDragConfig): void {
 		this.config = config;
 	}
