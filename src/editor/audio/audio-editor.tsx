@@ -1,15 +1,13 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	ArrowUUpLeftIcon,
-	ArrowUUpRightIcon,
-	CursorIcon,
-	MicrophoneIcon,
-	PlayIcon,
-	ScissorsIcon,
-	StopIcon,
-	TrashIcon,
-} from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpLeft";
+import { ArrowUUpRightIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpRight";
+import { CursorIcon } from "@phosphor-icons/react/dist/icons/Cursor";
+import { MicrophoneIcon } from "@phosphor-icons/react/dist/icons/Microphone";
+import { PlayIcon } from "@phosphor-icons/react/dist/icons/Play";
+import { ScissorsIcon } from "@phosphor-icons/react/dist/icons/Scissors";
+import { StopIcon } from "@phosphor-icons/react/dist/icons/Stop";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
 import { useEffect, useRef, useState } from "react";
 import { useScopedHotkeys } from "../window/use-scoped-hotkeys";
 import type {
@@ -64,9 +62,6 @@ const AudioEditor = ({
 	const [playhead, setPlayhead] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isRecording, setIsRecording] = useState(false);
-	const [trackHeight, setTrackHeight] = useState(
-		DEFAULT_TRACK_HEIGHT,
-	);
 	const handleRef = useRef<PlaybackHandle | null>(null);
 	const rafRef = useRef(0);
 
@@ -88,19 +83,17 @@ const AudioEditor = ({
 		});
 	const { state, recorder } = controllers;
 
+	// Restore the timeline track height a prior mount recorded (a cross-window
+	// move remounts the editor); a fresh view keeps the default.
+	const [trackHeight, setTrackHeight] = useState(
+		() => viewState.trackHeight ?? DEFAULT_TRACK_HEIGHT,
+	);
+
 	const tool = useEditorValue(state, (s) => s.tool);
 	const selectedClipId = useEditorValue(
 		state,
 		(s) => s.selectedClipId,
 	);
-
-	// Restore the timeline track height a prior mount recorded (a cross-window
-	// move remounts the editor); a fresh view keeps the default.
-	useEffect(() => {
-		if (viewState.trackHeight !== null) {
-			setTrackHeight(viewState.trackHeight);
-		}
-	}, [viewState]);
 
 	const stopPlayback = (): void => {
 		handleRef.current?.stop();

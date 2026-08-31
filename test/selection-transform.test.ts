@@ -91,14 +91,15 @@ const alpha = (core: SpriteEditCore, x: number, y: number): number =>
 		(y * core.width + x) * 4 + 3
 	] ?? 0;
 
-describe("SelectionController transforms (float buffer + mask + offset)", () => {
-	const setup = () => {
-		const core = SpriteEditCore.create(8, 8);
-		const history = new History();
-		const sel = new SelectionController(core, history);
-		return { core, sel, layerId: core.activeLayerId };
-	};
+const setup = () => {
+	const core = SpriteEditCore.create(8, 8);
+	const history = new History();
+	const sel = new SelectionController(history);
+	sel.attach(core);
+	return { core, sel, layerId: core.activeLayerId };
+};
 
+describe("SelectionController transforms (float buffer + mask + offset)", () => {
 	test("flip of a marquee lifts to a float and mirrors in place", () => {
 		const { core, sel, layerId } = setup();
 		const cel = blankPixels(8, 8);

@@ -13,6 +13,8 @@ import {
 	type ViewId,
 } from "../src/editor/workspace/layout";
 
+const isSceneMainDirty = (id: ViewId) => id === "scene:main";
+
 const addBeside = (
 	root: LayoutNode,
 	anchor: ViewId,
@@ -35,7 +37,6 @@ describe("dirtyDocumentsForClose (document-unit dirty resolution)", () => {
 		ws = spawnWindowWithView(ws, "scene:main", "sat");
 		const dirty = new Set(["sprite:hero", "scene:main"]);
 		const isDirty = (id: ViewId) => dirty.has(id);
-
 		expect(dirtyDocumentsForClose(ws, "sat", isDirty)).toEqual([
 			"scene:main",
 		]);
@@ -52,7 +53,10 @@ describe("dirtyDocumentsForClose (document-unit dirty resolution)", () => {
 		const isDirty = (id: ViewId) => dirty.has(id);
 
 		const result = dirtyDocumentsForClose(ws, HUB_WINDOW_ID, isDirty);
-		expect([...result].sort()).toEqual(["scene:main", "sprite:hero"]);
+		expect([...result].toSorted()).toEqual([
+			"scene:main",
+			"sprite:hero",
+		]);
 	});
 
 	test("no dirty documents yields an empty list (close proceeds silently)", () => {
@@ -66,8 +70,9 @@ describe("dirtyDocumentsForClose (document-unit dirty resolution)", () => {
 		let ws = defaultWorkspace("scene:main");
 		ws = spawnWindowWithView(ws, "inspector", "sat");
 		// Only the hub's scene is dirty; closing the (clean) satellite prompts nothing.
-		const isDirty = (id: ViewId) => id === "scene:main";
 		expect(getWindow(ws, "sat")).toBeDefined();
-		expect(dirtyDocumentsForClose(ws, "sat", isDirty)).toEqual([]);
+		expect(
+			dirtyDocumentsForClose(ws, "sat", isSceneMainDirty),
+		).toEqual([]);
 	});
 });

@@ -46,9 +46,7 @@ export const realFont = (
 			families.map((family) =>
 				loadFontFamily(
 					family.name,
-					family.faces.map(
-						(face) => face.bytes.slice().buffer as ArrayBuffer,
-					),
+					family.faces.map((face) => face.bytes.slice().buffer),
 					settings.size,
 				),
 			),

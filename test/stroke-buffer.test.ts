@@ -152,7 +152,7 @@ class FakeDoc {
 		this.layer = {
 			width: W,
 			height: H,
-			data: (snap.data.data as Uint8ClampedArray).slice(),
+			data: snap.data.data.slice(),
 		};
 	}
 

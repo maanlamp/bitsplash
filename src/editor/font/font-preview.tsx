@@ -1,9 +1,7 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	MagnifyingGlassMinusIcon,
-	MagnifyingGlassPlusIcon,
-} from "@phosphor-icons/react";
+import { MagnifyingGlassMinusIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlassMinus";
+import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlassPlus";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import type AssetManager from "../../engine/assets";
@@ -114,18 +112,20 @@ export const useFamilies = (
 	url: string,
 	size: number,
 ): ReadonlyArray<LoadedFont> | null => {
-	const [families, setFamilies] =
-		useState<ReadonlyArray<LoadedFont> | null>(null);
+	const [loaded, setLoaded] = useState<Readonly<{
+		key: string;
+		families: ReadonlyArray<LoadedFont>;
+	}> | null>(null);
+	const key = `${url}@${size}`;
 	useEffect(() => {
-		setFamilies(null);
 		if (!assetManager || !url) {
 			return;
 		}
 		let raf = 0;
 		const poll = () => {
-			const loaded = assetManager.getFontFamilies(url, size);
-			if (loaded) {
-				setFamilies(loaded);
+			const families = assetManager.getFontFamilies(url, size);
+			if (families) {
+				setLoaded({ key: `${url}@${size}`, families });
 			} else {
 				raf = requestAnimationFrame(poll);
 			}
@@ -133,7 +133,7 @@ export const useFamilies = (
 		poll();
 		return () => cancelAnimationFrame(raf);
 	}, [assetManager, url, size]);
-	return families;
+	return loaded && loaded.key === key ? loaded.families : null;
 };
 
 export const BlittedLine = ({
@@ -211,10 +211,6 @@ const FontPreview = ({
 	const [familyIndex, setFamilyIndex] = useState(0);
 	const [style, setStyle] = useState<FontStyle>(STYLE_REGULAR);
 	const families = useFamilies(assetManager, assetUrl, size);
-
-	useEffect(() => {
-		setFamilyIndex(0);
-	}, [assetUrl]);
 
 	useEffect(() => {
 		const next = Number(sizeText);

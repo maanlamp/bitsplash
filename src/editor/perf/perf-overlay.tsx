@@ -42,7 +42,7 @@ const SPECS: ReadonlyArray<WidgetSpec> = [
 		minScale: MB,
 		headline: (_history, stats) =>
 			`${(stats.current / MB).toFixed(0)} MB`,
-		format: (v) => `${(v / MB).toFixed(0)}`,
+		format: (v) => (v / MB).toFixed(0),
 		spike: () => false,
 	},
 ];

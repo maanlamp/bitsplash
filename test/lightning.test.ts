@@ -144,7 +144,7 @@ describe("lightning", () => {
 				...new Set(
 					after.flatMap((entity) => Object.keys(entity.components)),
 				),
-			].sort(),
+			].toSorted(),
 		).toEqual([
 			"PersistentComponent",
 			"SceneClimate",

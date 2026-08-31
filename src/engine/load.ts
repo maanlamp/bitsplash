@@ -77,8 +77,10 @@ const DEFAULT_CHARS = Array.from(
 export const loadImage = (url: string): Promise<HTMLImageElement> =>
 	new Promise((resolve, reject) => {
 		const image = new Image();
-		image.onload = () => resolve(image);
-		image.onerror = () => reject(new Error(`Failed to load ${url}`));
+		image.addEventListener("load", () => resolve(image));
+		image.addEventListener("error", () =>
+			reject(new Error(`Failed to load ${url}`)),
+		);
 		image.src = url;
 	});
 

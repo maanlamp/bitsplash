@@ -126,7 +126,7 @@ export class SaveDriver {
 				metas.push(meta);
 			}
 		}
-		return metas.sort((a, b) => b.savedAt - a.savedAt);
+		return metas.toSorted((a, b) => b.savedAt - a.savedAt);
 	}
 
 	async deleteSave(slot: string): Promise<void> {

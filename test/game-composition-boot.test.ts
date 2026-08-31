@@ -21,25 +21,14 @@ import { newGameSeed } from "../src/game/runtime/new-game-seed";
 import { toSceneDefinition } from "../src/game/runtime/scene-runtime";
 import { registerVfxContent } from "../src/game/vfx/vfx-catalog";
 import { registerClimateContent } from "../src/game/weather/climate-catalog";
+import { installHeadlessImage } from "./support/headless-image";
 import { SequenceFixture } from "./support/sequence-harness";
 
 // The game render composition constructs decoration atlases, which eagerly
 // `new Image()`. That browser global is absent headless; this shim resolves the
 // load with a no-op so the real composition constructs. The render systems are
 // added but never stepped here — only the update path spawns entities.
-class HeadlessImage {
-	onload: (() => void) | null = null;
-	onerror: (() => void) | null = null;
-	#src = "";
-	set src(value: string) {
-		this.#src = value;
-		queueMicrotask(() => this.onload?.());
-	}
-	get src(): string {
-		return this.#src;
-	}
-}
-(globalThis as { Image?: unknown }).Image ??= HeadlessImage;
+installHeadlessImage();
 
 const REPO_ROOT = ".";
 const DEMO = "demo";

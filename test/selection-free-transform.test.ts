@@ -36,7 +36,8 @@ const alpha = (core: SpriteEditCore, x: number, y: number): number =>
 const setup = () => {
 	const core = SpriteEditCore.create(32, 32);
 	const history = new History();
-	const sel = new SelectionController(core, history);
+	const sel = new SelectionController(history);
+	sel.attach(core);
 	return { core, history, sel };
 };
 

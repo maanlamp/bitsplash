@@ -178,7 +178,7 @@ export const serializeBsprite = (
 		layers,
 		frames,
 		cels: [...cels]
-			.sort(
+			.toSorted(
 				(a, b) =>
 					a.frameIndex - b.frameIndex ||
 					(layerIndex.get(a.layerId) ?? 0) -

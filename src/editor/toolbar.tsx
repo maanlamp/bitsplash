@@ -1,11 +1,9 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	ArrowUUpLeftIcon,
-	ArrowUUpRightIcon,
-	SpeakerHighIcon,
-	SpeakerSlashIcon,
-} from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpLeft";
+import { ArrowUUpRightIcon } from "@phosphor-icons/react/dist/icons/ArrowUUpRight";
+import { SpeakerHighIcon } from "@phosphor-icons/react/dist/icons/SpeakerHigh";
+import { SpeakerSlashIcon } from "@phosphor-icons/react/dist/icons/SpeakerSlash";
 import Button from "./button";
 import type { DebugFlags } from "./debug-flags";
 import DebugOverlaysPopover from "./debug-overlays-popover";

@@ -1,4 +1,5 @@
-import { PauseIcon, PlayIcon } from "@phosphor-icons/react";
+import { PauseIcon } from "@phosphor-icons/react/dist/icons/Pause";
+import { PlayIcon } from "@phosphor-icons/react/dist/icons/Play";
 import { useEffect, useRef, useState } from "react";
 import Button from "../button";
 import Tooltip from "../tooltip";
@@ -33,7 +34,9 @@ const SpritePreviewPanel = ({
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [playing, setPlaying] = useState(true);
 	const playingRef = useRef(playing);
-	playingRef.current = playing;
+	useEffect(() => {
+		playingRef.current = playing;
+	});
 
 	const [label, setLabel] = useState<string>("");
 

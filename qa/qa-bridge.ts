@@ -51,7 +51,7 @@ const percentile = (sorted: readonly number[], p: number): number =>
 const summarizeIntervals = (
 	values: readonly number[],
 ): FrameIntervals => {
-	const sorted = [...values].sort((a, b) => a - b);
+	const sorted = values.toSorted((a, b) => a - b);
 	const mean =
 		values.reduce((a, b) => a + b, 0) / (values.length || 1);
 	return {
@@ -284,7 +284,7 @@ class QaBridge {
 					return {
 						id,
 						ok: false,
-						error: `unknown component "${name}".\nRegistered: ${[...registered].sort().join(", ")}`,
+						error: `unknown component "${name}".\nRegistered: ${[...registered].toSorted().join(", ")}`,
 					};
 				}
 			}

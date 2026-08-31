@@ -94,20 +94,26 @@ export class AudioDocument extends Subscribable {
 	}
 
 	clipPeaks(clip: AudioClip): ReadonlyArray<Peak> {
-		const peaks = this.sourcePeaks();
-		const total = this._source.duration;
-		if (total <= 0) {
-			return [];
-		}
-		const from = Math.floor(
-			(clip.sourceOffset / total) * peaks.length,
-		);
-		const to = Math.ceil(
-			((clip.sourceOffset + clip.duration) / total) * peaks.length,
-		);
-		return peaks.slice(
-			Math.max(0, from),
-			Math.min(peaks.length, Math.max(from + 1, to)),
+		return this.cached(
+			`peaks:${clip.id}:${clip.sourceOffset}:${clip.duration}`,
+			() => {
+				const peaks = this.sourcePeaks();
+				const total = this._source.duration;
+				if (total <= 0) {
+					return [];
+				}
+				const from = Math.floor(
+					(clip.sourceOffset / total) * peaks.length,
+				);
+				const to = Math.ceil(
+					((clip.sourceOffset + clip.duration) / total) *
+						peaks.length,
+				);
+				return peaks.slice(
+					Math.max(0, from),
+					Math.min(peaks.length, Math.max(from + 1, to)),
+				);
+			},
 		);
 	}
 
@@ -141,7 +147,7 @@ export class AudioDocument extends Subscribable {
 		}
 		const others = [...this._clips]
 			.filter((c) => c.id !== id)
-			.sort((a, b) => a.start - b.start);
+			.toSorted((a, b) => a.start - b.start);
 		const left = others.filter((c) => c.start <= clip.start).at(-1);
 		const right = others.find((c) => c.start > clip.start);
 		const min = left ? left.start + left.duration : 0;
@@ -161,7 +167,7 @@ export class AudioDocument extends Subscribable {
 		}
 		const others = [...this._clips]
 			.filter((c) => c.id !== id)
-			.sort((a, b) => a.start - b.start);
+			.toSorted((a, b) => a.start - b.start);
 		const left = others.filter((c) => c.start <= clip.start).at(-1);
 		const leftEnd = left ? left.start + left.duration : 0;
 		const lower = Math.max(leftEnd, clip.start - clip.sourceOffset);
@@ -182,7 +188,7 @@ export class AudioDocument extends Subscribable {
 		}
 		const others = [...this._clips]
 			.filter((c) => c.id !== id)
-			.sort((a, b) => a.start - b.start);
+			.toSorted((a, b) => a.start - b.start);
 		const right = others.find((c) => c.start > clip.start);
 		const maxBySource = this._source.duration - clip.sourceOffset;
 		const maxByNeighbor = right ? right.start - clip.start : Infinity;
@@ -213,7 +219,7 @@ export class AudioDocument extends Subscribable {
 	}
 
 	setClips(clips: ReadonlyArray<AudioClip>): void {
-		this._clips = [...clips].sort((a, b) => a.start - b.start);
+		this._clips = [...clips].toSorted((a, b) => a.start - b.start);
 		this.markDirty();
 	}
 

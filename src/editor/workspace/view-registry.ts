@@ -1,16 +1,14 @@
-import {
-	FileAudioIcon,
-	FileImageIcon,
-	FilmSlateIcon,
-	FolderIcon,
-	GaugeIcon,
-	GlobeIcon,
-	type Icon,
-	PuzzlePieceIcon,
-	SquaresFourIcon,
-	TerminalIcon,
-	TextAaIcon,
-} from "@phosphor-icons/react";
+import { FileAudioIcon } from "@phosphor-icons/react/dist/icons/FileAudio";
+import { FileImageIcon } from "@phosphor-icons/react/dist/icons/FileImage";
+import { FilmSlateIcon } from "@phosphor-icons/react/dist/icons/FilmSlate";
+import { FolderIcon } from "@phosphor-icons/react/dist/icons/Folder";
+import { GaugeIcon } from "@phosphor-icons/react/dist/icons/Gauge";
+import { GlobeIcon } from "@phosphor-icons/react/dist/icons/Globe";
+import { PuzzlePieceIcon } from "@phosphor-icons/react/dist/icons/PuzzlePiece";
+import { SquaresFourIcon } from "@phosphor-icons/react/dist/icons/SquaresFour";
+import { TerminalIcon } from "@phosphor-icons/react/dist/icons/Terminal";
+import { TextAaIcon } from "@phosphor-icons/react/dist/icons/TextAa";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import { sceneSummaries } from "../../engine/scene/registry";
 import { type AssetEntry, assetFilename } from "../assets";
 import type { ViewId } from "./layout";

@@ -38,6 +38,18 @@ export type LayerView = Readonly<{
 	visible: boolean;
 }>;
 
+export type CelThumb = Readonly<{
+	source: PixelBuffer;
+	width: number;
+	height: number;
+}>;
+
+export type LayerThumb = Readonly<{
+	canvas: HTMLCanvasElement;
+	width: number;
+	height: number;
+}>;
+
 type Surface = {
 	canvas: HTMLCanvasElement;
 	ctx: CanvasRenderingContext2D;
@@ -171,6 +183,30 @@ export class SpriteDocument extends Subscribable {
 			opacity: layer.opacity,
 			visible: layer.visible,
 		}));
+	}
+
+	/**
+	 * The pixels of a cel bundled with the dimensions they are drawn against, as
+	 * one value whose identity changes only when the document does. A thumbnail
+	 * depends on this instead of listing a version counter it never reads.
+	 */
+	celThumb(layerId: string, frame: number): CelThumb | null {
+		return this.cached(`cel:${layerId}:${frame}`, () => {
+			const source = this.core.getCel(layerId, frame);
+			return source
+				? { source, width: this.width, height: this.height }
+				: null;
+		});
+	}
+
+	/** The composited pixels of a layer, bundled the way {@link celThumb} is. */
+	layerThumb(layerId: string): LayerThumb | null {
+		return this.cached(`layer:${layerId}`, () => {
+			const canvas = this.thumbs.get(layerId)?.canvas;
+			return canvas
+				? { canvas, width: this.width, height: this.height }
+				: null;
+		});
 	}
 
 	setPixel(x: number, y: number, css: string): void {

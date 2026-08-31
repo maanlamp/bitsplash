@@ -8,4 +8,7 @@ build
 docs/storyline.md
 docs/roadmap.md
 
+.claude/worktrees
+
 CLAUDE.md
+.electron-userdata/

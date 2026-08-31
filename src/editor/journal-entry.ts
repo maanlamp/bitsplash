@@ -336,7 +336,7 @@ export const invertEntry = (entry: JournalEntry): JournalEntry => {
 		case "composite":
 			return {
 				kind: "composite",
-				entries: [...entry.entries].reverse().map(invertEntry),
+				entries: [...entry.entries].toReversed().map(invertEntry),
 			};
 	}
 };

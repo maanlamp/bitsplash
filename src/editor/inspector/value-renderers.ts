@@ -21,4 +21,4 @@ export const registerValueRenderer = <T extends object>(
 export const getValueRenderer = (
 	value: object,
 ): ValueRenderer<unknown> | undefined =>
-	renderers.get(value.constructor as Function);
+	renderers.get(value.constructor);

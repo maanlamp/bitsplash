@@ -241,7 +241,7 @@ const link = (
 ): WebGLProgram => {
 	const vs = compileShader(gl, gl.VERTEX_SHADER, vsSrc);
 	const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSrc);
-	const program = gl.createProgram()!;
+	const program = gl.createProgram();
 	gl.attachShader(program, vs);
 	gl.attachShader(program, fs);
 	gl.linkProgram(program);

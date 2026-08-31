@@ -1,19 +1,55 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": ["typescript", "unicorn", "oxc"],
+	"plugins": ["typescript", "unicorn", "oxc", "react"],
 	"jsPlugins": ["./require-default-fields-oxc-plugin.ts"],
+	"ignorePatterns": ["scripts/**"],
 	"categories": {
-		"correctness": "error"
+		"correctness": "error",
+		"suspicious": "error"
 	},
 	"rules": {
+		"no-restricted-imports": [
+			"error",
+			{
+				"paths": [
+					{
+						"name": "@phosphor-icons/react",
+						"message": "The package barrel builds a React element for all ~3000 icons at module scope - it cost 383ms of startup before this rule existed. Import the one icon instead: `@phosphor-icons/react/dist/icons/Plus` (exports `PlusIcon`), `dist/lib/context` for `IconContext`, `dist/lib/types` for the `Icon` type."
+					}
+				]
+			}
+		],
+		"react/react-in-jsx-scope": "off",
+		"typescript/no-explicit-any": "error",
+		"typescript/no-unsafe-type-assertion": "off",
+		"no-underscore-dangle": [
+			"error",
+			{
+				"allowAfterThis": true,
+				"allow": ["__class"]
+			}
+		],
+		"typescript/no-extraneous-class": [
+			"error",
+			{
+				"allowWithDecorator": true
+			}
+		],
+		"typescript/consistent-return": "off",
 		"curly": ["error", "all"],
 		"eqeqeq": ["error", "always"],
 		"func-style": [
 			"error",
 			"expression",
-			{ "allowArrowFunctions": true }
+			{
+				"allowArrowFunctions": true
+			}
 		],
-		"ecs-conventions/require-default-fields": "error"
+		"ecs-conventions/require-default-fields": "error",
+		"react/no-unknown-property": "error",
+		"react/checked-requires-onchange-or-readonly": "error",
+		"react/jsx-no-target-blank": "error",
+		"react/no-unescaped-entities": "error"
 	},
 	"env": {
 		"builtin": true

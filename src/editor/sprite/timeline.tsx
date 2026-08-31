@@ -1,23 +1,22 @@
 import { NumberField } from "@base-ui/react/number-field";
 import { Popover } from "@base-ui/react/popover";
 import { Select } from "@base-ui/react/select";
-import {
-	CaretDownIcon,
-	CopyIcon,
-	DotsSixVerticalIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	PlusIcon,
-	RepeatIcon,
-	TagIcon,
-	TrashIcon,
-	XIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CopyIcon } from "@phosphor-icons/react/dist/icons/Copy";
+import { DotsSixVerticalIcon } from "@phosphor-icons/react/dist/icons/DotsSixVertical";
+import { EyeIcon } from "@phosphor-icons/react/dist/icons/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/icons/EyeSlash";
+import { PlusIcon } from "@phosphor-icons/react/dist/icons/Plus";
+import { RepeatIcon } from "@phosphor-icons/react/dist/icons/Repeat";
+import { TagIcon } from "@phosphor-icons/react/dist/icons/Tag";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
+import { XIcon } from "@phosphor-icons/react/dist/icons/X";
 import clsx from "clsx";
 import {
 	type CSSProperties,
 	type DragEvent as ReactDragEvent,
 	type PointerEvent as ReactPointerEvent,
+	type Ref,
 	type RefObject,
 	useEffect,
 	useRef,
@@ -175,7 +174,6 @@ const CelCell = ({
 	row,
 	activeCel,
 	columnActive,
-	version,
 	elementRef,
 }: Readonly<{
 	doc: SpriteDocument;
@@ -185,8 +183,7 @@ const CelCell = ({
 	row: number;
 	activeCel: boolean;
 	columnActive: boolean;
-	version: number;
-	elementRef?: RefObject<HTMLDivElement | null>;
+	elementRef?: Ref<HTMLDivElement>;
 }>) => (
 	<div
 		ref={elementRef}
@@ -232,13 +229,7 @@ const CelCell = ({
 			}
 		}}
 	>
-		<CelThumbnail
-			source={doc.core.getCel(layerId, frameIndex)}
-			width={doc.width}
-			height={doc.height}
-			size={36}
-			version={version}
-		/>
+		<CelThumbnail cel={doc.celThumb(layerId, frameIndex)} size={36} />
 	</div>
 );
 
@@ -249,7 +240,6 @@ const LayerAxisRow = ({
 	row,
 	active,
 	canDelete,
-	version,
 }: Readonly<{
 	doc: SpriteDocument;
 	history: History;
@@ -257,7 +247,6 @@ const LayerAxisRow = ({
 	row: number;
 	active: boolean;
 	canDelete: boolean;
-	version: number;
 }>) => {
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState(layer.name);
@@ -278,7 +267,7 @@ const LayerAxisRow = ({
 		if (dragState?.kind !== "layer" || dragState.id === targetId) {
 			return;
 		}
-		const display = [...dragState.before].reverse();
+		const display = [...dragState.before].toReversed();
 		const dragged = dragState.id;
 		const without = display.filter((id) => id !== dragged);
 		const at = without.indexOf(targetId);
@@ -287,7 +276,7 @@ const LayerAxisRow = ({
 			doc.core,
 			history,
 			dragState.before,
-			[...without].reverse(),
+			[...without].toReversed(),
 		);
 	};
 
@@ -345,12 +334,7 @@ const LayerAxisRow = ({
 					{layer.visible ? <EyeIcon /> : <EyeSlashIcon />}
 				</Button>
 			</Tooltip>
-			<LayerThumbnail
-				source={layer.canvas}
-				width={doc.width}
-				height={doc.height}
-				version={version}
-			/>
+			<LayerThumbnail layer={doc.layerThumb(layer.id)} />
 			{editing ? (
 				<input
 					className={styles.layerName}
@@ -647,12 +631,10 @@ const Timeline = ({
 	onion: OnionState;
 	viewState: DocumentViewState;
 }>) => {
-	const version = useSyncExternalStore(
-		doc.subscribe,
-		() => doc.version,
-	);
+	useSyncExternalStore(doc.subscribe, () => doc.version);
 	const laneRef = useRef<HTMLDivElement | null>(null);
-	const activeCelRef = useRef<HTMLDivElement | null>(null);
+	const [activeCelEl, setActiveCelEl] =
+		useState<HTMLDivElement | null>(null);
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
 	// Restore the scroll offset a prior mount recorded (a cross-window move
@@ -671,18 +653,18 @@ const Timeline = ({
 	const frameCount = frames.length;
 	const activeFrame = doc.core.activeFrameIndex;
 	const activeLayer = doc.core.activeLayerId;
-	const layers = [...doc.layers].reverse();
+	const layers = [...doc.layers].toReversed();
 	const tags = doc.core.tags;
 
 	// Keep the active cel visible as it moves (arrow-key navigation or a click on
 	// a partly-scrolled cell). `nearest` leaves an already-visible cell put, so a
 	// click never jumps the grid.
 	useEffect(() => {
-		activeCelRef.current?.scrollIntoView({
+		activeCelEl?.scrollIntoView({
 			block: "nearest",
 			inline: "nearest",
 		});
-	}, [activeFrame, activeLayer]);
+	}, [activeCelEl]);
 
 	const gridStyle: CSSProperties = {
 		gridTemplateColumns: `var(--axis-width) repeat(${frameCount}, var(--col-width))`,
@@ -810,7 +792,6 @@ const Timeline = ({
 							row={r}
 							active={layer.id === activeLayer}
 							canDelete={layers.length > 1}
-							version={version}
 						/>
 					))}
 					{layers.map((layer, r) =>
@@ -827,8 +808,7 @@ const Timeline = ({
 									row={r}
 									activeCel={activeCel}
 									columnActive={i === activeFrame}
-									version={version}
-									elementRef={activeCel ? activeCelRef : undefined}
+									elementRef={activeCel ? setActiveCelEl : undefined}
 								/>
 							);
 						}),

@@ -8,6 +8,12 @@ import {
 import type { ECS, EntityId } from "../src/engine/ecs";
 import type { SceneDocument } from "../src/editor/scene-document";
 
+const context = (store: EditorState): SelectionContext => ({
+	store,
+	document: {} as SceneDocument,
+	ecs: {} as ECS,
+});
+
 const A = "a" as EntityId;
 
 /**
@@ -23,12 +29,6 @@ const A = "a" as EntityId;
  * These tests pin the channel behaviour that fix relies on.
  */
 describe("selection channel late-resolution binding", () => {
-	const context = (store: EditorState): SelectionContext => ({
-		store,
-		document: {} as SceneDocument,
-		ecs: {} as ECS,
-	});
-
 	test("resolving null on bind and re-setting the same id leaves the snapshot stuck null", () => {
 		const store = new EditorState();
 		let ready = false;

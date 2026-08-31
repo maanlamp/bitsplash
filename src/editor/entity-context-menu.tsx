@@ -1,12 +1,10 @@
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { Dialog } from "@base-ui/react/dialog";
-import {
-	CopyIcon,
-	MinusCircleIcon,
-	PlusCircleIcon,
-	TrashIcon,
-} from "@phosphor-icons/react";
+import { CopyIcon } from "@phosphor-icons/react/dist/icons/Copy";
+import { MinusCircleIcon } from "@phosphor-icons/react/dist/icons/MinusCircle";
+import { PlusCircleIcon } from "@phosphor-icons/react/dist/icons/PlusCircle";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 import type { ECS, EntityId } from "../engine/ecs";
@@ -175,7 +173,7 @@ export const AddComponentPicker = ({
 	const names = registeredComponents()
 		.map(([name]) => name)
 		.filter((name) => !attached.has(name))
-		.sort();
+		.toSorted();
 
 	const pick = (name: string) => {
 		const ctor = componentClass(name);

@@ -59,7 +59,7 @@ export class HitsplatStormSystem implements UpdateSystem {
 			const crit = this.random() < 0.4;
 			ecs.createEntity([
 				new HitsplatComponent(
-					TEXTS[Math.floor(this.random() * TEXTS.length)]!,
+					TEXTS[Math.floor(this.random() * TEXTS.length)],
 					crit
 						? FLAVOURS[Math.floor(this.random() * FLAVOURS.length)]!
 						: null,

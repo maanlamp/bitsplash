@@ -127,10 +127,11 @@ export const openFileDialog = async (
 ): Promise<string | null> =>
 	(await getBridge().openFileDialog({ accept })).path;
 
+const norm = (value: string) => value.replace(/\\/g, "/");
+
 export const resolveToWebPath = async (
 	absolutePath: string,
 ): Promise<string> => {
-	const norm = (value: string) => value.replace(/\\/g, "/");
 	const root = norm(await getAssetsRoot());
 	const path = norm(absolutePath);
 	if (path.startsWith(`${root}/`)) {

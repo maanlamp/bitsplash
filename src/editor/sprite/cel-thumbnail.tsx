@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { PixelBuffer } from "./pixel-buffer";
+import type { CelThumb } from "./sprite-document";
 import styles from "./timeline.module.scss";
 
 /**
@@ -31,17 +31,11 @@ const scratchOf = (
  * shows through). Repaints whenever `source`, dimensions, or `version` change.
  */
 const CelThumbnail = ({
-	source,
-	width,
-	height,
+	cel,
 	size,
-	version,
 }: Readonly<{
-	source: PixelBuffer | null;
-	width: number;
-	height: number;
+	cel: CelThumb | null;
 	size: number;
-	version: number;
 }>) => {
 	const ref = useRef<HTMLCanvasElement>(null);
 
@@ -56,9 +50,10 @@ const CelThumbnail = ({
 		}
 		ctx.imageSmoothingEnabled = false;
 		ctx.clearRect(0, 0, size, size);
-		if (!source) {
+		if (!cel) {
 			return;
 		}
+		const { source, width, height } = cel;
 		const sctx = scratchOf(width, height);
 		const image = sctx.createImageData(width, height);
 		image.data.set(source.data);
@@ -73,7 +68,7 @@ const CelThumbnail = ({
 			w,
 			h,
 		);
-	}, [source, width, height, size, version]);
+	}, [cel, size]);
 
 	return (
 		<canvas

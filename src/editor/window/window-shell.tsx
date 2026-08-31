@@ -1,4 +1,4 @@
-import { IconContext } from "@phosphor-icons/react";
+import { IconContext } from "@phosphor-icons/react/dist/lib/context";
 import type { ReactNode } from "react";
 import type AssetManager from "../../engine/assets";
 import styles from "../app.module.scss";

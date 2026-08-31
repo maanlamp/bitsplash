@@ -1,4 +1,3 @@
-import type { EntityId } from "../engine/ecs";
 import type { SerializedComponent } from "../engine/serialization/registry";
 import { SpriteComponent } from "../engine/sprite/sprite-component";
 import { TransformComponent } from "../engine/transform-component";
@@ -99,7 +98,7 @@ AssetDropRegistry.register(
 			}
 			transform.position.x = info.worldPoint.x;
 			transform.position.y = info.worldPoint.y;
-			const id = crypto.randomUUID() as EntityId;
+			const id = crypto.randomUUID();
 			info.document.record({
 				kind: "entity-create",
 				entity: { id, components },

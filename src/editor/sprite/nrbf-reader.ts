@@ -162,7 +162,8 @@ class NrbfReader {
 	}
 
 	read(): NrbfResult {
-		if (this.u8() !== RecordType.SerializedStreamHeader) {
+		const header: RecordType = this.u8();
+		if (header !== RecordType.SerializedStreamHeader) {
 			throw new Error("Not an NRBF stream (missing header record).");
 		}
 		this.rootId = this.i32();
@@ -174,7 +175,7 @@ class NrbfReader {
 		}
 
 		while (true) {
-			const record = this.u8();
+			const record: RecordType = this.u8();
 			if (record === RecordType.MessageEnd) {
 				break;
 			}
@@ -194,7 +195,7 @@ class NrbfReader {
 
 	/** Read one record at the cursor and return the value it denotes. */
 	private readRecord(): Node {
-		const record = this.u8();
+		const record: RecordType = this.u8();
 		switch (record) {
 			case RecordType.ClassWithId:
 				return this.readClassWithId();
@@ -247,14 +248,17 @@ class NrbfReader {
 	private readMemberTypeInfo(count: number): MemberSpec[] {
 		const binaryTypes: BinaryType[] = [];
 		for (let i = 0; i < count; i++) {
-			binaryTypes.push(this.u8() as BinaryType);
+			binaryTypes.push(this.u8());
 		}
 		const members: MemberSpec[] = [];
 		for (const binaryType of binaryTypes) {
 			switch (binaryType) {
 				case BinaryType.Primitive:
 				case BinaryType.PrimitiveArray:
-					members.push({ binaryType, primitive: this.u8() });
+					members.push({
+						binaryType,
+						primitive: this.u8(),
+					});
 					break;
 				case BinaryType.SystemClass:
 					this.readString();
@@ -342,7 +346,7 @@ class NrbfReader {
 
 	private readArraySinglePrimitive(): Node[] {
 		const { objectId, length } = this.readArrayInfo();
-		const primitive = this.u8() as Primitive;
+		const primitive: Primitive = this.u8();
 		const items: Node[] = [];
 		for (let i = 0; i < length; i++) {
 			items.push(this.readPrimitive(primitive));
@@ -403,7 +407,7 @@ class NrbfReader {
 	private readObjectItems(length: number): Node[] {
 		const items: Node[] = [];
 		while (items.length < length) {
-			const record = this.u8();
+			const record: RecordType = this.u8();
 			if (record === RecordType.ObjectNull) {
 				items.push(null);
 			} else if (record === RecordType.ObjectNullMultiple256) {
@@ -425,7 +429,7 @@ class NrbfReader {
 	}
 
 	private readMemberPrimitiveTyped(): Scalar {
-		const primitive = this.u8() as Primitive;
+		const primitive: Primitive = this.u8();
 		return this.readPrimitive(primitive);
 	}
 
@@ -479,7 +483,7 @@ class NrbfReader {
 				if (Array.isArray(target) && this.stringHolders.has(target)) {
 					return target[0]!;
 				}
-				return target as unknown as Node;
+				return target;
 			}
 			return value;
 		};

@@ -128,7 +128,9 @@ app.on("second-instance", () => {
 	}
 });
 
-const DEV_URL = "https://localhost:5173";
+// `VITE_DEV_PORT` lets a harness run a dev server on its own port so several
+// measurement runs can proceed at once; `bun dev` leaves it unset.
+const DEV_URL = `https://localhost:${process.env.VITE_DEV_PORT ?? 5173}`;
 
 const CONNECTION_ERRORS = new Set([
 	-102, -105, -106, -109, -118, -324,
@@ -546,7 +548,7 @@ ipcMain.handle("listAssetsDeep", async () => {
 	const out = [];
 	await walkAssets(ASSETS_DIR, "", out);
 	out
-		.sort((a, b) => a.name.localeCompare(b.name))
+		.toSorted((a, b) => a.name.localeCompare(b.name))
 		.sort((a, b) => a.ext.localeCompare(b.ext));
 	return { entries: out };
 });

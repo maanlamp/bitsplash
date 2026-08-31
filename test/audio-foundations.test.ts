@@ -226,6 +226,29 @@ describe("looping voices never schedule into the future", () => {
 	});
 });
 
+const memoryStore = (): SettingsStore => {
+	const values = new Map<string, string>();
+	return {
+		get: (key) => values.get(key) ?? null,
+		set: (key, value) => void values.set(key, value),
+	};
+};
+
+const fakeRealm = (focused: boolean) => {
+	const listeners = new Map<string, () => void>();
+	const realm: FocusRealm = {
+		addEventListener: (type, listener) =>
+			void listeners.set(type, listener),
+		removeEventListener: (type) => void listeners.delete(type),
+		document: { hasFocus: () => focused },
+	};
+	return {
+		realm,
+		focus: () => listeners.get("focus")?.(),
+		blur: () => listeners.get("blur")?.(),
+	};
+};
+
 const loadRapierHeadless = (): Promise<void> =>
 	loadRapier(async () => {
 		const mod =
@@ -238,14 +261,6 @@ const loadRapierHeadless = (): Promise<void> =>
 
 describe("the bus tree", () => {
 	beforeAll(loadRapierHeadless);
-
-	const memoryStore = (): SettingsStore => {
-		const values = new Map<string, string>();
-		return {
-			get: (key) => values.get(key) ?? null,
-			set: (key, value) => void values.set(key, value),
-		};
-	};
 
 	test("a world's sounds are gated by every bus above them", () => {
 		const audio = new NullAudioManager();
@@ -328,21 +343,6 @@ describe("the bus tree", () => {
 });
 
 describe("audio focus is derived", () => {
-	const fakeRealm = (focused: boolean) => {
-		const listeners = new Map<string, () => void>();
-		const realm: FocusRealm = {
-			addEventListener: (type, listener) =>
-				void listeners.set(type, listener),
-			removeEventListener: (type) => void listeners.delete(type),
-			document: { hasFocus: () => focused },
-		};
-		return {
-			realm,
-			focus: () => listeners.get("focus")?.(),
-			blur: () => listeners.get("blur")?.(),
-		};
-	};
-
 	test("nothing sounds while paused, blurred, or showing no owner", () => {
 		expect(
 			audioOwnerOf({

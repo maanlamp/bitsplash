@@ -33,6 +33,17 @@ import { useScopedHotkeys } from "./window/use-scoped-hotkeys";
 import { useWindowWindow } from "./window/window-context";
 import Split from "./workspace/split";
 
+const snapPoint = (
+	point: Readonly<{ x: number; y: number }>,
+	ctrl = false,
+): SnapResult =>
+	snap(null, point, {
+		enabled: !ctrl,
+		grid: TILE_SIZE,
+		threshold: editorSettings.snapThreshold,
+		neighbors: [],
+	});
+
 const SceneViewPanel = ({
 	view,
 	onRun,
@@ -188,17 +199,6 @@ const SceneViewPanel = ({
 		);
 		return camera.screenToWorld(new Vector2(canvas.x, canvas.y));
 	};
-
-	const snapPoint = (
-		point: Readonly<{ x: number; y: number }>,
-		ctrl = false,
-	): SnapResult =>
-		snap(null, point, {
-			enabled: !ctrl,
-			grid: TILE_SIZE,
-			threshold: editorSettings.snapThreshold,
-			neighbors: [],
-		});
 
 	const onDrop = (e: React.DragEvent): void => {
 		if (!editorEnabled) {

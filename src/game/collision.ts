@@ -16,7 +16,7 @@ export const Layer = {
 const LAYERS = Object.values(Layer);
 
 const pair = (a: string, b: string): string =>
-	[a, b].sort().join(" ");
+	[a, b].toSorted().join(" ");
 
 const BLOCK = new Set(
 	[

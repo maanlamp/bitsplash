@@ -31,7 +31,9 @@ describe("selection model (multi-select)", () => {
 		const s = new EditorState();
 		s.select([A, B]);
 		s.addToSelection(D);
-		expect([...s.selection.ids].sort()).toEqual([A, B, D].sort());
+		expect([...s.selection.ids].toSorted()).toEqual(
+			[A, B, D].toSorted(),
+		);
 		expect(s.primaryId).toBe(D);
 		expect(s.anchorId).toBe(D);
 	});

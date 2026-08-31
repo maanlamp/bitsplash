@@ -1,3 +1,4 @@
+// oxlint-disable-next-line typescript/no-explicit-any -- constructor params are contravariant; `unknown[]` rejects real system classes
 type SystemClass = abstract new (...args: any[]) => object;
 
 /** Profiler metadata attached to an update-system class by {@link profiler}. */

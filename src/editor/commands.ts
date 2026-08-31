@@ -37,7 +37,7 @@ export const createEntity = (
 	document: SceneDocument,
 	components: ReadonlyArray<object>,
 ): EntityId => {
-	const id = crypto.randomUUID() as EntityId;
+	const id = crypto.randomUUID();
 	document.record({
 		kind: "entity-create",
 		entity: { id, components: encodeComponents(components) },
@@ -96,7 +96,7 @@ const duplicateEntry = (
 			p.y += TILE_SIZE;
 		}
 	}
-	const newId = crypto.randomUUID() as EntityId;
+	const newId = crypto.randomUUID();
 	return {
 		entry: {
 			kind: "entity-create",

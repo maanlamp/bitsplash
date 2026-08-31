@@ -1,4 +1,4 @@
-import { EyedropperIcon } from "@phosphor-icons/react";
+import { EyedropperIcon } from "@phosphor-icons/react/dist/icons/Eyedropper";
 import { useSyncExternalStore } from "react";
 import Button from "../button";
 import Tooltip from "../tooltip";

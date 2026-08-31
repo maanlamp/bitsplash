@@ -4,8 +4,9 @@ import {
 	type ReactNode,
 	Suspense,
 	use,
-	useCallback,
 	useEffect,
+	useEffectEvent,
+	useLayoutEffect,
 	useReducer,
 	useRef,
 	useState,
@@ -156,6 +157,19 @@ const SpriteEditor = lazy(() => import("./sprite/sprite-editor"));
 const AudioEditor = lazy(() => import("./audio/audio-editor"));
 const FontPreview = lazy(() => import("./font/font-preview"));
 
+type ReadyGate = Readonly<{
+	promise: Promise<void>;
+	resolve: () => void;
+}>;
+
+const makeReadyGate = (): ReadyGate => {
+	let resolve!: () => void;
+	const promise = new Promise<void>((r) => {
+		resolve = r;
+	});
+	return { promise, resolve };
+};
+
 /**
  * Suspends its subtree on a promise, then renders `children()`. Routes the
  * editor's runtime-readiness wait through the same {@link Suspense} boundary as
@@ -260,6 +274,43 @@ const pruneAssetViews = (
 		(id) => !isAssetView(id) || isValidViewId(id, assets),
 	);
 
+const saveScene = async (
+	sceneId: string,
+	view: SceneView,
+): Promise<void> => {
+	view.flushGestures();
+	const file = view.document.save();
+	await saveLevel(sceneId, JSON.stringify(file, null, "\t"));
+	view.document.markSaved(file);
+};
+
+const anchorView = (window: WindowLayout): ViewId | null => {
+	if (window.focused && isSceneView(window.focused)) {
+		return window.focused;
+	}
+	return (
+		firstSceneView(window.root) ??
+		window.focused ??
+		allViewIds(window.root)[0] ??
+		null
+	);
+};
+
+const playGame = (): void => {
+	void launchPlaytest().catch(() =>
+		toastError("Couldn't launch the game"),
+	);
+};
+
+const renderConsole = () => <ConsoleView />;
+
+/** Wrap a lazy-only view (needs no runtime): suspend on the panel chunk. */
+const lazyView = (element: ReactNode) => (
+	<Suspense fallback={<Loading />}>{element}</Suspense>
+);
+
+const norm = (value: string) => value.replace(/\\/g, "/");
+
 const App = ({
 	startScene,
 	runtimeReady,
@@ -287,17 +338,36 @@ const App = ({
 	const [assets, setAssets] = useState<ReadonlyArray<AssetEntry>>([]);
 	const [assetsRoot, setAssetsRoot] = useState<string | null>(null);
 	const assetBrowserHistoryRef = useRef(new History());
-	const [activeSceneViewId, setActiveSceneViewId] =
-		useState<ViewId | null>(null);
 	const [activeWindowId, setActiveWindowId] =
 		useState<WindowId>(HUB_WINDOW_ID);
 	const activeWindowIdRef = useRef(activeWindowId);
-	activeWindowIdRef.current = activeWindowId;
+	useEffect(() => {
+		activeWindowIdRef.current = activeWindowId;
+	});
 	const activeSceneByWindowRef = useRef(new Map<WindowId, ViewId>());
 	const [workspace, setWorkspace] = useState<WorkspaceState>(() =>
 		loadWorkspace(isStructurallyValidViewId, `scene:${startScene}`),
 	);
+	const [activeSceneViewId, setActiveSceneViewId] =
+		useState<ViewId | null>(() => {
+			const focused = hubOf(workspace).focused;
+			return focused && isSceneView(focused) ? focused : null;
+		});
 	const workspaceRef = useRef(workspace);
+	/**
+	 * Move the global active-scene pointer onto the active window's newly focused
+	 * view, when that view is a scene view. Layout mutations that re-focus a view
+	 * without going through {@link markActive} (a close picking the next tab, a
+	 * prune) still park the pointer on the scene view they land on.
+	 */
+	const syncActiveSceneView = (ws: WorkspaceState): void => {
+		const focused = (
+			getWindow(ws, activeWindowIdRef.current) ?? hubOf(ws)
+		).focused;
+		if (focused && isSceneView(focused)) {
+			setActiveSceneViewId(focused);
+		}
+	};
 	const updateWorkspace = (
 		next: WorkspaceState | ((prev: WorkspaceState) => WorkspaceState),
 	): void => {
@@ -306,13 +376,12 @@ const App = ({
 		workspaceRef.current = value;
 		setWorkspace(value);
 		saveWorkspace(value);
+		syncActiveSceneView(value);
 	};
 
 	const hub = hubOf(workspace);
 
 	const gameRef = useRef<Game | null>(null);
-	const gameModuleRef = useRef<GameModule>(gameModule);
-	gameModuleRef.current = gameModule;
 	const projectRef = useRef<Project | null>(null);
 	/**
 	 * Resolved once the game runtime instance exists. Runtime-dependent views
@@ -320,42 +389,42 @@ const App = ({
 	 * fallback shows until boot completes. Reset to a fresh pending promise if the
 	 * runtime is torn down and rebuilt.
 	 */
-	const gameReadyRef = useRef<{
-		promise: Promise<void>;
-		resolve: () => void;
-	} | null>(null);
-	if (!gameReadyRef.current) {
-		let resolve!: () => void;
-		const promise = new Promise<void>((r) => {
-			resolve = r;
-		});
-		gameReadyRef.current = { promise, resolve };
-	}
+	const [gameReady, setGameReady] = useState(makeReadyGate);
+	const resolveReady = useEffectEvent((): void => {
+		gameReady.resolve();
+	});
+	const resetReady = useEffectEvent((): void => {
+		setGameReady(makeReadyGate());
+	});
 	const sceneViewsRef = useRef(new Map<ViewId, SceneView>());
+	const [sceneViews, setSceneViews] = useState<
+		ReadonlyMap<ViewId, SceneView>
+	>(() => new Map());
+	const publishSceneViews = (): void => {
+		setSceneViews(new Map(sceneViewsRef.current));
+	};
 	const debugFlagsRef = useRef(new DebugFlags());
 	const docUnsubsRef = useRef(new Map<string, () => void>());
 	const closedStackRef = useRef(new ClosedStack());
-	const focusedSceneViewRef = useRef<SceneView | null>(null);
 	const runHostRef = useRef<RunHost | null>(null);
-	const activeSceneRef = useRef(new ActiveScene());
-	const selectionChannelRef = useRef<SelectionChannel | null>(null);
-	if (!selectionChannelRef.current) {
-		selectionChannelRef.current = new SelectionChannel(
-			activeSceneRef.current,
-			(sceneId) => {
-				const project = projectRef.current;
-				if (!project) {
-					return null;
-				}
-				const document = project.document(sceneId);
-				return {
-					store: project.store(sceneId),
-					document,
-					ecs: document.scene.ecs,
-				};
-			},
-		);
-	}
+	const [activeScene] = useState(() => new ActiveScene());
+	const [selectionChannel] = useState(
+		() => new SelectionChannel(activeScene),
+	);
+	useLayoutEffect(() => {
+		selectionChannel.setResolver((sceneId) => {
+			const project = projectRef.current;
+			if (!project) {
+				return null;
+			}
+			const document = project.document(sceneId);
+			return {
+				store: project.store(sceneId),
+				document,
+				ecs: document.scene.ecs,
+			};
+		});
+	}, [selectionChannel]);
 	const gameUiRef = useRef<ReturnType<
 		GameModule["createGameUi"]
 	> | null>(null);
@@ -368,16 +437,10 @@ const App = ({
 			[HUB_WINDOW_ID, { doc: document, win: window }],
 		]),
 	);
-	const dragControllerRef = useRef<TabDragController | null>(null);
 
 	/** The window the user last interacted with; commands resolve within it. */
 	const activeWindow = getWindow(workspace, activeWindowId) ?? hub;
 	const focusedView = activeWindow.focused;
-	useEffect(() => {
-		if (focusedView && isSceneView(focusedView)) {
-			setActiveSceneViewId(focusedView);
-		}
-	}, [focusedView]);
 
 	/**
 	 * Mark `windowId` as the active window and — only when its newly focused view
@@ -438,16 +501,6 @@ const App = ({
 		}
 	};
 
-	const saveScene = async (
-		sceneId: string,
-		view: SceneView,
-	): Promise<void> => {
-		view.flushGestures();
-		const file = view.document.save();
-		await saveLevel(sceneId, JSON.stringify(file, null, "\t"));
-		view.document.markSaved(file);
-	};
-
 	const hasOpenSceneView = (sceneId: string): boolean => {
 		for (const key of sceneViewsRef.current.keys()) {
 			if (parseViewId(key).param === sceneId) {
@@ -457,172 +510,13 @@ const App = ({
 		return false;
 	};
 
-	const ensureDocSubscription = (
-		sceneId: string,
-		doc: SceneDocument,
-	): void => {
-		if (docUnsubsRef.current.has(sceneId)) {
-			return;
-		}
-		const unsub = doc.subscribe(() =>
-			setSceneDirty(sceneId, doc.dirty),
-		);
-		docUnsubsRef.current.set(sceneId, unsub);
-	};
-
-	const ensureSceneView = (id: ViewId): SceneView | null => {
-		const instance = gameRef.current;
-		const project = projectRef.current;
-		if (!instance || !project) {
-			return null;
-		}
-		const existing = sceneViewsRef.current.get(id);
-		if (existing) {
-			return existing;
-		}
-		const { param } = parseViewId(id);
-		if (!param || !isValidViewId(id, [])) {
-			return null;
-		}
-		const document = project.document(param);
-		const view = new SceneView(
-			id,
-			document,
-			project.store(param),
-			debugFlagsRef.current,
-			instance.services,
-		);
-		ensureDocSubscription(param, document);
-		view.setMuted(isViewMuted(workspaceRef.current, id));
-		sceneViewsRef.current.set(id, view);
-		return view;
-	};
-
-	/**
-	 * Mute or unmute one scene view. The workspace owns the flag so it survives a
-	 * reload, and the view's own bus is what actually goes quiet — the asset
-	 * preview bus is a sibling of the whole scene-view subtree, so the audio
-	 * editor keeps sounding through it.
-	 */
-	const setSceneViewMuted = (id: ViewId, muted: boolean): void => {
-		sceneViewsRef.current.get(id)?.setMuted(muted);
-		updateWorkspace((ws) => setViewMuted(ws, id, muted));
-	};
-
-	const disposeSceneView = (id: ViewId): void => {
-		const view = sceneViewsRef.current.get(id);
-		if (!view) {
-			return;
-		}
-		view.dispose();
-		sceneViewsRef.current.delete(id);
-		const sceneId = parseViewId(id).param;
-		if (sceneId && !hasOpenSceneView(sceneId)) {
-			docUnsubsRef.current.get(sceneId)?.();
-			docUnsubsRef.current.delete(sceneId);
-		}
-	};
-
-	if (game) {
-		for (const id of allWorkspaceViewIds(workspace)) {
-			if (isSceneView(id)) {
-				ensureSceneView(id);
-			}
-		}
-	}
-
-	const activeSceneId =
-		activeSceneViewId && windowOfView(workspace, activeSceneViewId)
-			? activeSceneViewId
-			: focusedView && isSceneView(focusedView)
-				? focusedView
-				: null;
-	const focusedSceneView = activeSceneId
-		? (sceneViewsRef.current.get(activeSceneId) ?? null)
-		: null;
-	const focusedScene = focusedSceneView?.scene ?? null;
-	const focusedSceneId = activeSceneId
-		? parseViewId(activeSceneId).param
-		: null;
-	const focusedStore = focusedSceneView?.store ?? null;
-	const selectedEntity = focusedStore?.primaryId ?? null;
-	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
-
-	useEffect(() => {
-		focusedSceneViewRef.current = focusedSceneView;
-		activeSceneRef.current.set(
-			focusedSceneView ? focusedSceneId : null,
-		);
-	}, [focusedSceneView, activeSceneId, focusedSceneId]);
-
-	useEffect(() => {
-		if (!focusedStore) {
-			return;
-		}
-		return focusedStore.subscribe(forceStore);
-	}, [focusedStore]);
-
-	useEffect(() => {
-		const open = new Set(
-			allWorkspaceViewIds(workspace).filter(isSceneView),
-		);
-		for (const id of sceneViewsRef.current.keys()) {
-			if (!open.has(id)) {
-				// The run's anchor view is about to be disposed (its tab or window
-				// closed via any path): stop the run before disposing the SceneView
-				// it references, so the frame loop never touches a dead view.
-				if (
-					runStopsOnViewClose(runHostRef.current?.view.id ?? null, id)
-				) {
-					stopRun();
-				}
-				disposeSceneView(id);
-			}
-		}
-		const project = projectRef.current;
-		if (!project) {
-			return;
-		}
-		const scenes = new Set<string>();
-		for (const id of open) {
-			const sceneId = parseViewId(id).param;
-			if (sceneId) {
-				scenes.add(sceneId);
-			}
-		}
-		for (const sceneId of scenes) {
-			if (project.hasDocument(sceneId)) {
-				setSceneDirty(sceneId, project.document(sceneId).dirty);
-			}
-		}
-	}, [workspace]);
-
-	/** The focused view id of a specific window (window-local, from live layout). */
-	const windowFocusedView = (id: WindowId): ViewId | null =>
-		getWindow(workspaceRef.current, id)?.focused ?? null;
-
-	/** Whether a specific window's focused view is an asset editor. */
-	const assetFocusedIn = (id: WindowId): boolean => {
-		const focused = windowFocusedView(id);
-		return !!focused && isAssetView(focused);
-	};
-
-	const [newSpriteKind, setNewSpriteKind] = useState<Readonly<{
-		isTileset: boolean;
-		windowId: WindowId;
-	}> | null>(null);
-	const [createConfig, setCreateConfig] = useState<
-		(NewSpriteConfig & Readonly<{ isTileset: boolean }>) | null
-	>(null);
-	const [guards, setGuards] = useState<
-		ReadonlyMap<WindowId, GuardRequest>
-	>(() => new Map());
-
 	const [dirtyViews, setDirtyViews] = useState<ReadonlySet<ViewId>>(
 		() => new Set(),
 	);
 	const dirtyViewsRef = useRef(dirtyViews);
-	dirtyViewsRef.current = dirtyViews;
+	useEffect(() => {
+		dirtyViewsRef.current = dirtyViews;
+	});
 	const setViewDirty = (id: ViewId, dirty: boolean): void => {
 		setDirtyViews((prev) => {
 			if (prev.has(id) === dirty) {
@@ -663,22 +557,187 @@ const App = ({
 	};
 	const isViewDirty = (id: ViewId): boolean => dirtyViews.has(id);
 
-	const anchorView = (window: WindowLayout): ViewId | null => {
-		if (window.focused && isSceneView(window.focused)) {
-			return window.focused;
+	const ensureDocSubscription = (
+		sceneId: string,
+		doc: SceneDocument,
+	): void => {
+		if (docUnsubsRef.current.has(sceneId)) {
+			return;
 		}
-		return (
-			firstSceneView(window.root) ??
-			window.focused ??
-			allViewIds(window.root)[0] ??
-			null
+		const unsub = doc.subscribe(() =>
+			setSceneDirty(sceneId, doc.dirty),
 		);
+		docUnsubsRef.current.set(sceneId, unsub);
 	};
 
-	const openView = (
-		id: ViewId,
-		targetWindowId: WindowId = activeWindowIdRef.current,
-	): void => {
+	const ensureSceneView = (id: ViewId): SceneView | null => {
+		const instance = gameRef.current;
+		const project = projectRef.current;
+		if (!instance || !project) {
+			return null;
+		}
+		const existing = sceneViewsRef.current.get(id);
+		if (existing) {
+			return existing;
+		}
+		const { param } = parseViewId(id);
+		if (!param || !isValidViewId(id, [])) {
+			return null;
+		}
+		const document = project.document(param);
+		const view = new SceneView(
+			id,
+			document,
+			project.store(param),
+			debugFlagsRef.current,
+			instance.services,
+		);
+		ensureDocSubscription(param, document);
+		view.setMuted(isViewMuted(workspaceRef.current, id));
+		sceneViewsRef.current.set(id, view);
+		publishSceneViews();
+		return view;
+	};
+
+	/**
+	 * Mute or unmute one scene view. The workspace owns the flag so it survives a
+	 * reload, and the view's own bus is what actually goes quiet — the asset
+	 * preview bus is a sibling of the whole scene-view subtree, so the audio
+	 * editor keeps sounding through it.
+	 */
+	const setSceneViewMuted = (id: ViewId, muted: boolean): void => {
+		sceneViewsRef.current.get(id)?.setMuted(muted);
+		updateWorkspace((ws) => setViewMuted(ws, id, muted));
+	};
+
+	const disposeSceneView = (id: ViewId): void => {
+		const view = sceneViewsRef.current.get(id);
+		if (!view) {
+			return;
+		}
+		view.dispose();
+		sceneViewsRef.current.delete(id);
+		publishSceneViews();
+		const sceneId = parseViewId(id).param;
+		if (sceneId && !hasOpenSceneView(sceneId)) {
+			docUnsubsRef.current.get(sceneId)?.();
+			docUnsubsRef.current.delete(sceneId);
+		}
+	};
+
+	const stopRun = (): void => {
+		const host = runHostRef.current;
+		if (!host) {
+			return;
+		}
+		runHostRef.current = null;
+		host.stop();
+		setRunning(false);
+		setRunMode("game");
+		setRunFrozen(false);
+		setRunningWindowId(null);
+	};
+
+	const activeSceneId =
+		activeSceneViewId && windowOfView(workspace, activeSceneViewId)
+			? activeSceneViewId
+			: focusedView && isSceneView(focusedView)
+				? focusedView
+				: null;
+	const focusedSceneView = activeSceneId
+		? (sceneViews.get(activeSceneId) ?? null)
+		: null;
+	const focusedScene = focusedSceneView?.scene ?? null;
+	const focusedSceneId = activeSceneId
+		? parseViewId(activeSceneId).param
+		: null;
+	const focusedStore = focusedSceneView?.store ?? null;
+	const selectedEntity = focusedStore?.primaryId ?? null;
+	const inspectingWorld = focusedStore?.inspectingWorld ?? false;
+
+	useEffect(() => {
+		activeScene.set(focusedSceneView ? focusedSceneId : null);
+	}, [focusedSceneView, focusedSceneId, activeScene]);
+
+	useEffect(() => {
+		if (!focusedStore) {
+			return;
+		}
+		return focusedStore.subscribe(forceStore);
+	}, [focusedStore]);
+
+	const reconcileSceneViews = useEffectEvent(
+		(ws: WorkspaceState, instance: Game | null): void => {
+			const open = new Set(
+				allWorkspaceViewIds(ws).filter(isSceneView),
+			);
+			if (instance) {
+				for (const id of open) {
+					ensureSceneView(id);
+				}
+			}
+			for (const id of sceneViewsRef.current.keys()) {
+				if (!open.has(id)) {
+					// The run's anchor view is about to be disposed (its tab or window
+					// closed via any path): stop the run before disposing the SceneView
+					// it references, so the frame loop never touches a dead view.
+					if (
+						runStopsOnViewClose(
+							runHostRef.current?.view.id ?? null,
+							id,
+						)
+					) {
+						stopRun();
+					}
+					disposeSceneView(id);
+				}
+			}
+			const project = projectRef.current;
+			if (!project) {
+				return;
+			}
+			const scenes = new Set<string>();
+			for (const id of open) {
+				const sceneId = parseViewId(id).param;
+				if (sceneId) {
+					scenes.add(sceneId);
+				}
+			}
+			for (const sceneId of scenes) {
+				if (project.hasDocument(sceneId)) {
+					setSceneDirty(sceneId, project.document(sceneId).dirty);
+				}
+			}
+		},
+	);
+
+	useLayoutEffect(() => {
+		reconcileSceneViews(workspace, game);
+	}, [workspace, game]);
+
+	/** The focused view id of a specific window (window-local, from live layout). */
+	const windowFocusedView = (id: WindowId): ViewId | null =>
+		getWindow(workspaceRef.current, id)?.focused ?? null;
+
+	/** Whether a specific window's focused view is an asset editor. */
+	const assetFocusedIn = (id: WindowId): boolean => {
+		const focused = windowFocusedView(id);
+		return !!focused && isAssetView(focused);
+	};
+
+	const [newSpriteKind, setNewSpriteKind] = useState<Readonly<{
+		isTileset: boolean;
+		windowId: WindowId;
+	}> | null>(null);
+	const [createConfig, setCreateConfig] = useState<
+		(NewSpriteConfig & Readonly<{ isTileset: boolean }>) | null
+	>(null);
+	const [guards, setGuards] = useState<
+		ReadonlyMap<WindowId, GuardRequest>
+	>(() => new Map());
+
+	const openView = (id: ViewId, windowIdHint?: WindowId): void => {
+		const targetWindowId = windowIdHint ?? activeWindowIdRef.current;
 		const ws = workspaceRef.current;
 		const home = windowOfView(ws, id);
 		if (home) {
@@ -970,16 +1029,13 @@ const App = ({
 		dropClassName: workspaceStyles.dropOverlay ?? "",
 		ghostClassName: workspaceStyles.tabGhost ?? "",
 	};
-	if (!dragControllerRef.current) {
-		dragControllerRef.current = new TabDragController(dragConfig);
-	} else {
-		dragControllerRef.current.setConfig(dragConfig);
-	}
-	const dragController = dragControllerRef.current;
+	const [dragController] = useState(() => new TabDragController());
+	useLayoutEffect(() => {
+		dragController.setConfig(dragConfig);
+	});
 
-	const reopenClosed = (
-		targetWindowId: WindowId = activeWindowIdRef.current,
-	): void => {
+	const reopenClosed = (windowIdHint?: WindowId): void => {
+		const targetWindowId = windowIdHint ?? activeWindowIdRef.current;
 		const result = closedStackRef.current.materialize(
 			(id) => windowOfView(workspaceRef.current, id) !== null,
 			(id) =>
@@ -1018,7 +1074,6 @@ const App = ({
 		if (entry.isDirectory || !assetsRoot) {
 			return;
 		}
-		const norm = (value: string) => value.replace(/\\/g, "/");
 		const rootNorm = norm(assetsRoot);
 		const pathNorm = norm(entry.path);
 		if (pathNorm.startsWith(`${rootNorm}/`)) {
@@ -1077,8 +1132,8 @@ const App = ({
 			prev.some((a) => a.url === url)
 				? prev
 				: [...prev, entry]
-						.sort((a, b) => a.name.localeCompare(b.name))
-						.sort((a, b) => a.ext.localeCompare(b.ext)),
+						.toSorted((a, b) => a.name.localeCompare(b.name))
+						.toSorted((a, b) => a.ext.localeCompare(b.ext)),
 		);
 		removeViewNow(entry.isAudio ? NEW_AUDIO_VIEW : NEW_SPRITE_VIEW);
 		openView(assetViewId(entry));
@@ -1112,10 +1167,7 @@ const App = ({
 		projectRef.current?.store(sceneId).inspectWorld();
 	};
 
-	useEffect(() => {
-		if (!selectedEntity && !inspectingWorld) {
-			return;
-		}
+	const revealInspector = useEffectEvent((): void => {
 		const ws = workspaceRef.current;
 		if (windowOfView(ws, "inspector")) {
 			return;
@@ -1132,19 +1184,20 @@ const App = ({
 		updateWorkspace(
 			updateWindow(ws, window.id, (w) => ({ ...w, root })),
 		);
+	});
+
+	useEffect(() => {
+		if (!selectedEntity && !inspectingWorld) {
+			return;
+		}
+		revealInspector();
 	}, [selectedEntity, inspectingWorld]);
 
-	const playGame = (): void => {
-		void launchPlaytest().catch(() =>
-			toastError("Couldn't launch the game"),
-		);
-	};
-
-	const onRunChange = useCallback((): void => {
+	const onRunChange = (): void => {
 		const host = runHostRef.current;
 		setRunMode(host ? host.inputMode : "game");
 		setRunFrozen(host ? host.frozen : false);
-	}, []);
+	};
 
 	const focusRunView = (): void => {
 		runHostRef.current?.view.viewport.element.focus();
@@ -1194,10 +1247,12 @@ const App = ({
 		if (!view || !activeId || !sceneId) {
 			return;
 		}
-		const gameModule = gameModuleRef.current;
-		gameUiRef.current ??= gameModule.createGameUi(instance.services);
+		const runtimeModule = gameModule;
+		gameUiRef.current =
+			gameUiRef.current ??
+			runtimeModule.createGameUi(instance.services);
 		runHostRef.current = new RunHost(view, {
-			gameModule,
+			gameModule: runtimeModule,
 			services: instance.services,
 			settings: instance.services.settings,
 			actions: view.scene.actions ?? NULL_ACTIONS,
@@ -1214,19 +1269,6 @@ const App = ({
 			windowOfView(workspaceRef.current, activeId) ?? HUB_WINDOW_ID,
 		);
 		requestAnimationFrame(focusRunView);
-	};
-
-	const stopRun = (): void => {
-		const host = runHostRef.current;
-		if (!host) {
-			return;
-		}
-		runHostRef.current = null;
-		host.stop();
-		setRunning(false);
-		setRunMode("game");
-		setRunFrozen(false);
-		setRunningWindowId(null);
 	};
 
 	const setRunInputMode = (mode: "game" | "editor"): void => {
@@ -1382,6 +1424,30 @@ const App = ({
 		});
 	};
 
+	const bootRuntime = useEffectEvent(
+		(scene: string): (() => void) => {
+			gameRef.current = null;
+			const instance = createGame(scene);
+			gameRef.current = instance;
+			projectRef.current = new Project(instance.services, {
+				[scene]: instance.scene!,
+			});
+			setGame(instance);
+			resolveReady();
+
+			return () => {
+				for (const id of sceneViewsRef.current.keys()) {
+					disposeSceneView(id);
+				}
+				instance.stop();
+				gameRef.current = null;
+				projectRef.current = null;
+				resetReady();
+				setGame(null);
+			};
+		},
+	);
+
 	useEffect(() => {
 		let cancelled = false;
 		let stop: (() => void) | null = null;
@@ -1390,29 +1456,7 @@ const App = ({
 			if (cancelled) {
 				return;
 			}
-			gameRef.current = null;
-			const instance = createGame(startScene);
-			gameRef.current = instance;
-			projectRef.current = new Project(instance.services, {
-				[startScene]: instance.scene!,
-			});
-			setGame(instance);
-			gameReadyRef.current!.resolve();
-
-			stop = () => {
-				for (const id of sceneViewsRef.current.keys()) {
-					disposeSceneView(id);
-				}
-				instance.stop();
-				gameRef.current = null;
-				projectRef.current = null;
-				let resolve!: () => void;
-				const promise = new Promise<void>((r) => {
-					resolve = r;
-				});
-				gameReadyRef.current = { promise, resolve };
-				setGame(null);
-			};
+			stop = bootRuntime(startScene);
 		});
 
 		return () => {
@@ -1423,8 +1467,12 @@ const App = ({
 
 	// The hub loop runs on the main window and lives for the app's lifetime;
 	// satellite loops start/stop with their windows (see the satellite manager).
-	useEffect(() => {
+	const startHubLoop = useEffectEvent((): void => {
 		startWindowLoop(HUB_WINDOW_ID, window);
+	});
+
+	useEffect(() => {
+		startHubLoop();
 		const loops = windowLoopsRef.current;
 		return () => {
 			for (const stop of loops.values()) {
@@ -1436,17 +1484,23 @@ const App = ({
 
 	// Stop the frame loop of any window that has left the workspace (a collapsed
 	// satellite, an OS-closed window), so a loop never targets a dead window.
-	useEffect(() => {
-		const live = new Set(workspace.windows.map((w) => w.id));
-		const dead: WindowId[] = [];
-		for (const id of windowLoopsRef.current.keys()) {
-			if (!live.has(id)) {
-				dead.push(id);
+	const stopDeadWindowLoops = useEffectEvent(
+		(ws: WorkspaceState): void => {
+			const live = new Set(ws.windows.map((w) => w.id));
+			const dead: WindowId[] = [];
+			for (const id of windowLoopsRef.current.keys()) {
+				if (!live.has(id)) {
+					dead.push(id);
+				}
 			}
-		}
-		for (const id of dead) {
-			stopWindowLoop(id);
-		}
+			for (const id of dead) {
+				stopWindowLoop(id);
+			}
+		},
+	);
+
+	useEffect(() => {
+		stopDeadWindowLoops(workspace);
 	}, [workspace]);
 
 	// Flush the debounced workspace synchronously before a reload/close so the
@@ -1474,8 +1528,16 @@ const App = ({
 	// realm with the target window id; the hub runs the guard (rendering the
 	// dialog into that window) and replies via `allowClose` when the close may
 	// proceed. Registered only in the hub realm — the sole owner of dirty state.
+	const onNativeCloseRequested = useEffectEvent(
+		(windowId: WindowId): void => {
+			requestWindowClose(windowId);
+		},
+	);
+
 	useEffect(() => {
-		return windowControls()?.onCloseRequested(requestWindowClose);
+		return windowControls()?.onCloseRequested((windowId) => {
+			onNativeCloseRequested(windowId);
+		});
 	}, []);
 
 	// Publish whether any guard dialog is open so the frame loops can pause the
@@ -1483,6 +1545,12 @@ const App = ({
 	useEffect(() => {
 		setGuardDialogOpen(guards.size > 0);
 	}, [guards]);
+
+	const adoptAssetListing = useEffectEvent(
+		(entries: ReadonlyArray<AssetEntry>): void => {
+			updateWorkspace((ws) => pruneAssetViews(ws, entries));
+		},
+	);
 
 	// Boot: resolve the asset root + listing, then prune asset views against the
 	// real list (fixes the boot-prune bug where views were dropped against an
@@ -1494,20 +1562,24 @@ const App = ({
 		void getAssetsRoot().then(setAssetsRoot);
 		void listAssetsDeep().then((entries) => {
 			setAssets(entries);
-			updateWorkspace((ws) => pruneAssetViews(ws, entries));
+			adoptAssetListing(entries);
 		});
 	}, []);
 
-	useEffect(() => {
-		if (!game) {
-			return;
-		}
+	const pruneUnknownSceneViews = useEffectEvent((): void => {
 		updateWorkspace((ws) =>
 			pruneWorkspace(
 				ws,
 				(id) => !isSceneView(id) || isValidViewId(id, []),
 			),
 		);
+	});
+
+	useEffect(() => {
+		if (!game) {
+			return;
+		}
+		pruneUnknownSceneViews();
 	}, [game]);
 
 	/**
@@ -1528,10 +1600,8 @@ const App = ({
 					setAddTarget({
 						entity,
 						windowId:
-							windowOfView(
-								workspaceRef.current,
-								makeViewId("tree"),
-							) ?? activeWindowIdRef.current,
+							windowOfView(workspace, makeViewId("tree")) ??
+							activeWindowId,
 					}),
 				select: (entity) =>
 					entity
@@ -1578,13 +1648,12 @@ const App = ({
 			focusedScene &&
 			focusedSceneView &&
 			selectedEntity &&
-			selectionChannelRef.current
+			selectionChannel
 		) {
-			const runtime = !!(
+			const runtime =
 				running &&
 				runHostRef.current?.view === focusedSceneView &&
-				runHostRef.current.isRuntimeEntity(selectedEntity)
-			);
+				runHostRef.current.isRuntimeEntity(selectedEntity);
 			return (
 				<div
 					className={clsx(
@@ -1592,34 +1661,27 @@ const App = ({
 						!editorEnabled && styles.disabled,
 					)}
 				>
-					<Inspector
-						channel={selectionChannelRef.current}
-						runtime={runtime}
-					/>
+					<Inspector channel={selectionChannel} runtime={runtime} />
 				</div>
 			);
 		}
 		return <div className={styles.placeholder}>Nothing selected</div>;
 	};
 
-	const renderConsole = () => <ConsoleView />;
-
-	const resolveActiveProfile =
-		useCallback((): FrameProfile | null => {
-			const view = focusedSceneViewRef.current;
-			if (!view) {
-				return null;
-			}
-			const host = runHostRef.current;
-			if (
-				host &&
-				(view === host.view ||
-					parseViewId(view.id).param === host.activeScene)
-			) {
-				return host.world.profile;
-			}
-			return view.scene.world.profile;
-		}, []);
+	const resolveActiveProfile = (): FrameProfile | null => {
+		if (!focusedSceneView) {
+			return null;
+		}
+		const host = runHostRef.current;
+		if (
+			host &&
+			(focusedSceneView === host.view ||
+				parseViewId(focusedSceneView.id).param === host.activeScene)
+		) {
+			return host.world.profile;
+		}
+		return focusedSceneView.scene.world.profile;
+	};
 
 	const renderProfiler = () => (
 		<ProfilerView resolveProfile={resolveActiveProfile} />
@@ -1635,7 +1697,11 @@ const App = ({
 			/>
 		) : null;
 
-	const renderSprite = (id: ViewId, param: string, active: boolean) =>
+	const renderSprite = (
+		id: ViewId,
+		param: string,
+		active: boolean,
+	) =>
 		param === NEW_PARAM ? (
 			<SpriteEditor
 				assetUrl={null}
@@ -1657,7 +1723,7 @@ const App = ({
 		);
 
 	const renderScene = (id: ViewId, windowLayout: WindowLayout) => {
-		const view = ensureSceneView(id);
+		const view = sceneViews.get(id) ?? null;
 		if (!view) {
 			return null;
 		}
@@ -1697,22 +1763,17 @@ const App = ({
 	};
 
 	/**
-	 * Wrap a runtime-dependent view so it suspends on {@link gameReadyRef} until
+	 * Wrap a runtime-dependent view so it suspends on {@link makeReadyGate} until
 	 * the game runtime exists, sharing the {@link Loading} fallback with the lazy
 	 * panel chunks (which suspend on the same boundary once rendered). The body is
 	 * a thunk so its runtime-dependent JSX is only built once the runtime is ready.
 	 */
 	const runtimeView = (render: () => ReactNode) => (
 		<Suspense fallback={<Loading label="Loading runtime…" />}>
-			<RuntimeSuspender ready={gameReadyRef.current!.promise}>
+			<RuntimeSuspender ready={gameReady.promise}>
 				{render}
 			</RuntimeSuspender>
 		</Suspense>
-	);
-
-	/** Wrap a lazy-only view (needs no runtime): suspend on the panel chunk. */
-	const lazyView = (element: ReactNode) => (
-		<Suspense fallback={<Loading />}>{element}</Suspense>
 	);
 
 	const renderView = (id: ViewId, windowLayout: WindowLayout) => {

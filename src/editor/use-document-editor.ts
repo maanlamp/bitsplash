@@ -1,6 +1,6 @@
 import {
 	useEffect,
-	useRef,
+	useEffectEvent,
 	useState,
 	useSyncExternalStore,
 } from "react";
@@ -76,22 +76,22 @@ export const useDocumentEditor = <D extends EditableDocument, C>(
 		canRedo: history.canRedo,
 	});
 
-	const changeRef = useRef(onChange);
-	changeRef.current = onChange;
-	const dirtyCbRef = useRef(onDirty);
-	dirtyCbRef.current = onDirty;
+	const notify = useEffectEvent((current: D | null): void => {
+		if (!current) {
+			onDirty(false);
+			return;
+		}
+		onDirty(current.dirty);
+		onChange?.();
+	});
 
 	useEffect(() => {
 		if (!doc) {
-			dirtyCbRef.current(false);
+			notify(null);
 			return;
 		}
-		const sync = () => {
-			dirtyCbRef.current(doc.dirty);
-			changeRef.current?.();
-		};
-		sync();
-		return doc.subscribe(sync);
+		notify(doc);
+		return doc.subscribe(() => notify(doc));
 	}, [doc]);
 
 	useEffect(

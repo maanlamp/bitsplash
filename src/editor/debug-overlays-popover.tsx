@@ -1,6 +1,7 @@
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Popover } from "@base-ui/react/popover";
-import { CheckIcon, EyeIcon } from "@phosphor-icons/react";
+import { CheckIcon } from "@phosphor-icons/react/dist/icons/Check";
+import { EyeIcon } from "@phosphor-icons/react/dist/icons/Eye";
 import clsx from "clsx";
 import { type CSSProperties } from "react";
 import Button from "./button";

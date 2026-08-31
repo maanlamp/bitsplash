@@ -1,29 +1,10 @@
-import babel from "@rolldown/plugin-babel";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { type Plugin, defineConfig } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { inkCodegen } from "./src/engine/ink/ink-codegen-plugin";
-import { cachedBabel } from "./vite-babel-cache";
+import { viteDecorators } from "./vite-decorators";
 import { qaBridge } from "./vite-qa-bridge";
-
-/**
- * Babel is the slow, single-threaded pass on the dev hot path: it runs the
- * `2023-11` decorator transform (Oxc can't do standard decorators) plus the
- * React Compiler. Options are shared between dev and build; only dev wraps them
- * in {@link cachedBabel} (see below).
- */
-const babelOptions: Parameters<typeof babel>[0] = {
-	plugins: [
-		["@babel/plugin-proposal-decorators", { version: "2023-11" }],
-	],
-	overrides: [
-		{
-			exclude: /[\\/]src[\\/]engine[\\/]ui[\\/]/,
-			presets: [reactCompilerPreset()],
-		},
-	],
-};
 
 const suppressSceneHmr = (): Plugin => ({
 	name: "suppress-scene-hmr",
@@ -31,6 +12,7 @@ const suppressSceneHmr = (): Plugin => ({
 		if (ctx.file.endsWith(".scene.json")) {
 			return [];
 		}
+		return undefined;
 	},
 });
 
@@ -89,19 +71,15 @@ const CROSS_ORIGIN_ISOLATION = {
 	"Cross-Origin-Embedder-Policy": "credentialless",
 };
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(() => ({
 	plugins: [
 		mkcert(),
 		inkCodegen(),
 		suppressSceneHmr(),
 		servePopout(),
 		qaBridge(),
-		react(),
-		// Dev serves warm from an on-disk transform cache; production builds run
-		// Babel straight (uncached) so shipped output is never cache-dependent.
-		command === "serve"
-			? cachedBabel(babelOptions)
-			: babel(babelOptions),
+		react({ compiler: true }),
+		viteDecorators(),
 	],
 	assetsInclude: ["**/*.zip", "**/*.bsprite"],
 	optimizeDeps: { exclude: ["@dimforge/rapier2d"] },

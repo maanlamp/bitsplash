@@ -195,6 +195,6 @@ describe("multi-window layout ops", () => {
 		const ws = defaultWorkspace("scene:main");
 		const treeGroup = tabGroupIds(hub(ws).root)[0];
 		const next = spawnWindowWithView(ws, "inspector", "sat");
-		expect(tabGroupIds(hub(next).root)[0]).toBe(treeGroup!);
+		expect(tabGroupIds(hub(next).root)[0]).toBe(treeGroup);
 	});
 });

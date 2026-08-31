@@ -125,6 +125,30 @@ const clonePixels = (buf: PixelBuffer): PixelBuffer => ({
 });
 
 /**
+ * Everything the controller holds *for one attached document*, in a single
+ * object so it can only ever be reset as a whole. Adding a field here forces
+ * {@link newSession} to seed it, which is the only place a reset is written.
+ */
+type SelectionSession = {
+	readonly core: SpriteEditCore;
+	state: SelectionState;
+	preview: SelectionPreview | null;
+	edges: AntEdge[];
+	committing: boolean;
+};
+
+const newSession = (core: SpriteEditCore): SelectionSession => ({
+	core,
+	state: { kind: "none" },
+	preview: null,
+	edges: [],
+	committing: false,
+});
+
+const NO_SELECTION: SelectionState = { kind: "none" };
+const NO_EDGES: ReadonlyArray<AntEdge> = [];
+
+/**
  * The single owner of the sprite editor's selection + floating state.
  *
  * It registers the two B12 choke-point bridges on the document — the
@@ -137,68 +161,76 @@ const clonePixels = (buf: PixelBuffer): PixelBuffer => ({
  * - undoing a command restores the selection that was active when it ran.
  *
  * The controller holds a live reference to the document's active cel semantics
- * and is scoped to one document; a new document gets a new controller.
+ * through the {@link SelectionSession} installed by {@link attach}; a new
+ * document replaces that session wholesale, so nothing carries over.
  */
 export class SelectionController extends Subscribable {
-	private _state: SelectionState = { kind: "none" };
-	private _preview: SelectionPreview | null = null;
-	private _edges: AntEdge[] = [];
-	private committing = false;
+	private session: SelectionSession | null = null;
 
-	constructor(
-		private core: SpriteEditCore,
-		private history: History,
-	) {
+	constructor(private history: History) {
 		super();
+	}
+
+	/**
+	 * Bind to `core`: install the choke-point bridges and start an empty session.
+	 * Detaches any document already attached first.
+	 */
+	attach(core: SpriteEditCore): void {
+		this.detach();
+		this.session = newSession(core);
 		core.registerFloatingCommit(() => this.commit());
 		core.registerSelectionBridge({
 			capture: () => this.capture(),
 			restore: (snapshot) => this.restore(snapshot),
 		});
+		this.notify();
 	}
 
-	/** Detach the choke-point bridges (called when the document is replaced). */
-	dispose(): void {
-		this.core.registerFloatingCommit(null);
-		this.core.registerSelectionBridge(null);
+	/** Unbind: remove the choke-point bridges and drop the session. */
+	detach(): void {
+		const session = this.session;
+		this.session = null;
+		if (!session) {
+			return;
+		}
+		session.core.registerFloatingCommit(null);
+		session.core.registerSelectionBridge(null);
+		this.notify();
 	}
 
 	get state(): SelectionState {
-		return this._state;
+		return this.session?.state ?? NO_SELECTION;
 	}
 
 	get preview(): SelectionPreview | null {
-		return this._preview;
+		return this.session?.preview ?? null;
 	}
 
 	/** Cached marching-ants boundary edges for the displayed selection. */
 	get edges(): ReadonlyArray<AntEdge> {
-		return this._edges;
+		return this.session?.edges ?? NO_EDGES;
 	}
 
 	/** Whether a float is awaiting commit. */
 	get floating(): boolean {
-		return this._state.kind === "floating";
+		return this.state.kind === "floating";
 	}
 
 	/** Whether a live free-transform is being edited on the float. */
 	get transforming(): boolean {
-		return (
-			this._state.kind === "floating" &&
-			this._state.transform !== null
-		);
+		const s = this.state;
+		return s.kind === "floating" && s.transform !== null;
 	}
 
 	/** The live free-transform session, or `null` when not transforming. */
 	get transformSession(): FreeTransformSession | null {
-		return this._state.kind === "floating"
-			? this._state.transform
-			: null;
+		const s = this.state;
+		return s.kind === "floating" ? s.transform : null;
 	}
 
 	/** Whether cell `(x, y)` lies inside the current marquee/float footprint. */
 	pointInSelection(x: number, y: number): boolean {
-		const s = this._state;
+		const s = this.state;
 		if (s.kind === "marquee") {
 			return maskContains(s.mask, x, y);
 		}
@@ -209,7 +241,9 @@ export class SelectionController extends Subscribable {
 	}
 
 	setPreview(preview: SelectionPreview | null): void {
-		this._preview = preview;
+		if (this.session) {
+			this.session.preview = preview;
+		}
 	}
 
 	/**
@@ -218,25 +252,33 @@ export class SelectionController extends Subscribable {
 	 * first, then folds the region in; an empty result deselects.
 	 */
 	applyRegion(region: SelectionMask, op: SelectionOp): void {
+		const session = this.session;
+		if (!session) {
+			return;
+		}
 		this.commit();
 		const base =
-			this._state.kind === "marquee"
-				? this._state.mask
+			session.state.kind === "marquee"
+				? session.state.mask
 				: createMask(region.width, region.height);
 		const next = combineMask(base, region, op);
-		this._preview = null;
+		session.preview = null;
 		if (maskIsEmpty(next)) {
-			this.setState({ kind: "none" });
+			this.setState(session, { kind: "none" });
 		} else {
-			this.setState({ kind: "marquee", mask: next });
+			this.setState(session, { kind: "marquee", mask: next });
 		}
 	}
 
 	/** Deselect and drop any in-progress preview (does not touch a float). */
 	clear(): void {
-		this._preview = null;
-		if (this._state.kind !== "none") {
-			this.setState({ kind: "none" });
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		session.preview = null;
+		if (session.state.kind !== "none") {
+			this.setState(session, { kind: "none" });
 		}
 	}
 
@@ -246,19 +288,22 @@ export class SelectionController extends Subscribable {
 	 * behind) and can be dragged. Returns `false` when there is nothing to move.
 	 */
 	beginMove(): boolean {
+		const session = this.session;
 		if (
-			this._state.kind !== "marquee" ||
-			maskIsEmpty(this._state.mask)
+			!session ||
+			session.state.kind !== "marquee" ||
+			maskIsEmpty(session.state.mask)
 		) {
 			return false;
 		}
-		const mask = this._state.mask;
-		const layerId = this.core.activeLayerId;
-		const frameIndex = this.core.activeFrameIndex;
-		const cel = this.activeCel();
+		const { core } = session;
+		const mask = session.state.mask;
+		const layerId = core.activeLayerId;
+		const frameIndex = core.activeFrameIndex;
+		const cel = this.activeCel(core);
 		const { lifted, residue } = liftSelection(cel, mask);
-		this.core.setCel(layerId, frameIndex, clonePixels(residue));
-		this.setState({
+		core.setCel(layerId, frameIndex, clonePixels(residue));
+		this.setState(session, {
 			kind: "floating",
 			source: "move",
 			layerId,
@@ -276,8 +321,9 @@ export class SelectionController extends Subscribable {
 
 	/** Set the active float's drag offset (cell units); no-op when not floating. */
 	dragTo(dx: number, dy: number): void {
-		if (this._state.kind === "floating") {
-			this._state.offset = { x: dx, y: dy };
+		const s = this.state;
+		if (s.kind === "floating") {
+			s.offset = { x: dx, y: dy };
 		}
 	}
 
@@ -314,12 +360,16 @@ export class SelectionController extends Subscribable {
 	 * their bounds. Returns `null` when there is no non-empty selection.
 	 */
 	captureBrushStamp(): PixelBuffer | null {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return null;
+		}
+		const s = session.state;
 		if (s.kind === "marquee") {
 			if (maskIsEmpty(s.mask)) {
 				return null;
 			}
-			return captureBrush(this.activeCel(), s.mask);
+			return captureBrush(this.activeCel(session.core), s.mask);
 		}
 		if (s.kind === "floating") {
 			const clip = cropClip(s.lifted, s.mask);
@@ -333,10 +383,14 @@ export class SelectionController extends Subscribable {
 	 * mask in place. Returns whether it acted on a selection.
 	 */
 	private transformSelection(transform: ClipTransform): boolean {
-		if (this._state.kind === "marquee" && !this.beginMove()) {
+		const session = this.session;
+		if (!session) {
 			return false;
 		}
-		const s = this._state;
+		if (session.state.kind === "marquee" && !this.beginMove()) {
+			return false;
+		}
+		const s = session.state;
 		if (s.kind !== "floating") {
 			return false;
 		}
@@ -346,13 +400,13 @@ export class SelectionController extends Subscribable {
 		}
 		const t = transformClip(clip, transform);
 		const { lifted, mask } = placeClip(
-			this.core.width,
-			this.core.height,
+			session.core.width,
+			session.core.height,
 			t,
 			t.originX,
 			t.originY,
 		);
-		this.setState({ ...s, lifted, mask });
+		this.setState(session, { ...s, lifted, mask });
 		return true;
 	}
 
@@ -366,10 +420,14 @@ export class SelectionController extends Subscribable {
 	 * selection to rotate.
 	 */
 	rotateArbitrary(degrees: number): boolean {
-		if (this._state.kind === "marquee" && !this.beginMove()) {
+		const session = this.session;
+		if (!session) {
 			return false;
 		}
-		const s = this._state;
+		if (session.state.kind === "marquee" && !this.beginMove()) {
+			return false;
+		}
+		const s = session.state;
 		if (s.kind !== "floating") {
 			return false;
 		}
@@ -384,13 +442,13 @@ export class SelectionController extends Subscribable {
 		};
 		const rotated = rotateClip(source, (degrees * Math.PI) / 180);
 		const { lifted, mask } = placeClip(
-			this.core.width,
-			this.core.height,
+			session.core.width,
+			session.core.height,
 			rotated,
 			rotated.originX,
 			rotated.originY,
 		);
-		this.setState({
+		this.setState(session, {
 			...s,
 			offset: { x: 0, y: 0 },
 			transform: null,
@@ -410,10 +468,14 @@ export class SelectionController extends Subscribable {
 	 * {@link cancelTransform} restores the untransformed float.
 	 */
 	beginTransform(): boolean {
-		if (this._state.kind === "marquee" && !this.beginMove()) {
+		const session = this.session;
+		if (!session) {
 			return false;
 		}
-		const s = this._state;
+		if (session.state.kind === "marquee" && !this.beginMove()) {
+			return false;
+		}
+		const s = session.state;
 		if (s.kind !== "floating") {
 			return false;
 		}
@@ -437,13 +499,21 @@ export class SelectionController extends Subscribable {
 			},
 			params: IDENTITY_TRANSFORM,
 		};
-		this.applyTransform({ ...s, offset: { x: 0, y: 0 } }, transform);
+		this.applyTransform(
+			session,
+			{ ...s, offset: { x: 0, y: 0 } },
+			transform,
+		);
 		return true;
 	}
 
 	/** Merge `partial` into the live transform's parameters and re-render. No-op unless transforming. */
 	updateTransform(partial: Partial<FreeTransformParams>): void {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
 		if (s.kind !== "floating" || !s.transform) {
 			return;
 		}
@@ -451,16 +521,23 @@ export class SelectionController extends Subscribable {
 			...s.transform,
 			params: { ...s.transform.params, ...partial },
 		};
-		this.applyTransform(s, transform);
+		this.applyTransform(session, s, transform);
 	}
 
 	/** Move the live transform's pivot to a canvas cell and re-render. No-op unless transforming. */
 	setTransformPivot(x: number, y: number): void {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
 		if (s.kind !== "floating" || !s.transform) {
 			return;
 		}
-		this.applyTransform(s, { ...s.transform, pivot: { x, y } });
+		this.applyTransform(session, s, {
+			...s.transform,
+			pivot: { x, y },
+		});
 	}
 
 	/**
@@ -469,28 +546,41 @@ export class SelectionController extends Subscribable {
 	 * No-op unless transforming.
 	 */
 	confirmTransform(): void {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
 		if (s.kind !== "floating" || !s.transform) {
 			return;
 		}
-		this.setState({ ...s, transform: null });
+		this.setState(session, { ...s, transform: null });
 	}
 
 	/** Cancel the live free-transform, restoring the untransformed float. No-op unless transforming. */
 	cancelTransform(): void {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
 		if (s.kind !== "floating" || !s.transform) {
 			return;
 		}
 		const { source } = s.transform;
 		const { lifted, mask } = placeClip(
-			this.core.width,
-			this.core.height,
+			session.core.width,
+			session.core.height,
 			source,
 			source.originX,
 			source.originY,
 		);
-		this.setState({ ...s, transform: null, lifted, mask });
+		this.setState(session, {
+			...s,
+			transform: null,
+			lifted,
+			mask,
+		});
 	}
 
 	/**
@@ -507,6 +597,7 @@ export class SelectionController extends Subscribable {
 	}
 
 	private applyTransform(
+		session: SelectionSession,
 		floating: Extract<SelectionState, { kind: "floating" }>,
 		transform: FreeTransformSession,
 	): void {
@@ -518,25 +609,27 @@ export class SelectionController extends Subscribable {
 		const { lifted, mask } = rasterizeClip(
 			transform.source,
 			matrix,
-			this.core.width,
-			this.core.height,
+			session.core.width,
+			session.core.height,
 		);
-		this.setState({ ...floating, transform, lifted, mask });
+		this.setState(session, { ...floating, transform, lifted, mask });
 	}
 
 	/** Copy the current marquee's pixels to the internal clipboard (cel unchanged). */
 	copy(): void {
-		if (
-			this._state.kind !== "marquee" ||
-			maskIsEmpty(this._state.mask)
-		) {
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
+		if (s.kind !== "marquee" || maskIsEmpty(s.mask)) {
 			return;
 		}
 		const { lifted } = liftSelection(
-			this.activeCel(),
-			this._state.mask,
+			this.activeCel(session.core),
+			s.mask,
 		);
-		const clip = cropClip(lifted, this._state.mask);
+		const clip = cropClip(lifted, s.mask);
 		if (clip) {
 			setClipboard(clip);
 		}
@@ -547,27 +640,30 @@ export class SelectionController extends Subscribable {
 	 * active cel as one undo entry. The marquee stays selected (now over the hole).
 	 */
 	cut(): void {
-		if (
-			this._state.kind !== "marquee" ||
-			maskIsEmpty(this._state.mask)
-		) {
+		const session = this.session;
+		if (!session) {
 			return;
 		}
-		const mask = this._state.mask;
-		const layerId = this.core.activeLayerId;
-		const frameIndex = this.core.activeFrameIndex;
-		const cel = this.activeCel();
+		const s = session.state;
+		if (s.kind !== "marquee" || maskIsEmpty(s.mask)) {
+			return;
+		}
+		const { core } = session;
+		const mask = s.mask;
+		const layerId = core.activeLayerId;
+		const frameIndex = core.activeFrameIndex;
+		const cel = this.activeCel(core);
 		const { lifted, residue } = liftSelection(cel, mask);
 		const clip = cropClip(lifted, mask);
 		if (clip) {
 			setClipboard(clip);
 		}
 		const before = cel;
-		runCommand(this.core, this.history, {
+		runCommand(core, this.history, {
 			redo: () =>
-				this.core.setCel(layerId, frameIndex, clonePixels(residue)),
+				core.setCel(layerId, frameIndex, clonePixels(residue)),
 			undo: () =>
-				this.core.setCel(layerId, frameIndex, clonePixels(before)),
+				core.setCel(layerId, frameIndex, clonePixels(before)),
 		});
 	}
 
@@ -577,26 +673,28 @@ export class SelectionController extends Subscribable {
 	 * first. No-op when the clipboard is empty.
 	 */
 	paste(): void {
+		const session = this.session;
 		const clip = getClipboard();
-		if (!clip) {
+		if (!session || !clip) {
 			return;
 		}
 		this.commit();
+		const { core } = session;
 		const restoreMask =
-			this._state.kind === "marquee"
-				? cloneMask(this._state.mask)
+			session.state.kind === "marquee"
+				? cloneMask(session.state.mask)
 				: null;
 		const { lifted, mask } = placeClip(
-			this.core.width,
-			this.core.height,
+			core.width,
+			core.height,
 			clip,
 			clip.originX,
 			clip.originY,
 		);
-		const layerId = this.core.activeLayerId;
-		const frameIndex = this.core.activeFrameIndex;
-		const cel = this.activeCel();
-		this.setState({
+		const layerId = core.activeLayerId;
+		const frameIndex = core.activeFrameIndex;
+		const cel = this.activeCel(core);
+		this.setState(session, {
 			kind: "floating",
 			source: "paste",
 			layerId,
@@ -619,10 +717,16 @@ export class SelectionController extends Subscribable {
 	 * against re-entry so the {@link runCommand} it issues cannot recurse into it.
 	 */
 	commit(): void {
-		if (this._state.kind !== "floating" || this.committing) {
+		const session = this.session;
+		if (
+			!session ||
+			session.state.kind !== "floating" ||
+			session.committing
+		) {
 			return;
 		}
-		const f = this._state;
+		const { core } = session;
+		const f = session.state;
 		const final = stampFloating(
 			f.base,
 			f.lifted,
@@ -638,21 +742,23 @@ export class SelectionController extends Subscribable {
 		// the selection captured by runCommand) see the pre-lift marquee, which is
 		// what undo must restore.
 		this.setState(
+			session,
 			preMask ? { kind: "marquee", mask: preMask } : { kind: "none" },
 		);
-		this.committing = true;
+		session.committing = true;
 		try {
-			runCommand(this.core, this.history, {
+			runCommand(core, this.history, {
 				redo: () => {
-					this.core.setCel(layerId, frameIndex, clonePixels(final));
-					this.setState({
+					core.setCel(layerId, frameIndex, clonePixels(final));
+					this.setState(session, {
 						kind: "marquee",
 						mask: cloneMask(postMask),
 					});
 				},
 				undo: () => {
-					this.core.setCel(layerId, frameIndex, clonePixels(before));
+					core.setCel(layerId, frameIndex, clonePixels(before));
 					this.setState(
+						session,
 						preMask
 							? { kind: "marquee", mask: cloneMask(preMask) }
 							: { kind: "none" },
@@ -660,7 +766,7 @@ export class SelectionController extends Subscribable {
 				},
 			});
 		} finally {
-			this.committing = false;
+			session.committing = false;
 		}
 	}
 
@@ -669,18 +775,23 @@ export class SelectionController extends Subscribable {
 	 * move, or dropping a paste) with no undo entry, or clear a plain marquee.
 	 */
 	escape(): void {
-		const s = this._state;
+		const session = this.session;
+		if (!session) {
+			return;
+		}
+		const s = session.state;
 		if (s.kind === "floating" && s.transform) {
 			this.cancelTransform();
 			return;
 		}
 		if (s.kind === "floating") {
-			this.core.setCel(
+			session.core.setCel(
 				s.layerId,
 				s.frameIndex,
 				clonePixels(s.before),
 			);
 			this.setState(
+				session,
 				s.restoreMask
 					? { kind: "marquee", mask: s.restoreMask }
 					: { kind: "none" },
@@ -693,40 +804,48 @@ export class SelectionController extends Subscribable {
 	}
 
 	private capture(): SelectionSnapshot | null {
-		if (this._state.kind === "marquee") {
+		const s = this.state;
+		if (s.kind === "marquee") {
 			return {
 				kind: "marquee",
-				mask: cloneMask(this._state.mask),
-			} as unknown as SelectionSnapshot;
+				mask: cloneMask(s.mask),
+			};
 		}
-		return { kind: "none" } as unknown as SelectionSnapshot;
+		return { kind: "none" };
 	}
 
 	private restore(snapshot: SelectionSnapshot | null): void {
-		if (!snapshot) {
+		const session = this.session;
+		if (!session || !snapshot) {
 			return;
 		}
 		const data = snapshot as unknown as SnapshotData;
 		if (data.kind === "marquee") {
-			this.setState({ kind: "marquee", mask: cloneMask(data.mask) });
+			this.setState(session, {
+				kind: "marquee",
+				mask: cloneMask(data.mask),
+			});
 		} else {
-			this.setState({ kind: "none" });
+			this.setState(session, { kind: "none" });
 		}
 	}
 
-	private activeCel(): PixelBuffer {
-		const cel = this.core.getCel(
-			this.core.activeLayerId,
-			this.core.activeFrameIndex,
+	private activeCel(core: SpriteEditCore): PixelBuffer {
+		const cel = core.getCel(
+			core.activeLayerId,
+			core.activeFrameIndex,
 		);
 		return cel
 			? clonePixels(cel)
-			: blankPixels(this.core.width, this.core.height);
+			: blankPixels(core.width, core.height);
 	}
 
-	private setState(next: SelectionState): void {
-		this._state = next;
-		this._edges = computeEdges(next);
+	private setState(
+		session: SelectionSession,
+		next: SelectionState,
+	): void {
+		session.state = next;
+		session.edges = computeEdges(next);
 		this.notify();
 	}
 }

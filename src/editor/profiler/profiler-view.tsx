@@ -1,4 +1,5 @@
-import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/icons/CaretRight";
 import { useEffect, useRef, useState } from "react";
 import type { FrameProfile } from "../../engine/profiling/frame-profile";
 import styles from "./profiler-view.module.scss";
@@ -76,7 +77,7 @@ const groupRows = (
 	}
 	const dir = ascending ? 1 : -1;
 	const sortRows = (list: Row[]): Row[] =>
-		[...list].sort((a, b) =>
+		[...list].toSorted((a, b) =>
 			sort === "system"
 				? dir * a.label.localeCompare(b.label)
 				: dir * (a.avgMs - b.avgMs),
@@ -86,7 +87,7 @@ const groupRows = (
 			const total = list.reduce((sum, row) => sum + row.avgMs, 0);
 			return [group, sortRows(list), total] as const;
 		})
-		.sort((a, b) => b[2] - a[2])
+		.toSorted((a, b) => b[2] - a[2])
 		.map(([group, list]) => [group, list] as const);
 };
 

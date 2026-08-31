@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "../timeline/timeline.module.scss";
-import { useTimelineView } from "../timeline/timeline-context";
 import type { AudioClip } from "./audio-clip";
 import type { AudioDocument } from "./audio-document";
 
@@ -18,7 +17,6 @@ const ClipWaveform = ({
 }>) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [size, setSize] = useState({ width: 0, height: 0 });
-	const view = useTimelineView();
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -34,6 +32,8 @@ const ClipWaveform = ({
 		observer.observe(canvas);
 		return () => observer.disconnect();
 	}, []);
+
+	const peaks = doc.clipPeaks(clip);
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -52,7 +52,6 @@ const ClipWaveform = ({
 		ctx.clearRect(0, 0, width, height);
 		ctx.fillStyle = `color-mix(in oklch, ${color}, black 35%)`;
 
-		const peaks = doc.clipPeaks(clip);
 		const mid = height / 2;
 		if (peaks.length === 0) {
 			ctx.fillRect(0, mid - 0.5, width, 1);
@@ -72,7 +71,7 @@ const ClipWaveform = ({
 			const barHeight = Math.max(1, amp * height);
 			ctx.fillRect(x, mid - barHeight / 2, BAR_WIDTH, barHeight);
 		}
-	}, [doc, doc.version, clip, color, size, view.pxPerUnit]);
+	}, [peaks, color, size]);
 
 	return (
 		<canvas ref={canvasRef} className={styles.clipWaveformCanvas} />

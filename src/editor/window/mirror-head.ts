@@ -8,15 +8,15 @@
  *
  * @returns a disposer that stops observing and removes the cloned nodes.
  */
+const isStyleNode = (node: Node): boolean =>
+	node.nodeName === "STYLE" ||
+	(node.nodeName === "LINK" &&
+		(node as HTMLLinkElement).rel === "stylesheet");
+
 export const mirrorHead = (childDoc: Document): (() => void) => {
 	const srcHead = document.head;
 	const dstHead = childDoc.head;
 	const clones = new Map<Node, Node>();
-
-	const isStyleNode = (node: Node): boolean =>
-		node.nodeName === "STYLE" ||
-		(node.nodeName === "LINK" &&
-			(node as HTMLLinkElement).rel === "stylesheet");
 
 	const track = (node: Node): void => {
 		if (!isStyleNode(node) || clones.has(node)) {

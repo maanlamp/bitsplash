@@ -1,6 +1,7 @@
 import { NumberField } from "@base-ui/react/number-field";
 import { Popover } from "@base-ui/react/popover";
-import { CaretDownIcon, StackIcon } from "@phosphor-icons/react";
+import { CaretDownIcon } from "@phosphor-icons/react/dist/icons/CaretDown";
+import { StackIcon } from "@phosphor-icons/react/dist/icons/Stack";
 import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 import Button from "../button";

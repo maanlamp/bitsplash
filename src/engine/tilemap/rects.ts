@@ -19,8 +19,8 @@ export const tileRects = (grid: TileGrid): TileRect[] => {
 	});
 
 	const rects: TileRect[] = [];
-	for (const y of [...byRow.keys()].sort((a, b) => a - b)) {
-		const xs = byRow.get(y)!.sort((a, b) => a - b);
+	for (const y of [...byRow.keys()].toSorted((a, b) => a - b)) {
+		const xs = byRow.get(y)!.toSorted((a, b) => a - b);
 		let start: number | null = null;
 		let prev = 0;
 		for (const x of xs) {

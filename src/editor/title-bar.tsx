@@ -1,7 +1,5 @@
-import {
-	CornersOutIcon,
-	SpinnerGapIcon,
-} from "@phosphor-icons/react";
+import { CornersOutIcon } from "@phosphor-icons/react/dist/icons/CornersOut";
+import { SpinnerGapIcon } from "@phosphor-icons/react/dist/icons/SpinnerGap";
 import Button from "./button";
 import loading from "./loading.module.scss";
 import type { PlaytestPhase } from "./playtest-state";

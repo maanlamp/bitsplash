@@ -1,12 +1,10 @@
-import {
-	CursorIcon,
-	EraserIcon,
-	HandIcon,
-	type Icon,
-	LassoIcon,
-	PaintBrushIcon,
-	PaintBucketIcon,
-} from "@phosphor-icons/react";
+import { CursorIcon } from "@phosphor-icons/react/dist/icons/Cursor";
+import { EraserIcon } from "@phosphor-icons/react/dist/icons/Eraser";
+import { HandIcon } from "@phosphor-icons/react/dist/icons/Hand";
+import { LassoIcon } from "@phosphor-icons/react/dist/icons/Lasso";
+import { PaintBrushIcon } from "@phosphor-icons/react/dist/icons/PaintBrush";
+import { PaintBucketIcon } from "@phosphor-icons/react/dist/icons/PaintBucket";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import type { EditorMode } from "./editor-state";
 
 export type ModeDef = Readonly<{

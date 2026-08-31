@@ -1,4 +1,10 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useEffect,
+	useEffectEvent,
+	useRef,
+	useState,
+} from "react";
 import type { UiFocusEvent, UiWheelEvent } from "../input/ui-event";
 import { View } from "../reconciler/ui-elements";
 import type { UiNode } from "../reconciler/ui-node";
@@ -95,18 +101,22 @@ export const ScrollView = ({
 	 * that shrank under a scrolled viewport would otherwise leave an empty box
 	 * above itself.
 	 */
+	const measure = useEffectEvent((): void => {
+		const live = extents();
+		setMeasured((current) =>
+			current.viewportHeight === live.viewportHeight &&
+			current.overflow === live.overflow
+				? current
+				: live,
+		);
+		setOffset((current) => clampOffset(current, live.overflow));
+	});
+
 	useEffect(() => {
 		let frame = 0;
 		const poll = (): void => {
 			frame = requestAnimationFrame(poll);
-			const live = extents();
-			setMeasured((current) =>
-				current.viewportHeight === live.viewportHeight &&
-				current.overflow === live.overflow
-					? current
-					: live,
-			);
-			setOffset((current) => clampOffset(current, live.overflow));
+			measure();
 		};
 		frame = requestAnimationFrame(poll);
 		return () => cancelAnimationFrame(frame);

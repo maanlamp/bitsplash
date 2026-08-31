@@ -486,7 +486,7 @@ const escortExecutor: OpExecutor = {
 			);
 		}
 		if (
-			memory.leaderDone === true &&
+			memory.leaderDone &&
 			escortCloseEnough(ctx, follower, leader)
 		) {
 			escortCleanup(ctx, follower, memory);

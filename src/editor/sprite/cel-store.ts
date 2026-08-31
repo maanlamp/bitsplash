@@ -136,16 +136,16 @@ const clonePoints = (
 export class CelStore {
 	private _width: number;
 	private _height: number;
-	private _layers: LayerMeta[] = [];
-	private _frames: { duration: number }[] = [];
+	#layers: LayerMeta[] = [];
+	#frames: { duration: number }[] = [];
 	private cels = new Map<string, PixelBuffer>();
-	private _tags: BspriteTag[] = [];
+	#tags: BspriteTag[] = [];
 	private attachments: Record<string, Record<string, BspritePoint>> =
 		{};
 	private slice: NineSliceInsets | undefined;
 	private tileset: BspriteTileset | undefined;
-	private _activeLayerId: string;
-	private _activeFrameIndex = 0;
+	#activeLayerId: string;
+	#activeFrameIndex = 0;
 
 	constructor(width: number, height: number) {
 		this._width = width;
@@ -157,9 +157,9 @@ export class CelStore {
 			opacity: 1,
 			visible: true,
 		};
-		this._layers = [base];
-		this._frames = [{ duration: DEFAULT_FRAME_DURATION_MS }];
-		this._activeLayerId = base.id;
+		this.#layers = [base];
+		this.#frames = [{ duration: DEFAULT_FRAME_DURATION_MS }];
+		this.#activeLayerId = base.id;
 	}
 
 	/**
@@ -177,28 +177,28 @@ export class CelStore {
 			throw new Error("A document needs at least one frame.");
 		}
 		const store = new CelStore(desc.width, desc.height);
-		store._layers = desc.layers.map((layer) => ({
+		store.#layers = desc.layers.map((layer) => ({
 			id: layer.id,
 			name: layer.name,
 			blend: layer.blend,
 			opacity: layer.opacity,
 			visible: layer.visible,
 		}));
-		store._frames = desc.frames.map((frame) => ({
+		store.#frames = desc.frames.map((frame) => ({
 			duration: frame.duration,
 		}));
 		store.cels = new Map();
 		for (const cel of desc.cels) {
 			store.cels.set(celKey(cel.layerId, cel.frameIndex), cel.pixels);
 		}
-		store._tags = desc.tags.map((tag) => ({ ...tag }));
+		store.#tags = desc.tags.map((tag) => ({ ...tag }));
 		store.attachments = desc.attachments
 			? clonePoints(desc.attachments)
 			: {};
 		store.slice = desc.slice;
 		store.tileset = desc.tileset;
-		store._activeLayerId = store._layers[0]!.id;
-		store._activeFrameIndex = 0;
+		store.#activeLayerId = store.#layers[0]!.id;
+		store.#activeFrameIndex = 0;
 		return store;
 	}
 
@@ -211,23 +211,23 @@ export class CelStore {
 	}
 
 	get layers(): ReadonlyArray<LayerMeta> {
-		return this._layers;
+		return this.#layers;
 	}
 
 	get frames(): ReadonlyArray<Readonly<{ duration: number }>> {
-		return this._frames;
+		return this.#frames;
 	}
 
 	get tags(): ReadonlyArray<BspriteTag> {
-		return this._tags;
+		return this.#tags;
 	}
 
 	get activeLayerId(): string {
-		return this._activeLayerId;
+		return this.#activeLayerId;
 	}
 
 	get activeFrameIndex(): number {
-		return this._activeFrameIndex;
+		return this.#activeFrameIndex;
 	}
 
 	/** The pixels of a (layer, frame) cel, or `null` when the cel is absent. */
@@ -302,10 +302,10 @@ export class CelStore {
 	/** Capture the active cel (active layer, active frame) for stroke undo. */
 	snapshot(): StrokeSnapshot {
 		return {
-			layerId: this._activeLayerId,
-			frameIndex: this._activeFrameIndex,
+			layerId: this.#activeLayerId,
+			frameIndex: this.#activeFrameIndex,
 			data:
-				this.getCel(this._activeLayerId, this._activeFrameIndex) ??
+				this.getCel(this.#activeLayerId, this.#activeFrameIndex) ??
 				blankPixels(this._width, this._height),
 		};
 	}
@@ -316,26 +316,26 @@ export class CelStore {
 	}
 
 	setActiveLayer(id: string): void {
-		if (this._layers.some((l) => l.id === id)) {
-			this._activeLayerId = id;
+		if (this.#layers.some((l) => l.id === id)) {
+			this.#activeLayerId = id;
 		}
 	}
 
 	setActiveFrame(index: number): void {
-		if (index >= 0 && index < this._frames.length) {
-			this._activeFrameIndex = index;
+		if (index >= 0 && index < this.#frames.length) {
+			this.#activeFrameIndex = index;
 		}
 	}
 
 	layerIndex(id: string): number {
-		return this._layers.findIndex((l) => l.id === id);
+		return this.#layers.findIndex((l) => l.id === id);
 	}
 
 	/** Metadata for a fresh, empty layer (no cels), without adding it. */
 	blankLayerSnapshot(): LayerSnapshot {
 		return {
 			id: crypto.randomUUID(),
-			name: `Layer ${this._layers.length + 1}`,
+			name: `Layer ${this.#layers.length + 1}`,
 			blend: DEFAULT_BLEND,
 			opacity: 1,
 			visible: true,
@@ -345,12 +345,12 @@ export class CelStore {
 
 	/** Capture a layer whole — metadata plus every present cel across frames. */
 	snapshotLayer(id: string): LayerSnapshot | null {
-		const layer = this._layers.find((l) => l.id === id);
+		const layer = this.#layers.find((l) => l.id === id);
 		if (!layer) {
 			return null;
 		}
 		const cels: CelPixels[] = [];
-		for (let frame = 0; frame < this._frames.length; frame++) {
+		for (let frame = 0; frame < this.#frames.length; frame++) {
 			const pixels = this.getCel(id, frame);
 			if (pixels) {
 				cels.push({ frameIndex: frame, pixels });
@@ -367,40 +367,40 @@ export class CelStore {
 			opacity: snapshot.opacity,
 			visible: snapshot.visible,
 		};
-		const at = Math.max(0, Math.min(index, this._layers.length));
-		this._layers.splice(at, 0, meta);
+		const at = Math.max(0, Math.min(index, this.#layers.length));
+		this.#layers.splice(at, 0, meta);
 		for (const cel of snapshot.cels) {
 			this.cels.set(celKey(snapshot.id, cel.frameIndex), cel.pixels);
 		}
 	}
 
 	removeLayer(id: string): void {
-		const index = this._layers.findIndex((l) => l.id === id);
+		const index = this.#layers.findIndex((l) => l.id === id);
 		if (index < 0) {
 			return;
 		}
-		this._layers.splice(index, 1);
-		for (let frame = 0; frame < this._frames.length; frame++) {
+		this.#layers.splice(index, 1);
+		for (let frame = 0; frame < this.#frames.length; frame++) {
 			this.cels.delete(celKey(id, frame));
 		}
-		if (this._activeLayerId === id && this._layers.length > 0) {
+		if (this.#activeLayerId === id && this.#layers.length > 0) {
 			const next =
-				this._layers[Math.min(index, this._layers.length - 1)]!;
-			this._activeLayerId = next.id;
+				this.#layers[Math.min(index, this.#layers.length - 1)]!;
+			this.#activeLayerId = next.id;
 		}
 	}
 
 	setLayerOrder(ids: ReadonlyArray<string>): void {
-		if (ids.length !== this._layers.length) {
+		if (ids.length !== this.#layers.length) {
 			return;
 		}
 		const next = ids.map((id) =>
-			this._layers.find((l) => l.id === id),
+			this.#layers.find((l) => l.id === id),
 		);
 		if (next.some((l) => !l)) {
 			return;
 		}
-		this._layers = next as LayerMeta[];
+		this.#layers = next as LayerMeta[];
 	}
 
 	renameLayer(id: string, name: string): void {
@@ -423,11 +423,11 @@ export class CelStore {
 		id: string,
 		update: (layer: LayerMeta) => LayerMeta,
 	): void {
-		const index = this._layers.findIndex((l) => l.id === id);
+		const index = this.#layers.findIndex((l) => l.id === id);
 		if (index < 0) {
 			return;
 		}
-		this._layers[index] = update(this._layers[index]!);
+		this.#layers[index] = update(this.#layers[index]!);
 	}
 
 	/**
@@ -446,13 +446,13 @@ export class CelStore {
 	 */
 	removeFrame(index: number): FrameSnapshot {
 		const snapshot = this.peekFrame(index);
-		for (const layer of this._layers) {
+		for (const layer of this.#layers) {
 			this.cels.delete(celKey(layer.id, index));
 		}
-		this._frames.splice(index, 1);
+		this.#frames.splice(index, 1);
 		this.remapCels((frame) => (frame > index ? frame - 1 : frame));
-		const last = this._frames.length - 1;
-		this._tags = this._tags.map((tag) => {
+		const last = this.#frames.length - 1;
+		this.#tags = this.#tags.map((tag) => {
 			const from = tag.from > index ? tag.from - 1 : tag.from;
 			const to = tag.to > index ? tag.to - 1 : tag.to;
 			return {
@@ -461,8 +461,8 @@ export class CelStore {
 				to: Math.min(to, Math.max(0, last)),
 			};
 		});
-		if (this._activeFrameIndex > last) {
-			this._activeFrameIndex = Math.max(0, last);
+		if (this.#activeFrameIndex > last) {
+			this.#activeFrameIndex = Math.max(0, last);
 		}
 		return snapshot;
 	}
@@ -470,7 +470,7 @@ export class CelStore {
 	/** Capture a frame whole (duration + every layer's cel) without mutating. */
 	peekFrame(index: number): FrameSnapshot {
 		const cels: Array<{ layerId: string; pixels: PixelBuffer }> = [];
-		for (const layer of this._layers) {
+		for (const layer of this.#layers) {
 			const pixels = this.getCel(layer.id, index);
 			if (pixels) {
 				cels.push({ layerId: layer.id, pixels });
@@ -478,7 +478,7 @@ export class CelStore {
 		}
 		return {
 			duration:
-				this._frames[index]?.duration ?? DEFAULT_FRAME_DURATION_MS,
+				this.#frames[index]?.duration ?? DEFAULT_FRAME_DURATION_MS,
 			cels,
 		};
 	}
@@ -490,19 +490,19 @@ export class CelStore {
 	 * delete-frame inverse.
 	 */
 	insertFrameSnapshot(index: number, snapshot: FrameSnapshot): void {
-		const at = Math.max(0, Math.min(index, this._frames.length));
+		const at = Math.max(0, Math.min(index, this.#frames.length));
 		this.remapCels((frame) => (frame >= at ? frame + 1 : frame));
-		this._frames.splice(at, 0, { duration: snapshot.duration });
+		this.#frames.splice(at, 0, { duration: snapshot.duration });
 		for (const cel of snapshot.cels) {
 			this.cels.set(celKey(cel.layerId, at), cel.pixels);
 		}
-		this._tags = this._tags.map((tag) => ({
+		this.#tags = this.#tags.map((tag) => ({
 			...tag,
 			from: tag.from >= at ? tag.from + 1 : tag.from,
 			to: tag.to >= at ? tag.to + 1 : tag.to,
 		}));
-		if (this._activeFrameIndex >= at) {
-			this._activeFrameIndex += 1;
+		if (this.#activeFrameIndex >= at) {
+			this.#activeFrameIndex += 1;
 		}
 	}
 
@@ -524,39 +524,39 @@ export class CelStore {
 	moveFrame(from: number, to: number): void {
 		if (
 			from < 0 ||
-			from >= this._frames.length ||
+			from >= this.#frames.length ||
 			to < 0 ||
-			to >= this._frames.length ||
+			to >= this.#frames.length ||
 			from === to
 		) {
 			return;
 		}
-		const order = this._frames.map((_f, i) => i);
+		const order = this.#frames.map((_f, i) => i);
 		const [moved] = order.splice(from, 1);
 		order.splice(to, 0, moved!);
 		this.reorderFrames(order);
 	}
 
 	private reorderFrames(order: readonly number[]): void {
-		const frames = order.map((i) => this._frames[i]!);
+		const frames = order.map((i) => this.#frames[i]!);
 		const next = new Map<string, PixelBuffer>();
 		for (let newFrame = 0; newFrame < order.length; newFrame++) {
 			const oldFrame = order[newFrame]!;
-			for (const layer of this._layers) {
+			for (const layer of this.#layers) {
 				const pixels = this.cels.get(celKey(layer.id, oldFrame));
 				if (pixels) {
 					next.set(celKey(layer.id, newFrame), pixels);
 				}
 			}
 		}
-		this._frames = frames;
+		this.#frames = frames;
 		this.cels = next;
 	}
 
 	setFrameDuration(index: number, duration: number): void {
-		const frame = this._frames[index];
+		const frame = this.#frames[index];
 		if (frame && duration > 0) {
-			this._frames[index] = { duration };
+			this.#frames[index] = { duration };
 		}
 	}
 
@@ -572,19 +572,19 @@ export class CelStore {
 	}
 
 	appendTag(tag: BspriteTag): void {
-		this._tags.push({ ...tag });
+		this.#tags.push({ ...tag });
 	}
 
 	insertTag(index: number, tag: BspriteTag): void {
-		const at = Math.max(0, Math.min(index, this._tags.length));
-		this._tags.splice(at, 0, { ...tag });
+		const at = Math.max(0, Math.min(index, this.#tags.length));
+		this.#tags.splice(at, 0, { ...tag });
 	}
 
 	removeTag(index: number): BspriteTag | null {
-		if (index < 0 || index >= this._tags.length) {
+		if (index < 0 || index >= this.#tags.length) {
 			return null;
 		}
-		return this._tags.splice(index, 1)[0] ?? null;
+		return this.#tags.splice(index, 1)[0] ?? null;
 	}
 
 	renameTag(index: number, name: string): void {
@@ -592,7 +592,7 @@ export class CelStore {
 	}
 
 	setTagRange(index: number, from: number, to: number): void {
-		if (from < 0 || to >= this._frames.length || from > to) {
+		if (from < 0 || to >= this.#frames.length || from > to) {
 			return;
 		}
 		this.updateTag(index, (tag) => ({ ...tag, from, to }));
@@ -604,16 +604,16 @@ export class CelStore {
 
 	/** Replace the whole tag list (a delete-frame inverse restores tags whole). */
 	replaceTags(tags: readonly BspriteTag[]): void {
-		this._tags = tags.map((tag) => ({ ...tag }));
+		this.#tags = tags.map((tag) => ({ ...tag }));
 	}
 
 	private updateTag(
 		index: number,
 		update: (tag: BspriteTag) => BspriteTag,
 	): void {
-		const tag = this._tags[index];
+		const tag = this.#tags[index];
 		if (tag) {
-			this._tags[index] = update(tag);
+			this.#tags[index] = update(tag);
 		}
 	}
 
@@ -787,8 +787,8 @@ export class CelStore {
 	 */
 	toSnapshot(): DocumentSnapshot {
 		const cels: CelInput[] = [];
-		for (let frame = 0; frame < this._frames.length; frame++) {
-			for (const layer of this._layers) {
+		for (let frame = 0; frame < this.#frames.length; frame++) {
+			for (const layer of this.#layers) {
 				const pixels = this.getCel(layer.id, frame);
 				if (pixels) {
 					cels.push({ layerId: layer.id, frameIndex: frame, pixels });
@@ -799,12 +799,12 @@ export class CelStore {
 		return {
 			width: this._width,
 			height: this._height,
-			layers: this._layers.map((layer) => ({ ...layer })),
-			frames: this._frames.map((frame) => ({
+			layers: this.#layers.map((layer) => ({ ...layer })),
+			frames: this.#frames.map((frame) => ({
 				duration: frame.duration,
 			})),
 			cels,
-			tags: this._tags.map((tag) => ({ ...tag })),
+			tags: this.#tags.map((tag) => ({ ...tag })),
 			...(attachmentNames.length > 0
 				? { attachments: clonePoints(this.attachments) }
 				: {}),

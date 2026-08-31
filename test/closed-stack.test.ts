@@ -9,6 +9,13 @@ import {
 const always = () => true;
 const never = () => false;
 
+const openIsSpriteA = (id: string) => id === "sprite:a";
+const validExceptSpriteB = (id: string) => id !== "sprite:b";
+const openIsConsole = (id: string) => id === "console";
+const validExceptSpriteNew = (id: string) => id !== "sprite:new";
+const openIsInspectorOrConsole = (id: string) =>
+	id === "inspector" || id === "console";
+
 const win = (views: ReadonlyArray<string>): WindowLayout => ({
 	id: "sat",
 	focused: views[0] ?? null,
@@ -60,16 +67,14 @@ describe("closed-stack record semantics", () => {
 			"tg-1",
 			"hub",
 		);
-		const isOpen = (id: string) => id === "sprite:a";
-		expect(stack.materialize(isOpen, always)).toBeNull();
+		expect(stack.materialize(openIsSpriteA, always)).toBeNull();
 	});
 
 	test("an empty record is discarded and the next entry pops", () => {
 		const stack = new ClosedStack()
 			.pushView("sprite:a", "tg-1", "hub")
 			.pushView("sprite:b", "tg-2", "hub");
-		const isValid = (id: string) => id !== "sprite:b";
-		const result = stack.materialize(never, isValid);
+		const result = stack.materialize(never, validExceptSpriteB);
 		expect(result).not.toBeNull();
 		expect(result!.record.kind).toBe("view");
 		if (result!.record.kind === "view") {
@@ -83,8 +88,7 @@ describe("closed-stack record semantics", () => {
 			{ x: 0, y: 0, width: 800, height: 600 },
 			win(["inspector", "console"]),
 		);
-		const isOpen = (id: string) => id === "console";
-		const result = stack.materialize(isOpen, always);
+		const result = stack.materialize(openIsConsole, always);
 		expect(result).not.toBeNull();
 		const record = result!.record;
 		expect(record.kind).toBe("window");
@@ -122,8 +126,7 @@ describe("closed-stack record semantics", () => {
 			{ x: 0, y: 0, width: 800, height: 600 },
 			win(["sprite:new"]),
 		);
-		const isValid = (id: string) => id !== "sprite:new";
-		expect(stack.materialize(never, isValid)).toBeNull();
+		expect(stack.materialize(never, validExceptSpriteNew)).toBeNull();
 	});
 
 	test("a fully-open window record is discarded, next view pops", () => {
@@ -133,9 +136,10 @@ describe("closed-stack record semantics", () => {
 				{ x: 0, y: 0, width: 800, height: 600 },
 				win(["inspector", "console"]),
 			);
-		const isOpen = (id: string) =>
-			id === "inspector" || id === "console";
-		const result = stack.materialize(isOpen, always);
+		const result = stack.materialize(
+			openIsInspectorOrConsole,
+			always,
+		);
 		expect(result).not.toBeNull();
 		expect(result!.record.kind).toBe("view");
 		if (result!.record.kind === "view") {

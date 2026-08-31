@@ -32,7 +32,8 @@ const alpha = (core: SpriteEditCore, x: number, y: number): number =>
 const setup = () => {
 	const core = SpriteEditCore.create(4, 4);
 	const history = new History();
-	const sel = new SelectionController(core, history);
+	const sel = new SelectionController(history);
+	sel.attach(core);
 	return { core, history, sel, layerId: core.activeLayerId };
 };
 
@@ -204,5 +205,29 @@ describe("escape", () => {
 		sel.escape();
 		expect(sel.state.kind).toBe("none");
 		expect(alpha(core, 3, 3)).toBe(0);
+	});
+});
+
+describe("attach", () => {
+	test("a selection does not survive attaching a different document", () => {
+		const { core, sel, layerId } = setup();
+		core.setCel(layerId, 0, solid(4, 4, 1, 1));
+		sel.applyRegion(rectMask(4, 4, 1, 1, 1, 1), "replace");
+		sel.setPreview({ kind: "rect", ax: 0, ay: 0, bx: 3, by: 3 });
+		sel.beginMove();
+		sel.dragTo(1, 1);
+		expect(sel.state.kind).toBe("floating");
+		expect(sel.edges.length).toBeGreaterThan(0);
+
+		sel.attach(SpriteEditCore.create(4, 4));
+
+		expect(sel.state).toEqual({ kind: "none" });
+		expect(sel.preview).toBeNull();
+		expect(sel.edges).toEqual([]);
+		expect(sel.floating).toBe(false);
+		expect(sel.transforming).toBe(false);
+		expect(sel.transformSession).toBeNull();
+		expect(sel.pointInSelection(1, 1)).toBe(false);
+		expect(sel.captureBrushStamp()).toBeNull();
 	});
 });

@@ -136,7 +136,7 @@ export default class AudioManager implements AudioApi {
 		}
 		tail.connect(gain).connect(this.destinationFor(opts?.bus));
 		let stopped = false;
-		source.onended = () => {
+		source.addEventListener("ended", () => {
 			if (!stopped) {
 				opts?.onEnded?.();
 			}
@@ -144,7 +144,7 @@ export default class AudioManager implements AudioApi {
 			filter?.disconnect();
 			panner?.disconnect();
 			gain.disconnect();
-		};
+		});
 		const startedAt = this.ctx.currentTime;
 		const duration =
 			opts?.duration !== undefined
@@ -309,17 +309,17 @@ export default class AudioManager implements AudioApi {
 
 		const gain = new GainNode(this.ctx, { gain: opts?.gain ?? 1 });
 		node.connect(gain).connect(this.destinationFor());
-		node.port.onmessage = () => {
+		node.port.addEventListener("message", () => {
 			node.disconnect();
 			gain.disconnect();
-		};
+		});
+		// Assigning `onmessage` starts the port implicitly; `addEventListener`
+		// does not, so the port would never deliver without this.
+		node.port.start();
 	}
 
 	private destinationFor(bus?: AudioBus): AudioNode {
-		return (
-			busInput(bus ?? this.master) ??
-			(this.ctx.destination as AudioNode)
-		);
+		return busInput(bus ?? this.master) ?? this.ctx.destination;
 	}
 
 	private getSource(url: string): AudioBuffer | void {

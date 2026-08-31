@@ -83,11 +83,13 @@ export const FocusRows = ({
 		store.subscribe,
 		store.getSnapshot,
 	);
-	return createElement(View, {
-		children: ids.map((id, index) =>
+	return createElement(
+		View,
+		null,
+		ids.map((id, index) =>
 			createElement(View, { key: id, ...rowProps(id, index) }),
 		),
-	});
+	);
 };
 
 const noMouse = {

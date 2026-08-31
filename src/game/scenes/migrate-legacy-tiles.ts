@@ -1,4 +1,3 @@
-import type { EntityId } from "../../engine/ecs";
 import type { SceneFile } from "../../engine/scene/scene";
 import type { SerializedEntity } from "../../engine/serialization/registry";
 import { encodeComponents } from "../../engine/serialization/serialize";
@@ -34,7 +33,7 @@ export const migrateLegacyTiles = (
 	layer.tilesetRef.set(tilesetPath);
 	layer.cells = file.tiles;
 	const entity: SerializedEntity = {
-		id: `${sceneId}:tile-layer` as EntityId,
+		id: `${sceneId}:tile-layer`,
 		components: encodeComponents([layer]),
 	};
 	return { ...file, entities: [...file.entities, entity] };

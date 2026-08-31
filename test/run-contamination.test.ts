@@ -35,20 +35,10 @@ import { newGameSeed } from "../src/game/runtime/new-game-seed";
 import { toSceneDefinition } from "../src/game/runtime/scene-runtime";
 import { registerClimateContent } from "../src/game/weather/climate-catalog";
 import { migrateLegacyTiles } from "../src/game/scenes/migrate-legacy-tiles";
+import { installHeadlessImage } from "./support/headless-image";
 import { SequenceFixture } from "./support/sequence-harness";
 
-class HeadlessImage {
-	onload: (() => void) | null = null;
-	#src = "";
-	set src(value: string) {
-		this.#src = value;
-		queueMicrotask(() => this.onload?.());
-	}
-	get src(): string {
-		return this.#src;
-	}
-}
-(globalThis as { Image?: unknown }).Image ??= HeadlessImage;
+installHeadlessImage();
 
 const REPO_ROOT = ".";
 const DEMO = "demo";

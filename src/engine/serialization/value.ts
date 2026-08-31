@@ -56,7 +56,7 @@ export const encodeValue = (value: unknown): unknown => {
 		return undefined;
 	}
 	const out: Record<string, unknown> = {};
-	for (const [key, v] of Object.entries(value as object)) {
+	for (const [key, v] of Object.entries(value)) {
 		const enc = encodeValue(v);
 		if (enc !== undefined) {
 			out[key] = enc;

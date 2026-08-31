@@ -142,9 +142,9 @@ export class TabDragController {
 	private state: DragState | null = null;
 	private listeners = new Set<() => void>();
 
-	constructor(private config: TabDragConfig) {}
+	private config!: TabDragConfig;
 
-	/** Update the injected config (fresh workspace getters, realms) each render. */
+	/** Install the injected config (fresh workspace getters, realms) each render. */
 	setConfig(config: TabDragConfig): void {
 		this.config = config;
 	}
@@ -561,7 +561,7 @@ export class TabDragController {
 		}
 		if (state.ghostDoc !== doc) {
 			state.ghost?.remove();
-			const clone = doc.importNode(state.tabEl, true) as HTMLElement;
+			const clone = doc.importNode(state.tabEl, true);
 			clone.className = `${state.tabEl.className} ${this.config.ghostClassName}`;
 			clone.style.position = "fixed";
 			clone.style.pointerEvents = "none";

@@ -34,7 +34,7 @@ export type Expansion = Readonly<{
 type Terminal = Readonly<{ source: TerminalSource; owner: string }>;
 
 export const sourceKey = (source: TerminalSource): string => {
-	const sorted = [...source.tokens].sort();
+	const sorted = [...source.tokens].toSorted();
 	return `${source.kind === "chord" ? "c" : "t"}|${sorted.join(",")}`;
 };
 
@@ -182,7 +182,7 @@ export const detectRefCycle = (
 	const state = new Map<string, number>();
 	const visit = (node: string): void => {
 		state.set(node, 1);
-		for (const next of [...(edges.get(node) ?? [])].sort()) {
+		for (const next of [...(edges.get(node) ?? [])].toSorted()) {
 			const s = state.get(next) ?? 0;
 			if (s === 1) {
 				backEdges.push({ from: node, to: next });
@@ -192,7 +192,7 @@ export const detectRefCycle = (
 		}
 		state.set(node, 2);
 	};
-	for (const node of [...nodes].sort()) {
+	for (const node of [...nodes].toSorted()) {
 		if ((state.get(node) ?? 0) === 0) {
 			visit(node);
 		}

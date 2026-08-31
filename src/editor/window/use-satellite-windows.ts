@@ -80,12 +80,14 @@ export const useSatelliteWindows = (
 	params: SatelliteWindowsParams,
 ): void => {
 	const paramsRef = useRef(params);
-	paramsRef.current = params;
+	useEffect(() => {
+		paramsRef.current = params;
+	});
 	const handlesRef = useRef(new Map<WindowId, SatelliteHandle>());
 	const pendingRef = useRef(new Set<WindowId>());
 
 	useEffect(() => {
-		const current = paramsRef.current;
+		const current = params;
 		const handles = handlesRef.current;
 		const pending = pendingRef.current;
 		const desired = new Set(current.satelliteIds);

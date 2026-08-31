@@ -178,7 +178,7 @@ const detectCollisions = (
 			if (!match) {
 				continue;
 			}
-			const knot = match[1]!;
+			const knot = match[1];
 			const existing = owner.get(knot);
 			if (existing && existing !== file) {
 				throw new Error(
@@ -386,7 +386,7 @@ const pascalCase = (snake: string): string =>
 	snake
 		.split("_")
 		.filter((part) => part.length > 0)
-		.map((part) => part[0]!.toUpperCase() + part.slice(1))
+		.map((part) => part[0].toUpperCase() + part.slice(1))
 		.join("");
 
 const rulesFor = (knot: string): readonly StitchPerMemberRule[] =>

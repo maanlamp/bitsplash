@@ -1,10 +1,6 @@
 import { gunzipSync } from "fflate";
 import type { BlendId } from "../../engine/sprite/bsprite-manifest";
-import {
-	type CelInput,
-	type DocumentSnapshot,
-	serializeBsprite,
-} from "./bsprite-writer";
+import { type CelInput, serializeBsprite } from "./bsprite-writer";
 import type { CelStoreDescription } from "./cel-store";
 import { DEFAULT_FRAME_DURATION_MS } from "./cel-store";
 import {
@@ -414,4 +410,4 @@ export const importPdn = (bytes: Uint8Array): CelStoreDescription =>
  * so it needs no canvas compositor.
  */
 export const pdnToBsprite = (bytes: Uint8Array): Uint8Array =>
-	serializeBsprite(importPdn(bytes) as DocumentSnapshot);
+	serializeBsprite(importPdn(bytes));

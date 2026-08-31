@@ -20,7 +20,7 @@ const loadSizes = (
 			parsed.length === count &&
 			parsed.every((value) => typeof value === "number")
 		) {
-			return parsed as ReadonlyArray<number>;
+			return parsed;
 		}
 	} catch {
 		return null;

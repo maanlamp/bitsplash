@@ -1,3 +1,15 @@
+const coverage = (d: number): number => {
+	let on = 0;
+	for (let y = 0; y < 4; y++) {
+		for (let x = 0; x < 4; x++) {
+			if (ditherMask(x, y, d)) {
+				on++;
+			}
+		}
+	}
+	return on;
+};
+
 import { describe, expect, test } from "bun:test";
 import {
 	BAYER_4X4,
@@ -7,7 +19,7 @@ import {
 
 describe("bayer matrix", () => {
 	test("is a 4×4 permutation of 0..15", () => {
-		const flat = BAYER_4X4.flat().sort((a, b) => a - b);
+		const flat = BAYER_4X4.flat().toSorted((a, b) => a - b);
 		expect(flat).toEqual(Array.from({ length: 16 }, (_, i) => i));
 	});
 });
@@ -43,17 +55,6 @@ describe("dither mask", () => {
 	});
 
 	test("coverage rises monotonically with density", () => {
-		const coverage = (d: number): number => {
-			let on = 0;
-			for (let y = 0; y < 4; y++) {
-				for (let x = 0; x < 4; x++) {
-					if (ditherMask(x, y, d)) {
-						on++;
-					}
-				}
-			}
-			return on;
-		};
 		expect(coverage(0.25)).toBeLessThan(coverage(0.5));
 		expect(coverage(0.5)).toBeLessThan(coverage(0.75));
 		expect(coverage(0.5)).toBe(8);

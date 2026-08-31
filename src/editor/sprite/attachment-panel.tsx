@@ -1,4 +1,6 @@
-import { PlusIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
+import { PlusIcon } from "@phosphor-icons/react/dist/icons/Plus";
+import { TrashIcon } from "@phosphor-icons/react/dist/icons/Trash";
+import { XIcon } from "@phosphor-icons/react/dist/icons/X";
 import clsx from "clsx";
 import { useState, useSyncExternalStore } from "react";
 import Button from "../button";

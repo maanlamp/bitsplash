@@ -38,7 +38,7 @@ const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
 	bytes.byteOffset === 0 &&
 	bytes.byteLength === bytes.buffer.byteLength
 		? (bytes.buffer as ArrayBuffer)
-		: (bytes.slice().buffer as ArrayBuffer);
+		: bytes.slice().buffer;
 
 const decodeTag = (tag: number): string =>
 	String.fromCharCode(

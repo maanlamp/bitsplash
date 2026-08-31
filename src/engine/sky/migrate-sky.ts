@@ -1,4 +1,3 @@
-import type { EntityId } from "../ecs";
 import type { SceneFile } from "../scene/scene";
 import type { SerializedEntity } from "../serialization/registry";
 import { encodeComponents } from "../serialization/serialize";
@@ -37,7 +36,7 @@ export const migrateSky = (
 	const sky = new SkyComponent();
 	sky.color.set(clearColor);
 	const entity: SerializedEntity = {
-		id: `${sceneId}:sky` as EntityId,
+		id: `${sceneId}:sky`,
 		components: encodeComponents([sky]),
 	};
 	return {

@@ -3,11 +3,7 @@ import type {
 	BlendId,
 	BspriteFrame,
 } from "../../engine/sprite/bsprite-manifest";
-import {
-	type CelInput,
-	type DocumentSnapshot,
-	serializeBsprite,
-} from "./bsprite-writer";
+import { type CelInput, serializeBsprite } from "./bsprite-writer";
 import type { CelStoreDescription } from "./cel-store";
 import { type PixelBuffer, blankPixels } from "./pixel-buffer";
 
@@ -408,4 +404,4 @@ export const importAseprite = (
  * all Normal), so it needs no canvas compositor.
  */
 export const asepriteToBsprite = (bytes: Uint8Array): Uint8Array =>
-	serializeBsprite(importAseprite(bytes) as DocumentSnapshot);
+	serializeBsprite(importAseprite(bytes));

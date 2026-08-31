@@ -1,3 +1,6 @@
+const has = (x: number, y: number) =>
+	SAMPLE_CELLS.some(([cx, cy]) => cx === x && cy === y);
+
 import { describe, expect, test } from "bun:test";
 import {
 	classifyCorner,
@@ -21,8 +24,6 @@ describe("tileset sample layout", () => {
 	});
 
 	test("includes the extended neighbourhoods (staircase + isolated tile)", () => {
-		const has = (x: number, y: number) =>
-			SAMPLE_CELLS.some(([cx, cy]) => cx === x && cy === y);
 		for (const [x, y] of [
 			[8, 0],
 			[9, 1],

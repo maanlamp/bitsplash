@@ -1,6 +1,7 @@
 import {
 	type ReactNode,
 	useEffect,
+	useEffectEvent,
 	useMemo,
 	useRef,
 	useState,
@@ -97,16 +98,18 @@ const Timeline = ({
 	const [pxPerUnit, setPxPerUnit] = useState(0);
 	const [preview, setPreview] = useState<DragPreview | null>(null);
 
-	const offsetRef = useRef(0);
-	const pxPerUnitRef = useRef(0);
-	offsetRef.current = offset;
-	pxPerUnitRef.current = pxPerUnit;
-
 	const span = Math.max(duration, 0.001);
 
 	const applyOffset = (next: number): void => {
 		setOffset(Math.max(0, next));
 	};
+
+	const measureLane = useEffectEvent((next: number): void => {
+		setWidth(next);
+		if (pxPerUnit === 0 && next > 0) {
+			setPxPerUnit(clamp(next / span, minPxPerUnit, maxPxPerUnit));
+		}
+	});
 
 	useEffect(() => {
 		const lane = laneRef.current;
@@ -114,15 +117,31 @@ const Timeline = ({
 			return;
 		}
 		const observer = new ResizeObserver(() => {
-			const next = lane.clientWidth;
-			setWidth(next);
-			if (pxPerUnitRef.current === 0 && next > 0) {
-				setPxPerUnit(clamp(next / span, minPxPerUnit, maxPxPerUnit));
-			}
+			measureLane(lane.clientWidth);
 		});
 		observer.observe(lane);
 		return () => observer.disconnect();
-	}, [span, minPxPerUnit, maxPxPerUnit]);
+	}, []);
+
+	const zoomOrPan = useEffectEvent(
+		(event: WheelEvent, rect: DOMRect): void => {
+			const px = pxPerUnit;
+			if (event.shiftKey) {
+				applyOffset(offset + event.deltaY / Math.max(px, 0.000001));
+				return;
+			}
+			const mouseX = Math.max(0, event.clientX - rect.left);
+			const before = mouseX / Math.max(px, 0.000001) + offset;
+			const next = clamp(
+				px * EDITOR_CAMERA_ZOOM_STEP ** -event.deltaY,
+				minPxPerUnit,
+				maxPxPerUnit,
+			);
+			const after = mouseX / next + offset;
+			setPxPerUnit(next);
+			setOffset(Math.max(0, offset + before - after));
+		},
+	);
 
 	useEffect(() => {
 		const root = rootRef.current;
@@ -132,29 +151,11 @@ const Timeline = ({
 		}
 		const onWheel = (event: WheelEvent): void => {
 			event.preventDefault();
-			const rect = lane.getBoundingClientRect();
-			const px = pxPerUnitRef.current;
-			if (event.shiftKey) {
-				applyOffset(
-					offsetRef.current + event.deltaY / Math.max(px, 0.000001),
-				);
-				return;
-			}
-			const mouseX = Math.max(0, event.clientX - rect.left);
-			const before =
-				mouseX / Math.max(px, 0.000001) + offsetRef.current;
-			const next = clamp(
-				px * EDITOR_CAMERA_ZOOM_STEP ** -event.deltaY,
-				minPxPerUnit,
-				maxPxPerUnit,
-			);
-			const after = mouseX / next + offsetRef.current;
-			setPxPerUnit(next);
-			setOffset(Math.max(0, offsetRef.current + before - after));
+			zoomOrPan(event, lane.getBoundingClientRect());
 		};
 		root.addEventListener("wheel", onWheel, { passive: false });
 		return () => root.removeEventListener("wheel", onWheel);
-	}, [minPxPerUnit, maxPxPerUnit]);
+	}, []);
 
 	const view: TimelineView = useMemo(
 		() => ({

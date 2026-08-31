@@ -1,17 +1,15 @@
-import {
-	ArrowsOutCardinalIcon,
-	AtomIcon,
-	CaretRightIcon,
-	CubeIcon,
-	FilmSlateIcon,
-	GameControllerIcon,
-	GlobeIcon,
-	HeartIcon,
-	type Icon,
-	PaletteIcon,
-	PuzzlePieceIcon,
-	StackIcon,
-} from "@phosphor-icons/react";
+import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/icons/ArrowsOutCardinal";
+import { AtomIcon } from "@phosphor-icons/react/dist/icons/Atom";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/icons/CaretRight";
+import { CubeIcon } from "@phosphor-icons/react/dist/icons/Cube";
+import { FilmSlateIcon } from "@phosphor-icons/react/dist/icons/FilmSlate";
+import { GameControllerIcon } from "@phosphor-icons/react/dist/icons/GameController";
+import { GlobeIcon } from "@phosphor-icons/react/dist/icons/Globe";
+import { HeartIcon } from "@phosphor-icons/react/dist/icons/Heart";
+import { PaletteIcon } from "@phosphor-icons/react/dist/icons/Palette";
+import { PuzzlePieceIcon } from "@phosphor-icons/react/dist/icons/PuzzlePiece";
+import { StackIcon } from "@phosphor-icons/react/dist/icons/Stack";
+import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import clsx from "clsx";
 import {
 	type ReactNode,
@@ -228,14 +226,16 @@ const ProjectTree = ({
 		? loadedScene(focusedSceneId)
 		: null;
 	useEffect(() => {
-		if (focusedScene) {
-			return focusedScene.ecs.subscribe(force);
+		if (!focusedScene) {
+			return;
 		}
+		return focusedScene.ecs.subscribe(force);
 	}, [focusedScene]);
 	useEffect(() => {
-		if (focusedStore) {
-			return focusedStore.subscribe(force);
+		if (!focusedStore) {
+			return;
 		}
+		return focusedStore.subscribe(force);
 	}, [focusedStore]);
 
 	const selection = focusedStore?.selection ?? null;

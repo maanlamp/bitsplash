@@ -1,10 +1,8 @@
 import { Input } from "@base-ui/react/input";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import {
-	MagnifyingGlassIcon,
-	ProhibitIcon,
-} from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/icons/MagnifyingGlass";
+import { ProhibitIcon } from "@phosphor-icons/react/dist/icons/Prohibit";
 import {
 	chromeDark,
 	ObjectInspector,
@@ -125,7 +123,16 @@ const nodeRenderer = (props: NodeRendererProps): React.ReactNode => {
 	);
 };
 
-const primitiveClass = (value: SnapshotValue): string | undefined => {
+type SnapshotPrimitive = Exclude<SnapshotValue, object>;
+
+type SnapshotContainer = Exclude<
+	SnapshotValue,
+	SnapshotPrimitive | RegExp
+>;
+
+const primitiveClass = (
+	value: SnapshotPrimitive,
+): string | undefined => {
 	switch (typeof value) {
 		case "string":
 			return styles.string;
@@ -141,21 +148,23 @@ const primitiveClass = (value: SnapshotValue): string | undefined => {
 	}
 };
 
-const primitiveText = (value: SnapshotValue): string => {
+const primitiveText = (value: SnapshotPrimitive): string => {
 	if (value === undefined) {
 		return "undefined";
 	}
 	if (value === null) {
 		return "null";
 	}
-	if (typeof value === "symbol" || value instanceof RegExp) {
+	if (typeof value === "symbol") {
 		return value.toString();
 	}
-	return String(value as string | number | boolean | bigint);
+	return String(value);
 };
 
 /** True for values react-inspector should render as an expandable tree. */
-const isInspectable = (value: SnapshotValue): boolean =>
+const isInspectable = (
+	value: SnapshotValue,
+): value is SnapshotContainer =>
 	typeof value === "object" &&
 	value !== null &&
 	!(value instanceof RegExp);
@@ -316,7 +325,7 @@ export const ConsoleView = () => {
 				active.has(entry.level) &&
 				(needle === "" || searchText(entry).includes(needle)),
 		);
-		return filtered.reverse();
+		return filtered.toReversed();
 	}, [entries, levels, deferredQuery]);
 
 	return (

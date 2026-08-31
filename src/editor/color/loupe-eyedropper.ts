@@ -27,8 +27,10 @@ const captureWindow = async (): Promise<string | null> => {
 const loadImage = (src: string): Promise<HTMLImageElement> =>
 	new Promise((resolve, reject) => {
 		const img = new Image();
-		img.onload = () => resolve(img);
-		img.onerror = () => reject(new Error("capture load failed"));
+		img.addEventListener("load", () => resolve(img));
+		img.addEventListener("error", () =>
+			reject(new Error("capture load failed")),
+		);
 		img.src = src;
 	});
 
@@ -42,6 +44,10 @@ const RADIUS = (COUNT * PIXEL) / 2;
 // Renders the overlay and binds listeners in `doc` — the owning window's
 // document — so the loupe appears and captures input in the window it was
 // launched from rather than the main realm.
+const onContext = (e: Event): void => {
+	e.preventDefault();
+};
+
 const runLoupe = (
 	img: HTMLImageElement,
 	doc: Document,
@@ -188,10 +194,6 @@ const runLoupe = (
 				cleanup(null);
 			}
 		};
-		const onContext = (e: Event): void => {
-			e.preventDefault();
-		};
-
 		view.addEventListener("pointermove", onMove, true);
 		view.addEventListener("pointerdown", onDown, true);
 		view.addEventListener("keydown", onKey, true);
